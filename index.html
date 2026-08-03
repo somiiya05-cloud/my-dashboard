@@ -323,6 +323,13 @@
     '2026-08': { monthly: 54460810 }, // daily 미지정 시 실제 거래일수로 나눠 자동 계산
   };
 
+  // 전사(회사 전체) 매출 실적 고정값 (엑셀 브별/월별 총합계 탭 기준, 몰별 거래 데이터 합계와는
+  // 소수 반영 시점 차이로 약간의 오차가 있을 수 있어 정확한 수치를 직접 넣습니다)
+  // 여기에 없는 달은 Supabase 거래 데이터 합계(totalAmount)를 그대로 사용합니다.
+  const COMPANY_ACTUALS_BY_MONTH = {
+    '2026-07': 3799388633,
+  };
+
   // 영업팀 매출 = 자사몰 / 카카오 / 오프라인 / 컨텐츠팀 채널을 제외한 매출
   // (종합몰 · 폐쇄몰 · 오픈마켓 · 기타(쿠팡) · 직매입 · 수출 · 공동구매 채널은 영업팀 매출로 집계됨)
   const EXCLUDED_FROM_TEAM = [
@@ -472,8 +479,12 @@
     const todayAmount = byDate[todayDate] || 0;
     const teamTodayAmount = byDateTeam[todayDate] || 0;
 
-    const companyMonthlyPct = Math.min(999, (totalAmount / COMPANY_MONTHLY_TARGET) * 100);
-    const companyMonthlyRemain = Math.max(0, COMPANY_MONTHLY_TARGET - totalAmount);
+    // 해당 월의 고정 실적값이 있으면 그 값을, 없으면 Supabase 거래 데이터 합계(totalAmount)를 사용
+    const companyOverride = monthStr && COMPANY_ACTUALS_BY_MONTH[monthStr];
+    const companyMonthlyActual = companyOverride !== undefined ? companyOverride : totalAmount;
+
+    const companyMonthlyPct = Math.min(999, (companyMonthlyActual / COMPANY_MONTHLY_TARGET) * 100);
+    const companyMonthlyRemain = Math.max(0, COMPANY_MONTHLY_TARGET - companyMonthlyActual);
     const companyDailyPct = Math.min(999, (todayAmount / COMPANY_DAILY_TARGET) * 100);
 
     // 해당 월의 고정 실적값이 있으면 그 값을, 없으면 자동 계산값(teamAmount)을 사용
@@ -491,7 +502,7 @@
     document.getElementById('cards').innerHTML = `
       <div class="kpi-card">
         <div class="kpi-label">이번 달 매출</div>
-        <div class="kpi-value">${won(totalAmount)}</div>
+        <div class="kpi-value">${won(companyMonthlyActual)}</div>
         <div class="kpi-sub">목표 90억 대비 ${companyMonthlyPct.toFixed(1)}% · ${won(companyMonthlyRemain)} 남음</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyMonthlyPct).toFixed(1)}%"></div></div>
       </div>
