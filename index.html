@@ -320,6 +320,7 @@
   const TEAM_ACTUALS_BY_MONTH = {
     '2026-06': { monthly: 538730164, daily: 17957672 },
     '2026-07': { monthly: 729380195, daily: 24312673 },
+    '2026-08': { monthly: 54460810 }, // daily 미지정 시 실제 거래일수로 나눠 자동 계산
   };
 
   // 영업팀 매출 = 자사몰 / 카카오 / 오프라인 / 컨텐츠팀 채널을 제외한 매출
@@ -478,7 +479,9 @@
     // 해당 월의 고정 실적값이 있으면 그 값을, 없으면 자동 계산값(teamAmount)을 사용
     const teamOverride = monthStr && TEAM_ACTUALS_BY_MONTH[monthStr];
     const teamMonthlyActual = teamOverride ? teamOverride.monthly : teamAmount;
-    const teamDailyAvgActual = teamOverride ? teamOverride.daily : (teamAmount / dayCount);
+    const teamDailyAvgActual = teamOverride
+      ? (teamOverride.daily !== undefined ? teamOverride.daily : teamOverride.monthly / dayCount)
+      : (teamAmount / dayCount);
 
     const teamMonthlyPct = Math.min(999, (teamMonthlyActual / TEAM_MONTHLY_TARGET) * 100);
     const teamMonthlyRemain = Math.max(0, TEAM_MONTHLY_TARGET - teamMonthlyActual);
