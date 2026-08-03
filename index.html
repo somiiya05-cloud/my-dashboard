@@ -93,7 +93,8 @@
 
   /* ---- Panels / grid ---- */
   .grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 16px; }
-  @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } .grid-3 { grid-template-columns: 1fr; } }
   .panel {
     background: #14161d; border: 1px solid rgba(255,255,255,.05);
     border-radius: 14px; padding: 18px 20px; margin-bottom: 16px;
@@ -243,10 +244,17 @@
         </div>
       </section>
 
-      <section class="grid-2">
+      <section class="grid-3">
         <div class="panel">
           <div class="panel-head"><h2>판매처별 매출 TOP 5</h2></div>
           <div class="rank-list" id="vendorRankList"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>브랜드별 매출 합산 TOP 5</h2>
+            <span class="panel-note" id="brandTotalBadge"></span>
+          </div>
+          <div class="rank-list" id="brandRankList"></div>
         </div>
         <div class="panel">
           <div class="panel-head">
@@ -333,6 +341,22 @@
     return Number(n).toLocaleString('ko-KR') + '원';
   }
 
+  // 판매처(채널별 세부 계정)를 하나의 브랜드로 합산하기 위한 매핑
+  // 자사몰/스토어팜/특정 채널 전용 계정 등 같은 브랜드의 다른 채널 계정을 한 브랜드로 묶습니다.
+  // 매핑에 없는 판매처는 그대로 자기 자신을 브랜드명으로 사용합니다.
+  const BRAND_ALIASES = {
+    '스토어팜(빠이러스_개인)': '빠이러스', '스토어팜(빠이러스_법인)': '빠이러스', '빠이러스(도착보장)': '빠이러스',
+    '스토어팜(미니멀룸스토어)': '미니멀룸', '오늘의집(미니멀룸)': '미니멀룸',
+    '스토어팜(잠비에)': '잠비에', '잠비에_공동구매': '잠비에', '오늘의집(잠비에)': '잠비에',
+    '스토어팜(코드니처)': '코드니처', '코드니처_공동구매': '코드니처',
+    '스토어팜(명퉤)': '명퉤', '명퉤(해외)': '명퉤', '명퉤 경주 황리단길 본점': '명퉤',
+    'PORKE.': 'PORKE', '29CM(PORKE)': 'PORKE', 'W컨셉(PORKE)': 'PORKE', '오늘의집(PORKE)': 'PORKE',
+    '무신사(PORKE)': 'PORKE', '지그재그(PORKE)': 'PORKE',
+  };
+  function getBrand(vendor) {
+    return BRAND_ALIASES[vendor] || vendor;
+  }
+
   let allRows = [];
 
   async function loadData() {
@@ -389,6 +413,7 @@
     const byVendor = {};
     const byProduct = {};
     const byVendorProduct = {};
+    const byBrand = {};
     rows.forEach(r => {
       if (!byVendor[r.vendor]) byVendor[r.vendor] = { amount: 0, quantity: 0 };
       byVendor[r.vendor].amount += Number(r.amount);
@@ -402,6 +427,11 @@
       if (!byVendorProduct[r.vendor][r.product_name]) byVendorProduct[r.vendor][r.product_name] = { amount: 0, quantity: 0 };
       byVendorProduct[r.vendor][r.product_name].amount += Number(r.amount);
       byVendorProduct[r.vendor][r.product_name].quantity += Number(r.quantity);
+
+      const brand = getBrand(r.vendor);
+      if (!byBrand[brand]) byBrand[brand] = { amount: 0, quantity: 0 };
+      byBrand[brand].amount += Number(r.amount);
+      byBrand[brand].quantity += Number(r.quantity);
     });
 
     const dates = rows.map(r => r.sale_date).sort();
@@ -531,6 +561,24 @@
           <div class="rank-num ${i === 0 ? 'top1' : ''}">${i + 1}</div>
           <div class="rank-name">${vendor}</div>
           <div class="rank-track"><div class="rank-fill" style="width:${(v.amount / maxTop5 * 100).toFixed(1)}%"></div></div>
+          <div class="rank-value">${won(v.amount)}</div>
+          <div class="rank-share">${share}%</div>
+        </div>
+      `;
+    }).join('');
+
+    // ---- 브랜드별 매출 합산 TOP5 랭킹 (채널별 세부 계정을 브랜드 단위로 합산) ----
+    const brandEntries = Object.entries(byBrand).sort((a, b) => b[1].amount - a[1].amount);
+    const top5Brand = brandEntries.slice(0, 5);
+    const maxTop5Brand = top5Brand.length ? top5Brand[0][1].amount : 1;
+    document.getElementById('brandTotalBadge').textContent = '전체 ' + brandEntries.length + '개 중';
+    document.getElementById('brandRankList').innerHTML = top5Brand.map(([brand, v], i) => {
+      const share = (v.amount / totalAmount * 100).toFixed(1);
+      return `
+        <div class="rank-row">
+          <div class="rank-num ${i === 0 ? 'top1' : ''}">${i + 1}</div>
+          <div class="rank-name">${brand}</div>
+          <div class="rank-track"><div class="rank-fill" style="width:${(v.amount / maxTop5Brand * 100).toFixed(1)}%"></div></div>
           <div class="rank-value">${won(v.amount)}</div>
           <div class="rank-share">${share}%</div>
         </div>
