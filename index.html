@@ -330,6 +330,23 @@
     '2026-07': 3799388633,
   };
 
+  // 브랜드별 매출 실적 고정값 (엑셀 브별 탭에서 직접 확인한 수치, 월별로 다르게 입력)
+  // 여기에 있는 달은 이 표를 그대로 랭킹에 사용하고, 없는 달은 자동 집계(byBrand)를 사용합니다.
+  // 참고: 브별 시트의 "라스마"는 "라이프스타일마트"의 다른 표기입니다.
+  const BRAND_ACTUALS_BY_MONTH = {
+    '2026-07': {
+      '미니멀룸': 172870625,
+      '라이프스타일마트': 950407270,
+      '빠이러스': 117199960,
+      '그로우뮤즈': 22126300,
+      '폴크': 1333780,
+      '잠비에': 60862810,
+      '글로리핏': 2680480,
+      '명퉤': 702598938,
+      '코드니처': 1769308470,
+    },
+  };
+
   // 영업팀 매출 = 자사몰 / 카카오 / 오프라인 / 컨텐츠팀 채널을 제외한 매출
   // (종합몰 · 폐쇄몰 · 오픈마켓 · 기타(쿠팡) · 직매입 · 수출 · 공동구매 채널은 영업팀 매출로 집계됨)
   const EXCLUDED_FROM_TEAM = [
@@ -588,7 +605,11 @@
     }).join('');
 
     // ---- 브랜드별 매출 합산 TOP5 랭킹 (채널별 세부 계정을 브랜드 단위로 합산) ----
-    const brandEntries = Object.entries(byBrand).sort((a, b) => b[1].amount - a[1].amount);
+    // 해당 월의 고정 실적표가 있으면 그 값을, 없으면 자동 집계(byBrand)를 사용
+    const brandOverride = monthStr && BRAND_ACTUALS_BY_MONTH[monthStr];
+    const brandEntries = brandOverride
+      ? Object.entries(brandOverride).map(([brand, amt]) => [brand, { amount: amt, quantity: null }]).sort((a, b) => b[1].amount - a[1].amount)
+      : Object.entries(byBrand).sort((a, b) => b[1].amount - a[1].amount);
     const top5Brand = brandEntries.slice(0, 5);
     const maxTop5Brand = top5Brand.length ? top5Brand[0][1].amount : 1;
     document.getElementById('brandTotalBadge').textContent = '전체 ' + brandEntries.length + '개 중';
