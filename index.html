@@ -101,6 +101,7 @@
     border-radius: 8px; padding: 6px 10px; font-size: 13px; max-width: 220px;
   }
   .vendor-select:focus { outline: 1px solid #4d7cfe; }
+  .filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
   /* ---- Weekly bar chart ---- */
   .chart-legend { display: flex; gap: 16px; margin-bottom: 8px; }
@@ -151,6 +152,17 @@
   .rank-fill { height: 100%; background: linear-gradient(90deg,#4d7cfe,#2f5ce4); border-radius: 4px; }
   .rank-value { width: 110px; text-align: right; font-size: 13px; font-weight: 700; flex-shrink: 0; }
   .rank-share { width: 52px; text-align: right; font-size: 12px; color: #8992a9; flex-shrink: 0; }
+
+  /* ---- Calendar ---- */
+  .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .calendar-dow { text-align: center; font-size: 11px; color: #6d7488; padding-bottom: 4px; }
+  .calendar-cell {
+    background: #0f1117; border: 1px solid rgba(255,255,255,.05); border-radius: 8px;
+    padding: 8px 6px; min-height: 64px; display: flex; flex-direction: column; gap: 4px;
+  }
+  .calendar-cell.empty { background: transparent; border: none; }
+  .calendar-day { font-size: 11px; color: #6d7488; }
+  .calendar-amount { font-size: 12px; font-weight: 700; color: #f5f6fa; }
 
   /* ---- Tables ---- */
   .scroll-box { max-height: 420px; overflow-y: auto; }
@@ -243,7 +255,11 @@
       <section class="panel">
         <div class="panel-head">
           <h2>판매처별 상세</h2>
-          <select id="vendorSelect" class="vendor-select"></select>
+          <div class="filter-group">
+            <select id="vendorSelect" class="vendor-select"></select>
+            <select id="productSelect" class="vendor-select"></select>
+            <span class="panel-note" id="filterCount"></span>
+          </div>
         </div>
         <div class="scroll-box">
           <table>
@@ -264,13 +280,11 @@
       </section>
 
       <section class="panel">
-        <div class="panel-head"><h2>전체 판매 내역</h2></div>
-        <div class="scroll-box">
-          <table>
-            <thead><tr><th>날짜</th><th>판매처</th><th>제품</th><th class="num">수량</th><th class="num">금액</th></tr></thead>
-            <tbody id="rawTable"></tbody>
-          </table>
+        <div class="panel-head">
+          <h2>전체 판매 내역</h2>
+          <span class="panel-note" id="calendarMonthLabel"></span>
         </div>
+        <div class="calendar" id="salesCalendar"></div>
       </section>
     </main>
   </div>
@@ -472,32 +486,63 @@
       `;
     }).join('');
 
-    // ---- 판매처별 상세 (드롭박스로 판매처 선택 → 제품명/수량/매출) ----
+    // ---- 판매처별 상세 (판매처 + 제품명 드롭박스로 필터) ----
+    const ALL_VALUE = '';
     const vendorSelect = document.getElementById('vendorSelect');
-    const previouslySelected = vendorSelect.value;
-    vendorSelect.innerHTML = vendorEntries.map(([vendor, v]) =>
+    const productSelect = document.getElementById('productSelect');
+    const filterCount = document.getElementById('filterCount');
+
+    const prevVendor = vendorSelect.value;
+    vendorSelect.innerHTML = `<option value="${ALL_VALUE}">전체 판매처</option>` + vendorEntries.map(([vendor, v]) =>
       `<option value="${vendor}">${vendor} (${won(v.amount)})</option>`
     ).join('');
-    const vendorToShow = (previouslySelected && byVendorProduct[previouslySelected])
-      ? previouslySelected
-      : (vendorEntries[0] ? vendorEntries[0][0] : '');
-    vendorSelect.value = vendorToShow;
+    vendorSelect.value = (prevVendor && byVendorProduct[prevVendor]) ? prevVendor : ALL_VALUE;
 
-    function renderVendorDetail(vendor) {
+    function productOptionsFor(vendor) {
+      if (!vendor) return productEntries; // 전체 판매처 → 전체 제품 목록
       const products = byVendorProduct[vendor] || {};
-      const productList = Object.entries(products).sort((a, b) => b[1].amount - a[1].amount);
-      document.getElementById('vendorDetailTable').innerHTML = productList.map(([product, v]) => `
+      return Object.entries(products).sort((a, b) => b[1].amount - a[1].amount);
+    }
+
+    function refreshProductSelect(keepSelection) {
+      const prevProduct = keepSelection ? productSelect.value : ALL_VALUE;
+      const opts = productOptionsFor(vendorSelect.value);
+      const stillValid = opts.some(([p]) => p === prevProduct);
+      productSelect.innerHTML = `<option value="${ALL_VALUE}">전체 제품</option>` + opts.map(([product, v]) =>
+        `<option value="${product}">${product} (${won(v.amount)})</option>`
+      ).join('');
+      productSelect.value = stillValid ? prevProduct : ALL_VALUE;
+    }
+
+    function renderVendorDetail() {
+      const vendor = vendorSelect.value;
+      const product = productSelect.value;
+      const vendorsToScan = vendor ? [vendor] : Object.keys(byVendorProduct);
+      let flatRows = [];
+      vendorsToScan.forEach(v => {
+        const prodMap = byVendorProduct[v] || {};
+        Object.entries(prodMap).forEach(([p, val]) => {
+          if (product && p !== product) return;
+          flatRows.push({ vendor: v, product: p, quantity: val.quantity, amount: val.amount });
+        });
+      });
+      flatRows.sort((a, b) => b.amount - a.amount);
+
+      filterCount.textContent = flatRows.length.toLocaleString('ko-KR') + '건';
+      document.getElementById('vendorDetailTable').innerHTML = flatRows.map(r => `
         <tr>
-          <td>${vendor}</td>
-          <td>${product}</td>
-          <td class="num">${v.quantity.toLocaleString('ko-KR')}</td>
-          <td class="num">${won(v.amount)}</td>
+          <td>${r.vendor}</td>
+          <td>${r.product}</td>
+          <td class="num">${r.quantity.toLocaleString('ko-KR')}</td>
+          <td class="num">${won(r.amount)}</td>
         </tr>
       `).join('');
     }
 
-    vendorSelect.onchange = () => renderVendorDetail(vendorSelect.value);
-    renderVendorDetail(vendorToShow);
+    refreshProductSelect(false);
+    vendorSelect.onchange = () => { refreshProductSelect(false); renderVendorDetail(); };
+    productSelect.onchange = () => renderVendorDetail();
+    renderVendorDetail();
 
     // ---- 제품별 표 (전체) ----
     document.getElementById('productTable').innerHTML = productEntries.map(([product, v]) => `
@@ -508,16 +553,35 @@
       </tr>
     `).join('');
 
-    // ---- 전체 내역 ----
-    document.getElementById('rawTable').innerHTML = rows.map(r => `
-      <tr>
-        <td>${r.sale_date}</td>
-        <td>${r.vendor}</td>
-        <td>${r.product_name}</td>
-        <td class="num">${Number(r.quantity).toLocaleString('ko-KR')}</td>
-        <td class="num">${won(r.amount)}</td>
-      </tr>
-    `).join('');
+    // ---- 전체 판매 내역: 캘린더 형태로 일별 매출만 표시 ----
+    if (minDate) {
+      const [y, m] = minDate.split('-').map(Number);
+      const firstWeekday = new Date(y, m - 1, 1).getDay(); // 0=일 ~ 6=토
+      const daysInMonth = new Date(y, m, 0).getDate();
+      const maxDayAmount = Math.max(...Object.values(byDate), 1);
+
+      document.getElementById('calendarMonthLabel').textContent = y + '.' + String(m).padStart(2, '0');
+
+      const dowRow = ['일', '월', '화', '수', '목', '금', '토']
+        .map(d => `<div class="calendar-dow">${d}</div>`).join('');
+
+      let cells = '';
+      for (let i = 0; i < firstWeekday; i++) cells += `<div class="calendar-cell empty"></div>`;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        const amount = byDate[dateStr] || 0;
+        const alpha = amount > 0 ? (0.15 + 0.65 * (amount / maxDayAmount)) : 0;
+        const bg = amount > 0 ? `background: rgba(77,124,254,${alpha.toFixed(2)});` : '';
+        cells += `
+          <div class="calendar-cell" style="${bg}">
+            <div class="calendar-day">${d}</div>
+            <div class="calendar-amount">${amount > 0 ? won(amount) : ''}</div>
+          </div>
+        `;
+      }
+
+      document.getElementById('salesCalendar').innerHTML = dowRow + cells;
+    }
   }
 
   loadData();
