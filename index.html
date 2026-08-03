@@ -353,8 +353,14 @@
     'PORKE.': 'PORKE', '29CM(PORKE)': 'PORKE', 'W컨셉(PORKE)': 'PORKE', '오늘의집(PORKE)': 'PORKE',
     '무신사(PORKE)': 'PORKE', '지그재그(PORKE)': 'PORKE',
   };
-  function getBrand(vendor) {
+  function getBrandFallback(vendor) {
     return BRAND_ALIASES[vendor] || vendor;
+  }
+  // 일매출 DB 원본에 브랜드 태그(row.brand)가 있으면 그걸 그대로 쓰고,
+  // 없는 경우(6월/7월처럼 브랜드 정보가 없는 옛 데이터)에만 판매처 이름 기반 추정값을 사용합니다.
+  function getBrand(row) {
+    if (row.brand && String(row.brand).trim()) return String(row.brand).trim();
+    return getBrandFallback(row.vendor);
   }
 
   let allRows = [];
@@ -428,7 +434,7 @@
       byVendorProduct[r.vendor][r.product_name].amount += Number(r.amount);
       byVendorProduct[r.vendor][r.product_name].quantity += Number(r.quantity);
 
-      const brand = getBrand(r.vendor);
+      const brand = getBrand(r);
       if (!byBrand[brand]) byBrand[brand] = { amount: 0, quantity: 0 };
       byBrand[brand].amount += Number(r.amount);
       byBrand[brand].quantity += Number(r.quantity);
