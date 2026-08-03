@@ -190,6 +190,13 @@
   }
   .pipeline-bar:hover { transform: translateY(-1px); }
   .pipeline-bar.active { box-shadow: 0 0 0 3px rgba(255,255,255,.5); }
+  .pipeline-substage {
+    margin-top: 6px; text-align: center; font-size: 11px; font-weight: 700; cursor: pointer;
+    color: #2dd4bf; background: rgba(45,212,191,.12); border: 1px solid rgba(45,212,191,.25);
+    border-radius: 8px; padding: 4px 6px;
+  }
+  .pipeline-substage:hover { background: rgba(45,212,191,.2); }
+  .pipeline-substage.active { box-shadow: 0 0 0 2px rgba(45,212,191,.6); }
   .pipeline-bar .stage-count { font-size: 22px; font-weight: 800; }
   .pipeline-arrow { font-size: 12px; color: #6d7488; flex-shrink: 0; text-align: center; white-space: nowrap; }
   .deal-form {
@@ -848,6 +855,8 @@
   }
 
   const STAGES = ['문의', '수출문의', '견적', '협상', '세금계산서 발행'];
+  // 퍼널에는 4개 핵심 단계만 순서대로 표시하고, 수출문의는 문의 박스 아래에 별도 집계로 붙입니다.
+  const FUNNEL_STAGES = ['문의', '견적', '협상', '세금계산서 발행'];
   const STAGE_CLASS = { '문의': 'inquiry', '수출문의': 'export-inquiry', '견적': 'quote', '협상': 'negotiation', '세금계산서 발행': 'invoiced' };
 
   let currentDeals = [];
@@ -881,17 +890,24 @@
     currentDeals = deals;
 
     // ---- 단계별 잔량 퍼널 (왼쪽 → 오른쪽, 클릭하면 해당 단계만 필터) ----
-    const counts = STAGES.map(stage => deals.filter(d => d.stage === stage).length);
-    document.getElementById('pipelineFunnel').innerHTML = STAGES.map((stage, i) => {
+    const counts = FUNNEL_STAGES.map(stage => deals.filter(d => d.stage === stage).length);
+    const exportInquiryCount = deals.filter(d => d.stage === '수출문의').length;
+
+    document.getElementById('pipelineFunnel').innerHTML = FUNNEL_STAGES.map((stage, i) => {
       const isActive = pipelineStageFilter === stage;
+      // 문의 박스 아래에 수출문의 집계를 별도로 붙여줍니다 (퍼널 순서에는 포함하지 않음).
+      const subStage = stage === '문의'
+        ? `<div class="pipeline-substage ${pipelineStageFilter === '수출문의' ? 'active' : ''}" onclick="event.stopPropagation(); toggleStageFilter('수출문의')">수출문의 ${exportInquiryCount}건</div>`
+        : '';
       const box = `
         <div class="pipeline-stage-row">
           <div class="pipeline-bar ${isActive ? 'active' : ''}" onclick="toggleStageFilter('${stage}')">
             <span class="stage-count">${counts[i]}</span><span>${stage}</span>
           </div>
+          ${subStage}
         </div>
       `;
-      if (i === STAGES.length - 1) return box;
+      if (i === FUNNEL_STAGES.length - 1) return box;
       const arrow = `<div class="pipeline-arrow">→<br>${counts[i] > 0 ? ((counts[i + 1] / counts[i] * 100).toFixed(1) + '%') : '-'}</div>`;
       return box + arrow;
     }).join('');
