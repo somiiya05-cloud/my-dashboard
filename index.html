@@ -303,6 +303,10 @@
   const TEAM_DAILY_TARGET = 30000000;        // 영업팀 일 3천만원
   const DAYS_IN_MONTH = 31;                  // 7월 기준
 
+  // 영업팀 매출 실적 (엑셀 월별(07) 탭 기준 고정값)
+  const TEAM_MONTHLY_ACTUAL = 729380195;
+  const TEAM_DAILY_AVG_ACTUAL = TEAM_MONTHLY_ACTUAL / 30;
+
   // 영업팀 매출 = 자사몰 / 카카오 / 오프라인 / 컨텐츠팀 채널을 제외한 매출
   // (종합몰 · 폐쇄몰 · 오픈마켓 · 기타(쿠팡) · 직매입 · 수출 · 공동구매 채널은 영업팀 매출로 집계됨)
   const EXCLUDED_FROM_TEAM = [
@@ -404,9 +408,9 @@
     const companyMonthlyRemain = Math.max(0, COMPANY_MONTHLY_TARGET - totalAmount);
     const companyDailyPct = Math.min(999, (todayAmount / COMPANY_DAILY_TARGET) * 100);
 
-    const teamMonthlyPct = Math.min(999, (teamAmount / TEAM_MONTHLY_TARGET) * 100);
-    const teamMonthlyRemain = Math.max(0, TEAM_MONTHLY_TARGET - teamAmount);
-    const teamDailyPct = Math.min(999, (teamTodayAmount / TEAM_DAILY_TARGET) * 100);
+    const teamMonthlyPct = Math.min(999, (TEAM_MONTHLY_ACTUAL / TEAM_MONTHLY_TARGET) * 100);
+    const teamMonthlyRemain = Math.max(0, TEAM_MONTHLY_TARGET - TEAM_MONTHLY_ACTUAL);
+    const teamDailyPct = Math.min(999, (TEAM_DAILY_AVG_ACTUAL / TEAM_DAILY_TARGET) * 100);
 
     // ---- KPI 카드 ----
     document.getElementById('cards').innerHTML = `
@@ -424,13 +428,13 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-label">영업팀 매출</div>
-        <div class="kpi-value">${won(teamAmount)}</div>
+        <div class="kpi-value">${won(TEAM_MONTHLY_ACTUAL)}</div>
         <div class="kpi-sub">목표 9억 대비 ${teamMonthlyPct.toFixed(1)}% · ${won(teamMonthlyRemain)} 남음</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamMonthlyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">영업팀 일매출 (${todayDate || '-'})</div>
-        <div class="kpi-value">${won(teamTodayAmount)}</div>
+        <div class="kpi-label">영업팀 일매출 (평균)</div>
+        <div class="kpi-value">${won(Math.round(TEAM_DAILY_AVG_ACTUAL))}</div>
         <div class="kpi-sub">일매출 목표 3천만원 대비 ${teamDailyPct.toFixed(1)}%</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamDailyPct).toFixed(1)}%"></div></div>
       </div>
