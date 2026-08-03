@@ -180,15 +180,15 @@
   .error { color: #f24444; }
 
   /* ---- Pipeline ---- */
-  .pipeline-funnel { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 4px; }
-  .pipeline-stage-row { width: 100%; display: flex; flex-direction: column; align-items: center; }
+  .pipeline-funnel { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 0; flex-wrap: wrap; }
+  .pipeline-stage-row { flex: 1; min-width: 110px; max-width: 220px; }
   .pipeline-bar {
-    height: 52px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
-    color: white; font-size: 14px; font-weight: 700; gap: 8px;
+    height: 64px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: white; font-size: 13px; font-weight: 700; gap: 2px;
     background: linear-gradient(90deg,#4d7cfe,#2f5ce4);
   }
-  .pipeline-bar .stage-count { font-size: 20px; font-weight: 800; }
-  .pipeline-arrow { font-size: 11px; color: #6d7488; padding: 4px 0; }
+  .pipeline-bar .stage-count { font-size: 22px; font-weight: 800; }
+  .pipeline-arrow { font-size: 12px; color: #6d7488; flex-shrink: 0; text-align: center; white-space: nowrap; }
   .deal-form {
     display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px;
     padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,.06);
@@ -198,7 +198,9 @@
     border-radius: 8px; padding: 8px 10px; font-size: 13px;
   }
   .deal-form input[name="company"] { flex: 1; min-width: 140px; }
-  .deal-form input[name="amount"] { width: 140px; }
+  .deal-form input[name="product"] { flex: 1; min-width: 140px; }
+  .deal-form input[name="unitPrice"] { width: 120px; }
+  .deal-form input[name="quantity"] { width: 90px; }
   .deal-form input[name="memo"] { flex: 1; min-width: 140px; }
   .btn-primary {
     background: linear-gradient(90deg,#4d7cfe,#2f5ce4); color: white; border: none;
@@ -366,14 +368,16 @@
             <option value="견적">견적</option>
             <option value="협상">협상</option>
           </select>
-          <input type="number" name="amount" placeholder="예상 금액(원)" min="0">
+          <input type="text" name="product" placeholder="제품명">
+          <input type="number" name="unitPrice" placeholder="단가(원)" min="0">
+          <input type="number" name="quantity" placeholder="수량" min="0">
           <input type="text" name="memo" placeholder="메모(선택)">
           <button type="submit" class="btn-primary">추가</button>
         </form>
         <div class="scroll-box">
           <table>
             <thead>
-              <tr><th>거래처명</th><th>단계</th><th class="num">예상 금액</th><th>메모</th><th>등록일</th><th></th></tr>
+              <tr><th>거래처명</th><th>단계</th><th>제품명</th><th class="num">단가</th><th class="num">수량</th><th>메모</th><th>등록일</th><th></th></tr>
             </thead>
             <tbody id="dealTable"></tbody>
           </table>
@@ -856,20 +860,17 @@
   }
 
   function renderPipeline(deals) {
-    // ---- 단계별 잔량 퍼널 ----
+    // ---- 단계별 잔량 퍼널 (왼쪽 → 오른쪽) ----
     const counts = STAGES.map(stage => deals.filter(d => d.stage === stage).length);
-    const maxCount = Math.max(...counts, 1);
     document.getElementById('pipelineFunnel').innerHTML = STAGES.map((stage, i) => {
-      const widthPct = 40 + (counts[i] / maxCount) * 60;
-      const arrow = i < STAGES.length - 1
-        ? `<div class="pipeline-arrow">↓ ${counts[i] > 0 ? ((counts[i + 1] / counts[i] * 100).toFixed(1) + '%') : '-'}</div>`
-        : '';
-      return `
-        <div class="pipeline-stage-row" style="width:${widthPct.toFixed(1)}%">
+      const box = `
+        <div class="pipeline-stage-row">
           <div class="pipeline-bar"><span class="stage-count">${counts[i]}</span><span>${stage}</span></div>
         </div>
-        ${arrow}
       `;
+      if (i === STAGES.length - 1) return box;
+      const arrow = `<div class="pipeline-arrow">→<br>${counts[i] > 0 ? ((counts[i + 1] / counts[i] * 100).toFixed(1) + '%') : '-'}</div>`;
+      return box + arrow;
     }).join('');
 
     // ---- 거래 목록 ----
@@ -881,7 +882,9 @@
             ${STAGES.map(s => `<option value="${s}" ${s === d.stage ? 'selected' : ''}>${s}</option>`).join('')}
           </select>
         </td>
-        <td class="num">${d.amount ? won(d.amount) : '-'}</td>
+        <td>${d.product_name || ''}</td>
+        <td class="num">${d.unit_price ? won(d.unit_price) : '-'}</td>
+        <td class="num">${d.quantity != null ? Number(d.quantity).toLocaleString('ko-KR') : '-'}</td>
         <td>${d.memo || ''}</td>
         <td>${d.created_at ? String(d.created_at).slice(0, 10) : ''}</td>
         <td><button class="btn-danger" onclick="deleteDeal(${d.id})">삭제</button></td>
@@ -894,12 +897,14 @@
     const form = e.target;
     const company = form.company.value.trim();
     const stage = form.stage.value;
-    const amount = form.amount.value ? Number(form.amount.value) : null;
+    const product = form.product.value.trim() || null;
+    const unitPrice = form.unitPrice.value ? Number(form.unitPrice.value) : null;
+    const quantity = form.quantity.value ? Number(form.quantity.value) : null;
     const memo = form.memo.value.trim() || null;
     if (!company) return;
 
     const { error } = await client.from('b2b_pipeline').insert([
-      { company_name: company, stage: stage, amount: amount, memo: memo }
+      { company_name: company, stage: stage, product_name: product, unit_price: unitPrice, quantity: quantity, memo: memo }
     ]);
     if (error) {
       alert('추가하지 못했습니다: ' + error.message);
