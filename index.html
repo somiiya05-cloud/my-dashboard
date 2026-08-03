@@ -96,6 +96,11 @@
   .panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .panel-head h2 { font-size: 14px; margin: 0; font-weight: 700; }
   .panel-note { font-size: 11px; color: #6d7488; }
+  .vendor-select {
+    background: #0f1117; color: #f5f6fa; border: 1px solid rgba(255,255,255,.1);
+    border-radius: 8px; padding: 6px 10px; font-size: 13px; max-width: 220px;
+  }
+  .vendor-select:focus { outline: 1px solid #4d7cfe; }
 
   /* ---- Weekly bar chart ---- */
   .chart-legend { display: flex; gap: 16px; margin-bottom: 8px; }
@@ -236,11 +241,14 @@
       </section>
 
       <section class="panel">
-        <div class="panel-head"><h2>판매처별 상세 (전체)</h2></div>
+        <div class="panel-head">
+          <h2>판매처별 상세</h2>
+          <select id="vendorSelect" class="vendor-select"></select>
+        </div>
         <div class="scroll-box">
           <table>
-            <thead><tr><th>판매처</th><th class="num">수량</th><th class="num">금액</th></tr></thead>
-            <tbody id="vendorTable"></tbody>
+            <thead><tr><th>판매처</th><th>제품명</th><th class="num">수량</th><th class="num">매출</th></tr></thead>
+            <tbody id="vendorDetailTable"></tbody>
           </table>
         </div>
       </section>
@@ -274,10 +282,12 @@
 
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ---- 목표 매출 (영업팀 기준) ----
-  const MONTHLY_TARGET = 900000000; // 월 9억원
-  const DAILY_TARGET = 30000000;    // 일 3천만원
-  const DAYS_IN_MONTH = 31;         // 7월 기준
+  // ---- 목표 매출 ----
+  const COMPANY_MONTHLY_TARGET = 9000000000; // 전사 월 90억원
+  const COMPANY_DAILY_TARGET = 900000000;    // 전사 일 9억원
+  const TEAM_MONTHLY_TARGET = 900000000;     // 영업팀 월 9억원
+  const TEAM_DAILY_TARGET = 30000000;        // 영업팀 일 3천만원
+  const DAYS_IN_MONTH = 31;                  // 7월 기준
 
   function won(n) {
     return Number(n).toLocaleString('ko-KR') + '원';
@@ -313,6 +323,7 @@
 
     const byVendor = {};
     const byProduct = {};
+    const byVendorProduct = {};
     rows.forEach(r => {
       if (!byVendor[r.vendor]) byVendor[r.vendor] = { amount: 0, quantity: 0 };
       byVendor[r.vendor].amount += Number(r.amount);
@@ -321,6 +332,11 @@
       if (!byProduct[r.product_name]) byProduct[r.product_name] = { amount: 0, quantity: 0 };
       byProduct[r.product_name].amount += Number(r.amount);
       byProduct[r.product_name].quantity += Number(r.quantity);
+
+      if (!byVendorProduct[r.vendor]) byVendorProduct[r.vendor] = {};
+      if (!byVendorProduct[r.vendor][r.product_name]) byVendorProduct[r.vendor][r.product_name] = { amount: 0, quantity: 0 };
+      byVendorProduct[r.vendor][r.product_name].amount += Number(r.amount);
+      byVendorProduct[r.vendor][r.product_name].quantity += Number(r.quantity);
     });
 
     const dates = rows.map(r => r.sale_date).sort();
@@ -340,37 +356,50 @@
 
     // ---- 목표 대비 계산 ----
     const dailyAvg = totalAmount / dayCount;
-    const projected = dailyAvg * DAYS_IN_MONTH;
-    const monthlyPct = Math.min(999, (totalAmount / MONTHLY_TARGET) * 100);
-    const projectedPct = Math.min(999, (projected / MONTHLY_TARGET) * 100);
-    const dailyPct = Math.min(999, (dailyAvg / DAILY_TARGET) * 100);
-    const remaining = Math.max(0, MONTHLY_TARGET - totalAmount);
+
+    const byDate = {};
+    rows.forEach(r => { byDate[r.sale_date] = (byDate[r.sale_date] || 0) + Number(r.amount); });
+    const todayDate = maxDate;
+    const todayAmount = byDate[todayDate] || 0;
+
+    const companyMonthlyPct = Math.min(999, (totalAmount / COMPANY_MONTHLY_TARGET) * 100);
+    const companyMonthlyRemain = Math.max(0, COMPANY_MONTHLY_TARGET - totalAmount);
+    const companyDailyPct = Math.min(999, (todayAmount / COMPANY_DAILY_TARGET) * 100);
+
+    const teamMonthlyPct = Math.min(999, (totalAmount / TEAM_MONTHLY_TARGET) * 100);
+    const teamMonthlyRemain = Math.max(0, TEAM_MONTHLY_TARGET - totalAmount);
+    const teamDailyPct = Math.min(999, (todayAmount / TEAM_DAILY_TARGET) * 100);
 
     // ---- KPI 카드 ----
     document.getElementById('cards').innerHTML = `
       <div class="kpi-card">
-        <div class="kpi-label">이번 달 매출 (MTD)</div>
+        <div class="kpi-label">이번 달 매출</div>
         <div class="kpi-value">${won(totalAmount)}</div>
-        <div class="kpi-sub">목표대비 ${monthlyPct.toFixed(1)}% · ${won(remaining)} 남음</div>
-        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, monthlyPct).toFixed(1)}%"></div></div>
+        <div class="kpi-sub">목표 90억 대비 ${companyMonthlyPct.toFixed(1)}% · ${won(companyMonthlyRemain)} 남음</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyMonthlyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">목표 달성 전망 (예측)</div>
-        <div class="kpi-value">${won(Math.round(projected))}</div>
-        <div class="kpi-sub">월말 예상 · 목표의 ${projectedPct.toFixed(1)}%</div>
-        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, projectedPct).toFixed(1)}%"></div></div>
+        <div class="kpi-label">오늘 매출 (${todayDate || '-'})</div>
+        <div class="kpi-value">${won(todayAmount)}</div>
+        <div class="kpi-sub">일매출 목표 9억 대비 ${companyDailyPct.toFixed(1)}%</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyDailyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">일 평균 매출</div>
+        <div class="kpi-label">영업팀 매출</div>
+        <div class="kpi-value">${won(totalAmount)}</div>
+        <div class="kpi-sub">목표 9억 대비 ${teamMonthlyPct.toFixed(1)}% · ${won(teamMonthlyRemain)} 남음</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamMonthlyPct).toFixed(1)}%"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">영업팀 일매출 (${todayDate || '-'})</div>
+        <div class="kpi-value">${won(todayAmount)}</div>
+        <div class="kpi-sub">일매출 목표 3천만원 대비 ${teamDailyPct.toFixed(1)}%</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamDailyPct).toFixed(1)}%"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">일평균 매출 · 총 거래 건수</div>
         <div class="kpi-value">${won(Math.round(dailyAvg))}</div>
-        <div class="kpi-sub">일 목표 ${won(DAILY_TARGET)} 대비 ${dailyPct.toFixed(1)}%</div>
-        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, dailyPct).toFixed(1)}%"></div></div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">총 거래 건수</div>
-        <div class="kpi-value">${rows.length.toLocaleString('ko-KR')}건</div>
-        <div class="kpi-sub">판매처 ${vendorEntries.length}곳 · 제품 ${productEntries.length}종</div>
-        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:100%"></div></div>
+        <div class="kpi-sub">총 ${rows.length.toLocaleString('ko-KR')}건 · 판매처 ${vendorEntries.length}곳 · 제품 ${productEntries.length}종</div>
       </div>
     `;
 
@@ -387,7 +416,7 @@
       const end = Math.min(DAYS_IN_MONTH, start + 6);
       return Math.max(0, end - start + 1);
     });
-    const weekTargets = bucketDayCounts.map(d => d * DAILY_TARGET);
+    const weekTargets = bucketDayCounts.map(d => d * TEAM_DAILY_TARGET);
     const maxWeek = Math.max(...weekBuckets, ...weekTargets, 1);
     const weekLabels = ['1~7일', '8~14일', '15~21일', '22~28일', '29일~31일'];
     document.getElementById('weeklyChart').innerHTML = weekBuckets.map((amt, i) => `
@@ -443,14 +472,32 @@
       `;
     }).join('');
 
-    // ---- 판매처별 표 (전체) ----
-    document.getElementById('vendorTable').innerHTML = vendorEntries.map(([vendor, v]) => `
-      <tr>
-        <td>${vendor}</td>
-        <td class="num">${v.quantity.toLocaleString('ko-KR')}</td>
-        <td class="num">${won(v.amount)}</td>
-      </tr>
-    `).join('');
+    // ---- 판매처별 상세 (드롭박스로 판매처 선택 → 제품명/수량/매출) ----
+    const vendorSelect = document.getElementById('vendorSelect');
+    const previouslySelected = vendorSelect.value;
+    vendorSelect.innerHTML = vendorEntries.map(([vendor, v]) =>
+      `<option value="${vendor}">${vendor} (${won(v.amount)})</option>`
+    ).join('');
+    const vendorToShow = (previouslySelected && byVendorProduct[previouslySelected])
+      ? previouslySelected
+      : (vendorEntries[0] ? vendorEntries[0][0] : '');
+    vendorSelect.value = vendorToShow;
+
+    function renderVendorDetail(vendor) {
+      const products = byVendorProduct[vendor] || {};
+      const productList = Object.entries(products).sort((a, b) => b[1].amount - a[1].amount);
+      document.getElementById('vendorDetailTable').innerHTML = productList.map(([product, v]) => `
+        <tr>
+          <td>${vendor}</td>
+          <td>${product}</td>
+          <td class="num">${v.quantity.toLocaleString('ko-KR')}</td>
+          <td class="num">${won(v.amount)}</td>
+        </tr>
+      `).join('');
+    }
+
+    vendorSelect.onchange = () => renderVendorDetail(vendorSelect.value);
+    renderVendorDetail(vendorToShow);
 
     // ---- 제품별 표 (전체) ----
     document.getElementById('productTable').innerHTML = productEntries.map(([product, v]) => `
