@@ -70,6 +70,11 @@
     font-size: 12px; color: #8992a9; background: #14161d;
     border: 1px solid rgba(255,255,255,.06); padding: 4px 10px; border-radius: 8px;
   }
+  .month-select {
+    font-size: 12px; font-weight: 600; color: #f5f6fa; background: #14161d;
+    border: 1px solid rgba(255,255,255,.1); padding: 5px 10px; border-radius: 8px;
+  }
+  .month-select:focus { outline: 1px solid #4d7cfe; }
 
   /* ---- KPI cards ---- */
   .kpi-row {
@@ -211,7 +216,7 @@
         </div>
         <div class="topbar-right">
           <span class="live-badge"><span class="live-dot"></span>LIVE</span>
-          <span class="range-badge" id="rangeBadge">-</span>
+          <select id="monthSelect" class="month-select"></select>
         </div>
       </div>
 
@@ -296,16 +301,18 @@
 
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ---- 목표 매출 ----
+  // ---- 목표 매출 (매월 동일 적용) ----
   const COMPANY_MONTHLY_TARGET = 9000000000; // 전사 월 90억원
   const COMPANY_DAILY_TARGET = 900000000;    // 전사 일 9억원
   const TEAM_MONTHLY_TARGET = 900000000;     // 영업팀 월 9억원
   const TEAM_DAILY_TARGET = 30000000;        // 영업팀 일 3천만원
-  const DAYS_IN_MONTH = 31;                  // 7월 기준
 
-  // 영업팀 매출 실적 (엑셀 월별(07) 탭 기준 고정값)
-  const TEAM_MONTHLY_ACTUAL = 729380195;
-  const TEAM_DAILY_AVG_ACTUAL = TEAM_MONTHLY_ACTUAL / 30;
+  // 영업팀 매출 실적 (엑셀 월별 탭 기준 고정값, 월별로 다르게 입력)
+  // 여기에 없는 달은 자동 계산값(EXCLUDED_FROM_TEAM 기준)을 사용합니다.
+  const TEAM_ACTUALS_BY_MONTH = {
+    '2026-06': { monthly: 538730164, daily: 17957672 },
+    '2026-07': { monthly: 729380195, daily: 24312673 },
+  };
 
   // 영업팀 매출 = 자사몰 / 카카오 / 오프라인 / 컨텐츠팀 채널을 제외한 매출
   // (종합몰 · 폐쇄몰 · 오픈마켓 · 기타(쿠팡) · 직매입 · 수출 · 공동구매 채널은 영업팀 매출로 집계됨)
@@ -325,6 +332,8 @@
   function won(n) {
     return Number(n).toLocaleString('ko-KR') + '원';
   }
+
+  let allRows = [];
 
   async function loadData() {
     // Supabase는 한 번에 최대 1000행만 돌려주므로 나눠서 전부 가져옵니다.
@@ -347,10 +356,33 @@
       if (!data || data.length < pageSize) break;
       from += pageSize;
     }
-    render(all);
+    allRows = all;
+    setupMonthSelector();
   }
 
-  function render(rows) {
+  function setupMonthSelector() {
+    const monthSelect = document.getElementById('monthSelect');
+    const months = Array.from(new Set(allRows.map(r => r.sale_date.slice(0, 7)))).sort();
+    const prevSelected = monthSelect.value;
+
+    monthSelect.innerHTML = months.map(m => {
+      const [y, mm] = m.split('-');
+      return `<option value="${m}">${y}년 ${Number(mm)}월</option>`;
+    }).join('');
+
+    const monthToShow = months.includes(prevSelected) ? prevSelected : (months[months.length - 1] || '');
+    monthSelect.value = monthToShow;
+    monthSelect.onchange = () => renderMonth(monthSelect.value);
+
+    renderMonth(monthToShow);
+  }
+
+  function renderMonth(monthStr) {
+    const rows = monthStr ? allRows.filter(r => r.sale_date.slice(0, 7) === monthStr) : allRows;
+    render(rows, monthStr);
+  }
+
+  function render(rows, monthStr) {
     const totalAmount = rows.reduce((s, r) => s + Number(r.amount), 0);
     const totalQty = rows.reduce((s, r) => s + Number(r.quantity), 0);
 
@@ -378,9 +410,8 @@
     const dayCount = new Set(dates).size || 1;
 
     document.getElementById('subtitle').textContent =
+      (minDate && maxDate ? minDate + ' ~ ' + maxDate + ' · ' : '') +
       '실시간 집계 · 거래 ' + rows.length.toLocaleString('ko-KR') + '건';
-    document.getElementById('rangeBadge').textContent =
-      minDate && maxDate ? (minDate + ' ~ ' + maxDate) : '-';
 
     const vendorEntries = Object.entries(byVendor).sort((a, b) => b[1].amount - a[1].amount);
     const productEntries = Object.entries(byProduct).sort((a, b) => b[1].amount - a[1].amount);
@@ -408,9 +439,14 @@
     const companyMonthlyRemain = Math.max(0, COMPANY_MONTHLY_TARGET - totalAmount);
     const companyDailyPct = Math.min(999, (todayAmount / COMPANY_DAILY_TARGET) * 100);
 
-    const teamMonthlyPct = Math.min(999, (TEAM_MONTHLY_ACTUAL / TEAM_MONTHLY_TARGET) * 100);
-    const teamMonthlyRemain = Math.max(0, TEAM_MONTHLY_TARGET - TEAM_MONTHLY_ACTUAL);
-    const teamDailyPct = Math.min(999, (TEAM_DAILY_AVG_ACTUAL / TEAM_DAILY_TARGET) * 100);
+    // 해당 월의 고정 실적값이 있으면 그 값을, 없으면 자동 계산값(teamAmount)을 사용
+    const teamOverride = monthStr && TEAM_ACTUALS_BY_MONTH[monthStr];
+    const teamMonthlyActual = teamOverride ? teamOverride.monthly : teamAmount;
+    const teamDailyAvgActual = teamOverride ? teamOverride.daily : (teamAmount / dayCount);
+
+    const teamMonthlyPct = Math.min(999, (teamMonthlyActual / TEAM_MONTHLY_TARGET) * 100);
+    const teamMonthlyRemain = Math.max(0, TEAM_MONTHLY_TARGET - teamMonthlyActual);
+    const teamDailyPct = Math.min(999, (teamDailyAvgActual / TEAM_DAILY_TARGET) * 100);
 
     // ---- KPI 카드 ----
     document.getElementById('cards').innerHTML = `
@@ -428,13 +464,13 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-label">영업팀 매출</div>
-        <div class="kpi-value">${won(TEAM_MONTHLY_ACTUAL)}</div>
+        <div class="kpi-value">${won(teamMonthlyActual)}</div>
         <div class="kpi-sub">목표 9억 대비 ${teamMonthlyPct.toFixed(1)}% · ${won(teamMonthlyRemain)} 남음</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamMonthlyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">영업팀 일매출 (평균)</div>
-        <div class="kpi-value">${won(Math.round(TEAM_DAILY_AVG_ACTUAL))}</div>
+        <div class="kpi-value">${won(Math.round(teamDailyAvgActual))}</div>
         <div class="kpi-sub">일매출 목표 3천만원 대비 ${teamDailyPct.toFixed(1)}%</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamDailyPct).toFixed(1)}%"></div></div>
       </div>
@@ -454,9 +490,12 @@
       weekBuckets[idx] += Number(r.amount);
     });
     // 구간별 목표 = 일 목표 x 해당 구간의 달력상 일수 (실제 데이터 유무와 무관)
+    const daysInSelectedMonth = minDate
+      ? new Date(Number(minDate.split('-')[0]), Number(minDate.split('-')[1]), 0).getDate()
+      : 31;
     const bucketDayCounts = [0, 0, 0, 0, 0].map((_, i) => {
       const start = i * 7 + 1;
-      const end = Math.min(DAYS_IN_MONTH, start + 6);
+      const end = Math.min(daysInSelectedMonth, start + 6);
       return Math.max(0, end - start + 1);
     });
     const weekTargets = bucketDayCounts.map(d => d * TEAM_DAILY_TARGET);
