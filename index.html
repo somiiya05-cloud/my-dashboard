@@ -104,6 +104,15 @@
   }
   .error { color: #dc2626; }
   .loading { color: #6b7280; }
+  .scroll-box {
+    max-height: 480px;
+    overflow-y: auto;
+  }
+  .scroll-box table thead th {
+    position: sticky;
+    top: 0;
+    background: white;
+  }
 </style>
 </head>
 <body>
@@ -113,38 +122,44 @@
   <div class="cards" id="cards"></div>
 
   <div class="section">
-    <h2>판매처별 매출</h2>
+    <h2>판매처별 매출 (상위 15개)</h2>
     <div id="vendorChart"></div>
   </div>
 
   <div class="section">
-    <h2>판매처별 상세</h2>
-    <table>
-      <thead>
-        <tr><th>판매처</th><th class="num">수량</th><th class="num">금액</th></tr>
-      </thead>
-      <tbody id="vendorTable"></tbody>
-    </table>
+    <h2>판매처별 상세 (전체)</h2>
+    <div class="scroll-box">
+      <table>
+        <thead>
+          <tr><th>판매처</th><th class="num">수량</th><th class="num">금액</th></tr>
+        </thead>
+        <tbody id="vendorTable"></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="section">
-    <h2>제품별 상세</h2>
-    <table>
-      <thead>
-        <tr><th>제품</th><th class="num">수량</th><th class="num">금액</th></tr>
-      </thead>
-      <tbody id="productTable"></tbody>
-    </table>
+    <h2>제품별 상세 (전체)</h2>
+    <div class="scroll-box">
+      <table>
+        <thead>
+          <tr><th>제품</th><th class="num">수량</th><th class="num">금액</th></tr>
+        </thead>
+        <tbody id="productTable"></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="section">
     <h2>전체 판매 내역</h2>
-    <table>
-      <thead>
-        <tr><th>날짜</th><th>판매처</th><th>제품</th><th class="num">수량</th><th class="num">금액</th></tr>
-      </thead>
-      <tbody id="rawTable"></tbody>
-    </table>
+    <div class="scroll-box">
+      <table>
+        <thead>
+          <tr><th>날짜</th><th>판매처</th><th>제품</th><th class="num">수량</th><th class="num">금액</th></tr>
+        </thead>
+        <tbody id="rawTable"></tbody>
+      </table>
+    </div>
   </div>
 
 <script>
@@ -159,17 +174,27 @@
   }
 
   async function loadData() {
-    const { data, error } = await client
-      .from('sales_transactions')
-      .select('*')
-      .order('sale_date', { ascending: true });
+    // Supabase는 한 번에 최대 1000행만 돌려주므로 나눠서 전부 가져옵니다.
+    const pageSize = 1000;
+    let from = 0;
+    let all = [];
+    while (true) {
+      const { data, error } = await client
+        .from('sales_transactions')
+        .select('*')
+        .order('sale_date', { ascending: true })
+        .range(from, from + pageSize - 1);
 
-    if (error) {
-      document.getElementById('subtitle').innerHTML =
-        '<span class="error">데이터를 불러오지 못했습니다: ' + error.message + '</span>';
-      return;
+      if (error) {
+        document.getElementById('subtitle').innerHTML =
+          '<span class="error">데이터를 불러오지 못했습니다: ' + error.message + '</span>';
+        return;
+      }
+      all = all.concat(data || []);
+      if (!data || data.length < pageSize) break;
+      from += pageSize;
     }
-    render(data || []);
+    render(all);
   }
 
   function render(rows) {
@@ -213,8 +238,9 @@
 
     // 판매처별 막대 그래프 (순수 SVG/DIV 기반, 별도 차트 라이브러리 없음)
     const vendorEntries = Object.entries(byVendor).sort((a, b) => b[1].amount - a[1].amount);
-    const maxVendorAmount = Math.max(...vendorEntries.map(e => e[1].amount), 1);
-    document.getElementById('vendorChart').innerHTML = vendorEntries.map(([vendor, v]) => `
+    const topVendorEntries = vendorEntries.slice(0, 15);
+    const maxVendorAmount = Math.max(...topVendorEntries.map(e => e[1].amount), 1);
+    document.getElementById('vendorChart').innerHTML = topVendorEntries.map(([vendor, v]) => `
       <div class="bar-row">
         <div class="bar-label">${vendor}</div>
         <div class="bar-track">
