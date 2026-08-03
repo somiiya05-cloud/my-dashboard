@@ -220,7 +220,7 @@
       <section class="grid-2">
         <div class="panel">
           <div class="panel-head">
-            <h2>주별 매출 추이</h2>
+            <h2>영업팀 주별 매출 추이</h2>
             <span class="panel-note">단위: 원</span>
           </div>
           <div class="chart-legend">
@@ -303,6 +303,18 @@
   const TEAM_DAILY_TARGET = 30000000;        // 영업팀 일 3천만원
   const DAYS_IN_MONTH = 31;                  // 7월 기준
 
+  // 영업팀 매출 = 자사몰 채널 + 카카오(선물하기) 채널 + 컨텐츠팀 채널을 제외한 매출
+  const EXCLUDED_FROM_TEAM = [
+    // 자사몰 채널
+    '그로우뮤즈', '글로리핏', '라이프스타일마트', '명퉤', '명퉤(해외)', '멜루션', '미니멀룸',
+    '빠이러스', '빠이러스(도착보장)', '스토어팜(명퉤)', '스토어팜(미니멀룸스토어)', '스토어팜(빠이러스_법인)',
+    '스토어팜(빠이러스_개인)', '스토어팜(잠비에)', '스토어팜(코드니처)', '잠비에', '코드니처', 'PORKE.',
+    // 카카오 선물하기(개인) 채널
+    '카카오선물하기(개인)', '카카오선물하기(개인)_폴크', '카카오톡스토어(법인)',
+    // 컨텐츠팀 채널
+    '공동구매(컨텐츠팀)',
+  ];
+
   function won(n) {
     return Number(n).toLocaleString('ko-KR') + '원';
   }
@@ -372,17 +384,26 @@
     const dailyAvg = totalAmount / dayCount;
 
     const byDate = {};
-    rows.forEach(r => { byDate[r.sale_date] = (byDate[r.sale_date] || 0) + Number(r.amount); });
+    const byDateTeam = {};
+    let teamAmount = 0;
+    rows.forEach(r => {
+      byDate[r.sale_date] = (byDate[r.sale_date] || 0) + Number(r.amount);
+      if (!EXCLUDED_FROM_TEAM.includes(r.vendor)) {
+        byDateTeam[r.sale_date] = (byDateTeam[r.sale_date] || 0) + Number(r.amount);
+        teamAmount += Number(r.amount);
+      }
+    });
     const todayDate = maxDate;
     const todayAmount = byDate[todayDate] || 0;
+    const teamTodayAmount = byDateTeam[todayDate] || 0;
 
     const companyMonthlyPct = Math.min(999, (totalAmount / COMPANY_MONTHLY_TARGET) * 100);
     const companyMonthlyRemain = Math.max(0, COMPANY_MONTHLY_TARGET - totalAmount);
     const companyDailyPct = Math.min(999, (todayAmount / COMPANY_DAILY_TARGET) * 100);
 
-    const teamMonthlyPct = Math.min(999, (totalAmount / TEAM_MONTHLY_TARGET) * 100);
-    const teamMonthlyRemain = Math.max(0, TEAM_MONTHLY_TARGET - totalAmount);
-    const teamDailyPct = Math.min(999, (todayAmount / TEAM_DAILY_TARGET) * 100);
+    const teamMonthlyPct = Math.min(999, (teamAmount / TEAM_MONTHLY_TARGET) * 100);
+    const teamMonthlyRemain = Math.max(0, TEAM_MONTHLY_TARGET - teamAmount);
+    const teamDailyPct = Math.min(999, (teamTodayAmount / TEAM_DAILY_TARGET) * 100);
 
     // ---- KPI 카드 ----
     document.getElementById('cards').innerHTML = `
@@ -400,13 +421,13 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-label">영업팀 매출</div>
-        <div class="kpi-value">${won(totalAmount)}</div>
+        <div class="kpi-value">${won(teamAmount)}</div>
         <div class="kpi-sub">목표 9억 대비 ${teamMonthlyPct.toFixed(1)}% · ${won(teamMonthlyRemain)} 남음</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamMonthlyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">영업팀 일매출 (${todayDate || '-'})</div>
-        <div class="kpi-value">${won(todayAmount)}</div>
+        <div class="kpi-value">${won(teamTodayAmount)}</div>
         <div class="kpi-sub">일매출 목표 3천만원 대비 ${teamDailyPct.toFixed(1)}%</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamDailyPct).toFixed(1)}%"></div></div>
       </div>
@@ -417,9 +438,10 @@
       </div>
     `;
 
-    // ---- 주별 매출 추이 (해당 월 1~7,8~14,15~21,22~28,29~31일 5개 구간) ----
+    // ---- 영업팀 주별 매출 추이 (해당 월 1~7,8~14,15~21,22~28,29~31일 5개 구간) ----
     const weekBuckets = [0, 0, 0, 0, 0];
     rows.forEach(r => {
+      if (EXCLUDED_FROM_TEAM.includes(r.vendor)) return;
       const day = Number(r.sale_date.split('-')[2]);
       const idx = Math.min(4, Math.floor((day - 1) / 7));
       weekBuckets[idx] += Number(r.amount);
