@@ -184,9 +184,12 @@
   .pipeline-stage-row { flex: 1; min-width: 110px; max-width: 220px; }
   .pipeline-bar {
     height: 64px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    color: white; font-size: 13px; font-weight: 700; gap: 2px;
+    color: white; font-size: 13px; font-weight: 700; gap: 2px; cursor: pointer;
     background: linear-gradient(90deg,#4d7cfe,#2f5ce4);
+    transition: box-shadow .15s, transform .15s;
   }
+  .pipeline-bar:hover { transform: translateY(-1px); }
+  .pipeline-bar.active { box-shadow: 0 0 0 3px rgba(255,255,255,.5); }
   .pipeline-bar .stage-count { font-size: 22px; font-weight: 800; }
   .pipeline-arrow { font-size: 12px; color: #6d7488; flex-shrink: 0; text-align: center; white-space: nowrap; }
   .deal-form {
@@ -219,6 +222,7 @@
   .stage-badge.inquiry { background: rgba(77,124,254,.15); color: #8ab0ff; }
   .stage-badge.quote { background: rgba(250,204,21,.15); color: #facc15; }
   .stage-badge.negotiation { background: rgba(34,197,94,.15); color: #4ade80; }
+  .stage-badge.invoiced { background: rgba(168,85,247,.15); color: #c084fc; }
 </style>
 </head>
 <body>
@@ -355,7 +359,10 @@
       </div>
 
       <section class="panel">
-        <div class="panel-head"><h2>단계별 잔량</h2></div>
+        <div class="panel-head">
+          <h2>단계별 잔량</h2>
+          <span class="panel-note" id="dealFilterNote" style="display:none; cursor:pointer;" onclick="toggleStageFilter(pipelineStageFilter)"></span>
+        </div>
         <div class="pipeline-funnel" id="pipelineFunnel"></div>
       </section>
 
@@ -367,17 +374,18 @@
             <option value="문의">문의</option>
             <option value="견적">견적</option>
             <option value="협상">협상</option>
+            <option value="세금계산서 발행">세금계산서 발행</option>
           </select>
-          <input type="text" name="product" placeholder="제품명">
-          <input type="number" name="unitPrice" placeholder="단가(원)" min="0">
-          <input type="number" name="quantity" placeholder="수량" min="0">
+          <input type="text" name="product" placeholder="제품명 (여러개는 ,로 구분)">
+          <input type="text" name="unitPrice" placeholder="단가(원) (,로 구분)">
+          <input type="text" name="quantity" placeholder="수량 (,로 구분)">
           <input type="text" name="memo" placeholder="메모(선택)">
           <button type="submit" class="btn-primary">추가</button>
         </form>
         <div class="scroll-box">
           <table>
             <thead>
-              <tr><th>거래처명</th><th>단계</th><th>제품명</th><th class="num">단가</th><th class="num">수량</th><th>메모</th><th>등록일</th><th></th></tr>
+              <tr><th>거래처명</th><th>단계</th><th>제품명</th><th class="num">단가</th><th class="num">수량</th><th class="num">전체 매입금</th><th>메모</th><th>등록일</th><th></th></tr>
             </thead>
             <tbody id="dealTable"></tbody>
           </table>
@@ -837,8 +845,11 @@
     if (!isDash) loadPipeline();
   }
 
-  const STAGES = ['문의', '견적', '협상'];
-  const STAGE_CLASS = { '문의': 'inquiry', '견적': 'quote', '협상': 'negotiation' };
+  const STAGES = ['문의', '견적', '협상', '세금계산서 발행'];
+  const STAGE_CLASS = { '문의': 'inquiry', '견적': 'quote', '협상': 'negotiation', '세금계산서 발행': 'invoiced' };
+
+  let currentDeals = [];
+  let pipelineStageFilter = null; // null이면 전체, 값이 있으면 해당 단계만
 
   function stageBadge(stage) {
     const cls = STAGE_CLASS[stage] || 'inquiry';
@@ -859,19 +870,45 @@
     renderPipeline(data || []);
   }
 
+  function toggleStageFilter(stage) {
+    pipelineStageFilter = (pipelineStageFilter === stage) ? null : stage;
+    renderPipeline(currentDeals);
+  }
+
   function renderPipeline(deals) {
-    // ---- 단계별 잔량 퍼널 (왼쪽 → 오른쪽) ----
+    currentDeals = deals;
+
+    // ---- 단계별 잔량 퍼널 (왼쪽 → 오른쪽, 클릭하면 해당 단계만 필터) ----
     const counts = STAGES.map(stage => deals.filter(d => d.stage === stage).length);
     document.getElementById('pipelineFunnel').innerHTML = STAGES.map((stage, i) => {
+      const isActive = pipelineStageFilter === stage;
       const box = `
         <div class="pipeline-stage-row">
-          <div class="pipeline-bar"><span class="stage-count">${counts[i]}</span><span>${stage}</span></div>
+          <div class="pipeline-bar ${isActive ? 'active' : ''}" onclick="toggleStageFilter('${stage}')">
+            <span class="stage-count">${counts[i]}</span><span>${stage}</span>
+          </div>
         </div>
       `;
       if (i === STAGES.length - 1) return box;
       const arrow = `<div class="pipeline-arrow">→<br>${counts[i] > 0 ? ((counts[i + 1] / counts[i] * 100).toFixed(1) + '%') : '-'}</div>`;
       return box + arrow;
     }).join('');
+
+    renderDealTable();
+  }
+
+  function renderDealTable() {
+    const filterNote = document.getElementById('dealFilterNote');
+    const deals = pipelineStageFilter
+      ? currentDeals.filter(d => d.stage === pipelineStageFilter)
+      : currentDeals;
+
+    if (filterNote) {
+      filterNote.textContent = pipelineStageFilter
+        ? pipelineStageFilter + ' 단계만 보는 중 · 전체 보기'
+        : '';
+      filterNote.style.display = pipelineStageFilter ? '' : 'none';
+    }
 
     // ---- 거래 목록 ----
     document.getElementById('dealTable').innerHTML = deals.map(d => `
@@ -885,6 +922,7 @@
         <td>${d.product_name || ''}</td>
         <td class="num">${d.unit_price ? won(d.unit_price) : '-'}</td>
         <td class="num">${d.quantity != null ? Number(d.quantity).toLocaleString('ko-KR') : '-'}</td>
+        <td class="num">${(d.unit_price && d.quantity != null) ? won(Number(d.unit_price) * Number(d.quantity)) : '-'}</td>
         <td>${d.memo || ''}</td>
         <td>${d.created_at ? String(d.created_at).slice(0, 10) : ''}</td>
         <td><button class="btn-danger" onclick="deleteDeal(${d.id})">삭제</button></td>
@@ -897,15 +935,33 @@
     const form = e.target;
     const company = form.company.value.trim();
     const stage = form.stage.value;
-    const product = form.product.value.trim() || null;
-    const unitPrice = form.unitPrice.value ? Number(form.unitPrice.value) : null;
-    const quantity = form.quantity.value ? Number(form.quantity.value) : null;
     const memo = form.memo.value.trim() || null;
     if (!company) return;
 
-    const { error } = await client.from('b2b_pipeline').insert([
-      { company_name: company, stage: stage, product_name: product, unit_price: unitPrice, quantity: quantity, memo: memo }
-    ]);
+    // 제품명/단가/수량에 쉼표(,)로 여러 개를 적으면 같은 순서끼리 짝지어 각각 별도 행으로 추가합니다.
+    // 예: 제품명 "A,B" / 단가 "1000,2000" / 수량 "5,10" → (A,1000,5)행 + (B,2000,10)행
+    const productList = form.product.value.split(',').map(s => s.trim());
+    const priceList = form.unitPrice.value.split(',').map(s => s.trim());
+    const qtyList = form.quantity.value.split(',').map(s => s.trim());
+    const rowCount = Math.max(productList.length, priceList.length, qtyList.length, 1);
+
+    const rowsToInsert = [];
+    for (let i = 0; i < rowCount; i++) {
+      const p = (productList[i] || '').trim() || null;
+      const priceRaw = (priceList[i] || '').trim();
+      const qtyRaw = (qtyList[i] || '').trim();
+      if (i > 0 && !p && !priceRaw && !qtyRaw) continue; // 완전히 빈 추가 행은 건너뜀
+      rowsToInsert.push({
+        company_name: company,
+        stage: stage,
+        product_name: p,
+        unit_price: priceRaw ? Number(priceRaw) : null,
+        quantity: qtyRaw ? Number(qtyRaw) : null,
+        memo: memo,
+      });
+    }
+
+    const { error } = await client.from('b2b_pipeline').insert(rowsToInsert);
     if (error) {
       alert('추가하지 못했습니다: ' + error.message);
       return;
