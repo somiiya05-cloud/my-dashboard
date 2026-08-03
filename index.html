@@ -220,6 +220,7 @@
   }
   .stage-badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
   .stage-badge.inquiry { background: rgba(77,124,254,.15); color: #8ab0ff; }
+  .stage-badge.export-inquiry { background: rgba(45,212,191,.15); color: #2dd4bf; }
   .stage-badge.quote { background: rgba(250,204,21,.15); color: #facc15; }
   .stage-badge.negotiation { background: rgba(34,197,94,.15); color: #4ade80; }
   .stage-badge.invoiced { background: rgba(168,85,247,.15); color: #c084fc; }
@@ -372,6 +373,7 @@
           <input type="text" name="company" placeholder="거래처명" required>
           <select name="stage">
             <option value="문의">문의</option>
+            <option value="수출문의">수출문의</option>
             <option value="견적">견적</option>
             <option value="협상">협상</option>
             <option value="세금계산서 발행">세금계산서 발행</option>
@@ -845,8 +847,8 @@
     if (!isDash) loadPipeline();
   }
 
-  const STAGES = ['문의', '견적', '협상', '세금계산서 발행'];
-  const STAGE_CLASS = { '문의': 'inquiry', '견적': 'quote', '협상': 'negotiation', '세금계산서 발행': 'invoiced' };
+  const STAGES = ['문의', '수출문의', '견적', '협상', '세금계산서 발행'];
+  const STAGE_CLASS = { '문의': 'inquiry', '수출문의': 'export-inquiry', '견적': 'quote', '협상': 'negotiation', '세금계산서 발행': 'invoiced' };
 
   let currentDeals = [];
   let pipelineStageFilter = null; // null이면 전체, 값이 있으면 해당 단계만
