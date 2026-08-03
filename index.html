@@ -225,6 +225,15 @@
     background: #0f1117; color: #f5f6fa; border: 1px solid rgba(255,255,255,.1);
     border-radius: 6px; padding: 5px 8px; font-size: 12px;
   }
+  .inline-edit {
+    width: 100%; background: transparent; color: #c7cbe0; border: 1px solid transparent;
+    border-radius: 6px; padding: 5px 6px; font-size: 13px; font-family: inherit;
+  }
+  .inline-edit.num { text-align: right; }
+  .inline-edit:hover { border-color: rgba(255,255,255,.12); }
+  .inline-edit:focus {
+    outline: none; background: #0f1117; border-color: #4d7cfe; color: #f5f6fa;
+  }
   .stage-badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
   .stage-badge.inquiry { background: rgba(77,124,254,.15); color: #8ab0ff; }
   .stage-badge.export-inquiry { background: rgba(45,212,191,.15); color: #2dd4bf; }
@@ -862,6 +871,10 @@
   let currentDeals = [];
   let pipelineStageFilter = null; // null이면 전체, 값이 있으면 해당 단계만
 
+  function escapeAttr(v) {
+    return String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
   function stageBadge(stage) {
     const cls = STAGE_CLASS[stage] || 'inquiry';
     return `<span class="stage-badge ${cls}">${stage}</span>`;
@@ -937,15 +950,40 @@
             ${STAGES.map(s => `<option value="${s}" ${s === d.stage ? 'selected' : ''}>${s}</option>`).join('')}
           </select>
         </td>
-        <td>${d.product_name || ''}</td>
-        <td class="num">${d.unit_price ? won(d.unit_price) : '-'}</td>
-        <td class="num">${d.quantity != null ? Number(d.quantity).toLocaleString('ko-KR') : '-'}</td>
+        <td>
+          <input type="text" class="inline-edit" value="${escapeAttr(d.product_name || '')}"
+            onchange="updateDealField(${d.id}, 'product_name', this.value)">
+        </td>
+        <td class="num">
+          <input type="number" class="inline-edit num" min="0" value="${d.unit_price != null ? d.unit_price : ''}"
+            onchange="updateDealField(${d.id}, 'unit_price', this.value)">
+        </td>
+        <td class="num">
+          <input type="number" class="inline-edit num" min="0" value="${d.quantity != null ? d.quantity : ''}"
+            onchange="updateDealField(${d.id}, 'quantity', this.value)">
+        </td>
         <td class="num">${(d.unit_price && d.quantity != null) ? won(Number(d.unit_price) * Number(d.quantity)) : '-'}</td>
-        <td>${d.memo || ''}</td>
+        <td>
+          <input type="text" class="inline-edit" value="${escapeAttr(d.memo || '')}"
+            onchange="updateDealField(${d.id}, 'memo', this.value)">
+        </td>
         <td>${d.created_at ? String(d.created_at).slice(0, 10) : ''}</td>
         <td><button class="btn-danger" onclick="deleteDeal(${d.id})">삭제</button></td>
       </tr>
     `).join('');
+  }
+
+  // 표에서 제품명/단가/수량/메모 칸을 직접 클릭해 수정할 수 있게 합니다.
+  async function updateDealField(id, field, rawValue) {
+    let value = rawValue.trim();
+    if (field === 'unit_price' || field === 'quantity') {
+      value = value === '' ? null : Number(value);
+    } else {
+      value = value === '' ? null : value;
+    }
+    const { error } = await client.from('b2b_pipeline').update({ [field]: value }).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadPipeline();
   }
 
   document.getElementById('dealForm').addEventListener('submit', async (e) => {
