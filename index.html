@@ -87,7 +87,8 @@
   }
   .kpi-label { font-size: 12px; color: #8992a9; margin-bottom: 10px; }
   .kpi-value { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
-  .kpi-sub { font-size: 12px; color: #6d7488; }
+  .kpi-sub { font-size: 12px; color: #c7cbe0; font-weight: 700; }
+  .pct-red { color: #ff4d4d; font-weight: 800; }
   .kpi-bar { height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; margin-top: 10px; overflow: hidden; }
   .kpi-bar-fill { height: 100%; background: linear-gradient(90deg,#4d7cfe,#2f5ce4); }
 
@@ -520,25 +521,25 @@
       <div class="kpi-card">
         <div class="kpi-label">이번 달 매출</div>
         <div class="kpi-value">${won(companyMonthlyActual)}</div>
-        <div class="kpi-sub">목표 90억 대비 ${companyMonthlyPct.toFixed(1)}% · ${won(companyMonthlyRemain)} 남음</div>
+        <div class="kpi-sub">목표 90억 대비 <span class="pct-red">${companyMonthlyPct.toFixed(1)}%</span> · ${won(companyMonthlyRemain)} 남음</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyMonthlyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">오늘 매출 (${todayDate || '-'})</div>
         <div class="kpi-value">${won(todayAmount)}</div>
-        <div class="kpi-sub">일매출 목표 9억 대비 ${companyDailyPct.toFixed(1)}%</div>
+        <div class="kpi-sub">일매출 목표 9억 대비 <span class="pct-red">${companyDailyPct.toFixed(1)}%</span></div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyDailyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">영업팀 매출</div>
         <div class="kpi-value">${won(teamMonthlyActual)}</div>
-        <div class="kpi-sub">목표 9억 대비 ${teamMonthlyPct.toFixed(1)}% · ${won(teamMonthlyRemain)} 남음</div>
+        <div class="kpi-sub">목표 9억 대비 <span class="pct-red">${teamMonthlyPct.toFixed(1)}%</span> · ${won(teamMonthlyRemain)} 남음</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamMonthlyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">영업팀 일매출 (평균)</div>
         <div class="kpi-value">${won(Math.round(teamDailyAvgActual))}</div>
-        <div class="kpi-sub">일매출 목표 3천만원 대비 ${teamDailyPct.toFixed(1)}%</div>
+        <div class="kpi-sub">일매출 목표 3천만원 대비 <span class="pct-red">${teamDailyPct.toFixed(1)}%</span></div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamDailyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
