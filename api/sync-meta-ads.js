@@ -18,7 +18,7 @@
 
 const META_API_VERSION = 'v26.0';
 const SUPABASE_URL = 'https://fwsszzjfjktliredmjcn.supabase.co';
-const CHANNEL_NAME = '메타광고';
+const CHANNEL_NAME = '코드니처 메타';
 
 module.exports = async function handler(req, res) {
   // Vercel Cron이 자동으로 붙여주는 Authorization 헤더 검증 (수동 호출 시에도 동일하게 필요)
