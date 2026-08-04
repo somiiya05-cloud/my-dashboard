@@ -626,33 +626,35 @@
     const teamDailyPct = Math.min(999, (teamDailyAvgActual / TEAM_DAILY_TARGET) * 100);
 
     // ---- KPI 카드 ----
+    const monthNum = monthStr ? Number(monthStr.split('-')[1]) : null;
+    const monthLabelPrefix = monthNum ? monthNum + '월 ' : '';
     document.getElementById('cards').innerHTML = `
       <div class="kpi-card">
-        <div class="kpi-label">이번 달 매출</div>
+        <div class="kpi-label">${monthLabelPrefix}전체 매출</div>
         <div class="kpi-value">${won(companyMonthlyActual)}</div>
         <div class="kpi-sub">목표 90억 대비 <span class="pct-red">${companyMonthlyPct.toFixed(1)}%</span> · ${won(companyMonthlyRemain)} 남음</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyMonthlyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">오늘 매출 (${todayDate || '-'})</div>
+        <div class="kpi-label">오늘 전체 매출 (${todayDate || '-'})</div>
         <div class="kpi-value">${won(todayAmount)}</div>
         <div class="kpi-sub">일매출 목표 9억 대비 <span class="pct-red">${companyDailyPct.toFixed(1)}%</span></div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyDailyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">영업팀 매출</div>
+        <div class="kpi-label">영업팀 전체 매출</div>
         <div class="kpi-value">${won(teamMonthlyActual)}</div>
         <div class="kpi-sub">목표 9억 대비 <span class="pct-red">${teamMonthlyPct.toFixed(1)}%</span> · ${won(teamMonthlyRemain)} 남음</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamMonthlyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">영업팀 일매출 (평균)</div>
+        <div class="kpi-label">영업팀 일매출 평균</div>
         <div class="kpi-value">${won(Math.round(teamDailyAvgActual))}</div>
         <div class="kpi-sub">일매출 목표 3천만원 대비 <span class="pct-red">${teamDailyPct.toFixed(1)}%</span></div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamDailyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">일평균 매출 · 총 거래 건수</div>
+        <div class="kpi-label">${monthLabelPrefix}일 평균 매출 · 총 거래 건수</div>
         <div class="kpi-value">${won(Math.round(dailyAvg))}</div>
         <div class="kpi-sub">총 ${rows.length.toLocaleString('ko-KR')}건 · 판매처 ${vendorEntries.length}곳 · 제품 ${productEntries.length}종</div>
       </div>
