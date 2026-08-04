@@ -78,17 +78,17 @@
 
   /* ---- KPI cards ---- */
   .kpi-row {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px; margin-bottom: 16px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 18px; margin-bottom: 18px;
   }
   .kpi-card {
     background: #14161d; border: 1px solid rgba(255,255,255,.05);
-    border-radius: 14px; padding: 18px 20px;
+    border-radius: 16px; padding: 24px 26px;
   }
-  .kpi-label { font-size: 12px; font-weight: 700; color: #8992a9; margin-bottom: 10px; }
+  .kpi-label { font-size: 14px; font-weight: 700; color: #8992a9; margin-bottom: 12px; }
   .kpi-label-team { color: #fbbf24; }
-  .kpi-value { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
-  .kpi-sub { font-size: 12px; color: #c7cbe0; font-weight: 700; }
+  .kpi-value { font-size: 34px; font-weight: 800; margin-bottom: 10px; }
+  .kpi-sub { font-size: 14px; color: #c7cbe0; font-weight: 700; }
   .pct-red { color: #ff4d4d; font-weight: 800; }
   .kpi-bar { height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; margin-top: 10px; overflow: hidden; }
   .kpi-bar-fill { height: 100%; background: linear-gradient(90deg,#4d7cfe,#2f5ce4); }
@@ -745,7 +745,7 @@
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyDailyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label kpi-label-team">영업팀 전체 매출</div>
+        <div class="kpi-label kpi-label-team">영업팀 오늘 매출</div>
         <div class="kpi-value">${won(teamMonthlyActual)}</div>
         <div class="kpi-sub">목표 9억 대비 <span class="pct-red">${teamMonthlyPct.toFixed(1)}%</span> · ${won(teamMonthlyRemain)} 남음</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamMonthlyPct).toFixed(1)}%"></div></div>
