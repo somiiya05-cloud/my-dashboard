@@ -20,7 +20,7 @@ const META_API_VERSION = 'v26.0';
 const SUPABASE_URL = 'https://fwsszzjfjktliredmjcn.supabase.co';
 const CHANNEL_NAME = '메타광고';
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Vercel Cron이 자동으로 붙여주는 Authorization 헤더 검증 (수동 호출 시에도 동일하게 필요)
   const authHeader = req.headers['authorization'];
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
