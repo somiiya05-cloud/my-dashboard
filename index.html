@@ -727,6 +727,7 @@
     const teamMonthlyPct = Math.min(999, (teamMonthlyActual / TEAM_MONTHLY_TARGET) * 100);
     const teamMonthlyRemain = Math.max(0, TEAM_MONTHLY_TARGET - teamMonthlyActual);
     const teamDailyPct = Math.min(999, (teamDailyAvgActual / TEAM_DAILY_TARGET) * 100);
+    const teamTodayPct = Math.min(999, (teamTodayAmount / TEAM_DAILY_TARGET) * 100);
 
     // ---- KPI 카드 ----
     const monthNum = monthStr ? Number(monthStr.split('-')[1]) : null;
@@ -746,9 +747,9 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-label kpi-label-team">영업팀 오늘 매출</div>
-        <div class="kpi-value">${won(teamMonthlyActual)}</div>
-        <div class="kpi-sub">목표 9억 대비 <span class="pct-red">${teamMonthlyPct.toFixed(1)}%</span> · ${won(teamMonthlyRemain)} 남음</div>
-        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamMonthlyPct).toFixed(1)}%"></div></div>
+        <div class="kpi-value">${won(teamTodayAmount)}</div>
+        <div class="kpi-sub">일매출 목표 3천만원 대비 <span class="pct-red">${teamTodayPct.toFixed(1)}%</span></div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamTodayPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label kpi-label-team">영업팀 일매출 평균</div>
