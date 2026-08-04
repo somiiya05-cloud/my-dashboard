@@ -241,6 +241,13 @@
   .stage-badge.quote { background: rgba(250,204,21,.15); color: #facc15; }
   .stage-badge.negotiation { background: rgba(34,197,94,.15); color: #4ade80; }
   .stage-badge.invoiced { background: rgba(168,85,247,.15); color: #c084fc; }
+
+  /* ---- 몰별(채널) 표 ---- */
+  .channel-table { width: 100%; border-collapse: collapse; font-size: 13px; color: #c7cbe0; margin-bottom: 18px; }
+  .channel-table th, .channel-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.05); }
+  .channel-table th { font-size: 11px; color: #6d7488; font-weight: 600; }
+  .channel-table td.num, .channel-table th.num { text-align: right; }
+  .channel-total-row td { font-weight: 800; color: #f5f6fa; background: rgba(77,124,254,.08); }
 </style>
 </head>
 <body>
@@ -257,11 +264,11 @@
         <div class="nav-label">활동</div>
         <div class="nav-item active" id="navDashboard" onclick="switchView('dashboard')"><span class="dot"></span>대시보드</div>
         <div class="nav-item" id="navPipeline" onclick="switchView('pipeline')"><span class="dot"></span>파이프라인</div>
-        <div class="nav-item"><span class="dot"></span>상품</div>
+        <div class="nav-item" id="navProduct" onclick="switchView('product')"><span class="dot"></span>품별</div>
       </div>
       <div class="nav-group">
         <div class="nav-label">데이터</div>
-        <div class="nav-item"><span class="dot"></span>거래 내역</div>
+        <div class="nav-item" id="navChannel" onclick="switchView('channel')"><span class="dot"></span>몰별</div>
         <div class="nav-item"><span class="dot"></span>리포트</div>
       </div>
       <div class="sidebar-footer">
@@ -411,6 +418,49 @@
         </div>
       </section>
     </main>
+
+    <main class="main" id="productView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>품별</h1>
+          <div class="subtitle">일자별로 어떤 제품이 많이 팔렸는지 확인</div>
+        </div>
+        <div class="topbar-right">
+          <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+          <select id="productDaySelect" class="month-select"></select>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>일자별 제품 판매 순위</h2>
+          <span class="panel-note" id="productDayTotal"></span>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead><tr><th>순위</th><th>제품명</th><th class="num">수량</th><th class="num">매출</th></tr></thead>
+            <tbody id="productDayTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <main class="main" id="channelView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>몰별</h1>
+          <div class="subtitle">구분(자사몰·폐쇄몰·종합몰 등) · 판매처별 월간 매출 비교</div>
+        </div>
+        <div class="topbar-right">
+          <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head"><h2>구분 · 판매처별 월별 매출</h2></div>
+        <div class="scroll-box" id="channelTables"></div>
+      </section>
+    </main>
   </div>
 
 <script>
@@ -472,6 +522,49 @@
     // 컨텐츠팀 채널
     '공동구매(컨텐츠팀)',
   ];
+
+  // 몰별(구분) 화면에서 판매처를 자사몰/폐쇄몰/종합몰 등으로 묶기 위한 매핑
+  // (직접 알려주신 구분→판매처 표 기준. 매핑에 없는 판매처는 '기타'로 분류됩니다.)
+  const VENDOR_CATEGORY = {
+    // 자사몰
+    '그로우뮤즈': '자사몰', '글로리핏': '자사몰', '라이프스타일마트': '자사몰', '명퉤': '자사몰',
+    '명퉤(해외)': '자사몰', '멜루션': '자사몰', '미니멀룸': '자사몰', '빠이러스': '자사몰',
+    '빠이러스(도착보장)': '자사몰', '스토어팜(명퉤)': '자사몰', '스토어팜(미니멀룸스토어)': '자사몰',
+    '스토어팜(빠이러스_법인)': '자사몰', '스토어팜(빠이러스_개인)': '자사몰', '스토어팜(잠비에)': '자사몰',
+    '스토어팜(코드니처)': '자사몰', '잠비에': '자사몰', '코드니처': '자사몰', 'PORKE.': '자사몰', '폴크': '자사몰',
+    // 카카오
+    '카카오선물하기(개인)': '카카오', '카카오선물하기(개인)_폴크': '카카오', '카카오톡스토어(법인)': '카카오',
+    // 오프라인
+    '명퉤 경주 황리단길 본점': '오프라인',
+    // 컨텐츠팀
+    '공동구매(컨텐츠팀)': '컨텐츠팀',
+    // 폐쇄몰
+    'SK컴즈_세이아(법인)': '폐쇄몰', '그립': '폐쇄몰', '에이블리': '폐쇄몰', 'SKT_T-DEAL(폐쇄몰)': '폐쇄몰',
+    '원룸만들기(개인)': '폐쇄몰', '리빙픽': '폐쇄몰', '지그재그(PORKE)': '폐쇄몰', '지그재그': '폐쇄몰',
+    '하이버(자동_법인)': '폐쇄몰', '제이슨그룹': '폐쇄몰', '브랜디(라이프)': '폐쇄몰', '토스': '폐쇄몰',
+    // 종합몰
+    '오늘의집(미니멀룸)': '종합몰', '오늘의집(PORKE)': '종합몰', '오늘의집(잠비에)': '종합몰',
+    '무신사(PORKE)': '종합몰', 'W컨셉(PORKE)': '종합몰', '29CM(PORKE)': '종합몰', '텐바이텐': '종합몰',
+    '교보핫트랙스': '종합몰', '아트박스(종합몰)': '종합몰', '신세계': '종합몰', '이마트': '종합몰',
+    '롯데홈쇼핑(아이몰)': '종합몰', '롯데하이마트': '종합몰', 'CJ몰(법인)': '종합몰', 'LF몰(법인)': '종합몰',
+    'LGE': '종합몰', '올리브영': '종합몰', 'GS SHOP': '종합몰',
+    // 오픈마켓
+    '쿠팡(법인)': '오픈마켓', '쿠팡(셀디룸)': '오픈마켓', '쿠팡(셀플로우)': '오픈마켓', '롯데ON(법인)': '오픈마켓',
+    'G마켓(법인)': '오픈마켓', '옥션(법인)': '오픈마켓', '알리익스프레스(자동)': '오픈마켓',
+    // 기타 (쿠팡 수기입력 채널)
+    '쿠팡(로켓그로스)': '기타', '쿠팡(로켓배송)': '기타',
+    // 직매입
+    '올리브영(직매입)': '직매입', '그린종합상사': '직매입', '옵티젠_제습서버': '직매입', '제이허브': '직매입',
+    '엠알엔컴퍼니(개인사업자)': '직매입', '까르멘 기프트': '직매입', '브이벨': '직매입', '두진에이앤씨(가글캔디)': '직매입',
+    // 수출
+    '대만 VAULT VISION': '수출',
+    // 공동구매
+    '공동구매': '공동구매', '코드니처_공동구매': '공동구매', '요고몰': '공동구매', '잠비에_공동구매': '공동구매',
+  };
+  const CATEGORY_ORDER = ['자사몰', '카카오', '오프라인', '컨텐츠팀', '폐쇄몰', '종합몰', '오픈마켓', '기타', '직매입', '수출', '공동구매'];
+  function getCategory(vendor) {
+    return VENDOR_CATEGORY[vendor] || '기타';
+  }
 
   function won(n) {
     return Number(n).toLocaleString('ko-KR') + '원';
@@ -858,12 +951,114 @@
 
   // ==================== 파이프라인 (B2B / 수출) ====================
   function switchView(view) {
-    const isDash = view === 'dashboard';
-    document.getElementById('dashboardView').style.display = isDash ? '' : 'none';
-    document.getElementById('pipelineView').style.display = isDash ? 'none' : '';
-    document.getElementById('navDashboard').classList.toggle('active', isDash);
-    document.getElementById('navPipeline').classList.toggle('active', !isDash);
-    if (!isDash) loadPipeline();
+    document.getElementById('dashboardView').style.display = view === 'dashboard' ? '' : 'none';
+    document.getElementById('pipelineView').style.display = view === 'pipeline' ? '' : 'none';
+    document.getElementById('productView').style.display = view === 'product' ? '' : 'none';
+    document.getElementById('channelView').style.display = view === 'channel' ? '' : 'none';
+    document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
+    document.getElementById('navPipeline').classList.toggle('active', view === 'pipeline');
+    document.getElementById('navProduct').classList.toggle('active', view === 'product');
+    document.getElementById('navChannel').classList.toggle('active', view === 'channel');
+    if (view === 'pipeline') loadPipeline();
+    if (view === 'product') renderProductView();
+    if (view === 'channel') renderChannelView();
+  }
+
+  // ==================== 품별 (일자별 제품 판매 순위) ====================
+  function renderProductView() {
+    const daySelect = document.getElementById('productDaySelect');
+    const dates = Array.from(new Set(allRows.map(r => r.sale_date))).sort();
+    if (!dates.length) return; // 데이터 로딩 전
+
+    const prevSelected = daySelect.value;
+    daySelect.innerHTML = dates.map(d => `<option value="${d}">${d}</option>`).join('');
+    const dayToShow = dates.includes(prevSelected) ? prevSelected : dates[dates.length - 1];
+    daySelect.value = dayToShow;
+    daySelect.onchange = () => renderProductDay(daySelect.value);
+
+    renderProductDay(dayToShow);
+  }
+
+  function renderProductDay(dateStr) {
+    const rows = allRows.filter(r => r.sale_date === dateStr);
+    const byProd = {};
+    rows.forEach(r => {
+      if (!byProd[r.product_name]) byProd[r.product_name] = { amount: 0, quantity: 0 };
+      byProd[r.product_name].amount += Number(r.amount);
+      byProd[r.product_name].quantity += Number(r.quantity);
+    });
+    const entries = Object.entries(byProd).sort((a, b) => b[1].amount - a[1].amount);
+    const total = entries.reduce((s, [, v]) => s + v.amount, 0);
+
+    document.getElementById('productDayTotal').textContent = dateStr
+      ? dateStr + ' 총 매출 ' + won(total) + ' · 거래 ' + rows.length.toLocaleString('ko-KR') + '건'
+      : '';
+
+    document.getElementById('productDayTable').innerHTML = entries.map(([product, v], i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${product}</td>
+        <td class="num">${v.quantity.toLocaleString('ko-KR')}</td>
+        <td class="num">${won(v.amount)}</td>
+      </tr>
+    `).join('');
+  }
+
+  // ==================== 몰별 (구분 · 판매처별 월간 매출 비교) ====================
+  function renderChannelView() {
+    if (!allRows.length) return; // 데이터 로딩 전
+
+    const months = Array.from(new Set(allRows.map(r => r.sale_date.slice(0, 7)))).sort();
+
+    const byVendorMonth = {};
+    allRows.forEach(r => {
+      if (!byVendorMonth[r.vendor]) byVendorMonth[r.vendor] = {};
+      const m = r.sale_date.slice(0, 7);
+      byVendorMonth[r.vendor][m] = (byVendorMonth[r.vendor][m] || 0) + Number(r.amount);
+    });
+
+    const byCategory = {};
+    Object.keys(byVendorMonth).forEach(v => {
+      const cat = getCategory(v);
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push(v);
+    });
+
+    const orderedCategories = CATEGORY_ORDER.filter(c => byCategory[c]);
+    Object.keys(byCategory).forEach(c => { if (!orderedCategories.includes(c)) orderedCategories.push(c); });
+
+    let html = '';
+    orderedCategories.forEach(cat => {
+      const vendors = byCategory[cat].slice().sort((a, b) => {
+        const totalA = months.reduce((s, m) => s + (byVendorMonth[a][m] || 0), 0);
+        const totalB = months.reduce((s, m) => s + (byVendorMonth[b][m] || 0), 0);
+        return totalB - totalA;
+      });
+
+      const catTotals = months.map(() => 0);
+      const rowsHtml = vendors.map(v => {
+        let rowTotal = 0;
+        const cells = months.map((m, i) => {
+          const amt = byVendorMonth[v][m] || 0;
+          catTotals[i] += amt;
+          rowTotal += amt;
+          return `<td class="num">${amt ? won(amt) : '-'}</td>`;
+        }).join('');
+        return `<tr><td>${cat}</td><td>${v}</td>${cells}<td class="num">${won(rowTotal)}</td></tr>`;
+      }).join('');
+
+      const catGrandTotal = catTotals.reduce((s, x) => s + x, 0);
+      const totalRow = `<tr class="channel-total-row"><td colspan="2">합계</td>${catTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(catGrandTotal)}</td></tr>`;
+
+      html += `
+        <table class="channel-table">
+          <thead><tr><th>구분</th><th>판매처</th>${months.map(m => `<th class="num">${m}</th>`).join('')}<th class="num">합계</th></tr></thead>
+          <tbody>${rowsHtml}${totalRow}</tbody>
+        </table>
+      `;
+    });
+
+    document.getElementById('channelTables').innerHTML = html;
   }
 
   const STAGES = ['문의', '수출문의', '견적', '협상', '세금계산서 발행'];
