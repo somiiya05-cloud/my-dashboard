@@ -1126,10 +1126,10 @@
       <table class="channel-table channel-summary">
         <thead><tr><th>구분</th><th>판매처</th>${days.map(d => `<th class="num">${dayLabel(d)}</th>`).join('')}<th class="num">합계</th></tr></thead>
         <tbody>
+          <tr class="channel-total-row"><td colspan="2">전체 총합계</td>${allDayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(allGrandTotal)}</td></tr>
           <tr class="channel-total-row"><td colspan="2">영업팀 총합계</td>${teamDayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(teamGrandTotal)}</td></tr>
           <tr><td colspan="2">└ 쿠팡</td>${coupangDayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(coupangGrandTotal)}</td></tr>
           <tr><td colspan="2">└ 외부몰</td>${outsideDayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(outsideGrandTotal)}</td></tr>
-          <tr class="channel-total-row"><td colspan="2">전체 총합계</td>${allDayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(allGrandTotal)}</td></tr>
         </tbody>
       </table>
     `;
