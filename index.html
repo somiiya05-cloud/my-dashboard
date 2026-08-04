@@ -242,11 +242,19 @@
   .stage-badge.negotiation { background: rgba(34,197,94,.15); color: #4ade80; }
   .stage-badge.invoiced { background: rgba(168,85,247,.15); color: #c084fc; }
 
-  /* ---- 몰별(채널) 표 ---- */
-  .channel-table { width: 100%; border-collapse: collapse; font-size: 13px; color: #c7cbe0; margin-bottom: 18px; }
-  .channel-table th, .channel-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.05); }
+  /* ---- 몰별(채널) 표 ----
+     table-layout: fixed로 두고 구분/판매처 칸만 폭을 고정하면, 나머지 일자 칸들은
+     날짜 수가 늘어나든 줄어들든 표 전체 폭(100%) 안에서 남는 공간을 자동으로 균등 분배합니다.
+     → 일자가 오른쪽으로 계속 쌓여도 가로 스크롤 없이 간격이 자동으로 맞춰집니다. */
+  .channel-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; color: #c7cbe0; margin-bottom: 18px; }
+  .channel-table th, .channel-table td {
+    text-align: left; padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,.05);
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  }
   .channel-table th { font-size: 11px; color: #6d7488; font-weight: 600; }
-  .channel-table td.num, .channel-table th.num { text-align: right; }
+  .channel-table td.num, .channel-table th.num { text-align: right; font-size: 12px; }
+  .channel-table th:first-child, .channel-table td:first-child { width: 60px; padding-left: 8px; }
+  .channel-table th:nth-child(2), .channel-table td:nth-child(2) { width: 130px; padding-right: 8px; }
   .channel-total-row td { font-weight: 800; color: #f5f6fa; background: rgba(77,124,254,.08); }
 </style>
 </head>
