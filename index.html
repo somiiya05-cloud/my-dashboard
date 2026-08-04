@@ -468,6 +468,10 @@
       </div>
 
       <section class="panel">
+        <div id="channelSummary"></div>
+      </section>
+
+      <section class="panel">
         <div class="panel-head"><h2>구분 · 판매처별 일자별 매출</h2></div>
         <div id="channelTables"></div>
       </section>
@@ -1115,10 +1119,10 @@
       teamGrandTotal += result.grandTotal;
     }
 
-    // ---- 영업팀 총합계 / 전체 총합계 요약 ----
+    // ---- 영업팀 총합계 / 전체 총합계 요약 (페이지 맨 위 channelSummary에 표시) ----
     const outsideDayTotals = days.map((d, i) => teamDayTotals[i] - coupangDayTotals[i]);
     const outsideGrandTotal = teamGrandTotal - coupangGrandTotal;
-    html += `
+    const summaryHtml = `
       <table class="channel-table channel-summary">
         <thead><tr><th>구분</th><th>판매처</th>${days.map(d => `<th class="num">${dayLabel(d)}</th>`).join('')}<th class="num">합계</th></tr></thead>
         <tbody>
@@ -1130,6 +1134,7 @@
       </table>
     `;
 
+    document.getElementById('channelSummary').innerHTML = summaryHtml;
     document.getElementById('channelTables').innerHTML = html;
   }
 
