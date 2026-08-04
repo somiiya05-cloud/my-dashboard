@@ -256,6 +256,8 @@
   .channel-table th:first-child, .channel-table td:first-child { width: 60px; padding-left: 8px; }
   .channel-table th:nth-child(2), .channel-table td:nth-child(2) { width: 130px; padding-right: 8px; }
   .channel-total-row td { font-weight: 800; color: #f5f6fa; background: rgba(77,124,254,.08); }
+  .channel-summary { margin-top: 4px; border-top: 2px solid rgba(255,255,255,.12); padding-top: 4px; }
+  .channel-summary td { font-size: 13px; }
 </style>
 </head>
 <body>
@@ -517,63 +519,64 @@
     },
   };
 
-  // 영업팀 매출 = 자사몰 / 카카오 / 오프라인 / 컨텐츠팀 채널을 제외한 매출
-  // (종합몰 · 폐쇄몰 · 오픈마켓 · 기타(쿠팡) · 직매입 · 수출 · 공동구매 채널은 영업팀 매출로 집계됨)
-  const EXCLUDED_FROM_TEAM = [
-    // 자사몰 채널
-    '그로우뮤즈', '글로리핏', '라이프스타일마트', '명퉤', '명퉤(해외)', '멜루션', '미니멀룸',
-    '빠이러스', '빠이러스(도착보장)', '스토어팜(명퉤)', '스토어팜(미니멀룸스토어)', '스토어팜(빠이러스_법인)',
-    '스토어팜(빠이러스_개인)', '스토어팜(잠비에)', '스토어팜(코드니처)', '잠비에', '코드니처', 'PORKE.',
-    // 카카오 선물하기(개인) 채널
-    '카카오선물하기(개인)', '카카오선물하기(개인)_폴크', '카카오톡스토어(법인)',
-    // 오프라인
-    '명퉤 경주 황리단길 본점',
-    // 컨텐츠팀 채널
-    '공동구매(컨텐츠팀)', 'CONTENTS_DEAL',
+  // 몰별(구분) 화면 판매처 템플릿 — "2026년 8월 매출 raw.xlsx"의 월별(08) 시트 구조를 그대로 반영합니다.
+  // 각 블록은 표 하나에 해당하며, team:false인 블록(자사몰 본사몰/카카오/오프라인/컨텐츠팀)은
+  // 영업팀 매출 계산에서 제외되고, 나머지(team:true) 블록만 영업팀 매출로 집계됩니다.
+  // subtotalLabel은 표 맨 아래 소계 행의 이름입니다(쿠팡 채널만 "쿠팡 총합계"로 별도 표기).
+  const CHANNEL_TEMPLATE = [
+    { team: false, subtotalLabel: '합계', rows: [
+      ['자사몰','미니멀룸'], ['자사몰','글로리핏'], ['자사몰','라이프스타일마트'], ['자사몰','빠이러스'],
+      ['자사몰','그로우뮤즈'], ['자사몰','PORKE.'], ['자사몰','명퉤'], ['자사몰','명퉤(해외)'],
+      ['자사몰','잠비에'], ['자사몰','멜루션'], ['자사몰','코드니처'],
+    ]},
+    { team: false, subtotalLabel: '합계', rows: [
+      ['카카오','카카오선물하기(개인)'], ['카카오','카카오톡스토어(법인)'], ['카카오','카카오선물하기(개인)_폴크'],
+    ]},
+    { team: false, subtotalLabel: '합계', rows: [
+      ['오프라인','명퉤 경주 황리단길 본점'],
+    ]},
+    { team: false, subtotalLabel: '합계', rows: [
+      ['컨텐츠팀','공동구매(컨텐츠팀)'],
+    ]},
+    { team: true, subtotalLabel: '합계', rows: [
+      ['자사몰','스토어팜(빠이러스_개인)'], ['자사몰','스토어팜(빠이러스_법인)'], ['자사몰','빠이러스(도착보장)'],
+      ['자사몰','스토어팜(미니멀룸스토어)'], ['자사몰','스토어팜(잠비에)'], ['자사몰','스토어팜(코드니처)'], ['자사몰','스토어팜(명퉤)'],
+    ]},
+    { team: true, subtotalLabel: '합계', rows: [
+      ['폐쇄몰','SK컴즈_세이아(법인)'], ['폐쇄몰','그립'], ['폐쇄몰','에이블리'], ['폐쇄몰','SKT_T-DEAL(폐쇄몰)'],
+      ['폐쇄몰','원룸만들기(개인)'], ['폐쇄몰','리빙픽'], ['폐쇄몰','지그재그(PORKE)'], ['폐쇄몰','지그재그'],
+      ['폐쇄몰','하이버(자동_법인)'], ['폐쇄몰','제이슨그룹'], ['폐쇄몰','브랜디(라이프)'], ['폐쇄몰','토스'],
+    ]},
+    { team: true, subtotalLabel: '합계', rows: [
+      ['종합몰','오늘의집(미니멀룸)'], ['종합몰','오늘의집(PORKE)'], ['종합몰','오늘의집(잠비에)'], ['종합몰','무신사(PORKE)'],
+      ['종합몰','W컨셉(PORKE)'], ['종합몰','29CM(PORKE)'], ['종합몰','텐바이텐'], ['종합몰','교보핫트랙스'],
+      ['종합몰','아트박스(종합몰)'], ['종합몰','신세계'], ['종합몰','이마트'], ['종합몰','롯데홈쇼핑(아이몰)'],
+      ['종합몰','롯데하이마트'], ['종합몰','CJ몰(법인)'], ['종합몰','LF몰(법인)'], ['종합몰','LGE'],
+      ['종합몰','올리브영'], ['종합몰','GS SHOP'],
+    ]},
+    { team: true, subtotalLabel: '쿠팡 총합계', rows: [
+      ['오픈마켓','쿠팡(법인)'], ['오픈마켓','쿠팡(셀디룸)'], ['오픈마켓','쿠팡(셀플로우)'],
+      ['오픈마켓','쿠팡(로켓그로스)'], ['오픈마켓','쿠팡(로켓배송)'],
+    ]},
+    { team: true, subtotalLabel: '합계', rows: [
+      ['오픈마켓','롯데ON(법인)'], ['오픈마켓','G마켓(법인)'], ['오픈마켓','옥션(법인)'], ['오픈마켓','알리익스프레스(자동)'],
+    ]},
+    { team: true, subtotalLabel: '합계', rows: [
+      ['직매임','올리브영(직매입)'], ['직매입','그린종합상사'], ['수출','대만 VAULT VISION'],
+      ['공동구매','공동구매'], ['공동구매','코드니처_공동구매'], ['공동구매','요고몰'], ['공동구매','잠비에_공동구매'],
+      ['직매입','옵티젠_제습서버'], ['직매입','제이허브'], ['직매입','엠알엔컴퍼니(개인사업자)'],
+      ['직매입','까르멘 기프트'], ['직매입','브이벨'], ['직매입','두진에이앤씨(가글캔디)'],
+    ]},
   ];
+  const CHANNEL_TEMPLATE_VENDORS = new Set();
+  CHANNEL_TEMPLATE.forEach(block => block.rows.forEach(([, vendor]) => CHANNEL_TEMPLATE_VENDORS.add(vendor)));
 
-  // 몰별(구분) 화면에서 판매처를 자사몰/폐쇄몰/종합몰 등으로 묶기 위한 매핑
-  // (직접 알려주신 구분→판매처 표 기준. 매핑에 없는 판매처는 '기타'로 분류됩니다.)
-  const VENDOR_CATEGORY = {
-    // 자사몰
-    '그로우뮤즈': '자사몰', '글로리핏': '자사몰', '라이프스타일마트': '자사몰', '명퉤': '자사몰',
-    '명퉤(해외)': '자사몰', '멜루션': '자사몰', '미니멀룸': '자사몰', '빠이러스': '자사몰',
-    '빠이러스(도착보장)': '자사몰', '스토어팜(명퉤)': '자사몰', '스토어팜(미니멀룸스토어)': '자사몰',
-    '스토어팜(빠이러스_법인)': '자사몰', '스토어팜(빠이러스_개인)': '자사몰', '스토어팜(잠비에)': '자사몰',
-    '스토어팜(코드니처)': '자사몰', '잠비에': '자사몰', '코드니처': '자사몰', 'PORKE.': '자사몰', '폴크': '자사몰',
-    // 카카오
-    '카카오선물하기(개인)': '카카오', '카카오선물하기(개인)_폴크': '카카오', '카카오톡스토어(법인)': '카카오',
-    // 오프라인
-    '명퉤 경주 황리단길 본점': '오프라인',
-    // 컨텐츠팀
-    '공동구매(컨텐츠팀)': '컨텐츠팀', 'CONTENTS_DEAL': '컨텐츠팀',
-    // 폐쇄몰
-    'SK컴즈_세이아(법인)': '폐쇄몰', '그립': '폐쇄몰', '에이블리': '폐쇄몰', 'SKT_T-DEAL(폐쇄몰)': '폐쇄몰',
-    '원룸만들기(개인)': '폐쇄몰', '리빙픽': '폐쇄몰', '지그재그(PORKE)': '폐쇄몰', '지그재그': '폐쇄몰',
-    '하이버(자동_법인)': '폐쇄몰', '제이슨그룹': '폐쇄몰', '브랜디(라이프)': '폐쇄몰', '토스': '폐쇄몰',
-    // 종합몰
-    '오늘의집(미니멀룸)': '종합몰', '오늘의집(PORKE)': '종합몰', '오늘의집(잠비에)': '종합몰',
-    '무신사(PORKE)': '종합몰', 'W컨셉(PORKE)': '종합몰', '29CM(PORKE)': '종합몰', '텐바이텐': '종합몰',
-    '교보핫트랙스': '종합몰', '아트박스(종합몰)': '종합몰', '신세계': '종합몰', '이마트': '종합몰',
-    '롯데홈쇼핑(아이몰)': '종합몰', '롯데하이마트': '종합몰', 'CJ몰(법인)': '종합몰', 'LF몰(법인)': '종합몰',
-    'LGE': '종합몰', '올리브영': '종합몰', 'GS SHOP': '종합몰',
-    // 오픈마켓
-    '쿠팡(법인)': '오픈마켓', '쿠팡(셀디룸)': '오픈마켓', '쿠팡(셀플로우)': '오픈마켓', '롯데ON(법인)': '오픈마켓',
-    'G마켓(법인)': '오픈마켓', '옥션(법인)': '오픈마켓', '알리익스프레스(자동)': '오픈마켓',
-    // 기타 (쿠팡 수기입력 채널)
-    '쿠팡(로켓그로스)': '기타', '쿠팡(로켓배송)': '기타',
-    // 직매입
-    '올리브영(직매입)': '직매입', '그린종합상사': '직매입', '옵티젠_제습서버': '직매입', '제이허브': '직매입',
-    '엠알엔컴퍼니(개인사업자)': '직매입', '까르멘 기프트': '직매입', '브이벨': '직매입', '두진에이앤씨(가글캔디)': '직매입',
-    // 수출
-    '대만 VAULT VISION': '수출',
-    // 공동구매
-    '공동구매': '공동구매', '코드니처_공동구매': '공동구매', '요고몰': '공동구매', '잠비에_공동구매': '공동구매',
-  };
-  const CATEGORY_ORDER = ['자사몰', '카카오', '오프라인', '컨텐츠팀', '폐쇄몰', '종합몰', '오픈마켓', '기타', '직매입', '수출', '공동구매'];
-  function getCategory(vendor) {
-    return VENDOR_CATEGORY[vendor] || '기타';
-  }
+  // 영업팀 매출 = team:false 블록(자사몰 본사몰 / 카카오 / 오프라인 / 컨텐츠팀)을 제외한 매출
+  const EXCLUDED_FROM_TEAM = [];
+  CHANNEL_TEMPLATE.forEach(block => {
+    if (!block.team) block.rows.forEach(([, vendor]) => EXCLUDED_FROM_TEAM.push(vendor));
+  });
+  EXCLUDED_FROM_TEAM.push('CONTENTS_DEAL'); // 구DB에 남아있을 수 있는 옛 표기(공동구매(컨텐츠팀)와 동일 채널)
 
   function won(n) {
     return Number(n).toLocaleString('ko-KR') + '원';
@@ -1046,48 +1049,86 @@
       byVendorDay[r.vendor][r.sale_date] = (byVendorDay[r.vendor][r.sale_date] || 0) + Number(r.amount);
     });
 
-    const byCategory = {};
-    Object.keys(byVendorDay).forEach(v => {
-      const cat = getCategory(v);
-      if (!byCategory[cat]) byCategory[cat] = [];
-      byCategory[cat].push(v);
-    });
-
-    const orderedCategories = CATEGORY_ORDER.filter(c => byCategory[c]);
-    Object.keys(byCategory).forEach(c => { if (!orderedCategories.includes(c)) orderedCategories.push(c); });
-
     const dayLabel = d => { const [, m, dd] = d.split('-'); return Number(m) + '/' + Number(dd); };
 
-    let html = '';
-    orderedCategories.forEach(cat => {
-      const vendors = byCategory[cat].slice().sort((a, b) => {
-        const totalA = days.reduce((s, d) => s + (byVendorDay[a][d] || 0), 0);
-        const totalB = days.reduce((s, d) => s + (byVendorDay[b][d] || 0), 0);
-        return totalB - totalA;
-      });
-
-      const catTotals = days.map(() => 0);
-      const rowsHtml = vendors.map(v => {
+    function renderBlockTable(blockRows, subtotalLabel) {
+      const blockTotals = days.map(() => 0);
+      const rowsHtml = blockRows.map(([label, vendor]) => {
+        const dayMap = byVendorDay[vendor] || {};
         let rowTotal = 0;
         const cells = days.map((d, i) => {
-          const amt = byVendorDay[v][d] || 0;
-          catTotals[i] += amt;
+          const amt = dayMap[d] || 0;
+          blockTotals[i] += amt;
           rowTotal += amt;
           return `<td class="num">${amt ? won(amt) : '-'}</td>`;
         }).join('');
-        return `<tr><td>${cat}</td><td>${v}</td>${cells}<td class="num">${won(rowTotal)}</td></tr>`;
+        return `<tr><td>${label}</td><td>${vendor}</td>${cells}<td class="num">${won(rowTotal)}</td></tr>`;
       }).join('');
 
-      const catGrandTotal = catTotals.reduce((s, x) => s + x, 0);
-      const totalRow = `<tr class="channel-total-row"><td colspan="2">합계</td>${catTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(catGrandTotal)}</td></tr>`;
+      const blockGrandTotal = blockTotals.reduce((s, x) => s + x, 0);
+      const totalRow = `<tr class="channel-total-row"><td colspan="2">${subtotalLabel}</td>${blockTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(blockGrandTotal)}</td></tr>`;
 
-      html += `
-        <table class="channel-table">
-          <thead><tr><th>구분</th><th>판매처</th>${days.map(d => `<th class="num">${dayLabel(d)}</th>`).join('')}<th class="num">합계</th></tr></thead>
-          <tbody>${rowsHtml}${totalRow}</tbody>
-        </table>
-      `;
+      return {
+        html: `
+          <table class="channel-table">
+            <thead><tr><th>구분</th><th>판매처</th>${days.map(d => `<th class="num">${dayLabel(d)}</th>`).join('')}<th class="num">합계</th></tr></thead>
+            <tbody>${rowsHtml}${totalRow}</tbody>
+          </table>
+        `,
+        dayTotals: blockTotals,
+        grandTotal: blockGrandTotal,
+      };
+    }
+
+    let html = '';
+    const teamDayTotals = days.map(() => 0);
+    const allDayTotals = days.map(() => 0);
+    let teamGrandTotal = 0;
+    let allGrandTotal = 0;
+    let coupangGrandTotal = 0;
+    const coupangDayTotals = days.map(() => 0);
+
+    CHANNEL_TEMPLATE.forEach(block => {
+      const result = renderBlockTable(block.rows, block.subtotalLabel);
+      html += result.html;
+      result.dayTotals.forEach((t, i) => {
+        allDayTotals[i] += t;
+        if (block.team) teamDayTotals[i] += t;
+      });
+      allGrandTotal += result.grandTotal;
+      if (block.team) teamGrandTotal += result.grandTotal;
+      if (block.subtotalLabel === '쿠팡 총합계') {
+        result.dayTotals.forEach((t, i) => { coupangDayTotals[i] += t; });
+        coupangGrandTotal += result.grandTotal;
+      }
     });
+
+    // 템플릿에 없는 새 판매처는 "기타" 표로 따로 모아서 보여줍니다 (영업팀 매출에 포함).
+    const knownVendors = new Set(CHANNEL_TEMPLATE_VENDORS);
+    const extraVendors = Object.keys(byVendorDay).filter(v => !knownVendors.has(v));
+    if (extraVendors.length) {
+      const extraRows = extraVendors.map(v => ['기타', v]);
+      const result = renderBlockTable(extraRows, '합계');
+      html += result.html;
+      result.dayTotals.forEach((t, i) => { allDayTotals[i] += t; teamDayTotals[i] += t; });
+      allGrandTotal += result.grandTotal;
+      teamGrandTotal += result.grandTotal;
+    }
+
+    // ---- 영업팀 총합계 / 전체 총합계 요약 ----
+    const outsideDayTotals = days.map((d, i) => teamDayTotals[i] - coupangDayTotals[i]);
+    const outsideGrandTotal = teamGrandTotal - coupangGrandTotal;
+    html += `
+      <table class="channel-table channel-summary">
+        <thead><tr><th>구분</th><th>판매처</th>${days.map(d => `<th class="num">${dayLabel(d)}</th>`).join('')}<th class="num">합계</th></tr></thead>
+        <tbody>
+          <tr class="channel-total-row"><td colspan="2">영업팀 총합계</td>${teamDayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(teamGrandTotal)}</td></tr>
+          <tr><td colspan="2">└ 쿠팡</td>${coupangDayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(coupangGrandTotal)}</td></tr>
+          <tr><td colspan="2">└ 외부몰</td>${outsideDayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(outsideGrandTotal)}</td></tr>
+          <tr class="channel-total-row"><td colspan="2">전체 총합계</td>${allDayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(allGrandTotal)}</td></tr>
+        </tbody>
+      </table>
+    `;
 
     document.getElementById('channelTables').innerHTML = html;
   }
