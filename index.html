@@ -449,16 +449,17 @@
       <div class="topbar">
         <div>
           <h1>몰별</h1>
-          <div class="subtitle">구분(자사몰·폐쇄몰·종합몰 등) · 판매처별 월간 매출 비교</div>
+          <div class="subtitle">구분(자사몰·폐쇄몰·종합몰 등) · 판매처별 일자별 매출</div>
         </div>
         <div class="topbar-right">
           <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+          <select id="channelMonthSelect" class="month-select"></select>
         </div>
       </div>
 
       <section class="panel">
-        <div class="panel-head"><h2>구분 · 판매처별 월별 매출</h2></div>
-        <div class="scroll-box" id="channelTables"></div>
+        <div class="panel-head"><h2>구분 · 판매처별 일자별 매출</h2></div>
+        <div id="channelTables"></div>
       </section>
     </main>
   </div>
@@ -1004,21 +1005,40 @@
     `).join('');
   }
 
-  // ==================== 몰별 (구분 · 판매처별 월간 매출 비교) ====================
+  // ==================== 몰별 (구분 · 판매처별 일자별 매출) ====================
+  // 월 드롭박스로 6월/7월처럼 지난 달은 평소엔 숨겨두고 필요할 때만 선택해서 보고,
+  // 당월(예: 8월)은 raw 파일을 넣을 때마다 그날 열이 자동으로 늘어납니다.
   function renderChannelView() {
     if (!allRows.length) return; // 데이터 로딩 전
 
+    const monthSelect = document.getElementById('channelMonthSelect');
     const months = Array.from(new Set(allRows.map(r => r.sale_date.slice(0, 7)))).sort();
+    if (!months.length) return;
 
-    const byVendorMonth = {};
-    allRows.forEach(r => {
-      if (!byVendorMonth[r.vendor]) byVendorMonth[r.vendor] = {};
-      const m = r.sale_date.slice(0, 7);
-      byVendorMonth[r.vendor][m] = (byVendorMonth[r.vendor][m] || 0) + Number(r.amount);
+    const prevSelected = monthSelect.value;
+    monthSelect.innerHTML = months.map(m => {
+      const [y, mm] = m.split('-');
+      return `<option value="${m}">${y}년 ${Number(mm)}월</option>`;
+    }).join('');
+    const monthToShow = months.includes(prevSelected) ? prevSelected : months[months.length - 1];
+    monthSelect.value = monthToShow;
+    monthSelect.onchange = () => renderChannelMonth(monthSelect.value);
+
+    renderChannelMonth(monthToShow);
+  }
+
+  function renderChannelMonth(monthStr) {
+    const rows = allRows.filter(r => r.sale_date.slice(0, 7) === monthStr);
+    const days = Array.from(new Set(rows.map(r => r.sale_date))).sort();
+
+    const byVendorDay = {};
+    rows.forEach(r => {
+      if (!byVendorDay[r.vendor]) byVendorDay[r.vendor] = {};
+      byVendorDay[r.vendor][r.sale_date] = (byVendorDay[r.vendor][r.sale_date] || 0) + Number(r.amount);
     });
 
     const byCategory = {};
-    Object.keys(byVendorMonth).forEach(v => {
+    Object.keys(byVendorDay).forEach(v => {
       const cat = getCategory(v);
       if (!byCategory[cat]) byCategory[cat] = [];
       byCategory[cat].push(v);
@@ -1027,19 +1047,21 @@
     const orderedCategories = CATEGORY_ORDER.filter(c => byCategory[c]);
     Object.keys(byCategory).forEach(c => { if (!orderedCategories.includes(c)) orderedCategories.push(c); });
 
+    const dayLabel = d => { const [, m, dd] = d.split('-'); return Number(m) + '/' + Number(dd); };
+
     let html = '';
     orderedCategories.forEach(cat => {
       const vendors = byCategory[cat].slice().sort((a, b) => {
-        const totalA = months.reduce((s, m) => s + (byVendorMonth[a][m] || 0), 0);
-        const totalB = months.reduce((s, m) => s + (byVendorMonth[b][m] || 0), 0);
+        const totalA = days.reduce((s, d) => s + (byVendorDay[a][d] || 0), 0);
+        const totalB = days.reduce((s, d) => s + (byVendorDay[b][d] || 0), 0);
         return totalB - totalA;
       });
 
-      const catTotals = months.map(() => 0);
+      const catTotals = days.map(() => 0);
       const rowsHtml = vendors.map(v => {
         let rowTotal = 0;
-        const cells = months.map((m, i) => {
-          const amt = byVendorMonth[v][m] || 0;
+        const cells = days.map((d, i) => {
+          const amt = byVendorDay[v][d] || 0;
           catTotals[i] += amt;
           rowTotal += amt;
           return `<td class="num">${amt ? won(amt) : '-'}</td>`;
@@ -1052,7 +1074,7 @@
 
       html += `
         <table class="channel-table">
-          <thead><tr><th>구분</th><th>판매처</th>${months.map(m => `<th class="num">${m}</th>`).join('')}<th class="num">합계</th></tr></thead>
+          <thead><tr><th>구분</th><th>판매처</th>${days.map(d => `<th class="num">${dayLabel(d)}</th>`).join('')}<th class="num">합계</th></tr></thead>
           <tbody>${rowsHtml}${totalRow}</tbody>
         </table>
       `;
