@@ -468,6 +468,10 @@
       </div>
 
       <section class="panel">
+        <div class="panel-head">
+          <h2>전체 요약</h2>
+          <span class="panel-note" id="channelDaysToggle" style="cursor:pointer;" onclick="toggleChannelDays()"></span>
+        </div>
         <div id="channelSummary"></div>
       </section>
 
@@ -1024,6 +1028,16 @@
   // ==================== 몰별 (구분 · 판매처별 일자별 매출) ====================
   // 월 드롭박스로 6월/7월처럼 지난 달은 평소엔 숨겨두고 필요할 때만 선택해서 보고,
   // 당월(예: 8월)은 raw 파일을 넣을 때마다 그날 열이 자동으로 늘어납니다.
+  // 접힘 상태(기본값: 접힘)일 때는 최신 날짜(오늘) 열만 보여주고, 지난 날짜들은 숨깁니다.
+  // 매일 전날 매출을 마감하는 워크플로우라 지난 날짜를 계속 펼쳐둘 필요가 없기 때문입니다.
+  let channelDaysCollapsed = true;
+  let currentChannelMonth = '';
+
+  function toggleChannelDays() {
+    channelDaysCollapsed = !channelDaysCollapsed;
+    if (currentChannelMonth) renderChannelMonth(currentChannelMonth);
+  }
+
   function renderChannelView() {
     if (!allRows.length) return; // 데이터 로딩 전
 
@@ -1044,8 +1058,18 @@
   }
 
   function renderChannelMonth(monthStr) {
+    currentChannelMonth = monthStr;
     const rows = allRows.filter(r => r.sale_date.slice(0, 7) === monthStr);
     const days = Array.from(new Set(rows.map(r => r.sale_date))).sort();
+    const displayDays = channelDaysCollapsed ? days.slice(-1) : days;
+    const displayIdx = displayDays.map(d => days.indexOf(d));
+
+    const toggleNote = document.getElementById('channelDaysToggle');
+    if (toggleNote) {
+      toggleNote.textContent = channelDaysCollapsed
+        ? '지난 날짜 접힘 (' + (days.length - displayDays.length) + '일) · 전체 펼쳐보기'
+        : '전체 펼침 · 오늘만 보기';
+    }
 
     const byVendorDay = {};
     rows.forEach(r => {
@@ -1060,22 +1084,26 @@
       const rowsHtml = blockRows.map(([label, vendor]) => {
         const dayMap = byVendorDay[vendor] || {};
         let rowTotal = 0;
-        const cells = days.map((d, i) => {
+        days.forEach((d, i) => {
           const amt = dayMap[d] || 0;
           blockTotals[i] += amt;
           rowTotal += amt;
+        });
+        const cells = displayDays.map(d => {
+          const amt = dayMap[d] || 0;
           return `<td class="num">${amt ? won(amt) : '-'}</td>`;
         }).join('');
         return `<tr><td>${label}</td><td>${vendor}</td>${cells}<td class="num">${won(rowTotal)}</td></tr>`;
       }).join('');
 
       const blockGrandTotal = blockTotals.reduce((s, x) => s + x, 0);
-      const totalRow = `<tr class="channel-total-row"><td colspan="2">${subtotalLabel}</td>${blockTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(blockGrandTotal)}</td></tr>`;
+      const displayTotals = displayIdx.map(i => blockTotals[i]);
+      const totalRow = `<tr class="channel-total-row"><td colspan="2">${subtotalLabel}</td>${displayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(blockGrandTotal)}</td></tr>`;
 
       return {
         html: `
           <table class="channel-table">
-            <thead><tr><th>구분</th><th>판매처</th>${days.map(d => `<th class="num">${dayLabel(d)}</th>`).join('')}<th class="num">합계</th></tr></thead>
+            <thead><tr><th>구분</th><th>판매처</th>${displayDays.map(d => `<th class="num">${dayLabel(d)}</th>`).join('')}<th class="num">합계</th></tr></thead>
             <tbody>${rowsHtml}${totalRow}</tbody>
           </table>
         `,
@@ -1122,14 +1150,18 @@
     // ---- 영업팀 총합계 / 전체 총합계 요약 (페이지 맨 위 channelSummary에 표시) ----
     const outsideDayTotals = days.map((d, i) => teamDayTotals[i] - coupangDayTotals[i]);
     const outsideGrandTotal = teamGrandTotal - coupangGrandTotal;
+    const displayAll = displayIdx.map(i => allDayTotals[i]);
+    const displayTeam = displayIdx.map(i => teamDayTotals[i]);
+    const displayCoupang = displayIdx.map(i => coupangDayTotals[i]);
+    const displayOutside = displayIdx.map(i => outsideDayTotals[i]);
     const summaryHtml = `
       <table class="channel-table channel-summary">
-        <thead><tr><th>구분</th><th>판매처</th>${days.map(d => `<th class="num">${dayLabel(d)}</th>`).join('')}<th class="num">합계</th></tr></thead>
+        <thead><tr><th>구분</th><th>판매처</th>${displayDays.map(d => `<th class="num">${dayLabel(d)}</th>`).join('')}<th class="num">합계</th></tr></thead>
         <tbody>
-          <tr class="channel-total-row"><td colspan="2">전체 총합계</td>${allDayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(allGrandTotal)}</td></tr>
-          <tr class="channel-total-row"><td colspan="2">영업팀 총합계</td>${teamDayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(teamGrandTotal)}</td></tr>
-          <tr><td colspan="2">└ 쿠팡</td>${coupangDayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(coupangGrandTotal)}</td></tr>
-          <tr><td colspan="2">└ 외부몰</td>${outsideDayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(outsideGrandTotal)}</td></tr>
+          <tr class="channel-total-row"><td colspan="2">전체 총합계</td>${displayAll.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(allGrandTotal)}</td></tr>
+          <tr class="channel-total-row"><td colspan="2">영업팀 총합계</td>${displayTeam.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(teamGrandTotal)}</td></tr>
+          <tr><td colspan="2">└ 쿠팡</td>${displayCoupang.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(coupangGrandTotal)}</td></tr>
+          <tr><td colspan="2">└ 외부몰</td>${displayOutside.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(outsideGrandTotal)}</td></tr>
         </tbody>
       </table>
     `;
