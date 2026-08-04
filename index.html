@@ -258,6 +258,9 @@
   .channel-total-row td { font-weight: 800; color: #f5f6fa; background: rgba(77,124,254,.08); }
   .channel-summary { margin-top: 4px; border-top: 2px solid rgba(255,255,255,.12); padding-top: 4px; }
   .channel-summary td { font-size: 13px; }
+  #channelDaysToggle { font-weight: 800; }
+  .channel-total-all td.num { color: #22d3ee; }
+  .channel-total-team td.num { color: #fbbf24; }
 </style>
 </head>
 <body>
@@ -1025,16 +1028,17 @@
     `).join('');
   }
 
-  // ==================== 몰별 (구분 · 판매처별 일자별 매출) ====================
+  // ==================== 몰별 (구분 · 판매처별 매출) ====================
   // 월 드롭박스로 6월/7월처럼 지난 달은 평소엔 숨겨두고 필요할 때만 선택해서 보고,
-  // 당월(예: 8월)은 raw 파일을 넣을 때마다 그날 열이 자동으로 늘어납니다.
-  // 접힘 상태(기본값: 접힘)일 때는 최신 날짜(오늘) 열만 보여주고, 지난 날짜들은 숨깁니다.
-  // 매일 전날 매출을 마감하는 워크플로우라 지난 날짜를 계속 펼쳐둘 필요가 없기 때문입니다.
-  let channelDaysCollapsed = true;
+  // 당월(예: 8월)은 raw 파일을 넣을 때마다 열이 자동으로 갱신됩니다.
+  // 보기 모드: 'today' = 오늘 하루치만 보여줌(기본값), 'weekly' = 1~7일/8~14일 식 주차별로 묶어서 보여줌.
+  // 매일 전날 매출을 마감하는 워크플로우라 지난 날짜를 하나하나 펼쳐둘 필요가 없기 때문입니다.
+  let channelViewMode = 'today';
   let currentChannelMonth = '';
+  const WEEK_LABELS = ['1~7일', '8~14일', '15~21일', '22~28일', '29~31일'];
 
   function toggleChannelDays() {
-    channelDaysCollapsed = !channelDaysCollapsed;
+    channelViewMode = (channelViewMode === 'today') ? 'weekly' : 'today';
     if (currentChannelMonth) renderChannelMonth(currentChannelMonth);
   }
 
@@ -1061,14 +1065,29 @@
     currentChannelMonth = monthStr;
     const rows = allRows.filter(r => r.sale_date.slice(0, 7) === monthStr);
     const days = Array.from(new Set(rows.map(r => r.sale_date))).sort();
-    const displayDays = channelDaysCollapsed ? days.slice(-1) : days;
-    const displayIdx = displayDays.map(d => days.indexOf(d));
+
+    // ---- 보기 모드에 따라 표에 실제로 나열할 열(columns)을 구성 ----
+    let columns;
+    if (channelViewMode === 'weekly') {
+      const buckets = {};
+      days.forEach(d => {
+        const dom = Number(d.split('-')[2]);
+        const idx = Math.min(4, Math.floor((dom - 1) / 7));
+        if (!buckets[idx]) buckets[idx] = [];
+        buckets[idx].push(d);
+      });
+      columns = Object.keys(buckets).map(Number).sort((a, b) => a - b)
+        .map(idx => ({ label: WEEK_LABELS[idx], days: buckets[idx] }));
+    } else {
+      const lastDay = days[days.length - 1];
+      columns = lastDay ? [{ label: (() => { const [, m, dd] = lastDay.split('-'); return Number(m) + '/' + Number(dd); })(), days: [lastDay] }] : [];
+    }
 
     const toggleNote = document.getElementById('channelDaysToggle');
     if (toggleNote) {
-      toggleNote.textContent = channelDaysCollapsed
-        ? '지난 날짜 접힘 (' + (days.length - displayDays.length) + '일) · 전체 펼쳐보기'
-        : '전체 펼침 · 오늘만 보기';
+      toggleNote.textContent = (channelViewMode === 'today')
+        ? '오늘만 보는 중 · 주차별로 보기'
+        : '주차별로 보는 중 · 오늘만 보기';
     }
 
     const byVendorDay = {};
@@ -1077,60 +1096,55 @@
       byVendorDay[r.vendor][r.sale_date] = (byVendorDay[r.vendor][r.sale_date] || 0) + Number(r.amount);
     });
 
-    const dayLabel = d => { const [, m, dd] = d.split('-'); return Number(m) + '/' + Number(dd); };
-
     function renderBlockTable(blockRows, subtotalLabel) {
-      const blockTotals = days.map(() => 0);
+      const colTotals = columns.map(() => 0);
+      let blockGrandTotal = 0;
       const rowsHtml = blockRows.map(([label, vendor]) => {
         const dayMap = byVendorDay[vendor] || {};
         let rowTotal = 0;
-        days.forEach((d, i) => {
-          const amt = dayMap[d] || 0;
-          blockTotals[i] += amt;
-          rowTotal += amt;
-        });
-        const cells = displayDays.map(d => {
-          const amt = dayMap[d] || 0;
+        days.forEach(d => { rowTotal += (dayMap[d] || 0); });
+        blockGrandTotal += rowTotal;
+        const cells = columns.map((col, ci) => {
+          const amt = col.days.reduce((s, d) => s + (dayMap[d] || 0), 0);
+          colTotals[ci] += amt;
           return `<td class="num">${amt ? won(amt) : '-'}</td>`;
         }).join('');
         return `<tr><td>${label}</td><td>${vendor}</td>${cells}<td class="num">${won(rowTotal)}</td></tr>`;
       }).join('');
 
-      const blockGrandTotal = blockTotals.reduce((s, x) => s + x, 0);
-      const displayTotals = displayIdx.map(i => blockTotals[i]);
-      const totalRow = `<tr class="channel-total-row"><td colspan="2">${subtotalLabel}</td>${displayTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(blockGrandTotal)}</td></tr>`;
+      const totalRow = `<tr class="channel-total-row"><td colspan="2">${subtotalLabel}</td>${colTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(blockGrandTotal)}</td></tr>`;
 
       return {
         html: `
           <table class="channel-table">
-            <thead><tr><th>구분</th><th>판매처</th>${displayDays.map(d => `<th class="num">${dayLabel(d)}</th>`).join('')}<th class="num">합계</th></tr></thead>
+            <thead><tr><th>구분</th><th>판매처</th>${columns.map(c => `<th class="num">${c.label}</th>`).join('')}<th class="num">합계</th></tr></thead>
             <tbody>${rowsHtml}${totalRow}</tbody>
           </table>
         `,
-        dayTotals: blockTotals,
+        colTotals: colTotals,
         grandTotal: blockGrandTotal,
       };
     }
 
     let html = '';
-    const teamDayTotals = days.map(() => 0);
-    const allDayTotals = days.map(() => 0);
+    const teamColTotals = columns.map(() => 0);
+    const allColTotals = columns.map(() => 0);
     let teamGrandTotal = 0;
     let allGrandTotal = 0;
     let coupangGrandTotal = 0;
-    const coupangDayTotals = days.map(() => 0);
+    const coupangColTotals = columns.map(() => 0);
 
     CHANNEL_TEMPLATE.forEach(block => {
       const result = renderBlockTable(block.rows, block.subtotalLabel);
       html += result.html;
-      result.dayTotals.forEach((t, i) => {
-        allDayTotals[i] += t;
-        if (block.team) teamDayTotals[i] += t;
+      result.colTotals.forEach((t, i) => {
+        allColTotals[i] += t;
+        if (block.team) teamColTotals[i] += t;
       });
       allGrandTotal += result.grandTotal;
       if (block.team) teamGrandTotal += result.grandTotal;
       if (block.subtotalLabel === '쿠팡 총합계') {
-        result.dayTotals.forEach((t, i) => { coupangDayTotals[i] += t; });
+        result.colTotals.forEach((t, i) => { coupangColTotals[i] += t; });
         coupangGrandTotal += result.grandTotal;
       }
     });
@@ -1142,26 +1156,22 @@
       const extraRows = extraVendors.map(v => ['기타', v]);
       const result = renderBlockTable(extraRows, '합계');
       html += result.html;
-      result.dayTotals.forEach((t, i) => { allDayTotals[i] += t; teamDayTotals[i] += t; });
+      result.colTotals.forEach((t, i) => { allColTotals[i] += t; teamColTotals[i] += t; });
       allGrandTotal += result.grandTotal;
       teamGrandTotal += result.grandTotal;
     }
 
     // ---- 영업팀 총합계 / 전체 총합계 요약 (페이지 맨 위 channelSummary에 표시) ----
-    const outsideDayTotals = days.map((d, i) => teamDayTotals[i] - coupangDayTotals[i]);
+    const outsideColTotals = columns.map((c, i) => teamColTotals[i] - coupangColTotals[i]);
     const outsideGrandTotal = teamGrandTotal - coupangGrandTotal;
-    const displayAll = displayIdx.map(i => allDayTotals[i]);
-    const displayTeam = displayIdx.map(i => teamDayTotals[i]);
-    const displayCoupang = displayIdx.map(i => coupangDayTotals[i]);
-    const displayOutside = displayIdx.map(i => outsideDayTotals[i]);
     const summaryHtml = `
       <table class="channel-table channel-summary">
-        <thead><tr><th>구분</th><th>판매처</th>${displayDays.map(d => `<th class="num">${dayLabel(d)}</th>`).join('')}<th class="num">합계</th></tr></thead>
+        <thead><tr><th>구분</th><th>판매처</th>${columns.map(c => `<th class="num">${c.label}</th>`).join('')}<th class="num">합계</th></tr></thead>
         <tbody>
-          <tr class="channel-total-row"><td colspan="2">전체 총합계</td>${displayAll.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(allGrandTotal)}</td></tr>
-          <tr class="channel-total-row"><td colspan="2">영업팀 총합계</td>${displayTeam.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(teamGrandTotal)}</td></tr>
-          <tr><td colspan="2">└ 쿠팡</td>${displayCoupang.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(coupangGrandTotal)}</td></tr>
-          <tr><td colspan="2">└ 외부몰</td>${displayOutside.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(outsideGrandTotal)}</td></tr>
+          <tr class="channel-total-row channel-total-all"><td colspan="2">전체 총합계</td>${allColTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(allGrandTotal)}</td></tr>
+          <tr class="channel-total-row channel-total-team"><td colspan="2">영업팀 총합계</td>${teamColTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(teamGrandTotal)}</td></tr>
+          <tr><td colspan="2">└ 쿠팡</td>${coupangColTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(coupangGrandTotal)}</td></tr>
+          <tr><td colspan="2">└ 외부몰</td>${outsideColTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(outsideGrandTotal)}</td></tr>
         </tbody>
       </table>
     `;
