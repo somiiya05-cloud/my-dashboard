@@ -41,6 +41,9 @@
   .nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: #3c4257; flex-shrink:0; }
   .nav-item.active { background: rgba(79,124,254,.12); color: #f5f6fa; }
   .nav-item.active .dot { background: #4d7cfe; }
+  .dot-mkt { background: #f97316; }
+  .nav-item.active .dot-mkt { background: #f97316; }
+  #navMarketing.active { background: rgba(249,115,22,.12); }
   .sidebar-footer {
     margin-top: auto; display: flex; align-items: center; gap: 10px;
     padding-top: 16px; border-top: 1px solid rgba(255,255,255,.05);
@@ -261,6 +264,24 @@
   #channelDaysToggle { font-weight: 800; }
   .channel-total-all td.num { color: #22d3ee; }
   .channel-total-team td.num { color: #fbbf24; }
+
+  /* ---- 마케팅 대시보드 (오렌지 테마) ---- */
+  .mkt-value { color: #fb923c; }
+  .mkt-swatch { background: #fb923c; }
+  .mkt-bar { height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .mkt-bar-fill { height: 100%; background: linear-gradient(90deg,#fb923c,#f97316); }
+  .mkt-rank-fill { height: 100%; background: linear-gradient(90deg,#fb923c,#f97316); border-radius: 4px; }
+  .mkt-pacing-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .mkt-pacing-label { width: 76px; font-size: 12px; color: #8992a9; flex-shrink: 0; }
+  .mkt-pacing-track { flex: 1; height: 10px; background: rgba(255,255,255,.06); border-radius: 5px; overflow: hidden; }
+  .mkt-pacing-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg,#fb923c,#f97316); }
+  .mkt-pacing-fill.elapsed { background: linear-gradient(90deg,#6d7488,#8992a9); }
+  .mkt-pacing-pct { width: 52px; text-align: right; font-size: 12px; font-weight: 700; color: #f5f6fa; flex-shrink: 0; }
+  .mkt-pacing-note { font-size: 12px; color: #c7cbe0; margin: 10px 0; }
+  .mkt-pacing-stats { display: flex; gap: 18px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.06); }
+  .mkt-pacing-stat { flex: 1; text-align: center; }
+  .mkt-pacing-stat .stat-label { font-size: 11px; color: #6d7488; margin-bottom: 4px; }
+  .mkt-pacing-stat .stat-value { font-size: 15px; font-weight: 800; }
 </style>
 </head>
 <body>
@@ -283,6 +304,10 @@
         <div class="nav-item" id="navProduct" onclick="switchView('product')"><span class="dot"></span>품별</div>
         <div class="nav-item" id="navChannel" onclick="switchView('channel')"><span class="dot"></span>몰별</div>
         <div class="nav-item"><span class="dot"></span>리포트</div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">마케팅</div>
+        <div class="nav-item" id="navMarketing" onclick="switchView('marketing')"><span class="dot dot-mkt"></span>마케팅대시보드</div>
       </div>
       <div class="sidebar-footer">
         <div class="avatar">H</div>
@@ -481,6 +506,57 @@
       <section class="panel">
         <div class="panel-head"><h2>구분 · 판매처별 일자별 매출</h2></div>
         <div id="channelTables"></div>
+      </section>
+    </main>
+
+    <main class="main" id="marketingView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>마케팅 대시보드</h1>
+          <div class="subtitle" id="mktSubtitle">불러오는 중...</div>
+        </div>
+        <div class="topbar-right">
+          <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+          <select id="mktMonthSelect" class="month-select"></select>
+        </div>
+      </div>
+
+      <section class="kpi-row" id="mktCards"></section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>채널별 성과</h2>
+          <span class="panel-note">광고비 단위: 원 · 기간 내 누적</span>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead>
+              <tr><th>채널</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">CPA</th><th class="num">ROAS</th></tr>
+            </thead>
+            <tbody id="mktChannelTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="grid-2">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>광고비 · ROAS 추이</h2>
+            <span class="panel-note">최근 6개월 · 단위: 원 / %</span>
+          </div>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-swatch mkt-swatch"></span>광고비</span>
+            <span class="legend-item"><span class="legend-swatch target"></span>ROAS</span>
+          </div>
+          <div class="bar-chart" id="mktTrendChart"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>예산 소진 페이싱</h2>
+            <span class="panel-note" id="mktPacingBadge"></span>
+          </div>
+          <div id="mktPacing"></div>
+        </div>
       </section>
     </main>
   </div>
@@ -979,13 +1055,16 @@
     document.getElementById('pipelineView').style.display = view === 'pipeline' ? '' : 'none';
     document.getElementById('productView').style.display = view === 'product' ? '' : 'none';
     document.getElementById('channelView').style.display = view === 'channel' ? '' : 'none';
+    document.getElementById('marketingView').style.display = view === 'marketing' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
     document.getElementById('navPipeline').classList.toggle('active', view === 'pipeline');
     document.getElementById('navProduct').classList.toggle('active', view === 'product');
     document.getElementById('navChannel').classList.toggle('active', view === 'channel');
+    document.getElementById('navMarketing').classList.toggle('active', view === 'marketing');
     if (view === 'pipeline') loadPipeline();
     if (view === 'product') renderProductView();
     if (view === 'channel') renderChannelView();
+    if (view === 'marketing') loadMarketingData();
   }
 
   // ==================== 품별 (일자별 제품 판매 순위) ====================
@@ -1178,6 +1257,208 @@
 
     document.getElementById('channelSummary').innerHTML = summaryHtml;
     document.getElementById('channelTables').innerHTML = html;
+  }
+
+  // ==================== 마케팅 대시보드 ====================
+  const MARKETING_MONTHLY_BUDGET = 15000000; // 이번 달 광고 예산 (원) — 필요하면 실제 예산으로 바꿔주세요
+  const MARKETING_ROAS_TARGET = 400;         // 목표 ROAS (%)
+
+  let allMarketingRows = [];
+
+  async function loadMarketingData() {
+    const { data, error } = await client
+      .from('ad_performance')
+      .select('*')
+      .order('month', { ascending: true });
+
+    if (error) {
+      document.getElementById('mktSubtitle').innerHTML =
+        '<span class="error">데이터를 불러오지 못했습니다: ' + error.message + '</span>';
+      return;
+    }
+    allMarketingRows = data || [];
+    setupMarketingMonthSelector();
+  }
+
+  function setupMarketingMonthSelector() {
+    const monthSelect = document.getElementById('mktMonthSelect');
+    const months = Array.from(new Set(allMarketingRows.map(r => r.month))).sort();
+    const prevSelected = monthSelect.value;
+
+    monthSelect.innerHTML = months.map(m => {
+      const [y, mm] = m.split('-');
+      return `<option value="${m}">${y}년 ${Number(mm)}월</option>`;
+    }).join('');
+
+    const monthToShow = months.includes(prevSelected) ? prevSelected : (months[months.length - 1] || '');
+    monthSelect.value = monthToShow;
+    monthSelect.onchange = () => renderMarketingMonth(monthSelect.value);
+
+    renderMarketingMonth(monthToShow);
+  }
+
+  function renderMarketingMonth(monthStr) {
+    const rows = allMarketingRows.filter(r => r.month === monthStr);
+    renderMarketing(rows, monthStr);
+  }
+
+  function renderMarketing(rows, monthStr) {
+    const totalSpend = rows.reduce((s, r) => s + Number(r.spend), 0);
+    const totalImpressions = rows.reduce((s, r) => s + Number(r.impressions), 0);
+    const totalClicks = rows.reduce((s, r) => s + Number(r.clicks), 0);
+    const totalConversions = rows.reduce((s, r) => s + Number(r.conversions), 0);
+    const totalRevenue = rows.reduce((s, r) => s + Number(r.revenue), 0);
+
+    const roas = totalSpend > 0 ? (totalRevenue / totalSpend * 100) : 0;
+    const cac = totalConversions > 0 ? (totalSpend / totalConversions) : 0;
+    const cvr = totalClicks > 0 ? (totalConversions / totalClicks * 100) : 0;
+    const budgetPct = Math.min(999, totalSpend / MARKETING_MONTHLY_BUDGET * 100);
+    const roasPct = Math.min(999, roas / MARKETING_ROAS_TARGET * 100);
+    const monthNum = monthStr ? Number(monthStr.split('-')[1]) : null;
+
+    document.getElementById('mktSubtitle').textContent =
+      (monthStr ? monthStr + ' · ' : '') + '전 채널 통합 · 채널 ' + rows.length.toLocaleString('ko-KR') + '개';
+
+    // ---- KPI 카드 ----
+    document.getElementById('mktCards').innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label">${monthNum ? monthNum + '월 ' : ''}광고비 (MTD)</div>
+        <div class="kpi-value mkt-value">${won(Math.round(totalSpend))}</div>
+        <div class="kpi-sub">예산 ${won(MARKETING_MONTHLY_BUDGET)} 대비 <span class="pct-red">${budgetPct.toFixed(1)}%</span></div>
+        <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, budgetPct).toFixed(1)}%"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">통합 ROAS</div>
+        <div class="kpi-value mkt-value">${roas.toFixed(0)}%</div>
+        <div class="kpi-sub">목표 ${MARKETING_ROAS_TARGET}% 대비 <span class="pct-red">${roasPct.toFixed(1)}%</span>${roas >= MARKETING_ROAS_TARGET ? ' · 달성' : ''}</div>
+        <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, roasPct).toFixed(1)}%"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">CAC (고객획득비용)</div>
+        <div class="kpi-value mkt-value">${won(Math.round(cac))}</div>
+        <div class="kpi-sub">전환 ${totalConversions.toLocaleString('ko-KR')}건 기준</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">전환수 (CVR ${cvr.toFixed(2)}%)</div>
+        <div class="kpi-value mkt-value">${totalConversions.toLocaleString('ko-KR')}건</div>
+        <div class="kpi-sub">클릭 ${totalClicks.toLocaleString('ko-KR')}회 중 전환</div>
+      </div>
+    `;
+
+    // ---- 채널별 성과 표 ----
+    const channelEntries = rows.slice().sort((a, b) => Number(b.spend) - Number(a.spend));
+    const maxSpend = channelEntries.length ? Math.max(...channelEntries.map(r => Number(r.spend)), 1) : 1;
+    const channelRowsHtml = channelEntries.map(r => {
+      const spend = Number(r.spend), impressions = Number(r.impressions), clicks = Number(r.clicks),
+        conversions = Number(r.conversions), revenue = Number(r.revenue);
+      const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
+      const cpc = clicks > 0 ? (spend / clicks) : 0;
+      const cpa = conversions > 0 ? (spend / conversions) : 0;
+      const channelRoas = spend > 0 ? (revenue / spend * 100) : 0;
+      const barWidth = maxSpend > 0 ? (spend / maxSpend * 100) : 0;
+      return `
+        <tr>
+          <td>${r.channel}</td>
+          <td class="num">${won(spend)}</td>
+          <td class="num">${impressions.toLocaleString('ko-KR')}</td>
+          <td class="num">${clicks.toLocaleString('ko-KR')}</td>
+          <td class="num">${ctr.toFixed(2)}%</td>
+          <td class="num">${won(Math.round(cpc))}</td>
+          <td class="num">${conversions.toLocaleString('ko-KR')}</td>
+          <td class="num">${won(Math.round(cpa))}</td>
+          <td class="num">
+            <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end;">
+              <div style="width:60px; height:6px; background:rgba(255,255,255,.06); border-radius:3px; overflow:hidden;"><div class="mkt-rank-fill" style="width:${barWidth.toFixed(1)}%"></div></div>
+              <span>${channelRoas.toFixed(0)}%</span>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    const totalRow = `
+      <tr class="channel-total-row">
+        <td>합계 · 평균</td>
+        <td class="num">${won(totalSpend)}</td>
+        <td class="num">${totalImpressions.toLocaleString('ko-KR')}</td>
+        <td class="num">${totalClicks.toLocaleString('ko-KR')}</td>
+        <td class="num">${(totalImpressions > 0 ? (totalClicks / totalImpressions * 100) : 0).toFixed(2)}%</td>
+        <td class="num">${won(Math.round(totalClicks > 0 ? totalSpend / totalClicks : 0))}</td>
+        <td class="num">${totalConversions.toLocaleString('ko-KR')}</td>
+        <td class="num">${won(Math.round(cac))}</td>
+        <td class="num">${roas.toFixed(0)}%</td>
+      </tr>
+    `;
+
+    document.getElementById('mktChannelTable').innerHTML = channelRowsHtml + totalRow;
+
+    // ---- 광고비 · ROAS 추이 (최근 6개월) ----
+    const byMonth = {};
+    allMarketingRows.forEach(r => {
+      if (!byMonth[r.month]) byMonth[r.month] = { spend: 0, revenue: 0 };
+      byMonth[r.month].spend += Number(r.spend);
+      byMonth[r.month].revenue += Number(r.revenue);
+    });
+    const monthsSorted = Object.keys(byMonth).sort();
+    const last6 = monthsSorted.slice(-6);
+    const maxSpendTrend = Math.max(...last6.map(m => byMonth[m].spend), 1);
+
+    document.getElementById('mktTrendChart').innerHTML = last6.map((m, i) => {
+      const spend = byMonth[m].spend;
+      const roasM = spend > 0 ? (byMonth[m].revenue / spend * 100) : 0;
+      const mm = Number(m.split('-')[1]);
+      const isLast = i === last6.length - 1;
+      return `
+        <div class="bar-col">
+          <div class="bar-value-label">${won(Math.round(spend))}</div>
+          <div class="bar-value-label" style="color:#fb923c;">ROAS ${roasM.toFixed(0)}%</div>
+          <div class="bar ${isLast ? 'last' : ''}" style="height:${(spend / maxSpendTrend * 100).toFixed(1)}%; background: linear-gradient(180deg,#fb923c,#f97316);"></div>
+          <div class="bar-label">${mm}월</div>
+        </div>
+      `;
+    }).join('');
+
+    // ---- 예산 소진 페이싱 ----
+    const [py, pm] = monthStr ? monthStr.split('-').map(Number) : [null, null];
+    const daysInMonth = (py && pm) ? new Date(py, pm, 0).getDate() : 30;
+    const today = new Date();
+    const todayYM = today.getFullYear() * 12 + (today.getMonth() + 1);
+    const selectedYM = (py && pm) ? (py * 12 + pm) : null;
+    let daysElapsed;
+    if (selectedYM === todayYM) daysElapsed = today.getDate();
+    else if (selectedYM !== null && selectedYM < todayYM) daysElapsed = daysInMonth;
+    else daysElapsed = 0;
+
+    const elapsedPct = daysInMonth > 0 ? (daysElapsed / daysInMonth * 100) : 0;
+    const dailyAvg = daysElapsed > 0 ? (totalSpend / daysElapsed) : 0;
+    const projectedDay = dailyAvg > 0 ? Math.ceil(MARKETING_MONTHLY_BUDGET / dailyAvg) : null;
+    const paceDiff = budgetPct - elapsedPct;
+    const remain = Math.max(0, MARKETING_MONTHLY_BUDGET - totalSpend);
+
+    document.getElementById('mktPacingBadge').textContent = daysElapsed + '일차 / ' + daysInMonth + '일';
+    document.getElementById('mktPacing').innerHTML = `
+      <div class="mkt-pacing-row">
+        <div class="mkt-pacing-label">예산 소진</div>
+        <div class="mkt-pacing-track"><div class="mkt-pacing-fill" style="width:${Math.min(100, budgetPct).toFixed(1)}%"></div></div>
+        <div class="mkt-pacing-pct">${budgetPct.toFixed(1)}%</div>
+      </div>
+      <div class="mkt-pacing-row">
+        <div class="mkt-pacing-label">기간 경과</div>
+        <div class="mkt-pacing-track"><div class="mkt-pacing-fill elapsed" style="width:${Math.min(100, elapsedPct).toFixed(1)}%"></div></div>
+        <div class="mkt-pacing-pct">${elapsedPct.toFixed(1)}%</div>
+      </div>
+      <div class="mkt-pacing-note">
+        ${Math.abs(paceDiff) < 0.05
+          ? '경과 속도와 비슷하게 소진 중'
+          : ('경과보다 <b style="color:#fb923c">' + Math.abs(paceDiff).toFixed(1) + '%p</b> ' + (paceDiff > 0 ? '빠르게' : '느리게') + ' 소진 중')}
+        ${(projectedDay && projectedDay < daysInMonth) ? ('<br>이 속도면 <b style="color:#fb923c">' + projectedDay + '일차</b>에 예산 소진') : ''}
+      </div>
+      <div class="mkt-pacing-stats">
+        <div class="mkt-pacing-stat"><div class="stat-label">집행</div><div class="stat-value">${won(Math.round(totalSpend))}</div></div>
+        <div class="mkt-pacing-stat"><div class="stat-label">잔여</div><div class="stat-value">${won(Math.round(remain))}</div></div>
+        <div class="mkt-pacing-stat"><div class="stat-label">일 평균</div><div class="stat-value">${won(Math.round(dailyAvg))}</div></div>
+      </div>
+    `;
   }
 
   const STAGES = ['문의', '수출문의', '견적', '협상', '세금계산서 발행'];
