@@ -49,6 +49,8 @@
   .nav-subitem.active { background: rgba(249,115,22,.12); color: #fb923c; font-weight: 700; }
   .nav-subitem .sub-dot { width: 5px; height: 5px; border-radius: 50%; background: #4b5164; flex-shrink: 0; }
   .nav-subitem.active .sub-dot { background: #fb923c; }
+  #navMonthlyTrend.active { background: rgba(79,124,254,.12); color: #4d7cfe; }
+  #navMonthlyTrend.active .sub-dot { background: #4d7cfe; }
   .mkt-empty { padding: 60px 20px; text-align: center; color: #6d7488; font-size: 13px; }
   .mkt-empty b { color: #c7cbe0; }
   .sidebar-footer {
@@ -306,6 +308,7 @@
       <div class="nav-group">
         <div class="nav-label">활동</div>
         <div class="nav-item active" id="navDashboard" onclick="switchView('dashboard')"><span class="dot"></span>대시보드</div>
+        <div class="nav-subitem" id="navMonthlyTrend" onclick="switchView('monthly-trend')"><span class="sub-dot"></span>월별 매출 증감추이</div>
         <div class="nav-item" id="navPipeline" onclick="switchView('pipeline')"><span class="dot"></span>파이프라인</div>
       </div>
       <div class="nav-group">
@@ -418,6 +421,18 @@
         </div>
         <div class="calendar" id="salesCalendar"></div>
       </section>
+    </main>
+
+    <main class="main" id="monthlyTrendView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>월별 매출 증감추이</h1>
+          <div class="subtitle">월별 전체 매출 및 전월 대비 증감률</div>
+        </div>
+        <div class="topbar-right">
+          <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+        </div>
+      </div>
 
       <section class="panel">
         <div class="panel-head">
@@ -425,6 +440,16 @@
           <span class="panel-note">전월 대비 증감률</span>
         </div>
         <div class="bar-chart" id="monthlyTrendChart"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>월별 상세</h2></div>
+        <div class="scroll-box">
+          <table>
+            <thead><tr><th>월</th><th class="num">매출</th><th class="num">전월 대비</th></tr></thead>
+            <tbody id="monthlyTrendTable"></tbody>
+          </table>
+        </div>
       </section>
     </main>
 
@@ -1121,8 +1146,12 @@
 
       document.getElementById('salesCalendar').innerHTML = dowRow + cells;
     }
+  }
 
-    // ---- 월별 매출 증감 추이 (전체 기간, allRows 기준) ----
+  loadData();
+
+  // ==================== 월별 매출 증감추이 ====================
+  function renderMonthlyTrendView() {
     const monthlyTotals = {};
     allRows.forEach(r => {
       const mKey = r.sale_date.slice(0, 7);
@@ -1134,6 +1163,7 @@
       return override !== undefined ? override : monthlyTotals[mKey];
     });
     const maxMonthly = Math.max(...monthlyAmounts, 1);
+
     document.getElementById('monthlyTrendChart').innerHTML = monthKeys.map((mKey, i) => {
       const amt = monthlyAmounts[i];
       const mNum = Number(mKey.split('-')[1]);
@@ -1152,26 +1182,45 @@
         </div>
       `;
     }).join('');
-  }
 
-  loadData();
+    document.getElementById('monthlyTrendTable').innerHTML = monthKeys.map((mKey, i) => {
+      const amt = monthlyAmounts[i];
+      let changeCell = '-';
+      if (i > 0 && monthlyAmounts[i - 1] > 0) {
+        const change = ((amt - monthlyAmounts[i - 1]) / monthlyAmounts[i - 1]) * 100;
+        const cls = change >= 0 ? 'trend-up' : 'trend-down';
+        const arrow = change >= 0 ? '▲' : '▼';
+        changeCell = `<span class="${cls}">${arrow}${Math.abs(change).toFixed(1)}%</span>`;
+      }
+      return `
+        <tr>
+          <td>${mKey}</td>
+          <td class="num">${won(amt)}</td>
+          <td class="num">${changeCell}</td>
+        </tr>
+      `;
+    }).join('');
+  }
 
   // ==================== 파이프라인 (B2B / 수출) ====================
   function switchView(view, brandChannel) {
     document.getElementById('dashboardView').style.display = view === 'dashboard' ? '' : 'none';
+    document.getElementById('monthlyTrendView').style.display = view === 'monthly-trend' ? '' : 'none';
     document.getElementById('pipelineView').style.display = view === 'pipeline' ? '' : 'none';
     document.getElementById('productView').style.display = view === 'product' ? '' : 'none';
     document.getElementById('channelView').style.display = view === 'channel' ? '' : 'none';
     document.getElementById('marketingView').style.display = view === 'marketing' ? '' : 'none';
     document.getElementById('marketingBrandView').style.display = view === 'marketing-brand' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
+    document.getElementById('navMonthlyTrend').classList.toggle('active', view === 'monthly-trend');
     document.getElementById('navPipeline').classList.toggle('active', view === 'pipeline');
     document.getElementById('navProduct').classList.toggle('active', view === 'product');
     document.getElementById('navChannel').classList.toggle('active', view === 'channel');
     document.getElementById('navMarketing').classList.toggle('active', view === 'marketing');
-    document.querySelectorAll('.nav-subitem').forEach((el) => {
+    document.querySelectorAll('#navMarketingBrands .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'marketing-brand' && el.dataset.channel === brandChannel);
     });
+    if (view === 'monthly-trend') renderMonthlyTrendView();
     if (view === 'pipeline') loadPipeline();
     if (view === 'product') renderProductView();
     if (view === 'channel') renderChannelView();
