@@ -135,6 +135,8 @@
   }
   .bar.last { box-shadow: 0 0 0 2px rgba(79,124,254,.35); }
   .bar-label { font-size: 12px; color: #8992a9; margin-top: 8px; }
+  .trend-up { color: #4dd48a; font-weight: 700; font-size: 11px; margin-left: 4px; }
+  .trend-down { color: #ff4d4d; font-weight: 700; font-size: 11px; margin-left: 4px; }
   .target-line {
     position: absolute; left: 4px; right: 4px; height: 0;
     border-top: 2px dashed #9aa2b8;
@@ -416,6 +418,14 @@
         </div>
         <div class="calendar" id="salesCalendar"></div>
       </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>월별 매출 증감 추이</h2>
+          <span class="panel-note">전월 대비 증감률</span>
+        </div>
+        <div class="bar-chart" id="monthlyTrendChart"></div>
+      </section>
     </main>
 
     <main class="main" id="pipelineView" style="display:none">
@@ -645,7 +655,7 @@
   const TEAM_ACTUALS_BY_MONTH = {
     '2026-06': { monthly: 538730164, daily: 17957672 },
     '2026-07': { monthly: 749145885, daily: 24165996 },
-    // daily 미지정 시 실제 거래일수로 나눠 자동 계산
+    '2026-08': { monthly: 54460810 }, // daily 미지정 시 실제 거래일수로 나눠 자동 계산
   };
 
   // 전사(회사 전체) 매출 실적 고정값 (엑셀 브별/월별 총합계 탭 기준, 몰별 거래 데이터 합계와는
@@ -1111,6 +1121,37 @@
 
       document.getElementById('salesCalendar').innerHTML = dowRow + cells;
     }
+
+    // ---- 월별 매출 증감 추이 (전체 기간, allRows 기준) ----
+    const monthlyTotals = {};
+    allRows.forEach(r => {
+      const mKey = r.sale_date.slice(0, 7);
+      monthlyTotals[mKey] = (monthlyTotals[mKey] || 0) + Number(r.amount);
+    });
+    const monthKeys = Object.keys(monthlyTotals).sort();
+    const monthlyAmounts = monthKeys.map(mKey => {
+      const override = COMPANY_ACTUALS_BY_MONTH[mKey];
+      return override !== undefined ? override : monthlyTotals[mKey];
+    });
+    const maxMonthly = Math.max(...monthlyAmounts, 1);
+    document.getElementById('monthlyTrendChart').innerHTML = monthKeys.map((mKey, i) => {
+      const amt = monthlyAmounts[i];
+      const mNum = Number(mKey.split('-')[1]);
+      let changeHtml = '';
+      if (i > 0 && monthlyAmounts[i - 1] > 0) {
+        const change = ((amt - monthlyAmounts[i - 1]) / monthlyAmounts[i - 1]) * 100;
+        const cls = change >= 0 ? 'trend-up' : 'trend-down';
+        const arrow = change >= 0 ? '▲' : '▼';
+        changeHtml = `<span class="${cls}">${arrow}${Math.abs(change).toFixed(1)}%</span>`;
+      }
+      return `
+        <div class="bar-col">
+          <div class="bar-value-label">${won(amt)}${changeHtml}</div>
+          <div class="bar ${i === monthKeys.length - 1 ? 'last' : ''}" style="height:${(amt / maxMonthly * 100).toFixed(1)}%"></div>
+          <div class="bar-label">${mNum}월</div>
+        </div>
+      `;
+    }).join('');
   }
 
   loadData();
