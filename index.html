@@ -1171,7 +1171,8 @@
     let vdMap = {};
     let vdVendorEntries = [];
     let vdProductEntries = [];
-    let productValue = ALL_VALUE; // 선택된 제품명(검색형 드롭다운의 실제 선택값)
+    let productValue = ALL_VALUE; // 드롭다운에서 정확히 선택한 제품명 (하나로 고정)
+    let productSearchText = ''; // 엔터로 적용한 검색어 (제품명에 이 글자가 포함된 항목 전체를 보여줌)
 
     function rebuildVendorDetailMaps() {
       const from = vdFromInput.value;
@@ -1225,8 +1226,13 @@
       const opts = productOptionsFor(vendorSelect.value);
       const stillValid = opts.some(([p]) => p === prevProduct);
       productValue = stillValid ? prevProduct : ALL_VALUE;
-      const found = productValue ? opts.find(([p]) => p === productValue) : null;
-      productInput.value = found ? productLabel(found[0], found[1].amount) : '';
+      if (!keepSelection) productSearchText = '';
+      if (productValue) {
+        const found = opts.find(([p]) => p === productValue);
+        productInput.value = found ? productLabel(found[0], found[1].amount) : '';
+      } else {
+        productInput.value = productSearchText || '';
+      }
     }
 
     // 제품 검색형 드롭다운: 입력한 글자로 제품명을 즉시 필터링합니다 (제품 수가 많아 일반 드롭박스로는 찾기 어려움)
@@ -1235,7 +1241,7 @@
       const q = (filterText || '').trim().toLowerCase();
       const filtered = q ? opts.filter(([p]) => p.toLowerCase().includes(q)) : opts;
       const shown = filtered.slice(0, 200);
-      let html = `<div class="searchable-select-option${!productValue ? ' active' : ''}" data-value="">전체 제품</div>`;
+      let html = `<div class="searchable-select-option${(!productValue && !productSearchText) ? ' active' : ''}" data-value="">전체 제품</div>`;
       if (!shown.length) {
         html += `<div class="searchable-select-empty">검색 결과가 없습니다</div>`;
       } else {
@@ -1258,12 +1264,24 @@
       const opts = productOptionsFor(vendorSelect.value);
       const found = product ? opts.find(([p]) => p === product) : null;
       productValue = product || ALL_VALUE;
+      productSearchText = '';
       productInput.value = found ? productLabel(found[0], found[1].amount) : '';
       closeProductDropdown();
       renderVendorDetail();
     }
 
-    productInput.addEventListener('focus', () => renderProductDropdown(''));
+    // 엔터를 누르면 정확히 하나를 고르지 않아도, 입력한 글자가 제품명에 포함된 항목을 전체 보여줍니다.
+    // (예: "하수구" → 표기가 조금씩 다른 "하수구 악취 세정서버" / "세정 서버" 등을 한번에 모아서 보여줌)
+    function searchProducts(text) {
+      const q = (text || '').trim();
+      productValue = ALL_VALUE;
+      productSearchText = q;
+      productInput.value = q;
+      closeProductDropdown();
+      renderVendorDetail();
+    }
+
+    productInput.addEventListener('focus', () => renderProductDropdown(productSearchText || ''));
     productInput.addEventListener('input', () => renderProductDropdown(productInput.value));
     productDropdown.addEventListener('mousedown', (e) => {
       const opt = e.target.closest('.searchable-select-option');
@@ -1273,6 +1291,7 @@
     });
     productInput.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { closeProductDropdown(); productInput.blur(); }
+      if (e.key === 'Enter') { e.preventDefault(); searchProducts(productInput.value); }
     });
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#productSelectWrap')) {
@@ -1284,12 +1303,17 @@
     function renderVendorDetail() {
       const vendor = vendorSelect.value;
       const product = productValue;
+      const searchQ = productSearchText.trim().toLowerCase();
       const vendorsToScan = vendor ? [vendor] : Object.keys(vdMap);
       let flatRows = [];
       vendorsToScan.forEach(v => {
         const prodMap = vdMap[v] || {};
         Object.entries(prodMap).forEach(([p, val]) => {
-          if (product && p !== product) return;
+          if (product) {
+            if (p !== product) return;
+          } else if (searchQ && !p.toLowerCase().includes(searchQ)) {
+            return;
+          }
           flatRows.push({ vendor: v, product: p, quantity: val.quantity, amount: val.amount });
         });
       });
@@ -1298,7 +1322,8 @@
       const rangeNote = (vdFromInput.value || vdToInput.value)
         ? ` · ${vdFromInput.value || '처음'} ~ ${vdToInput.value || '오늘'}`
         : '';
-      filterCount.textContent = flatRows.length.toLocaleString('ko-KR') + '건' + rangeNote;
+      const searchNote = (!product && searchQ) ? ` · "${productSearchText.trim()}" 검색결과` : '';
+      filterCount.textContent = flatRows.length.toLocaleString('ko-KR') + '건' + searchNote + rangeNote;
       document.getElementById('vendorDetailTable').innerHTML = flatRows.map(r => `
         <tr>
           <td>${r.vendor}</td>
