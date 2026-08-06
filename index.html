@@ -1873,11 +1873,28 @@
     const totalRevenue = rows.reduce((s, r) => s + Number(r.revenue), 0);
 
     const roas = totalSpend > 0 ? (totalRevenue / totalSpend * 100) : 0;
-    const cac = totalConversions > 0 ? (totalSpend / totalConversions) : 0;
     const cvr = totalClicks > 0 ? (totalConversions / totalClicks * 100) : 0;
     const budgetPct = Math.min(999, totalSpend / MARKETING_MONTHLY_BUDGET * 100);
     const roasPct = Math.min(999, roas / MARKETING_ROAS_TARGET * 100);
     const monthNum = monthStr ? Number(monthStr.split('-')[1]) : null;
+
+    // 광고비중 = 매출 ÷ 광고비 (ROAS와 동일한 계산이며, CAC 대신 이 지표를 보여줍니다)
+    const adSpendRatio = roas;
+    const adSpendRatioPct = roasPct;
+
+    // 전월 대비 매출 증감 (2번째 카드의 매출 표시용)
+    const brandMonthsSorted = Array.from(new Set(brandRows.map((r) => r.month))).sort();
+    const curMonthIdx = brandMonthsSorted.indexOf(monthStr);
+    const prevBrandMonth = curMonthIdx > 0 ? brandMonthsSorted[curMonthIdx - 1] : null;
+    const prevBrandRevenue = prevBrandMonth
+      ? brandRows.filter((r) => r.month === prevBrandMonth).reduce((s, r) => s + Number(r.revenue), 0)
+      : null;
+    const revenueChangePct = (prevBrandRevenue !== null && prevBrandRevenue > 0)
+      ? ((totalRevenue - prevBrandRevenue) / prevBrandRevenue * 100)
+      : null;
+    const revenueCardSub = revenueChangePct !== null
+      ? `전월 대비 <span class="${revenueChangePct >= 0 ? 'trend-up' : 'trend-down'}">${revenueChangePct >= 0 ? '+' : ''}${revenueChangePct.toFixed(1)}%</span>`
+      : `광고비 ${won(Math.round(totalSpend))} 사용`;
 
     document.getElementById('mktBrandSubtitle').textContent =
       (monthStr ? monthStr + ' · ' : '') + '연동됨 · 거래 ' + rows.length.toLocaleString('ko-KR') + '건';
@@ -1890,15 +1907,15 @@
         <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, budgetPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">ROAS</div>
-        <div class="kpi-value mkt-value">${roas.toFixed(0)}%</div>
-        <div class="kpi-sub">목표 ${MARKETING_ROAS_TARGET}% 대비 <span class="pct-red">${roasPct.toFixed(1)}%</span>${roas >= MARKETING_ROAS_TARGET ? ' · 달성' : ''}</div>
-        <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, roasPct).toFixed(1)}%"></div></div>
+        <div class="kpi-label">${monthNum ? monthNum + '월 ' : ''}전체 매출</div>
+        <div class="kpi-value mkt-value">${won(Math.round(totalRevenue))}</div>
+        <div class="kpi-sub">${revenueCardSub}</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">CAC (고객획득비용)</div>
-        <div class="kpi-value mkt-value">${won(Math.round(cac))}</div>
-        <div class="kpi-sub">전환 ${totalConversions.toLocaleString('ko-KR')}건 기준</div>
+        <div class="kpi-label">광고비중</div>
+        <div class="kpi-value mkt-value">${adSpendRatio.toFixed(0)}%</div>
+        <div class="kpi-sub">목표 ${MARKETING_ROAS_TARGET}% 대비 <span class="pct-red">${adSpendRatioPct.toFixed(1)}%</span>${adSpendRatio >= MARKETING_ROAS_TARGET ? ' · 달성' : ''}</div>
+        <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, adSpendRatioPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">전환수 (CVR ${cvr.toFixed(2)}%)</div>
