@@ -859,6 +859,14 @@
     render(rows, monthStr);
   }
 
+  // 상품별 상세 데이터가 없는 옛 달(자사몰/카카오/쿠팡 등)은 판매처+일자 합계만 있는 행을
+  // "판매처명 (일별 합계·미분류)"라는 이름으로 채워넣습니다. 판매처/몰별/브랜드 집계에는 정상적으로
+  // 포함되어야 하지만, 품별·제품별 랭킹에 가짜 "제품"으로 뜨면 안 되므로 그쪽 집계에서만 제외합니다.
+  const AGGREGATE_PLACEHOLDER_SUFFIX = ' (일별 합계·미분류)';
+  function isAggregatePlaceholderProduct(productName) {
+    return typeof productName === 'string' && productName.endsWith(AGGREGATE_PLACEHOLDER_SUFFIX);
+  }
+
   function render(rows, monthStr) {
     const totalAmount = rows.reduce((s, r) => s + Number(r.amount), 0);
     const totalQty = rows.reduce((s, r) => s + Number(r.quantity), 0);
@@ -872,9 +880,11 @@
       byVendor[r.vendor].amount += Number(r.amount);
       byVendor[r.vendor].quantity += Number(r.quantity);
 
-      if (!byProduct[r.product_name]) byProduct[r.product_name] = { amount: 0, quantity: 0 };
-      byProduct[r.product_name].amount += Number(r.amount);
-      byProduct[r.product_name].quantity += Number(r.quantity);
+      if (!isAggregatePlaceholderProduct(r.product_name)) {
+        if (!byProduct[r.product_name]) byProduct[r.product_name] = { amount: 0, quantity: 0 };
+        byProduct[r.product_name].amount += Number(r.amount);
+        byProduct[r.product_name].quantity += Number(r.quantity);
+      }
 
       if (!byVendorProduct[r.vendor]) byVendorProduct[r.vendor] = {};
       if (!byVendorProduct[r.vendor][r.product_name]) byVendorProduct[r.vendor][r.product_name] = { amount: 0, quantity: 0 };
@@ -1320,6 +1330,7 @@
     const rows = allRows.filter(r => r.sale_date === dateStr);
     const byProd = {};
     rows.forEach(r => {
+      if (isAggregatePlaceholderProduct(r.product_name)) return;
       if (!byProd[r.product_name]) byProd[r.product_name] = { amount: 0, quantity: 0 };
       byProd[r.product_name].amount += Number(r.amount);
       byProd[r.product_name].quantity += Number(r.quantity);
