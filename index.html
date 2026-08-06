@@ -957,6 +957,19 @@
     // ---- KPI 카드 ----
     const monthNum = monthStr ? Number(monthStr.split('-')[1]) : null;
     const monthLabelPrefix = monthNum ? monthNum + '월 ' : '';
+
+    // 지난(마감된) 달을 보고 있을 땐 "오늘"이라는 표현이 맞지 않으므로(그 달의 마지막 거래일일 뿐),
+    // 조회 중인 달이 실제 이번 달일 때만 "오늘" 표기를 쓰고, 지난 달이면 그 달 이름으로 표기합니다.
+    const now = new Date();
+    const currentMonthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const isViewingCurrentMonth = !monthStr || monthStr === currentMonthStr;
+    const companyTodayCardLabel = isViewingCurrentMonth
+      ? `오늘 전체 매출 (${todayDate || '-'})`
+      : `${monthLabelPrefix}전체 매출`;
+    const teamTodayCardLabel = isViewingCurrentMonth
+      ? '영업팀 오늘 매출'
+      : `영업팀 ${monthLabelPrefix}매출`;
+
     document.getElementById('cards').innerHTML = `
       <div class="kpi-card">
         <div class="kpi-label">${monthLabelPrefix}전체 매출</div>
@@ -965,13 +978,13 @@
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyMonthlyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">오늘 전체 매출 (${todayDate || '-'})</div>
+        <div class="kpi-label">${companyTodayCardLabel}</div>
         <div class="kpi-value">${won(todayAmount)}</div>
         <div class="kpi-sub">일매출 목표 9억 대비 <span class="pct-red">${companyDailyPct.toFixed(1)}%</span></div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyDailyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label kpi-label-team">영업팀 오늘 매출</div>
+        <div class="kpi-label kpi-label-team">${teamTodayCardLabel}</div>
         <div class="kpi-value">${won(teamTodayAmount)}</div>
         <div class="kpi-sub">일매출 목표 3천만원 대비 <span class="pct-red">${teamTodayPct.toFixed(1)}%</span></div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamTodayPct).toFixed(1)}%"></div></div>
