@@ -133,6 +133,7 @@
     border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer;
   }
   .filter-reset-btn:hover { color: #f5f6fa; border-color: rgba(255,255,255,.3); }
+  .toggle-btn.active { background: rgba(77,124,254,.15); color: #4d7cfe; border-color: rgba(77,124,254,.4); font-weight: 700; }
 
   /* ---- Weekly bar chart ---- */
   .chart-legend { display: flex; gap: 16px; margin-bottom: 8px; }
@@ -519,17 +520,22 @@
       <div class="topbar">
         <div>
           <h1>품별</h1>
-          <div class="subtitle">일자별로 어떤 제품이 많이 팔렸는지 확인</div>
+          <div class="subtitle">월별 또는 일자별로 어떤 제품이 많이 팔렸는지 확인</div>
         </div>
         <div class="topbar-right">
           <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+          <div class="filter-group">
+            <button type="button" class="filter-reset-btn toggle-btn" id="productModeMonthly">월별</button>
+            <button type="button" class="filter-reset-btn toggle-btn" id="productModeDaily">일자별</button>
+          </div>
+          <select id="productMonthSelect" class="month-select" style="display:none"></select>
           <select id="productDaySelect" class="month-select"></select>
         </div>
       </div>
 
       <section class="panel">
         <div class="panel-head">
-          <h2>일자별 제품 판매 순위</h2>
+          <h2 id="productRankTitle">일자별 제품 판매 순위</h2>
           <span class="panel-note" id="productDayTotal"></span>
         </div>
         <div class="scroll-box">
@@ -1311,23 +1317,48 @@
     }
   }
 
-  // ==================== 품별 (일자별 제품 판매 순위) ====================
+  // ==================== 품별 (월별 / 일자별 제품 판매 순위) ====================
+  let productViewMode = 'daily'; // 'daily' | 'monthly'
+
   function renderProductView() {
     const daySelect = document.getElementById('productDaySelect');
+    const monthSelect = document.getElementById('productMonthSelect');
+    const dailyBtn = document.getElementById('productModeDaily');
+    const monthlyBtn = document.getElementById('productModeMonthly');
+
     const dates = Array.from(new Set(allRows.map(r => r.sale_date))).sort();
+    const months = Array.from(new Set(allRows.map(r => r.sale_date.slice(0, 7)))).sort();
     if (!dates.length) return; // 데이터 로딩 전
 
-    const prevSelected = daySelect.value;
+    const prevDay = daySelect.value;
     daySelect.innerHTML = dates.map(d => `<option value="${d}">${d}</option>`).join('');
-    const dayToShow = dates.includes(prevSelected) ? prevSelected : dates[dates.length - 1];
-    daySelect.value = dayToShow;
-    daySelect.onchange = () => renderProductDay(daySelect.value);
+    daySelect.value = dates.includes(prevDay) ? prevDay : dates[dates.length - 1];
 
-    renderProductDay(dayToShow);
+    const prevMonth = monthSelect.value;
+    monthSelect.innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
+    monthSelect.value = months.includes(prevMonth) ? prevMonth : months[months.length - 1];
+
+    function applyMode(mode) {
+      productViewMode = mode;
+      dailyBtn.classList.toggle('active', mode === 'daily');
+      monthlyBtn.classList.toggle('active', mode === 'monthly');
+      daySelect.style.display = mode === 'daily' ? '' : 'none';
+      monthSelect.style.display = mode === 'monthly' ? '' : 'none';
+      document.getElementById('productRankTitle').textContent =
+        mode === 'daily' ? '일자별 제품 판매 순위' : '월별 제품 판매 순위';
+      if (mode === 'daily') renderProductDay(daySelect.value);
+      else renderProductMonth(monthSelect.value);
+    }
+
+    daySelect.onchange = () => renderProductDay(daySelect.value);
+    monthSelect.onchange = () => renderProductMonth(monthSelect.value);
+    dailyBtn.onclick = () => applyMode('daily');
+    monthlyBtn.onclick = () => applyMode('monthly');
+
+    applyMode(productViewMode);
   }
 
-  function renderProductDay(dateStr) {
-    const rows = allRows.filter(r => r.sale_date === dateStr);
+  function renderProductRankTable(rows, labelText) {
     const byProd = {};
     rows.forEach(r => {
       if (isAggregatePlaceholderProduct(r.product_name)) return;
@@ -1338,8 +1369,8 @@
     const entries = Object.entries(byProd).sort((a, b) => b[1].amount - a[1].amount);
     const total = entries.reduce((s, [, v]) => s + v.amount, 0);
 
-    document.getElementById('productDayTotal').textContent = dateStr
-      ? dateStr + ' 총 매출 ' + won(total) + ' · 거래 ' + rows.length.toLocaleString('ko-KR') + '건'
+    document.getElementById('productDayTotal').textContent = labelText
+      ? labelText + ' 총 매출 ' + won(total) + ' · 거래 ' + rows.length.toLocaleString('ko-KR') + '건'
       : '';
 
     document.getElementById('productDayTable').innerHTML = entries.map(([product, v], i) => `
@@ -1350,6 +1381,16 @@
         <td class="num">${won(v.amount)}</td>
       </tr>
     `).join('');
+  }
+
+  function renderProductDay(dateStr) {
+    const rows = allRows.filter(r => r.sale_date === dateStr);
+    renderProductRankTable(rows, dateStr);
+  }
+
+  function renderProductMonth(monthStr) {
+    const rows = allRows.filter(r => r.sale_date.slice(0, 7) === monthStr);
+    renderProductRankTable(rows, monthStr);
   }
 
   // ==================== 몰별 (구분 · 판매처별 매출) ====================
