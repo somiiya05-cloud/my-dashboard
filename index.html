@@ -963,12 +963,25 @@
     const now = new Date();
     const currentMonthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
     const isViewingCurrentMonth = !monthStr || monthStr === currentMonthStr;
+    // 카드2(전체 매출)와 카드3(영업팀 매출): 이번 달이면 "오늘" 실적을, 지난(마감된) 달이면
+    // 그 달의 전체 합계를 보여줍니다 (마감된 달은 "오늘"이 의미가 없으므로).
     const companyTodayCardLabel = isViewingCurrentMonth
       ? `오늘 전체 매출 (${todayDate || '-'})`
       : `${monthLabelPrefix}전체 매출`;
+    const companyTodayCardValue = isViewingCurrentMonth ? todayAmount : companyMonthlyActual;
+    const companyTodayCardSub = isViewingCurrentMonth
+      ? `일매출 목표 9억 대비 <span class="pct-red">${companyDailyPct.toFixed(1)}%</span>`
+      : `목표 90억 대비 <span class="pct-red">${companyMonthlyPct.toFixed(1)}%</span> · ${won(companyMonthlyRemain)} 남음`;
+    const companyTodayCardPct = isViewingCurrentMonth ? companyDailyPct : companyMonthlyPct;
+
     const teamTodayCardLabel = isViewingCurrentMonth
       ? '영업팀 오늘 매출'
-      : `영업팀 ${monthLabelPrefix}매출`;
+      : `영업팀 ${monthLabelPrefix}매출 합계`;
+    const teamTodayCardValue = isViewingCurrentMonth ? teamTodayAmount : teamMonthlyActual;
+    const teamTodayCardSub = isViewingCurrentMonth
+      ? `일매출 목표 3천만원 대비 <span class="pct-red">${teamTodayPct.toFixed(1)}%</span>`
+      : `목표 9억 대비 <span class="pct-red">${teamMonthlyPct.toFixed(1)}%</span> · ${won(teamMonthlyRemain)} 남음`;
+    const teamTodayCardPct = isViewingCurrentMonth ? teamTodayPct : teamMonthlyPct;
 
     document.getElementById('cards').innerHTML = `
       <div class="kpi-card">
@@ -979,15 +992,15 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-label">${companyTodayCardLabel}</div>
-        <div class="kpi-value">${won(todayAmount)}</div>
-        <div class="kpi-sub">일매출 목표 9억 대비 <span class="pct-red">${companyDailyPct.toFixed(1)}%</span></div>
-        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyDailyPct).toFixed(1)}%"></div></div>
+        <div class="kpi-value">${won(companyTodayCardValue)}</div>
+        <div class="kpi-sub">${companyTodayCardSub}</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyTodayCardPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label kpi-label-team">${teamTodayCardLabel}</div>
-        <div class="kpi-value">${won(teamTodayAmount)}</div>
-        <div class="kpi-sub">일매출 목표 3천만원 대비 <span class="pct-red">${teamTodayPct.toFixed(1)}%</span></div>
-        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamTodayPct).toFixed(1)}%"></div></div>
+        <div class="kpi-value">${won(teamTodayCardValue)}</div>
+        <div class="kpi-sub">${teamTodayCardSub}</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamTodayCardPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label kpi-label-team">영업팀 일매출 평균</div>
