@@ -122,6 +122,17 @@
   }
   .vendor-select:focus { outline: 1px solid #4d7cfe; }
   .filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .date-input {
+    background: #0f1117; color: #f5f6fa; border: 1px solid rgba(255,255,255,.1);
+    border-radius: 8px; padding: 6px 10px; font-size: 13px; color-scheme: dark;
+  }
+  .date-input:focus { outline: 1px solid #4d7cfe; }
+  .date-range-sep { color: #6d7488; font-size: 12px; }
+  .filter-reset-btn {
+    background: none; border: 1px solid rgba(255,255,255,.15); color: #a7adc1;
+    border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer;
+  }
+  .filter-reset-btn:hover { color: #f5f6fa; border-color: rgba(255,255,255,.3); }
 
   /* ---- Weekly bar chart ---- */
   .chart-legend { display: flex; gap: 16px; margin-bottom: 8px; }
@@ -393,6 +404,10 @@
           <div class="filter-group">
             <select id="vendorSelect" class="vendor-select"></select>
             <select id="productSelect" class="vendor-select"></select>
+            <input type="date" id="vendorDetailFrom" class="date-input">
+            <span class="date-range-sep">~</span>
+            <input type="date" id="vendorDetailTo" class="date-input">
+            <button type="button" class="filter-reset-btn" id="vendorDetailDateReset">기간 초기화</button>
             <span class="panel-note" id="filterCount"></span>
           </div>
         </div>
@@ -1051,22 +1066,61 @@
       `;
     }).join('');
 
-    // ---- 판매처별 상세 (판매처 + 제품명 드롭박스로 필터) ----
+    // ---- 판매처별 상세 (판매처 + 제품명 드롭박스로 필터, 기간 직접 지정 가능) ----
     const ALL_VALUE = '';
     const vendorSelect = document.getElementById('vendorSelect');
     const productSelect = document.getElementById('productSelect');
     const filterCount = document.getElementById('filterCount');
+    const vdFromInput = document.getElementById('vendorDetailFrom');
+    const vdToInput = document.getElementById('vendorDetailTo');
+    const vdDateReset = document.getElementById('vendorDetailDateReset');
 
-    const prevVendor = vendorSelect.value;
-    vendorSelect.innerHTML = `<option value="${ALL_VALUE}">전체 판매처</option>` + vendorEntries.map(([vendor, v]) =>
-      `<option value="${vendor}">${vendor} (${won(v.amount)})</option>`
-    ).join('');
-    vendorSelect.value = (prevVendor && byVendorProduct[prevVendor]) ? prevVendor : ALL_VALUE;
+    // 기간을 지정하면 allRows(전체 기간) 기준으로, 지정하지 않으면 현재 선택된 월(rows) 기준으로 집계
+    let vdMap = {};
+    let vdVendorEntries = [];
+    let vdProductEntries = [];
+
+    function rebuildVendorDetailMaps() {
+      const from = vdFromInput.value;
+      const to = vdToInput.value;
+      const sourceRows = (from || to)
+        ? allRows.filter(r => (!from || r.sale_date >= from) && (!to || r.sale_date <= to))
+        : rows;
+
+      const map = {};
+      const vTotals = {};
+      const pTotals = {};
+      sourceRows.forEach(r => {
+        if (!map[r.vendor]) map[r.vendor] = {};
+        if (!map[r.vendor][r.product_name]) map[r.vendor][r.product_name] = { amount: 0, quantity: 0 };
+        map[r.vendor][r.product_name].amount += Number(r.amount);
+        map[r.vendor][r.product_name].quantity += Number(r.quantity);
+
+        if (!vTotals[r.vendor]) vTotals[r.vendor] = { amount: 0, quantity: 0 };
+        vTotals[r.vendor].amount += Number(r.amount);
+        vTotals[r.vendor].quantity += Number(r.quantity);
+
+        if (!pTotals[r.product_name]) pTotals[r.product_name] = { amount: 0, quantity: 0 };
+        pTotals[r.product_name].amount += Number(r.amount);
+        pTotals[r.product_name].quantity += Number(r.quantity);
+      });
+      vdMap = map;
+      vdVendorEntries = Object.entries(vTotals).sort((a, b) => b[1].amount - a[1].amount);
+      vdProductEntries = Object.entries(pTotals).sort((a, b) => b[1].amount - a[1].amount);
+    }
 
     function productOptionsFor(vendor) {
-      if (!vendor) return productEntries; // 전체 판매처 → 전체 제품 목록
-      const products = byVendorProduct[vendor] || {};
+      if (!vendor) return vdProductEntries; // 전체 판매처 → 전체 제품 목록
+      const products = vdMap[vendor] || {};
       return Object.entries(products).sort((a, b) => b[1].amount - a[1].amount);
+    }
+
+    function refreshVendorSelect(keepSelection) {
+      const prevVendor = keepSelection ? vendorSelect.value : ALL_VALUE;
+      vendorSelect.innerHTML = `<option value="${ALL_VALUE}">전체 판매처</option>` + vdVendorEntries.map(([vendor, v]) =>
+        `<option value="${vendor}">${vendor} (${won(v.amount)})</option>`
+      ).join('');
+      vendorSelect.value = (prevVendor && vdMap[prevVendor]) ? prevVendor : ALL_VALUE;
     }
 
     function refreshProductSelect(keepSelection) {
@@ -1082,10 +1136,10 @@
     function renderVendorDetail() {
       const vendor = vendorSelect.value;
       const product = productSelect.value;
-      const vendorsToScan = vendor ? [vendor] : Object.keys(byVendorProduct);
+      const vendorsToScan = vendor ? [vendor] : Object.keys(vdMap);
       let flatRows = [];
       vendorsToScan.forEach(v => {
-        const prodMap = byVendorProduct[v] || {};
+        const prodMap = vdMap[v] || {};
         Object.entries(prodMap).forEach(([p, val]) => {
           if (product && p !== product) return;
           flatRows.push({ vendor: v, product: p, quantity: val.quantity, amount: val.amount });
@@ -1093,7 +1147,10 @@
       });
       flatRows.sort((a, b) => b.amount - a.amount);
 
-      filterCount.textContent = flatRows.length.toLocaleString('ko-KR') + '건';
+      const rangeNote = (vdFromInput.value || vdToInput.value)
+        ? ` · ${vdFromInput.value || '처음'} ~ ${vdToInput.value || '오늘'}`
+        : '';
+      filterCount.textContent = flatRows.length.toLocaleString('ko-KR') + '건' + rangeNote;
       document.getElementById('vendorDetailTable').innerHTML = flatRows.map(r => `
         <tr>
           <td>${r.vendor}</td>
@@ -1104,10 +1161,20 @@
       `).join('');
     }
 
-    refreshProductSelect(false);
+    function refreshVendorDetailAll(keepSelection) {
+      rebuildVendorDetailMaps();
+      refreshVendorSelect(keepSelection);
+      refreshProductSelect(keepSelection);
+      renderVendorDetail();
+    }
+
     vendorSelect.onchange = () => { refreshProductSelect(false); renderVendorDetail(); };
     productSelect.onchange = () => renderVendorDetail();
-    renderVendorDetail();
+    vdFromInput.onchange = () => refreshVendorDetailAll(true);
+    vdToInput.onchange = () => refreshVendorDetailAll(true);
+    vdDateReset.onclick = () => { vdFromInput.value = ''; vdToInput.value = ''; refreshVendorDetailAll(false); };
+
+    refreshVendorDetailAll(false);
 
     // ---- 제품별 표 (전체) ----
     document.getElementById('productTable').innerHTML = productEntries.map(([product, v]) => `
