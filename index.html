@@ -51,6 +51,13 @@
   .nav-subitem.active .sub-dot { background: #fb923c; }
   #navMonthlyTrend.active { background: rgba(79,124,254,.12); color: #4d7cfe; }
   #navMonthlyTrend.active .sub-dot { background: #4d7cfe; }
+  .nav-collapse-toggle {
+    margin-left: auto; color: #6d7488; font-size: 11px; padding: 2px 4px;
+    border-radius: 4px; transition: transform .15s ease;
+  }
+  .nav-collapse-toggle:hover { color: #f5f6fa; }
+  .nav-collapse-toggle.collapsed { transform: rotate(-90deg); }
+  #navMarketingBrands.collapsed { display: none; }
   .mkt-empty { padding: 60px 20px; text-align: center; color: #6d7488; font-size: 13px; }
   .mkt-empty b { color: #c7cbe0; }
   .sidebar-footer {
@@ -331,7 +338,10 @@
       </div>
       <div class="nav-group">
         <div class="nav-label">마케팅</div>
-        <div class="nav-item" id="navMarketing" onclick="switchView('marketing')"><span class="dot dot-mkt"></span>마케팅대시보드</div>
+        <div class="nav-item" id="navMarketing" onclick="switchView('marketing')">
+          <span class="dot dot-mkt"></span>마케팅대시보드
+          <span class="nav-collapse-toggle" id="marketingBrandsToggle" onclick="event.stopPropagation(); toggleMarketingBrands();">▾</span>
+        </div>
         <div id="navMarketingBrands"></div>
       </div>
       <div class="sidebar-footer">
@@ -1793,6 +1803,23 @@
   let currentMarketingBrand = null;
 
   renderMarketingBrandNav();
+
+  // 마케팅 브랜드 목록 접기/펴기 (선택 상태는 새로고침해도 유지)
+  function toggleMarketingBrands() {
+    const container = document.getElementById('navMarketingBrands');
+    const toggle = document.getElementById('marketingBrandsToggle');
+    const collapsed = container.classList.toggle('collapsed');
+    toggle.classList.toggle('collapsed', collapsed);
+    localStorage.setItem('marketingBrandsCollapsed', collapsed ? '1' : '0');
+  }
+  (function initMarketingBrandsCollapsedState() {
+    const container = document.getElementById('navMarketingBrands');
+    const toggle = document.getElementById('marketingBrandsToggle');
+    if (localStorage.getItem('marketingBrandsCollapsed') === '1') {
+      container.classList.add('collapsed');
+      toggle.classList.add('collapsed');
+    }
+  })();
 
   function renderMarketingBrandNav() {
     const container = document.getElementById('navMarketingBrands');
