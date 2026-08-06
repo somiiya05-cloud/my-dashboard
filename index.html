@@ -129,6 +129,20 @@
   }
   .vendor-select:focus { outline: 1px solid #4d7cfe; }
   .filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .searchable-select { position: relative; display: inline-block; }
+  .searchable-select-input { width: 220px; cursor: text; }
+  .searchable-select-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; min-width: 260px; max-width: 360px; max-height: 280px;
+    overflow-y: auto; background: #1c2030; border: 1px solid rgba(255,255,255,.1); border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4); z-index: 50; display: none;
+  }
+  .searchable-select-dropdown.open { display: block; }
+  .searchable-select-option {
+    padding: 8px 12px; font-size: 13px; color: #c7cbe0; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .searchable-select-option:hover, .searchable-select-option.active { background: rgba(79,124,254,.15); color: #fff; }
+  .searchable-select-empty { padding: 10px 12px; font-size: 12px; color: #6d7488; white-space: normal; }
   .date-input {
     background: #0f1117; color: #f5f6fa; border: 1px solid rgba(255,255,255,.1);
     border-radius: 8px; padding: 6px 10px; font-size: 13px; color-scheme: dark;
@@ -414,7 +428,10 @@
           <h2>판매처별 상세</h2>
           <div class="filter-group">
             <select id="vendorSelect" class="vendor-select"></select>
-            <select id="productSelect" class="vendor-select"></select>
+            <div class="searchable-select" id="productSelectWrap">
+              <input type="text" id="productSelectInput" class="vendor-select searchable-select-input" placeholder="전체 제품 (검색 가능)" autocomplete="off">
+              <div class="searchable-select-dropdown" id="productSelectDropdown"></div>
+            </div>
             <input type="date" id="vendorDetailFrom" class="date-input">
             <span class="date-range-sep">~</span>
             <input type="date" id="vendorDetailTo" class="date-input">
@@ -1143,7 +1160,8 @@
     // ---- 판매처별 상세 (판매처 + 제품명 드롭박스로 필터, 기간 직접 지정 가능) ----
     const ALL_VALUE = '';
     const vendorSelect = document.getElementById('vendorSelect');
-    const productSelect = document.getElementById('productSelect');
+    const productInput = document.getElementById('productSelectInput');
+    const productDropdown = document.getElementById('productSelectDropdown');
     const filterCount = document.getElementById('filterCount');
     const vdFromInput = document.getElementById('vendorDetailFrom');
     const vdToInput = document.getElementById('vendorDetailTo');
@@ -1153,6 +1171,7 @@
     let vdMap = {};
     let vdVendorEntries = [];
     let vdProductEntries = [];
+    let productValue = ALL_VALUE; // 선택된 제품명(검색형 드롭다운의 실제 선택값)
 
     function rebuildVendorDetailMaps() {
       const from = vdFromInput.value;
@@ -1197,19 +1216,74 @@
       vendorSelect.value = (prevVendor && vdMap[prevVendor]) ? prevVendor : ALL_VALUE;
     }
 
+    function productLabel(product, amount) {
+      return product ? `${product} (${won(amount)})` : '';
+    }
+
     function refreshProductSelect(keepSelection) {
-      const prevProduct = keepSelection ? productSelect.value : ALL_VALUE;
+      const prevProduct = keepSelection ? productValue : ALL_VALUE;
       const opts = productOptionsFor(vendorSelect.value);
       const stillValid = opts.some(([p]) => p === prevProduct);
-      productSelect.innerHTML = `<option value="${ALL_VALUE}">전체 제품</option>` + opts.map(([product, v]) =>
-        `<option value="${product}">${product} (${won(v.amount)})</option>`
-      ).join('');
-      productSelect.value = stillValid ? prevProduct : ALL_VALUE;
+      productValue = stillValid ? prevProduct : ALL_VALUE;
+      const found = productValue ? opts.find(([p]) => p === productValue) : null;
+      productInput.value = found ? productLabel(found[0], found[1].amount) : '';
     }
+
+    // 제품 검색형 드롭다운: 입력한 글자로 제품명을 즉시 필터링합니다 (제품 수가 많아 일반 드롭박스로는 찾기 어려움)
+    function renderProductDropdown(filterText) {
+      const opts = productOptionsFor(vendorSelect.value);
+      const q = (filterText || '').trim().toLowerCase();
+      const filtered = q ? opts.filter(([p]) => p.toLowerCase().includes(q)) : opts;
+      const shown = filtered.slice(0, 200);
+      let html = `<div class="searchable-select-option${!productValue ? ' active' : ''}" data-value="">전체 제품</div>`;
+      if (!shown.length) {
+        html += `<div class="searchable-select-empty">검색 결과가 없습니다</div>`;
+      } else {
+        html += shown.map(([p, v]) => `
+          <div class="searchable-select-option${p === productValue ? ' active' : ''}" data-value="${escapeAttr(p)}">${p} (${won(v.amount)})</div>
+        `).join('');
+        if (filtered.length > shown.length) {
+          html += `<div class="searchable-select-empty">외 ${(filtered.length - shown.length).toLocaleString('ko-KR')}건 더 있음 · 검색어로 좁혀보세요</div>`;
+        }
+      }
+      productDropdown.innerHTML = html;
+      productDropdown.classList.add('open');
+    }
+
+    function closeProductDropdown() {
+      productDropdown.classList.remove('open');
+    }
+
+    function selectProduct(product) {
+      const opts = productOptionsFor(vendorSelect.value);
+      const found = product ? opts.find(([p]) => p === product) : null;
+      productValue = product || ALL_VALUE;
+      productInput.value = found ? productLabel(found[0], found[1].amount) : '';
+      closeProductDropdown();
+      renderVendorDetail();
+    }
+
+    productInput.addEventListener('focus', () => renderProductDropdown(''));
+    productInput.addEventListener('input', () => renderProductDropdown(productInput.value));
+    productDropdown.addEventListener('mousedown', (e) => {
+      const opt = e.target.closest('.searchable-select-option');
+      if (!opt) return;
+      e.preventDefault();
+      selectProduct(opt.dataset.value);
+    });
+    productInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { closeProductDropdown(); productInput.blur(); }
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#productSelectWrap')) {
+        closeProductDropdown();
+        refreshProductSelect(true); // 입력창에 남은 검색어를 현재 선택값 기준으로 다시 맞춤
+      }
+    });
 
     function renderVendorDetail() {
       const vendor = vendorSelect.value;
-      const product = productSelect.value;
+      const product = productValue;
       const vendorsToScan = vendor ? [vendor] : Object.keys(vdMap);
       let flatRows = [];
       vendorsToScan.forEach(v => {
@@ -1243,7 +1317,6 @@
     }
 
     vendorSelect.onchange = () => { refreshProductSelect(false); renderVendorDetail(); };
-    productSelect.onchange = () => renderVendorDetail();
     vdFromInput.onchange = () => refreshVendorDetailAll(true);
     vdToInput.onchange = () => refreshVendorDetailAll(true);
     vdDateReset.onclick = () => { vdFromInput.value = ''; vdToInput.value = ''; refreshVendorDetailAll(false); };
