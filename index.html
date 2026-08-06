@@ -826,6 +826,26 @@
     return getBrandFallback(row.vendor);
   }
 
+  // 특정 달의 회사 전체 실제 매출 (sales_transactions 기준. COMPANY_ACTUALS_BY_MONTH에 값이 있으면 그 값을 우선 사용)
+  function getCompanyMonthlyRevenue(monthStr) {
+    if (!monthStr) return 0;
+    const override = COMPANY_ACTUALS_BY_MONTH[monthStr];
+    if (override !== undefined) return override;
+    return allRows
+      .filter(r => r.sale_date.slice(0, 7) === monthStr)
+      .reduce((s, r) => s + Number(r.amount), 0);
+  }
+
+  // 특정 브랜드의 특정 달 실제 매출 (sales_transactions 기준. BRAND_ACTUALS_BY_MONTH에 값이 있으면 그 값을 우선 사용)
+  function getBrandMonthlyRevenue(brandName, monthStr) {
+    if (!monthStr) return 0;
+    const override = BRAND_ACTUALS_BY_MONTH[monthStr] && BRAND_ACTUALS_BY_MONTH[monthStr][brandName];
+    if (override !== undefined) return override;
+    return allRows
+      .filter(r => r.sale_date.slice(0, 7) === monthStr && getBrand(r) === brandName)
+      .reduce((s, r) => s + Number(r.amount), 0);
+  }
+
   let allRows = [];
 
   async function loadData() {
@@ -1635,22 +1655,21 @@
     const cac = totalConversions > 0 ? (totalSpend / totalConversions) : 0; // 아래 채널별 성과 표의 합계·평균(CPA) 행에서 사용
     const cvr = totalClicks > 0 ? (totalConversions / totalClicks * 100) : 0;
     const budgetPct = Math.min(999, totalSpend / MARKETING_MONTHLY_BUDGET * 100);
-    const roasPct = Math.min(999, roas / MARKETING_ROAS_TARGET * 100);
     const monthNum = monthStr ? Number(monthStr.split('-')[1]) : null;
 
-    // 광고비중 = 매출 ÷ 광고비 (기존 통합 ROAS와 동일한 계산이며, CAC 대신 이 지표를 보여줍니다)
-    const adSpendRatio = roas;
-    const adSpendRatioPct = roasPct;
+    // "전체 매출" 카드와 광고비중은 실제 매출 원장(sales_transactions) 기준으로 계산합니다.
+    // (위 totalRevenue는 ad_performance에 기록된 광고 채널 자체 매출이라 회사 실제 매출과 다를 수 있어,
+    //  채널별 성과 표의 ROAS 계산에만 그대로 사용합니다.)
+    const companyRevenue = getCompanyMonthlyRevenue(monthStr);
+    const adSpendRatio = companyRevenue > 0 ? (totalSpend / companyRevenue * 100) : 0;
 
-    // 전월 대비 매출 증감 (2번째 카드의 매출 표시용, 전 채널 통합 기준)
+    // 전월 대비 매출 증감 (2번째 카드의 매출 표시용, 실제 매출 기준)
     const allMonthsSorted = Array.from(new Set(allMarketingRows.map(r => r.month))).sort();
     const curMonthIdxAll = allMonthsSorted.indexOf(monthStr);
     const prevMonthAll = curMonthIdxAll > 0 ? allMonthsSorted[curMonthIdxAll - 1] : null;
-    const prevRevenueAll = prevMonthAll
-      ? allMarketingRows.filter(r => r.month === prevMonthAll).reduce((s, r) => s + Number(r.revenue), 0)
-      : null;
-    const revenueChangePctAll = (prevRevenueAll !== null && prevRevenueAll > 0)
-      ? ((totalRevenue - prevRevenueAll) / prevRevenueAll * 100)
+    const prevCompanyRevenue = prevMonthAll ? getCompanyMonthlyRevenue(prevMonthAll) : null;
+    const revenueChangePctAll = (prevCompanyRevenue !== null && prevCompanyRevenue > 0)
+      ? ((companyRevenue - prevCompanyRevenue) / prevCompanyRevenue * 100)
       : null;
     const revenueCardSubAll = revenueChangePctAll !== null
       ? `전월 대비 <span class="${revenueChangePctAll >= 0 ? 'trend-up' : 'trend-down'}">${revenueChangePctAll >= 0 ? '+' : ''}${revenueChangePctAll.toFixed(1)}%</span>`
@@ -1669,14 +1688,14 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-label">${monthNum ? monthNum + '월 ' : ''}전체 매출</div>
-        <div class="kpi-value mkt-value">${won(Math.round(totalRevenue))}</div>
+        <div class="kpi-value mkt-value">${won(Math.round(companyRevenue))}</div>
         <div class="kpi-sub">${revenueCardSubAll}</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">광고비중</div>
-        <div class="kpi-value mkt-value">${adSpendRatio.toFixed(0)}%</div>
-        <div class="kpi-sub">목표 ${MARKETING_ROAS_TARGET}% 대비 <span class="pct-red">${adSpendRatioPct.toFixed(1)}%</span>${adSpendRatio >= MARKETING_ROAS_TARGET ? ' · 달성' : ''}</div>
-        <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, adSpendRatioPct).toFixed(1)}%"></div></div>
+        <div class="kpi-value mkt-value">${adSpendRatio.toFixed(1)}%</div>
+        <div class="kpi-sub">매출 ${won(Math.round(companyRevenue))} 중 광고비 비중</div>
+        <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, adSpendRatio).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">전환수 (CVR ${cvr.toFixed(2)}%)</div>
@@ -1818,6 +1837,21 @@
     { channel: '메타 폴크', label: '메타 폴크' }
   ];
 
+  // 광고 채널명(메타 X) → 실제 매출 데이터(sales_transactions)의 브랜드명 매핑
+  // 표기가 다른 경우가 있어(그로우유즈↔그로우뮤즈, 라스마↔라이프스타일마트) 별도로 매핑합니다.
+  const MARKETING_BRAND_TO_SALES_BRAND = {
+    '메타 코드니처': '코드니처',
+    '메타 미니멀룸': '미니멀룸',
+    '메타 빠이러스': '빠이러스',
+    '메타 그로우유즈': '그로우뮤즈',
+    '메타 라스마': '라이프스타일마트',
+    '메타 잠비에': '잠비에',
+    '메타 글로리핏': '글로리핏',
+    '메타 명퉤': '명퉤',
+    '메타 멜루션': '멜루션',
+    '메타 폴크': '폴크',
+  };
+
   let currentMarketingBrand = null;
 
   renderMarketingBrandNav();
@@ -1893,22 +1927,22 @@
     const roas = totalSpend > 0 ? (totalRevenue / totalSpend * 100) : 0;
     const cvr = totalClicks > 0 ? (totalConversions / totalClicks * 100) : 0;
     const budgetPct = Math.min(999, totalSpend / MARKETING_MONTHLY_BUDGET * 100);
-    const roasPct = Math.min(999, roas / MARKETING_ROAS_TARGET * 100);
     const monthNum = monthStr ? Number(monthStr.split('-')[1]) : null;
 
-    // 광고비중 = 매출 ÷ 광고비 (ROAS와 동일한 계산이며, CAC 대신 이 지표를 보여줍니다)
-    const adSpendRatio = roas;
-    const adSpendRatioPct = roasPct;
+    // "전체 매출" 카드와 광고비중은 실제 매출 원장(sales_transactions)에서 이 브랜드에 해당하는 매출로 계산합니다.
+    // (위 totalRevenue는 ad_performance에 기록된 광고 채널 자체 매출이라 실제 매출과 다를 수 있어,
+    //  채널별 성과 표의 ROAS 계산에만 그대로 사용합니다.)
+    const salesBrandName = MARKETING_BRAND_TO_SALES_BRAND[channel] || channel;
+    const brandRevenue = getBrandMonthlyRevenue(salesBrandName, monthStr);
+    const adSpendRatio = brandRevenue > 0 ? (totalSpend / brandRevenue * 100) : 0;
 
-    // 전월 대비 매출 증감 (2번째 카드의 매출 표시용)
+    // 전월 대비 매출 증감 (2번째 카드의 매출 표시용, 실제 매출 기준)
     const brandMonthsSorted = Array.from(new Set(brandRows.map((r) => r.month))).sort();
     const curMonthIdx = brandMonthsSorted.indexOf(monthStr);
     const prevBrandMonth = curMonthIdx > 0 ? brandMonthsSorted[curMonthIdx - 1] : null;
-    const prevBrandRevenue = prevBrandMonth
-      ? brandRows.filter((r) => r.month === prevBrandMonth).reduce((s, r) => s + Number(r.revenue), 0)
-      : null;
+    const prevBrandRevenue = prevBrandMonth ? getBrandMonthlyRevenue(salesBrandName, prevBrandMonth) : null;
     const revenueChangePct = (prevBrandRevenue !== null && prevBrandRevenue > 0)
-      ? ((totalRevenue - prevBrandRevenue) / prevBrandRevenue * 100)
+      ? ((brandRevenue - prevBrandRevenue) / prevBrandRevenue * 100)
       : null;
     const revenueCardSub = revenueChangePct !== null
       ? `전월 대비 <span class="${revenueChangePct >= 0 ? 'trend-up' : 'trend-down'}">${revenueChangePct >= 0 ? '+' : ''}${revenueChangePct.toFixed(1)}%</span>`
@@ -1926,14 +1960,14 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-label">${monthNum ? monthNum + '월 ' : ''}전체 매출</div>
-        <div class="kpi-value mkt-value">${won(Math.round(totalRevenue))}</div>
+        <div class="kpi-value mkt-value">${won(Math.round(brandRevenue))}</div>
         <div class="kpi-sub">${revenueCardSub}</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">광고비중</div>
-        <div class="kpi-value mkt-value">${adSpendRatio.toFixed(0)}%</div>
-        <div class="kpi-sub">목표 ${MARKETING_ROAS_TARGET}% 대비 <span class="pct-red">${adSpendRatioPct.toFixed(1)}%</span>${adSpendRatio >= MARKETING_ROAS_TARGET ? ' · 달성' : ''}</div>
-        <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, adSpendRatioPct).toFixed(1)}%"></div></div>
+        <div class="kpi-value mkt-value">${adSpendRatio.toFixed(1)}%</div>
+        <div class="kpi-sub">매출 ${won(Math.round(brandRevenue))} 중 광고비 비중</div>
+        <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, adSpendRatio).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">전환수 (CVR ${cvr.toFixed(2)}%)</div>
