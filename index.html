@@ -10,16 +10,17 @@
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif;
-    background: #0a0b10;
-    color: #f5f6fa;
+    background: #f1f2f6;
+    color: #0f172a;
   }
   .shell { display: flex; min-height: 100vh; }
 
-  /* ---- Sidebar ---- */
+  /* ---- Sidebar (검정 배경 유지) ---- */
   .sidebar {
     width: 220px;
     flex-shrink: 0;
     background: #111319;
+    color: #f5f6fa;
     border-right: 1px solid rgba(255,255,255,.05);
     padding: 20px 16px;
     display: flex;
@@ -76,18 +77,18 @@
 
   .topbar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
   .topbar h1 { font-size: 20px; margin: 0 0 4px 0; }
-  .subtitle { font-size: 12px; color: #8992a9; }
+  .subtitle { font-size: 12px; color: #475569; }
   .topbar-right { display: flex; align-items: center; gap: 8px; }
   .live-badge {
     display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(34,197,94,.12); color: #22c55e;
+    background: rgba(34,197,94,.12); color: #15803d;
     padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
   }
   .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; animation: pulse 1.5s infinite; }
   @keyframes pulse { 0%{opacity:1} 50%{opacity:.3} 100%{opacity:1} }
   .range-badge {
-    font-size: 12px; color: #8992a9; background: #14161d;
-    border: 1px solid rgba(255,255,255,.06); padding: 4px 10px; border-radius: 8px;
+    font-size: 12px; color: #475569; background: #ffffff;
+    border: 1px solid rgba(15,23,42,.07); padding: 4px 10px; border-radius: 8px;
   }
   .month-select {
     font-size: 12px; font-weight: 600; color: #f5f6fa; background: #14161d;
@@ -101,15 +102,15 @@
     gap: 18px; margin-bottom: 18px;
   }
   .kpi-card {
-    background: #14161d; border: 1px solid rgba(255,255,255,.05);
+    background: #ffffff; border: 1px solid rgba(15,23,42,.07);
     border-radius: 16px; padding: 24px 26px;
   }
-  .kpi-label { font-size: 14px; font-weight: 700; color: #8992a9; margin-bottom: 12px; }
-  .kpi-label-team { color: #fbbf24; }
+  .kpi-label { font-size: 14px; font-weight: 700; color: #475569; margin-bottom: 12px; }
+  .kpi-label-team { color: #b45309; }
   .kpi-value { font-size: 34px; font-weight: 800; margin-bottom: 10px; }
-  .kpi-sub { font-size: 14px; color: #c7cbe0; font-weight: 700; }
-  .pct-red { color: #ff4d4d; font-weight: 800; }
-  .kpi-bar { height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .kpi-sub { font-size: 14px; color: #1e293b; font-weight: 700; }
+  .pct-red { color: #dc2626; font-weight: 800; }
+  .kpi-bar { height: 4px; background: rgba(15,23,42,.07); border-radius: 2px; margin-top: 10px; overflow: hidden; }
   .kpi-bar-fill { height: 100%; background: linear-gradient(90deg,#4d7cfe,#2f5ce4); }
 
   /* ---- Panels / grid ---- */
@@ -117,14 +118,14 @@
   .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
   @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } .grid-3 { grid-template-columns: 1fr; } }
   .panel {
-    background: #14161d; border: 1px solid rgba(255,255,255,.05);
+    background: #ffffff; border: 1px solid rgba(15,23,42,.07);
     border-radius: 14px; padding: 18px 20px; margin-bottom: 16px;
   }
   .panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .panel-head h2 { font-size: 14px; margin: 0; font-weight: 700; }
-  .panel-note { font-size: 11px; color: #6d7488; }
+  .panel-note { font-size: 11px; color: #64748b; }
   .vendor-select {
-    background: #0f1117; color: #f5f6fa; border: 1px solid rgba(255,255,255,.1);
+    background: #f4f5f8; color: #0f172a; border: 1px solid rgba(15,23,42,.12);
     border-radius: 8px; padding: 6px 10px; font-size: 13px; max-width: 220px;
   }
   .vendor-select:focus { outline: 1px solid #4d7cfe; }
@@ -133,48 +134,48 @@
   .searchable-select-input { width: 220px; cursor: text; }
   .searchable-select-dropdown {
     position: absolute; top: calc(100% + 4px); left: 0; min-width: 260px; max-width: 360px; max-height: 280px;
-    overflow-y: auto; background: #1c2030; border: 1px solid rgba(255,255,255,.1); border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,.4); z-index: 50; display: none;
+    overflow-y: auto; background: #ffffff; border: 1px solid rgba(15,23,42,.12); border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(15,23,42,.18); z-index: 50; display: none;
   }
   .searchable-select-dropdown.open { display: block; }
   .searchable-select-option {
-    padding: 8px 12px; font-size: 13px; color: #c7cbe0; cursor: pointer;
+    padding: 8px 12px; font-size: 13px; color: #1e293b; cursor: pointer;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .searchable-select-option:hover, .searchable-select-option.active { background: rgba(79,124,254,.15); color: #fff; }
-  .searchable-select-empty { padding: 10px 12px; font-size: 12px; color: #6d7488; white-space: normal; }
+  .searchable-select-option:hover, .searchable-select-option.active { background: rgba(79,124,254,.15); color: #1d4ed8; }
+  .searchable-select-empty { padding: 10px 12px; font-size: 12px; color: #64748b; white-space: normal; }
   .date-input {
     background: #0f1117; color: #f5f6fa; border: 1px solid rgba(255,255,255,.1);
     border-radius: 8px; padding: 6px 10px; font-size: 13px; color-scheme: dark;
   }
   .date-input:focus { outline: 1px solid #4d7cfe; }
-  .date-range-sep { color: #6d7488; font-size: 12px; }
+  .date-range-sep { color: #64748b; font-size: 12px; }
   .filter-reset-btn {
-    background: none; border: 1px solid rgba(255,255,255,.15); color: #a7adc1;
+    background: none; border: 1px solid rgba(15,23,42,.16); color: #334155;
     border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer;
   }
-  .filter-reset-btn:hover { color: #f5f6fa; border-color: rgba(255,255,255,.3); }
-  .toggle-btn.active { background: rgba(77,124,254,.15); color: #4d7cfe; border-color: rgba(77,124,254,.4); font-weight: 700; }
+  .filter-reset-btn:hover { color: #0f172a; border-color: rgba(15,23,42,.28); }
+  .toggle-btn.active { background: rgba(77,124,254,.15); color: #1d4ed8; border-color: rgba(77,124,254,.4); font-weight: 700; }
 
   /* ---- Weekly bar chart ---- */
   .chart-legend { display: flex; gap: 16px; margin-bottom: 8px; }
-  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #8992a9; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #475569; }
   .legend-swatch { width: 14px; height: 3px; border-radius: 2px; background: #4d7cfe; }
-  .legend-swatch.target { background: none; border-top: 2px dashed #6d7488; }
+  .legend-swatch.target { background: none; border-top: 2px dashed #64748b; }
   .bar-chart { display: flex; align-items: flex-end; gap: 16px; height: 200px; padding-top: 10px; position: relative; }
   .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; position: relative; }
-  .bar-value-label { font-size: 11px; color: #a7adc1; margin-bottom: 6px; }
+  .bar-value-label { font-size: 11px; color: #334155; margin-bottom: 6px; }
   .bar {
     width: 100%; max-width: 56px; border-radius: 6px 6px 0 0;
     background: linear-gradient(180deg,#4d7cfe,#2f5ce4);
   }
   .bar.last { box-shadow: 0 0 0 2px rgba(79,124,254,.35); }
-  .bar-label { font-size: 12px; color: #8992a9; margin-top: 8px; }
-  .trend-up { color: #4dd48a; font-weight: 700; font-size: 11px; margin-left: 4px; }
-  .trend-down { color: #ff4d4d; font-weight: 700; font-size: 11px; margin-left: 4px; }
+  .bar-label { font-size: 12px; color: #475569; margin-top: 8px; }
+  .trend-up { color: #16a34a; font-weight: 700; font-size: 11px; margin-left: 4px; }
+  .trend-down { color: #dc2626; font-weight: 700; font-size: 11px; margin-left: 4px; }
   .target-line {
     position: absolute; left: 4px; right: 4px; height: 0;
-    border-top: 2px dashed #9aa2b8;
+    border-top: 2px dashed #94a3b8;
   }
 
   /* ---- Funnel ---- */
@@ -190,12 +191,12 @@
   .rank-list { display: flex; flex-direction: column; }
   .rank-row {
     display: flex; align-items: center; gap: 10px; padding: 10px 0;
-    border-bottom: 1px solid rgba(255,255,255,.05);
+    border-bottom: 1px solid rgba(15,23,42,.07);
   }
   .rank-row:last-child { border-bottom: none; }
   .rank-num {
     width: 22px; height: 22px; border-radius: 6px; background: rgba(79,124,254,.15);
-    color: #8ab0ff; font-size: 11px; font-weight: 700; flex-shrink: 0;
+    color: #1d4ed8; font-size: 11px; font-weight: 700; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
   }
   .rank-num.top1 { background: #2f5ce4; color: white; }
@@ -203,29 +204,29 @@
     width: 110px; font-size: 13px; flex-shrink: 0; overflow: hidden;
     text-overflow: ellipsis; white-space: nowrap;
   }
-  .rank-track { flex: 1; height: 8px; background: rgba(255,255,255,.06); border-radius: 4px; overflow: hidden; }
+  .rank-track { flex: 1; height: 8px; background: rgba(15,23,42,.07); border-radius: 4px; overflow: hidden; }
   .rank-fill { height: 100%; background: linear-gradient(90deg,#4d7cfe,#2f5ce4); border-radius: 4px; }
   .rank-value { width: 110px; text-align: right; font-size: 13px; font-weight: 700; flex-shrink: 0; }
-  .rank-share { width: 52px; text-align: right; font-size: 12px; color: #8992a9; flex-shrink: 0; }
+  .rank-share { width: 52px; text-align: right; font-size: 12px; color: #475569; flex-shrink: 0; }
 
   /* ---- Calendar ---- */
   .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-  .calendar-dow { text-align: center; font-size: 11px; color: #6d7488; padding-bottom: 4px; }
+  .calendar-dow { text-align: center; font-size: 11px; color: #64748b; padding-bottom: 4px; }
   .calendar-cell {
-    background: #0f1117; border: 1px solid rgba(255,255,255,.05); border-radius: 8px;
+    background: #f4f5f8; border: 1px solid rgba(15,23,42,.07); border-radius: 8px;
     padding: 8px 6px; min-height: 64px; display: flex; flex-direction: column; gap: 4px;
   }
   .calendar-cell.empty { background: transparent; border: none; }
-  .calendar-day { font-size: 11px; color: #6d7488; }
-  .calendar-amount { font-size: 12px; font-weight: 700; color: #f5f6fa; }
+  .calendar-day { font-size: 11px; color: #64748b; }
+  .calendar-amount { font-size: 12px; font-weight: 700; color: #0f172a; }
 
   /* ---- Tables ---- */
   .scroll-box { max-height: 420px; overflow-y: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; color: #c7cbe0; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.05); }
-  th { font-size: 11px; color: #6d7488; font-weight: 600; position: sticky; top: 0; background: #14161d; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; color: #1e293b; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(15,23,42,.07); }
+  th { font-size: 11px; color: #64748b; font-weight: 600; position: sticky; top: 0; background: #ffffff; }
   td.num, th.num { text-align: right; }
-  .error { color: #f24444; }
+  .error { color: #dc2626; }
 
   /* ---- Pipeline ---- */
   .pipeline-funnel { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 0; flex-wrap: wrap; }
@@ -240,19 +241,19 @@
   .pipeline-bar.active { box-shadow: 0 0 0 3px rgba(255,255,255,.5); }
   .pipeline-substage {
     margin-top: 6px; text-align: center; font-size: 11px; font-weight: 700; cursor: pointer;
-    color: #2dd4bf; background: rgba(45,212,191,.12); border: 1px solid rgba(45,212,191,.25);
+    color: #0d9488; background: rgba(45,212,191,.12); border: 1px solid rgba(45,212,191,.25);
     border-radius: 8px; padding: 4px 6px;
   }
   .pipeline-substage:hover { background: rgba(45,212,191,.2); }
   .pipeline-substage.active { box-shadow: 0 0 0 2px rgba(45,212,191,.6); }
   .pipeline-bar .stage-count { font-size: 22px; font-weight: 800; }
-  .pipeline-arrow { font-size: 12px; color: #6d7488; flex-shrink: 0; text-align: center; white-space: nowrap; }
+  .pipeline-arrow { font-size: 12px; color: #64748b; flex-shrink: 0; text-align: center; white-space: nowrap; }
   .deal-form {
     display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px;
-    padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,.06);
+    padding-bottom: 16px; border-bottom: 1px solid rgba(15,23,42,.07);
   }
   .deal-form input, .deal-form select {
-    background: #0f1117; color: #f5f6fa; border: 1px solid rgba(255,255,255,.1);
+    background: #f4f5f8; color: #0f172a; border: 1px solid rgba(15,23,42,.12);
     border-radius: 8px; padding: 8px 10px; font-size: 13px;
   }
   .deal-form input[name="company"] { flex: 1; min-width: 140px; }
@@ -266,65 +267,65 @@
   }
   .btn-primary:hover { opacity: .9; }
   .btn-danger {
-    background: rgba(239,68,68,.12); color: #ff6b6b; border: 1px solid rgba(239,68,68,.3);
+    background: rgba(239,68,68,.12); color: #dc2626; border: 1px solid rgba(239,68,68,.3);
     border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
   }
   .stage-select {
-    background: #0f1117; color: #f5f6fa; border: 1px solid rgba(255,255,255,.1);
+    background: #f4f5f8; color: #0f172a; border: 1px solid rgba(15,23,42,.12);
     border-radius: 6px; padding: 5px 8px; font-size: 12px;
   }
   .inline-edit {
-    width: 100%; background: transparent; color: #c7cbe0; border: 1px solid transparent;
+    width: 100%; background: transparent; color: #1e293b; border: 1px solid transparent;
     border-radius: 6px; padding: 5px 6px; font-size: 13px; font-family: inherit;
   }
   .inline-edit.num { text-align: right; }
-  .inline-edit:hover { border-color: rgba(255,255,255,.12); }
+  .inline-edit:hover { border-color: rgba(15,23,42,.14); }
   .inline-edit:focus {
-    outline: none; background: #0f1117; border-color: #4d7cfe; color: #f5f6fa;
+    outline: none; background: #f4f5f8; border-color: #4d7cfe; color: #0f172a;
   }
   .stage-badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
-  .stage-badge.inquiry { background: rgba(77,124,254,.15); color: #8ab0ff; }
-  .stage-badge.export-inquiry { background: rgba(45,212,191,.15); color: #2dd4bf; }
-  .stage-badge.quote { background: rgba(250,204,21,.15); color: #facc15; }
-  .stage-badge.negotiation { background: rgba(34,197,94,.15); color: #4ade80; }
-  .stage-badge.invoiced { background: rgba(168,85,247,.15); color: #c084fc; }
+  .stage-badge.inquiry { background: rgba(77,124,254,.15); color: #1d4ed8; }
+  .stage-badge.export-inquiry { background: rgba(45,212,191,.15); color: #0d9488; }
+  .stage-badge.quote { background: rgba(250,204,21,.15); color: #a16207; }
+  .stage-badge.negotiation { background: rgba(34,197,94,.15); color: #15803d; }
+  .stage-badge.invoiced { background: rgba(168,85,247,.15); color: #9333ea; }
 
   /* ---- 몰별(채널) 표 ----
      table-layout: fixed로 두고 구분/판매처 칸만 폭을 고정하면, 나머지 일자 칸들은
      날짜 수가 늘어나든 줄어들든 표 전체 폭(100%) 안에서 남는 공간을 자동으로 균등 분배합니다.
      → 일자가 오른쪽으로 계속 쌓여도 가로 스크롤 없이 간격이 자동으로 맞춰집니다. */
-  .channel-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; color: #c7cbe0; margin-bottom: 18px; }
+  .channel-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; color: #1e293b; margin-bottom: 18px; }
   .channel-table th, .channel-table td {
-    text-align: left; padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,.05);
+    text-align: left; padding: 6px 4px; border-bottom: 1px solid rgba(15,23,42,.07);
     overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   }
-  .channel-table th { font-size: 11px; color: #6d7488; font-weight: 600; }
+  .channel-table th { font-size: 11px; color: #64748b; font-weight: 600; }
   .channel-table td.num, .channel-table th.num { text-align: right; font-size: 12px; }
   .channel-table th:first-child, .channel-table td:first-child { width: 60px; padding-left: 8px; }
   .channel-table th:nth-child(2), .channel-table td:nth-child(2) { width: 130px; padding-right: 8px; }
-  .channel-total-row td { font-weight: 800; color: #f5f6fa; background: rgba(77,124,254,.08); }
-  .channel-summary { margin-top: 4px; border-top: 2px solid rgba(255,255,255,.12); padding-top: 4px; }
+  .channel-total-row td { font-weight: 800; color: #0f172a; background: rgba(77,124,254,.08); }
+  .channel-summary { margin-top: 4px; border-top: 2px solid rgba(15,23,42,.14); padding-top: 4px; }
   .channel-summary td { font-size: 13px; }
   #channelDaysToggle { font-weight: 800; }
-  .channel-total-all td.num { color: #22d3ee; }
-  .channel-total-team td.num { color: #fbbf24; }
+  .channel-total-all td.num { color: #0891b2; }
+  .channel-total-team td.num { color: #b45309; }
 
   /* ---- 마케팅 대시보드 (오렌지 테마) ---- */
-  .mkt-value { color: #fb923c; }
+  .mkt-value { color: #ea580c; }
   .mkt-swatch { background: #fb923c; }
-  .mkt-bar { height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .mkt-bar { height: 4px; background: rgba(15,23,42,.07); border-radius: 2px; margin-top: 10px; overflow: hidden; }
   .mkt-bar-fill { height: 100%; background: linear-gradient(90deg,#fb923c,#f97316); }
   .mkt-rank-fill { height: 100%; background: linear-gradient(90deg,#fb923c,#f97316); border-radius: 4px; }
   .mkt-pacing-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-  .mkt-pacing-label { width: 76px; font-size: 12px; color: #8992a9; flex-shrink: 0; }
-  .mkt-pacing-track { flex: 1; height: 10px; background: rgba(255,255,255,.06); border-radius: 5px; overflow: hidden; }
+  .mkt-pacing-label { width: 76px; font-size: 12px; color: #475569; flex-shrink: 0; }
+  .mkt-pacing-track { flex: 1; height: 10px; background: rgba(15,23,42,.07); border-radius: 5px; overflow: hidden; }
   .mkt-pacing-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg,#fb923c,#f97316); }
-  .mkt-pacing-fill.elapsed { background: linear-gradient(90deg,#6d7488,#8992a9); }
-  .mkt-pacing-pct { width: 52px; text-align: right; font-size: 12px; font-weight: 700; color: #f5f6fa; flex-shrink: 0; }
-  .mkt-pacing-note { font-size: 12px; color: #c7cbe0; margin: 10px 0; }
-  .mkt-pacing-stats { display: flex; gap: 18px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.06); }
+  .mkt-pacing-fill.elapsed { background: linear-gradient(90deg,#64748b,#475569); }
+  .mkt-pacing-pct { width: 52px; text-align: right; font-size: 12px; font-weight: 700; color: #0f172a; flex-shrink: 0; }
+  .mkt-pacing-note { font-size: 12px; color: #1e293b; margin: 10px 0; }
+  .mkt-pacing-stats { display: flex; gap: 18px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(15,23,42,.07); }
   .mkt-pacing-stat { flex: 1; text-align: center; }
-  .mkt-pacing-stat .stat-label { font-size: 11px; color: #6d7488; margin-bottom: 4px; }
+  .mkt-pacing-stat .stat-label { font-size: 11px; color: #64748b; margin-bottom: 4px; }
   .mkt-pacing-stat .stat-value { font-size: 15px; font-weight: 800; }
 </style>
 </head>
@@ -843,6 +844,16 @@
     return getBrandFallback(row.vendor);
   }
 
+  // 같은 브랜드인데 시기별로 표기가 달랐던 것들을 하나로 통일합니다.
+  // (6~7월 옛 데이터는 판매처명 "라이프스타일마트"로 집계되고, 8월부터는 원본 DB의 브랜드 태그가
+  //  그대로 "라스마"로 들어와서 둘이 서로 다른 브랜드처럼 갈라져 집계되는 문제를 막기 위함)
+  const BRAND_NAME_ALIASES = {
+    '라스마': '라이프스타일마트',
+  };
+  function canonicalBrand(name) {
+    return BRAND_NAME_ALIASES[name] || name;
+  }
+
   // 특정 달의 회사 전체 실제 매출 (sales_transactions 기준. COMPANY_ACTUALS_BY_MONTH에 값이 있으면 그 값을 우선 사용)
   function getCompanyMonthlyRevenue(monthStr) {
     if (!monthStr) return 0;
@@ -856,10 +867,11 @@
   // 특정 브랜드의 특정 달 실제 매출 (sales_transactions 기준. BRAND_ACTUALS_BY_MONTH에 값이 있으면 그 값을 우선 사용)
   function getBrandMonthlyRevenue(brandName, monthStr) {
     if (!monthStr) return 0;
-    const override = BRAND_ACTUALS_BY_MONTH[monthStr] && BRAND_ACTUALS_BY_MONTH[monthStr][brandName];
+    const canonical = canonicalBrand(brandName);
+    const override = BRAND_ACTUALS_BY_MONTH[monthStr] && BRAND_ACTUALS_BY_MONTH[monthStr][canonical];
     if (override !== undefined) return override;
     return allRows
-      .filter(r => r.sale_date.slice(0, 7) === monthStr && getBrand(r) === brandName)
+      .filter(r => r.sale_date.slice(0, 7) === monthStr && canonicalBrand(getBrand(r)) === canonical)
       .reduce((s, r) => s + Number(r.amount), 0);
   }
 
@@ -1825,7 +1837,7 @@
           <td class="num">${won(Math.round(cpa))}</td>
           <td class="num">
             <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end;">
-              <div style="width:60px; height:6px; background:rgba(255,255,255,.06); border-radius:3px; overflow:hidden;"><div class="mkt-rank-fill" style="width:${barWidth.toFixed(1)}%"></div></div>
+              <div style="width:60px; height:6px; background:rgba(15,23,42,.08); border-radius:3px; overflow:hidden;"><div class="mkt-rank-fill" style="width:${barWidth.toFixed(1)}%"></div></div>
               <span>${channelRoas.toFixed(0)}%</span>
             </div>
           </td>
@@ -1868,7 +1880,7 @@
       return `
         <div class="bar-col">
           <div class="bar-value-label">${won(Math.round(spend))}</div>
-          <div class="bar-value-label" style="color:#fb923c;">ROAS ${roasM.toFixed(0)}%</div>
+          <div class="bar-value-label" style="color:#ea580c;">ROAS ${roasM.toFixed(0)}%</div>
           <div class="bar ${isLast ? 'last' : ''}" style="height:${(spend / maxSpendTrend * 100).toFixed(1)}%; background: linear-gradient(180deg,#fb923c,#f97316);"></div>
           <div class="bar-label">${mm}월</div>
         </div>
@@ -1907,8 +1919,8 @@
       <div class="mkt-pacing-note">
         ${Math.abs(paceDiff) < 0.05
           ? '경과 속도와 비슷하게 소진 중'
-          : ('경과보다 <b style="color:#fb923c">' + Math.abs(paceDiff).toFixed(1) + '%p</b> ' + (paceDiff > 0 ? '빠르게' : '느리게') + ' 소진 중')}
-        ${(projectedDay && projectedDay < daysInMonth) ? ('<br>이 속도면 <b style="color:#fb923c">' + projectedDay + '일차</b>에 예산 소진') : ''}
+          : ('경과보다 <b style="color:#ea580c">' + Math.abs(paceDiff).toFixed(1) + '%p</b> ' + (paceDiff > 0 ? '빠르게' : '느리게') + ' 소진 중')}
+        ${(projectedDay && projectedDay < daysInMonth) ? ('<br>이 속도면 <b style="color:#ea580c">' + projectedDay + '일차</b>에 예산 소진') : ''}
       </div>
       <div class="mkt-pacing-stats">
         <div class="mkt-pacing-stat"><div class="stat-label">집행</div><div class="stat-value">${won(Math.round(totalSpend))}</div></div>
@@ -2111,7 +2123,7 @@
       return `
         <div class="bar-col">
           <div class="bar-value-label">${won(Math.round(spend))}</div>
-          <div class="bar-value-label" style="color:#fb923c;">ROAS ${roasM.toFixed(0)}%</div>
+          <div class="bar-value-label" style="color:#ea580c;">ROAS ${roasM.toFixed(0)}%</div>
           <div class="bar ${isLast ? 'last' : ''}" style="height:${(spend / maxSpendTrend * 100).toFixed(1)}%; background: linear-gradient(180deg,#fb923c,#f97316);"></div>
           <div class="bar-label">${mm}월</div>
         </div>
@@ -2150,8 +2162,8 @@
       <div class="mkt-pacing-note">
         ${Math.abs(paceDiff) < 0.05
           ? '경과 속도와 비슷하게 소진 중'
-          : ('경과보다 <b style="color:#fb923c">' + Math.abs(paceDiff).toFixed(1) + '%p</b> ' + (paceDiff > 0 ? '빠르게' : '느리게') + ' 소진 중')}
-        ${(projectedDay && projectedDay < daysInMonth) ? ('<br>이 속도면 <b style="color:#fb923c">' + projectedDay + '일차</b>에 예산 소진') : ''}
+          : ('경과보다 <b style="color:#ea580c">' + Math.abs(paceDiff).toFixed(1) + '%p</b> ' + (paceDiff > 0 ? '빠르게' : '느리게') + ' 소진 중')}
+        ${(projectedDay && projectedDay < daysInMonth) ? ('<br>이 속도면 <b style="color:#ea580c">' + projectedDay + '일차</b>에 예산 소진') : ''}
       </div>
       <div class="mkt-pacing-stats">
         <div class="mkt-pacing-stat"><div class="stat-label">집행</div><div class="stat-value">${won(Math.round(totalSpend))}</div></div>
