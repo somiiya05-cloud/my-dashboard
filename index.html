@@ -822,6 +822,20 @@
     return Number(n).toLocaleString('ko-KR') + '원';
   }
 
+  // 금액이 크면 억원/만원 단위로 환산해서 보여줍니다 (1억 = 100,000,000원, 1만 = 10,000원 기준 정확한 계산).
+  // 예: 586,610,755원 → 5.87억원, 88,335,153원 → 8,834만원
+  function wonUnit(n) {
+    const num = Number(n);
+    const abs = Math.abs(num);
+    if (abs >= 100000000) {
+      return (num / 100000000).toFixed(2) + '억원';
+    }
+    if (abs >= 10000) {
+      return Math.round(num / 10000).toLocaleString('ko-KR') + '만원';
+    }
+    return won(num);
+  }
+
   // 판매처(채널별 세부 계정)를 하나의 브랜드로 합산하기 위한 매핑
   // 자사몰/스토어팜/특정 채널 전용 계정 등 같은 브랜드의 다른 채널 계정을 한 브랜드로 묶습니다.
   // 매핑에 없는 판매처는 그대로 자기 자신을 브랜드명으로 사용합니다.
@@ -1045,31 +1059,31 @@
     document.getElementById('cards').innerHTML = `
       <div class="kpi-card">
         <div class="kpi-label">${monthLabelPrefix}전체 매출</div>
-        <div class="kpi-value">${won(companyMonthlyActual)}</div>
+        <div class="kpi-value">${wonUnit(companyMonthlyActual)}</div>
         <div class="kpi-sub">목표 90억 대비 <span class="pct-red">${companyMonthlyPct.toFixed(1)}%</span> · ${won(companyMonthlyRemain)} 남음</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyMonthlyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">${companyTodayCardLabel}</div>
-        <div class="kpi-value">${won(companyTodayCardValue)}</div>
+        <div class="kpi-value">${wonUnit(companyTodayCardValue)}</div>
         <div class="kpi-sub">${companyTodayCardSub}</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyTodayCardPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label kpi-label-team">${teamTodayCardLabel}</div>
-        <div class="kpi-value">${won(teamTodayCardValue)}</div>
+        <div class="kpi-value">${wonUnit(teamTodayCardValue)}</div>
         <div class="kpi-sub">${teamTodayCardSub}</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamTodayCardPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label kpi-label-team">영업팀 일매출 평균</div>
-        <div class="kpi-value">${won(Math.round(teamDailyAvgActual))}</div>
+        <div class="kpi-value">${wonUnit(teamDailyAvgActual)}</div>
         <div class="kpi-sub">일매출 목표 3천만원 대비 <span class="pct-red">${teamDailyPct.toFixed(1)}%</span></div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamDailyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">${monthLabelPrefix}일 평균 매출 · 총 거래 건수</div>
-        <div class="kpi-value">${won(Math.round(dailyAvg))}</div>
+        <div class="kpi-value">${wonUnit(dailyAvg)}</div>
         <div class="kpi-sub">총 ${rows.length.toLocaleString('ko-KR')}건 · 판매처 ${vendorEntries.length}곳 · 제품 ${productEntries.length}종</div>
       </div>
     `;
