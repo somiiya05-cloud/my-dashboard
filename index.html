@@ -1102,6 +1102,20 @@
     return (name || '').replace(/^(\s*\[[^\]]*\]\s*)+/, '').trim();
   }
 
+  // 대괄호 태그뿐 아니라 "세정서버" vs "세정 서버"처럼 띄어쓰기만 다른 경우도 같은 상품으로 비교하기 위한 키.
+  // (표시용 이름은 normalizeProductName 결과를 그대로 쓰고, 이 키는 매칭/그룹핑 용도로만 사용합니다)
+  function productMatchKey(name) {
+    return normalizeProductName(name).replace(/\s+/g, '').toLowerCase();
+  }
+
+  // 같은 매칭 키를 가진 여러 표기(띄어쓰기 차이 등) 중, 매출/금액 합이 가장 큰 표기를 대표 이름으로 사용합니다.
+  function pickDisplayName(variantAmounts) {
+    const entries = Object.entries(variantAmounts);
+    if (!entries.length) return '';
+    entries.sort((a, b) => b[1] - a[1]);
+    return entries[0][0];
+  }
+
   function render(rows, monthStr) {
     const totalAmount = rows.reduce((s, r) => s + Number(r.amount), 0);
     const totalQty = rows.reduce((s, r) => s + Number(r.quantity), 0);
@@ -2306,16 +2320,20 @@
     const resetBtn = document.getElementById('paDateReset');
 
     function paProductOptions() {
-      const totals = {};
+      const groups = {}; // matchKey -> { total, variants: { 표시이름: 금액 } }
       allRows.forEach(r => {
         if (isAggregatePlaceholderProduct(r.product_name)) return; // 판매처 일별 합계 placeholder는 상품이 아니므로 제외
         if (DIRECT_SUPPLY_VENDORS.has(r.vendor)) return; // 직납(직매입) 매출 건은 상품 목록/금액 집계에서 제외
-        const name = normalizeProductName(r.product_name); // [명퇴] 등 대괄호 태그는 무시하고 같은 상품으로 합산
-        if (!name) return;
-        if (!totals[name]) totals[name] = 0;
-        totals[name] += Number(r.amount);
+        const displayName = normalizeProductName(r.product_name); // [명퇴] 등 대괄호 태그는 제거한 표시용 이름
+        const key = productMatchKey(r.product_name); // 대괄호 태그 + 띄어쓰기 차이까지 무시한 비교용 키
+        if (!key) return;
+        if (!groups[key]) groups[key] = { total: 0, variants: {} };
+        groups[key].total += Number(r.amount);
+        groups[key].variants[displayName] = (groups[key].variants[displayName] || 0) + Number(r.amount);
       });
-      return Object.entries(totals).sort((a, b) => b[1] - a[1]);
+      return Object.values(groups)
+        .map(g => [pickDisplayName(g.variants), g.total])
+        .sort((a, b) => b[1] - a[1]);
     }
 
     function paProductLabel(product) {
@@ -2414,11 +2432,12 @@
     const from = fromInput.value;
     const to = toInput.value;
     // 상품명은 정확히 일치하는 것만 찾습니다 ("가글" 검색 시 "가글캔디" 같은 다른 상품은 포함하지 않음).
-    // 단, "[명퇴] 길운 오행 염주"처럼 앞에 대괄호 태그가 붙은 경우는 태그를 무시하고 같은 상품으로 취급합니다.
+    // 단, "[명퇴] 길운 오행 염주"처럼 앞에 붙은 대괄호 태그나 "세정서버"/"세정 서버" 같은 띄어쓰기 차이는
+    // 무시하고 같은 상품으로 취급합니다.
     function matchesProduct(name) {
       if (isAggregatePlaceholderProduct(name)) return false; // 판매처 일별 합계 placeholder는 상품이 아니므로 제외
       const target = product || searchQ;
-      return normalizeProductName(name).toLowerCase() === normalizeProductName(target).toLowerCase();
+      return productMatchKey(name) === productMatchKey(target);
     }
     function inRange(date) {
       return (!from || date >= from) && (!to || date <= to);
@@ -2439,21 +2458,28 @@
     panelEl.style.display = '';
 
     // 판매처별로 나누지 않고 상품명 기준으로 매출·광고비를 합산합니다 (여러 판매처에서 팔려도 하나의 합계로).
-    // "[명퇴] 길운 오행 염주"처럼 대괄호 태그가 붙은 이름도 태그를 뗀 이름으로 합쳐서 하나의 상품으로 취급합니다.
+    // "[명퇴] 길운 오행 염주" 같은 대괄호 태그 차이, "세정서버"/"세정 서버" 같은 띄어쓰기 차이도
+    // 모두 같은 상품으로 합쳐서 취급합니다 (표시 이름은 금액이 가장 큰 표기를 사용).
     // 광고비 데이터가 없으면 광고비 0원으로 처리됩니다.
-    const byProduct = {};
+    const byProductKeyed = {}; // matchKey -> { revenue, spend, variants: { 표시이름: 매출액 } }
     salesRows.forEach(r => {
-      const name = normalizeProductName(r.product_name) || r.product_name;
-      if (!byProduct[name]) byProduct[name] = { revenue: 0, spend: 0 };
-      byProduct[name].revenue += Number(r.amount);
+      const key = productMatchKey(r.product_name) || '(상품명 미상)';
+      const displayName = normalizeProductName(r.product_name) || r.product_name || '(상품명 미상)';
+      if (!byProductKeyed[key]) byProductKeyed[key] = { revenue: 0, spend: 0, variants: {} };
+      byProductKeyed[key].revenue += Number(r.amount);
+      byProductKeyed[key].variants[displayName] = (byProductKeyed[key].variants[displayName] || 0) + Number(r.amount);
     });
     spendRows.forEach(r => {
-      const name = normalizeProductName(r.product_name) || r.product_name || '(상품명 미상)';
-      if (!byProduct[name]) byProduct[name] = { revenue: 0, spend: 0 };
-      byProduct[name].spend += Number(r.spend);
+      const key = productMatchKey(r.product_name) || '(상품명 미상)';
+      const displayName = normalizeProductName(r.product_name) || r.product_name || '(상품명 미상)';
+      if (!byProductKeyed[key]) byProductKeyed[key] = { revenue: 0, spend: 0, variants: {} };
+      byProductKeyed[key].spend += Number(r.spend);
+      if (!(displayName in byProductKeyed[key].variants)) byProductKeyed[key].variants[displayName] = 0;
     });
 
-    const entries = Object.entries(byProduct).sort((a, b) => b[1].revenue - a[1].revenue);
+    const entries = Object.values(byProductKeyed)
+      .map(v => [pickDisplayName(v.variants) || '(상품명 미상)', v])
+      .sort((a, b) => b[1].revenue - a[1].revenue);
     let totalRevenue = 0, totalSpend = 0;
 
     const rowsHtml = entries.map(([productName, v]) => {
