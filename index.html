@@ -1841,7 +1841,7 @@
         <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, budgetPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">${monthNum ? monthNum + '월 ' : ''}전체 매출</div>
+        <div class="kpi-label">${monthNum ? monthNum + '월 ' : ''}광고매출</div>
         <div class="kpi-value mkt-value">${won(Math.round(companyRevenue))}</div>
         <div class="kpi-sub">${revenueCardSubAll}</div>
       </div>
@@ -1853,8 +1853,8 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-label">ROAS</div>
-        <div class="kpi-value mkt-value">${won(Math.round(totalRevenue))}</div>
-        <div class="kpi-sub">광고비 ${won(Math.round(totalSpend))} 대비 ${roas.toFixed(0)}%</div>
+        <div class="kpi-value mkt-value">${roas.toFixed(0)}%</div>
+        <div class="kpi-sub">광고매출 ${won(Math.round(totalRevenue))} · 광고비 ${won(Math.round(totalSpend))}</div>
       </div>
     `;
 
@@ -2072,7 +2072,7 @@
         <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, budgetPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">${monthNum ? monthNum + '월 ' : ''}전체 매출</div>
+        <div class="kpi-label">${monthNum ? monthNum + '월 ' : ''}광고매출</div>
         <div class="kpi-value mkt-value">${won(Math.round(brandRevenue))}</div>
         <div class="kpi-sub">${revenueCardSub}</div>
       </div>
@@ -2084,8 +2084,8 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-label">ROAS</div>
-        <div class="kpi-value mkt-value">${won(Math.round(totalRevenue))}</div>
-        <div class="kpi-sub">광고비 ${won(Math.round(totalSpend))} 대비 ${roas.toFixed(0)}%</div>
+        <div class="kpi-value mkt-value">${roas.toFixed(0)}%</div>
+        <div class="kpi-sub">광고매출 ${won(Math.round(totalRevenue))} · 광고비 ${won(Math.round(totalSpend))}</div>
       </div>
     `;
 
