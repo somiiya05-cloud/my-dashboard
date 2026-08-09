@@ -760,7 +760,7 @@
         </div>
         <div class="scroll-box">
           <table>
-            <thead><tr><th>상품명</th><th class="num">매출액</th><th class="num">광고비</th><th class="num">광고비중</th></tr></thead>
+            <thead><tr><th>매출처</th><th class="num">매출액</th><th class="num">광고비</th><th class="num">광고비중</th></tr></thead>
             <tbody id="paTable"></tbody>
           </table>
         </div>
@@ -992,6 +992,13 @@
     if (!CHANNEL_TEMPLATE_VENDORS.has(vendor)) return false; // 템플릿에 없는 신규/미분류 판매처(기타)는 제외
     return true;
   }
+
+  // "직납"(직매입) 판매처 목록 — 상품별 광고비중 페이지에서 이 판매처의 매출 건은 전부 제외합니다.
+  const DIRECT_SUPPLY_GROUPS = new Set(['직매입', '직매임']);
+  const DIRECT_SUPPLY_VENDORS = new Set();
+  CHANNEL_TEMPLATE.forEach(block => block.rows.forEach(([group, vendor]) => {
+    if (DIRECT_SUPPLY_GROUPS.has(group)) DIRECT_SUPPLY_VENDORS.add(vendor);
+  }));
 
   // 특정 달의 회사 전체 광고매출 (sales_transactions 기준, 직매입/수출/공동구매/기타 제외.
   // COMPANY_ACTUALS_BY_MONTH에 값이 있으면 그 값을 우선 사용 — 단, 이 값은 전사 총매출이라
@@ -2393,8 +2400,9 @@
       return (!from || date >= from) && (!to || date <= to);
     }
 
-    const salesRows = allRows.filter(r => matchesProduct(r.product_name) && inRange(r.sale_date));
-    const spendRows = allProductAdSpendRows.filter(r => matchesProduct(r.product_name) && inRange(r.sale_date));
+    // 직납(직매입) 판매처 매출 건은 상품별 광고비중 집계에서 전부 제외합니다.
+    const salesRows = allRows.filter(r => matchesProduct(r.product_name) && inRange(r.sale_date) && !DIRECT_SUPPLY_VENDORS.has(r.vendor));
+    const spendRows = allProductAdSpendRows.filter(r => matchesProduct(r.product_name) && inRange(r.sale_date) && !DIRECT_SUPPLY_VENDORS.has(r.vendor));
 
     if (!salesRows.length && !spendRows.length) {
       emptyEl.innerHTML = '해당 상품의 매출/광고비 데이터를 찾을 수 없어요. 검색어를 확인해주세요.';
@@ -2406,29 +2414,29 @@
     emptyEl.style.display = 'none';
     panelEl.style.display = '';
 
-    // 상품명별로 매출과 광고비를 합산합니다 (여러 판매처에서 같은 상품을 팔아도 하나로 합산).
-    // 광고비 데이터가 없는 상품은 광고비 0원으로 처리됩니다.
-    const byProduct = {};
+    // 검색은 정확히 일치하는 상품 하나만 찾으므로, 결과는 그 상품을 판 판매처별로 매출·광고비를 나눠서 보여줍니다.
+    // 광고비 데이터가 없는 판매처는 광고비 0원으로 처리됩니다.
+    const byVendor = {};
     salesRows.forEach(r => {
-      if (!byProduct[r.product_name]) byProduct[r.product_name] = { revenue: 0, spend: 0 };
-      byProduct[r.product_name].revenue += Number(r.amount);
+      if (!byVendor[r.vendor]) byVendor[r.vendor] = { revenue: 0, spend: 0 };
+      byVendor[r.vendor].revenue += Number(r.amount);
     });
     spendRows.forEach(r => {
-      const name = r.product_name || '(상품명 미상)';
-      if (!byProduct[name]) byProduct[name] = { revenue: 0, spend: 0 };
-      byProduct[name].spend += Number(r.spend);
+      const vendor = r.vendor || '(판매처 미상)';
+      if (!byVendor[vendor]) byVendor[vendor] = { revenue: 0, spend: 0 };
+      byVendor[vendor].spend += Number(r.spend);
     });
 
-    const entries = Object.entries(byProduct).sort((a, b) => b[1].revenue - a[1].revenue);
+    const entries = Object.entries(byVendor).sort((a, b) => b[1].revenue - a[1].revenue);
     let totalRevenue = 0, totalSpend = 0;
 
-    const rowsHtml = entries.map(([productName, v]) => {
+    const rowsHtml = entries.map(([vendor, v]) => {
       totalRevenue += v.revenue;
       totalSpend += v.spend;
       const ratio = v.revenue > 0 ? (v.spend / v.revenue * 100) : (v.spend > 0 ? null : 0);
       return `
         <tr>
-          <td>${productName}</td>
+          <td>${vendor}</td>
           <td class="num">${won(v.revenue)}</td>
           <td class="num">${won(v.spend)}</td>
           <td class="num">${ratio === null ? '-' : ratio.toFixed(1) + '%'}</td>
@@ -2452,7 +2460,7 @@
     const brandsInRows = Array.from(new Set(salesRows.map(r => canonicalBrand(getBrand(r)))));
     const titleProductName = product || (searchQ ? `"${searchQ}" 검색결과` : '');
     titleEl.textContent = (brandsInRows.length === 1 ? `[${brandsInRows[0]}] ` : '') + titleProductName;
-    noteEl.textContent = (from || to ? `기간: ${from || '전체'} ~ ${to || '전체'} · ` : '') + `상품 ${entries.length.toLocaleString('ko-KR')}개`;
+    noteEl.textContent = (from || to ? `기간: ${from || '전체'} ~ ${to || '전체'} · ` : '') + `판매처 ${entries.length.toLocaleString('ko-KR')}곳`;
 
     if (!allProductAdSpendRows.length) {
       noteEl.textContent += ' · 광고비 데이터 미입력(0원으로 표시)';
