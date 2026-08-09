@@ -2303,14 +2303,15 @@
       const totals = {};
       allRows.forEach(r => {
         if (isAggregatePlaceholderProduct(r.product_name)) return; // 판매처 일별 합계 placeholder는 상품이 아니므로 제외
+        if (DIRECT_SUPPLY_VENDORS.has(r.vendor)) return; // 직납(직매입) 매출 건은 상품 목록/금액 집계에서 제외
         if (!totals[r.product_name]) totals[r.product_name] = 0;
         totals[r.product_name] += Number(r.amount);
       });
       return Object.entries(totals).sort((a, b) => b[1] - a[1]);
     }
 
-    function paProductLabel(product, amount) {
-      return product ? `${product} (${won(amount)})` : '';
+    function paProductLabel(product) {
+      return product || '';
     }
 
     function renderPaDropdown(filterText) {
@@ -2322,8 +2323,8 @@
       if (!shown.length) {
         html = `<div class="searchable-select-empty">검색 결과가 없습니다</div>`;
       } else {
-        html = shown.map(([p, amount]) => `
-          <div class="searchable-select-option${p === paSelectedProduct ? ' active' : ''}" data-value="${escapeAttr(p)}">${p} (${won(amount)})</div>
+        html = shown.map(([p]) => `
+          <div class="searchable-select-option${p === paSelectedProduct ? ' active' : ''}" data-value="${escapeAttr(p)}">${p}</div>
         `).join('');
         if (filtered.length > shown.length) {
           html += `<div class="searchable-select-empty">외 ${(filtered.length - shown.length).toLocaleString('ko-KR')}건 더 있음 · 검색어로 좁혀보세요</div>`;
@@ -2342,7 +2343,7 @@
       const found = opts.find(([p]) => p === product);
       paSelectedProduct = product || '';
       paSearchText = '';
-      input.value = found ? paProductLabel(found[0], found[1]) : '';
+      input.value = found ? paProductLabel(found[0]) : '';
       closePaDropdown();
       renderProductAdRatioResult();
     }
