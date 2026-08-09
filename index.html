@@ -358,6 +358,7 @@
           <span class="nav-collapse-toggle" id="marketingBrandsToggle" onclick="event.stopPropagation(); toggleMarketingBrands();">▾</span>
         </div>
         <div id="navMarketingBrands"></div>
+        <div class="nav-item" id="navProductAdRatio" onclick="switchView('product-ad-ratio')"><span class="dot dot-mkt"></span>상품별 광고비중</div>
       </div>
       <div class="sidebar-footer">
         <div class="avatar">H</div>
@@ -690,6 +691,49 @@
           <div class="bar-chart" id="mktBrandTrendChart"></div>
         </section>
       </div>
+    </main>
+
+    <main class="main" id="productAdRatioView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>상품별 광고비중</h1>
+          <div class="subtitle" id="paSubtitle">상품을 검색하면 판매처별 매출·광고비·광고비중을 보여줍니다.</div>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>상품 검색</h2>
+          <div class="filter-group">
+            <div class="searchable-select" id="paProductSelectWrap">
+              <input type="text" id="paProductSelectInput" class="vendor-select searchable-select-input" placeholder="상품명 검색 (예: 하수구)" autocomplete="off">
+              <div class="searchable-select-dropdown" id="paProductSelectDropdown"></div>
+            </div>
+            <input type="date" id="paDateFrom" class="date-input">
+            <span class="date-range-sep">~</span>
+            <input type="date" id="paDateTo" class="date-input">
+            <button type="button" class="filter-reset-btn" id="paDateReset">기간 초기화</button>
+          </div>
+        </div>
+      </section>
+
+      <div id="paEmpty" class="mkt-empty">
+        상품을 검색해서 선택하면 판매처별 매출·광고비·광고비중을 확인할 수 있어요.<br>
+        <b>상품별 광고비 데이터가 아직 입력되지 않은 경우</b> 광고비는 0원으로 표시됩니다.
+      </div>
+
+      <section class="panel" id="paResultPanel" style="display:none">
+        <div class="panel-head">
+          <h2 id="paResultTitle">상품별 광고비중</h2>
+          <span class="panel-note" id="paResultNote"></span>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead><tr><th>매출처</th><th class="num">매출액</th><th class="num">광고비</th><th class="num">광고비중</th></tr></thead>
+            <tbody id="paTable"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -1460,12 +1504,14 @@
     document.getElementById('channelView').style.display = view === 'channel' ? '' : 'none';
     document.getElementById('marketingView').style.display = view === 'marketing' ? '' : 'none';
     document.getElementById('marketingBrandView').style.display = view === 'marketing-brand' ? '' : 'none';
+    document.getElementById('productAdRatioView').style.display = view === 'product-ad-ratio' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
     document.getElementById('navMonthlyTrend').classList.toggle('active', view === 'monthly-trend');
     document.getElementById('navPipeline').classList.toggle('active', view === 'pipeline');
     document.getElementById('navProduct').classList.toggle('active', view === 'product');
     document.getElementById('navChannel').classList.toggle('active', view === 'channel');
     document.getElementById('navMarketing').classList.toggle('active', view === 'marketing');
+    document.getElementById('navProductAdRatio').classList.toggle('active', view === 'product-ad-ratio');
     document.querySelectorAll('#navMarketingBrands .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'marketing-brand' && el.dataset.channel === brandChannel);
     });
@@ -1478,6 +1524,7 @@
       currentMarketingBrand = brandChannel;
       loadMarketingData().then(() => renderMarketingBrandView());
     }
+    if (view === 'product-ad-ratio') initProductAdRatioView();
   }
 
   // ==================== 품별 (월별 / 일자별 제품 판매 순위) ====================
@@ -2086,6 +2133,222 @@
       `;
     }).join('');
 
+  }
+
+  // ==================== 상품별 광고비중 ====================
+  // 상품별 실제 광고비는 Supabase의 product_ad_spend 테이블(sale_date, product_name, vendor, spend)에서
+  // 가져옵니다. 아직 데이터가 입력되지 않았거나 테이블이 없다면 광고비 0으로 처리합니다.
+  let allProductAdSpendRows = [];
+  let productAdSpendLoaded = false;
+
+  async function loadProductAdSpendData() {
+    if (productAdSpendLoaded) return;
+    try {
+      const { data, error } = await client
+        .from('product_ad_spend')
+        .select('*');
+      if (error) {
+        allProductAdSpendRows = [];
+      } else {
+        allProductAdSpendRows = data || [];
+      }
+    } catch (e) {
+      allProductAdSpendRows = [];
+    }
+    productAdSpendLoaded = true;
+  }
+
+  let paSelectedProduct = ''; // 드롭다운에서 정확히 선택한 상품명
+  let paSearchText = ''; // 엔터로 적용한 검색어 (상품명에 포함된 항목 전체)
+  let paInitDone = false;
+
+  function initProductAdRatioView() {
+    loadProductAdSpendData().then(() => renderProductAdRatioResult());
+
+    if (paInitDone) return;
+    paInitDone = true;
+
+    const input = document.getElementById('paProductSelectInput');
+    const dropdown = document.getElementById('paProductSelectDropdown');
+    const fromInput = document.getElementById('paDateFrom');
+    const toInput = document.getElementById('paDateTo');
+    const resetBtn = document.getElementById('paDateReset');
+
+    function paProductOptions() {
+      const totals = {};
+      allRows.forEach(r => {
+        if (!totals[r.product_name]) totals[r.product_name] = 0;
+        totals[r.product_name] += Number(r.amount);
+      });
+      return Object.entries(totals).sort((a, b) => b[1] - a[1]);
+    }
+
+    function paProductLabel(product, amount) {
+      return product ? `${product} (${won(amount)})` : '';
+    }
+
+    function renderPaDropdown(filterText) {
+      const opts = paProductOptions();
+      const q = (filterText || '').trim().toLowerCase();
+      const filtered = q ? opts.filter(([p]) => p.toLowerCase().includes(q)) : opts;
+      const shown = filtered.slice(0, 200);
+      let html = '';
+      if (!shown.length) {
+        html = `<div class="searchable-select-empty">검색 결과가 없습니다</div>`;
+      } else {
+        html = shown.map(([p, amount]) => `
+          <div class="searchable-select-option${p === paSelectedProduct ? ' active' : ''}" data-value="${escapeAttr(p)}">${p} (${won(amount)})</div>
+        `).join('');
+        if (filtered.length > shown.length) {
+          html += `<div class="searchable-select-empty">외 ${(filtered.length - shown.length).toLocaleString('ko-KR')}건 더 있음 · 검색어로 좁혀보세요</div>`;
+        }
+      }
+      dropdown.innerHTML = html;
+      dropdown.classList.add('open');
+    }
+
+    function closePaDropdown() {
+      dropdown.classList.remove('open');
+    }
+
+    function paSelectProduct(product) {
+      const opts = paProductOptions();
+      const found = opts.find(([p]) => p === product);
+      paSelectedProduct = product || '';
+      paSearchText = '';
+      input.value = found ? paProductLabel(found[0], found[1]) : '';
+      closePaDropdown();
+      renderProductAdRatioResult();
+    }
+
+    // 엔터를 누르면 정확히 하나를 고르지 않아도, 입력한 글자가 상품명에 포함된 항목을 전체 모아서 보여줍니다.
+    // (예: "하수구" → 표기가 조금씩 다른 여러 상품명을 한번에 모아서 보여줌)
+    function paSearchProducts(text) {
+      const q = (text || '').trim();
+      paSelectedProduct = '';
+      paSearchText = q;
+      input.value = q;
+      closePaDropdown();
+      renderProductAdRatioResult();
+    }
+
+    input.addEventListener('focus', () => renderPaDropdown(paSearchText || input.value));
+    input.addEventListener('input', () => renderPaDropdown(input.value));
+    dropdown.addEventListener('mousedown', (e) => {
+      const opt = e.target.closest('.searchable-select-option');
+      if (!opt) return;
+      e.preventDefault();
+      paSelectProduct(opt.dataset.value);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { closePaDropdown(); input.blur(); }
+      if (e.key === 'Enter') { e.preventDefault(); paSearchProducts(input.value); }
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#paProductSelectWrap')) closePaDropdown();
+    });
+
+    fromInput.addEventListener('change', renderProductAdRatioResult);
+    toInput.addEventListener('change', renderProductAdRatioResult);
+    resetBtn.addEventListener('click', () => {
+      fromInput.value = '';
+      toInput.value = '';
+      renderProductAdRatioResult();
+    });
+  }
+
+  function renderProductAdRatioResult() {
+    const emptyEl = document.getElementById('paEmpty');
+    const panelEl = document.getElementById('paResultPanel');
+    const titleEl = document.getElementById('paResultTitle');
+    const noteEl = document.getElementById('paResultNote');
+    const tableEl = document.getElementById('paTable');
+    const fromInput = document.getElementById('paDateFrom');
+    const toInput = document.getElementById('paDateTo');
+    if (!emptyEl || !panelEl) return; // 아직 이 화면에 진입 전
+
+    const product = paSelectedProduct;
+    const searchQ = paSearchText.trim().toLowerCase();
+    if (!product && !searchQ) {
+      emptyEl.innerHTML = '상품을 검색해서 선택하면 판매처별 매출·광고비·광고비중을 확인할 수 있어요.<br><b>상품별 광고비 데이터가 아직 입력되지 않은 경우</b> 광고비는 0원으로 표시됩니다.';
+      emptyEl.style.display = '';
+      panelEl.style.display = 'none';
+      return;
+    }
+
+    const from = fromInput.value;
+    const to = toInput.value;
+    function matchesProduct(name) {
+      if (product) return name === product;
+      return (name || '').toLowerCase().includes(searchQ);
+    }
+    function inRange(date) {
+      return (!from || date >= from) && (!to || date <= to);
+    }
+
+    const salesRows = allRows.filter(r => matchesProduct(r.product_name) && inRange(r.sale_date));
+    const spendRows = allProductAdSpendRows.filter(r => matchesProduct(r.product_name) && inRange(r.sale_date));
+
+    if (!salesRows.length && !spendRows.length) {
+      emptyEl.innerHTML = '해당 상품의 매출/광고비 데이터를 찾을 수 없어요. 검색어를 확인해주세요.';
+      emptyEl.style.display = '';
+      panelEl.style.display = 'none';
+      return;
+    }
+
+    emptyEl.style.display = 'none';
+    panelEl.style.display = '';
+
+    // 판매처(매출처)별로 매출과 광고비를 합산합니다. 광고비 데이터가 없는 판매처는 광고비 0원으로 처리됩니다.
+    const byVendor = {};
+    salesRows.forEach(r => {
+      if (!byVendor[r.vendor]) byVendor[r.vendor] = { revenue: 0, spend: 0 };
+      byVendor[r.vendor].revenue += Number(r.amount);
+    });
+    spendRows.forEach(r => {
+      const vendor = r.vendor || '기타';
+      if (!byVendor[vendor]) byVendor[vendor] = { revenue: 0, spend: 0 };
+      byVendor[vendor].spend += Number(r.spend);
+    });
+
+    const entries = Object.entries(byVendor).sort((a, b) => b[1].revenue - a[1].revenue);
+    let totalRevenue = 0, totalSpend = 0;
+
+    const rowsHtml = entries.map(([vendor, v]) => {
+      totalRevenue += v.revenue;
+      totalSpend += v.spend;
+      const ratio = v.revenue > 0 ? (v.spend / v.revenue * 100) : (v.spend > 0 ? null : 0);
+      return `
+        <tr>
+          <td>${vendor}</td>
+          <td class="num">${won(v.revenue)}</td>
+          <td class="num">${won(v.spend)}</td>
+          <td class="num">${ratio === null ? '-' : ratio.toFixed(1) + '%'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const totalRatio = totalRevenue > 0 ? (totalSpend / totalRevenue * 100) : (totalSpend > 0 ? null : 0);
+    const totalRowHtml = `
+      <tr class="channel-total-row">
+        <td>합계</td>
+        <td class="num">${won(totalRevenue)}</td>
+        <td class="num">${won(totalSpend)}</td>
+        <td class="num">${totalRatio === null ? '-' : totalRatio.toFixed(1) + '%'}</td>
+      </tr>
+    `;
+
+    tableEl.innerHTML = rowsHtml + totalRowHtml;
+
+    // 제목: 브랜드가 특정되면 "[브랜드] 상품명" 형태로 표시 (참고 이미지 스타일)
+    const brandsInRows = Array.from(new Set(salesRows.map(r => canonicalBrand(getBrand(r)))));
+    const titleProductName = product || (searchQ ? `"${searchQ}" 검색결과` : '');
+    titleEl.textContent = (brandsInRows.length === 1 ? `[${brandsInRows[0]}] ` : '') + titleProductName;
+    noteEl.textContent = (from || to ? `기간: ${from || '전체'} ~ ${to || '전체'} · ` : '') + `판매처 ${entries.length.toLocaleString('ko-KR')}곳`;
+
+    if (!allProductAdSpendRows.length) {
+      noteEl.textContent += ' · 광고비 데이터 미입력(0원으로 표시)';
+    }
   }
 
   const STAGES = ['문의', '수출문의', '견적', '협상', '세금계산서 발행'];
