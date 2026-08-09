@@ -48,6 +48,7 @@
   .dot-pl { background: #16a34a; }
   .nav-item.active .dot-pl { background: #16a34a; }
   #navPl.active { background: rgba(22,163,74,.12); }
+  #navProductCost.active { background: rgba(22,163,74,.12); }
   .nav-subitem { padding: 7px 10px 7px 20px; margin-left: 14px; font-size: 12.5px; color: #8992a9; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 7px; border-left: 1px solid rgba(255,255,255,.08); }
   .nav-subitem:hover { background: rgba(255,255,255,.04); color: #f5f6fa; }
   .nav-subitem.active { background: rgba(249,115,22,.12); color: #fb923c; font-weight: 700; }
@@ -390,6 +391,7 @@
       <div class="nav-group">
         <div class="nav-label">재무</div>
         <div class="nav-item" id="navPl" onclick="switchView('pl')"><span class="dot dot-pl"></span>손익 대시보드</div>
+        <div class="nav-item" id="navProductCost" onclick="switchView('product-cost')"><span class="dot dot-pl"></span>원가 대시보드</div>
       </div>
       <div class="sidebar-footer">
         <div class="avatar">H</div>
@@ -817,6 +819,68 @@
             <span class="panel-note">마이너스는 적자 상품</span>
           </div>
           <div id="plMarginList"></div>
+        </div>
+      </section>
+    </main>
+
+    <main class="main" id="productCostView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>원가 대시보드</h1>
+          <div class="subtitle" id="pcSubtitle">상품별 개당 원가·판매가를 관리합니다. (다음 단계: 판매처별 ROI 계산에 사용)</div>
+        </div>
+        <div class="topbar-right">
+          <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+        </div>
+      </div>
+
+      <section class="kpi-row" id="pcCards"></section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>상품 원가 추가</h2>
+        </div>
+        <form class="deal-form" id="pcForm">
+          <input type="text" name="productCode" placeholder="상품코드(선택)">
+          <input type="text" name="brand" placeholder="브랜드">
+          <input type="text" name="productName" placeholder="상품명" required>
+          <input type="text" name="optionSize" placeholder="옵션(사이즈, 선택)">
+          <input type="text" name="optionColor" placeholder="옵션(색상, 선택)">
+          <select name="status">
+            <option value="판매중">판매중</option>
+            <option value="품절">품절</option>
+            <option value="단종">단종</option>
+            <option value="출시 전">출시 전</option>
+          </select>
+          <input type="text" name="unitCost" placeholder="원가(원)">
+          <input type="text" name="sellingPrice" placeholder="판매가(원, 선택)">
+          <button type="submit" class="btn-primary">추가</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>상품별 원가 목록</h2>
+          <span class="panel-note" id="pcListNote"></span>
+        </div>
+        <div class="filter-group" style="margin-bottom: 12px;">
+          <input type="text" id="pcSearchInput" class="vendor-select" placeholder="상품명 · 상품코드 검색" autocomplete="off">
+          <select id="pcBrandFilter" class="vendor-select"><option value="">브랜드 전체</option></select>
+          <select id="pcStatusFilter" class="vendor-select">
+            <option value="">상태 전체</option>
+            <option value="판매중">판매중</option>
+            <option value="품절">품절</option>
+            <option value="단종">단종</option>
+            <option value="출시 전">출시 전</option>
+          </select>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead>
+              <tr><th>상품코드</th><th>브랜드</th><th>상품명</th><th>옵션</th><th>상태</th><th class="num">원가</th><th class="num">판매가</th><th class="num">마진율</th><th></th></tr>
+            </thead>
+            <tbody id="pcTable"></tbody>
+          </table>
         </div>
       </section>
     </main>
@@ -1650,6 +1714,7 @@
     document.getElementById('marketingBrandView').style.display = view === 'marketing-brand' ? '' : 'none';
     document.getElementById('productAdRatioView').style.display = view === 'product-ad-ratio' ? '' : 'none';
     document.getElementById('plView').style.display = view === 'pl' ? '' : 'none';
+    document.getElementById('productCostView').style.display = view === 'product-cost' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
     document.getElementById('navMonthlyTrend').classList.toggle('active', view === 'monthly-trend');
     document.getElementById('navPipeline').classList.toggle('active', view === 'pipeline');
@@ -1658,6 +1723,7 @@
     document.getElementById('navMarketing').classList.toggle('active', view === 'marketing');
     document.getElementById('navProductAdRatio').classList.toggle('active', view === 'product-ad-ratio');
     document.getElementById('navPl').classList.toggle('active', view === 'pl');
+    document.getElementById('navProductCost').classList.toggle('active', view === 'product-cost');
     document.querySelectorAll('#navMarketingBrands .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'marketing-brand' && el.dataset.channel === brandChannel);
     });
@@ -1672,6 +1738,7 @@
     }
     if (view === 'product-ad-ratio') initProductAdRatioView();
     if (view === 'pl') loadPlData();
+    if (view === 'product-cost') loadProductCostData();
   }
 
   // ==================== 품별 (월별 / 일자별 제품 판매 순위) ====================
@@ -2876,6 +2943,173 @@
     if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
     loadPipeline();
   }
+
+  // ==================== 원가 대시보드 ====================
+  // 1단계: 상품별 개당 원가·판매가 입력/목록 화면. 다음 단계에서 매출 데이터와 연결해 판매처별 ROI를 계산합니다.
+  let allProductCostRows = [];
+  let pcSearchQuery = '';
+  let pcBrandFilterValue = '';
+  let pcStatusFilterValue = '';
+  let pcFiltersInitDone = false;
+
+  async function loadProductCostData() {
+    const note = document.getElementById('pcListNote');
+    const { data, error } = await client
+      .from('product_cost')
+      .select('*')
+      .order('brand', { ascending: true });
+    if (error) {
+      note.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
+      return;
+    }
+    allProductCostRows = data || [];
+    setupPcFilters();
+    renderPcCards();
+    renderPcTable();
+  }
+
+  function setupPcFilters() {
+    const brandSelect = document.getElementById('pcBrandFilter');
+    const prevBrand = brandSelect.value;
+    const brands = Array.from(new Set(allProductCostRows.map(r => r.brand).filter(Boolean))).sort();
+    brandSelect.innerHTML = '<option value="">브랜드 전체</option>' + brands.map(b => `<option value="${escapeAttr(b)}">${b}</option>`).join('');
+    brandSelect.value = brands.includes(prevBrand) ? prevBrand : '';
+
+    if (pcFiltersInitDone) return;
+    pcFiltersInitDone = true;
+
+    document.getElementById('pcSearchInput').addEventListener('input', (e) => {
+      pcSearchQuery = e.target.value.trim().toLowerCase();
+      renderPcTable();
+    });
+    brandSelect.addEventListener('change', () => {
+      pcBrandFilterValue = brandSelect.value;
+      renderPcTable();
+    });
+    document.getElementById('pcStatusFilter').addEventListener('change', (e) => {
+      pcStatusFilterValue = e.target.value;
+      renderPcTable();
+    });
+  }
+
+  function renderPcCards() {
+    const total = allProductCostRows.length;
+    const withPrice = allProductCostRows.filter(r => r.unit_cost_krw != null && r.selling_price != null && r.selling_price > 0);
+    const avgMargin = withPrice.length
+      ? withPrice.reduce((s, r) => s + ((r.selling_price - r.unit_cost_krw) / r.selling_price * 100), 0) / withPrice.length
+      : null;
+    const negativeMarginCount = withPrice.filter(r => r.selling_price <= r.unit_cost_krw).length;
+    const noPriceCount = allProductCostRows.filter(r => r.selling_price == null).length;
+
+    document.getElementById('pcCards').innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label">등록된 상품 수</div>
+        <div class="kpi-value">${total.toLocaleString('ko-KR')}개</div>
+        <div class="kpi-sub">판매가 미입력 ${noPriceCount.toLocaleString('ko-KR')}개</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">평균 마진율</div>
+        <div class="kpi-value">${avgMargin === null ? '-' : avgMargin.toFixed(1) + '%'}</div>
+        <div class="kpi-sub">판매가 입력된 ${withPrice.length.toLocaleString('ko-KR')}개 기준</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">마진 적자 상품</div>
+        <div class="kpi-value">${negativeMarginCount.toLocaleString('ko-KR')}개</div>
+        <div class="kpi-sub">판매가 ≤ 원가</div>
+      </div>
+    `;
+  }
+
+  function renderPcTable() {
+    const q = pcSearchQuery;
+    const rows = allProductCostRows.filter(r => {
+      if (pcBrandFilterValue && r.brand !== pcBrandFilterValue) return false;
+      if (pcStatusFilterValue && r.status !== pcStatusFilterValue) return false;
+      if (q) {
+        const hay = `${r.product_name || ''} ${r.product_code || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    document.getElementById('pcListNote').textContent = `${rows.length.toLocaleString('ko-KR')}개 표시 중 (전체 ${allProductCostRows.length.toLocaleString('ko-KR')}개)`;
+
+    document.getElementById('pcTable').innerHTML = rows.map(r => {
+      const option = [r.option_size, r.option_color].filter(Boolean).join(' / ');
+      const margin = (r.unit_cost_krw != null && r.selling_price != null && r.selling_price > 0)
+        ? ((r.selling_price - r.unit_cost_krw) / r.selling_price * 100)
+        : null;
+      const marginCls = margin === null ? '' : (margin < 0 ? 'trend-down' : '');
+      return `
+        <tr>
+          <td>${r.product_code || ''}</td>
+          <td>${r.brand || ''}</td>
+          <td>${r.product_name || ''}</td>
+          <td>${option}</td>
+          <td>
+            <select class="stage-select" onchange="updateCostField(${r.id}, 'status', this.value)">
+              ${['판매중', '품절', '단종', '출시 전'].map(s => `<option value="${s}" ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td class="num">
+            <input type="number" class="inline-edit num" min="0" value="${r.unit_cost_krw != null ? r.unit_cost_krw : ''}"
+              onchange="updateCostField(${r.id}, 'unit_cost_krw', this.value)">
+          </td>
+          <td class="num">
+            <input type="number" class="inline-edit num" min="0" value="${r.selling_price != null ? r.selling_price : ''}"
+              onchange="updateCostField(${r.id}, 'selling_price', this.value)">
+          </td>
+          <td class="num ${marginCls}">${margin === null ? '-' : margin.toFixed(1) + '%'}</td>
+          <td><button class="btn-danger" onclick="deleteCostRow(${r.id})">삭제</button></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async function updateCostField(id, field, rawValue) {
+    let value = String(rawValue).trim();
+    if (field === 'unit_cost_krw' || field === 'selling_price') {
+      value = value === '' ? null : Number(value);
+    } else {
+      value = value === '' ? null : value;
+    }
+    const { error } = await client.from('product_cost').update({ [field]: value }).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadProductCostData();
+  }
+
+  async function deleteCostRow(id) {
+    if (!confirm('이 상품 원가 정보를 삭제할까요?')) return;
+    const { error } = await client.from('product_cost').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadProductCostData();
+  }
+
+  document.getElementById('pcForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const productName = form.productName.value.trim();
+    if (!productName) return;
+
+    const row = {
+      product_code: form.productCode.value.trim() || null,
+      brand: form.brand.value.trim() || null,
+      product_name: productName,
+      option_size: form.optionSize.value.trim() || null,
+      option_color: form.optionColor.value.trim() || null,
+      status: form.status.value,
+      unit_cost_krw: form.unitCost.value.trim() ? Number(form.unitCost.value.trim()) : null,
+      selling_price: form.sellingPrice.value.trim() ? Number(form.sellingPrice.value.trim()) : null,
+    };
+
+    const { error } = await client.from('product_cost').insert([row]);
+    if (error) {
+      alert('추가하지 못했습니다: ' + error.message);
+      return;
+    }
+    form.reset();
+    loadProductCostData();
+  });
 </script>
 </body>
 </html>
