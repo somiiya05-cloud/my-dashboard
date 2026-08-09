@@ -1374,8 +1374,9 @@
 
     refreshVendorDetailAll(false);
 
-    // ---- 제품별 표 (전체) ----
-    document.getElementById('productTable').innerHTML = productEntries.map(([product, v]) => `
+    // ---- 제품별 표 (전체) ---- 판매량(수량) 많은 순으로 항상 정렬 (매출 TOP5 랭킹과는 별개 정렬)
+    const productEntriesByQty = productEntries.slice().sort((a, b) => b[1].quantity - a[1].quantity);
+    document.getElementById('productTable').innerHTML = productEntriesByQty.map(([product, v]) => `
       <tr>
         <td>${product}</td>
         <td class="num">${v.quantity.toLocaleString('ko-KR')}</td>
@@ -1546,7 +1547,7 @@
       byProd[r.product_name].amount += Number(r.amount);
       byProd[r.product_name].quantity += Number(r.quantity);
     });
-    const entries = Object.entries(byProd).sort((a, b) => b[1].amount - a[1].amount);
+    const entries = Object.entries(byProd).sort((a, b) => b[1].quantity - a[1].quantity);
     const total = entries.reduce((s, [, v]) => s + v.amount, 0);
 
     document.getElementById('productDayTotal').textContent = labelText
