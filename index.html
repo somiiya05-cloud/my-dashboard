@@ -45,6 +45,9 @@
   .dot-mkt { background: #f97316; }
   .nav-item.active .dot-mkt { background: #f97316; }
   #navMarketing.active { background: rgba(249,115,22,.12); }
+  .dot-pl { background: #16a34a; }
+  .nav-item.active .dot-pl { background: #16a34a; }
+  #navPl.active { background: rgba(22,163,74,.12); }
   .nav-subitem { padding: 7px 10px 7px 20px; margin-left: 14px; font-size: 12.5px; color: #8992a9; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 7px; border-left: 1px solid rgba(255,255,255,.08); }
   .nav-subitem:hover { background: rgba(255,255,255,.04); color: #f5f6fa; }
   .nav-subitem.active { background: rgba(249,115,22,.12); color: #fb923c; font-weight: 700; }
@@ -177,6 +180,30 @@
     position: absolute; left: 4px; right: 4px; height: 0;
     border-top: 2px dashed #94a3b8;
   }
+
+  /* ---- 손익 폭포 그래프 ---- */
+  .waterfall-wrap { position: relative; height: 220px; display: flex; align-items: flex-end; gap: 16px; padding: 26px 8px 0; }
+  .waterfall-col { flex: 1; height: 100%; position: relative; }
+  .waterfall-bar { position: absolute; width: 62%; left: 19%; border-radius: 4px; }
+  .waterfall-value { position: absolute; left: 0; right: 0; text-align: center; font-size: 12px; font-weight: 700; color: #0f172a; white-space: nowrap; }
+  .waterfall-label { position: absolute; left: 0; right: 0; bottom: -24px; text-align: center; font-size: 12px; color: #64748b; }
+  .waterfall-connector { position: absolute; height: 1px; border-top: 1px dashed #cbd5e1; }
+
+  /* ---- 손익분기 반원 게이지 ---- */
+  .pl-gauge-wrap { display: flex; flex-direction: column; align-items: center; padding: 6px 0 0; }
+  .pl-gauge-value { font-size: 30px; font-weight: 800; margin-top: -46px; }
+  .pl-gauge-caption { font-size: 12px; color: #94a3b8; margin-top: -2px; }
+  .pl-gauge-sub { color: #64748b; font-size: 13px; margin-top: 10px; text-align: center; }
+
+  /* ---- 비용/공헌이익 막대 ---- */
+  .margin-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .margin-bar-label { width: 100px; font-size: 13px; color: #334155; flex-shrink: 0; }
+  .margin-bar-track { flex: 1; height: 10px; background: #eef1f6; border-radius: 5px; overflow: hidden; }
+  .margin-bar-fill { height: 100%; border-radius: 5px; }
+  .margin-bar-value { width: 56px; text-align: right; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .cost-type-tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+  .cost-type-fixed { background: rgba(79,124,254,.12); color: #2f5ce4; }
+  .cost-type-variable { background: rgba(249,115,22,.12); color: #ea580c; }
 
   /* ---- Funnel ---- */
   .funnel { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 6px 0; }
@@ -359,6 +386,10 @@
         </div>
         <div id="navMarketingBrands"></div>
         <div class="nav-item" id="navProductAdRatio" onclick="switchView('product-ad-ratio')"><span class="dot dot-mkt"></span>상품별 광고비중</div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">재무</div>
+        <div class="nav-item" id="navPl" onclick="switchView('pl')"><span class="dot dot-pl"></span>손익 대시보드</div>
       </div>
       <div class="sidebar-footer">
         <div class="avatar">H</div>
@@ -732,6 +763,60 @@
             <thead><tr><th>매출처</th><th class="num">매출액</th><th class="num">광고비</th><th class="num">광고비중</th></tr></thead>
             <tbody id="paTable"></tbody>
           </table>
+        </div>
+      </section>
+    </main>
+
+    <main class="main" id="plView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>손익 대시보드</h1>
+          <div class="subtitle" id="plSubtitle">불러오는 중...</div>
+        </div>
+        <div class="topbar-right">
+          <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+          <select id="plMonthSelect" class="month-select"></select>
+        </div>
+      </div>
+
+      <section class="kpi-row" id="plCards"></section>
+
+      <section class="grid-2">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>손익 구조</h2>
+            <span class="panel-note">매출 → 원가·판관비·기타비용 차감 → 영업이익</span>
+          </div>
+          <div class="waterfall-wrap" id="plWaterfall"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>손익분기 달성률</h2>
+            <span class="panel-note">0~150% · 100% 이상이면 흑자</span>
+          </div>
+          <div class="pl-gauge-wrap" id="plGauge"></div>
+        </div>
+      </section>
+
+      <section class="grid-2">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>비용 순위</h2>
+            <span class="panel-note">단위: 원</span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead><tr><th>항목</th><th>구분</th><th class="num">금액</th><th class="num">비중</th></tr></thead>
+              <tbody id="plCostTable"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>상품별 공헌이익률</h2>
+            <span class="panel-note">마이너스는 적자 상품</span>
+          </div>
+          <div id="plMarginList"></div>
         </div>
       </section>
     </main>
@@ -1505,6 +1590,7 @@
     document.getElementById('marketingView').style.display = view === 'marketing' ? '' : 'none';
     document.getElementById('marketingBrandView').style.display = view === 'marketing-brand' ? '' : 'none';
     document.getElementById('productAdRatioView').style.display = view === 'product-ad-ratio' ? '' : 'none';
+    document.getElementById('plView').style.display = view === 'pl' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
     document.getElementById('navMonthlyTrend').classList.toggle('active', view === 'monthly-trend');
     document.getElementById('navPipeline').classList.toggle('active', view === 'pipeline');
@@ -1512,6 +1598,7 @@
     document.getElementById('navChannel').classList.toggle('active', view === 'channel');
     document.getElementById('navMarketing').classList.toggle('active', view === 'marketing');
     document.getElementById('navProductAdRatio').classList.toggle('active', view === 'product-ad-ratio');
+    document.getElementById('navPl').classList.toggle('active', view === 'pl');
     document.querySelectorAll('#navMarketingBrands .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'marketing-brand' && el.dataset.channel === brandChannel);
     });
@@ -1525,6 +1612,7 @@
       loadMarketingData().then(() => renderMarketingBrandView());
     }
     if (view === 'product-ad-ratio') initProductAdRatioView();
+    if (view === 'pl') loadPlData();
   }
 
   // ==================== 품별 (월별 / 일자별 제품 판매 순위) ====================
@@ -2347,6 +2435,188 @@
     if (!allProductAdSpendRows.length) {
       noteEl.textContent += ' · 광고비 데이터 미입력(0원으로 표시)';
     }
+  }
+
+  // ==================== 손익 대시보드 ====================
+  // 목표값은 샘플입니다. 회사 실제 목표에 맞게 아래 숫자만 바꾸시면 됩니다.
+  const OPERATING_PROFIT_MONTHLY_TARGET = 11000000; // 영업이익 목표 (원)
+  const OPERATING_MARGIN_TARGET_PCT = 12; // 영업이익률 목표 (%)
+
+  let allPlSummaryRows = [];
+  let allPlCostRows = [];
+  let allPlMarginRows = [];
+  let plDataLoaded = false;
+
+  async function loadPlData() {
+    if (!plDataLoaded) {
+      document.getElementById('plSubtitle').textContent = '불러오는 중...';
+      const [summaryRes, costRes, marginRes] = await Promise.all([
+        client.from('pl_summary').select('*').order('sort_order', { ascending: true }),
+        client.from('pl_cost').select('*'),
+        client.from('pl_margin').select('*'),
+      ]);
+      if (summaryRes.error) {
+        document.getElementById('plSubtitle').innerHTML =
+          '<span class="error">데이터를 불러오지 못했습니다: ' + summaryRes.error.message + '</span>';
+        return;
+      }
+      allPlSummaryRows = summaryRes.data || [];
+      allPlCostRows = costRes.data || [];
+      allPlMarginRows = marginRes.data || [];
+      plDataLoaded = true;
+    }
+    setupPlMonthSelector();
+  }
+
+  function setupPlMonthSelector() {
+    const monthSelect = document.getElementById('plMonthSelect');
+    const prevSelected = monthSelect.value;
+    monthSelect.innerHTML = allPlSummaryRows.map(r => `<option value="${r.sort_order}">${r.month}</option>`).join('');
+    const validValues = allPlSummaryRows.map(r => String(r.sort_order));
+    const valueToShow = validValues.includes(prevSelected) ? prevSelected : (validValues[validValues.length - 1] || '');
+    monthSelect.value = valueToShow;
+    monthSelect.onchange = () => renderPl(monthSelect.value);
+    if (valueToShow) renderPl(valueToShow);
+  }
+
+  function renderPl(sortOrderStr) {
+    const row = allPlSummaryRows.find(r => String(r.sort_order) === String(sortOrderStr));
+    if (!row) {
+      document.getElementById('plSubtitle').textContent = '손익 데이터가 없습니다.';
+      return;
+    }
+
+    const revenue = Number(row.revenue);
+    const cogs = Number(row.cogs);
+    const sga = Number(row.sga);
+    const otherCost = Number(row.other_cost);
+    const totalCost = cogs + sga + otherCost;
+    const operatingProfit = revenue - totalCost;
+    const operatingMargin = revenue > 0 ? (operatingProfit / revenue * 100) : 0;
+    const breakEvenPct = totalCost > 0 ? (revenue / totalCost * 100) : (revenue > 0 ? 999 : 0);
+
+    // 전월 대비 총비용 증감
+    const idx = allPlSummaryRows.findIndex(r => String(r.sort_order) === String(sortOrderStr));
+    const prevRow = idx > 0 ? allPlSummaryRows[idx - 1] : null;
+    const prevTotalCost = prevRow ? (Number(prevRow.cogs) + Number(prevRow.sga) + Number(prevRow.other_cost)) : null;
+    const costChangePct = (prevTotalCost !== null && prevTotalCost > 0) ? ((totalCost - prevTotalCost) / prevTotalCost * 100) : null;
+
+    document.getElementById('plSubtitle').textContent =
+      `${row.month} · 영업이익 ${operatingProfit >= 0 ? '흑자' : '적자'}`;
+
+    // ---- KPI 카드 ----
+    const profitPct = OPERATING_PROFIT_MONTHLY_TARGET !== 0 ? (operatingProfit / OPERATING_PROFIT_MONTHLY_TARGET * 100) : 0;
+    const marginGap = OPERATING_MARGIN_TARGET_PCT - operatingMargin;
+    const costChangeHtml = costChangePct !== null
+      ? `전월 대비 <span class="${costChangePct >= 0 ? 'trend-down' : 'trend-up'}">${costChangePct >= 0 ? '+' : ''}${costChangePct.toFixed(1)}%</span>`
+      : '전월 데이터 없음';
+
+    document.getElementById('plCards').innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label">${row.month} 영업이익</div>
+        <div class="kpi-value" style="color:${operatingProfit >= 0 ? '#16a34a' : '#dc2626'}">${won(Math.round(operatingProfit))}</div>
+        <div class="kpi-sub">목표 ${won(OPERATING_PROFIT_MONTHLY_TARGET)} 대비 <span class="${profitPct >= 100 ? 'trend-up' : 'trend-down'}">${profitPct.toFixed(1)}%</span></div>
+        <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.max(0, Math.min(100, profitPct)).toFixed(1)}%; background:${operatingProfit >= 0 ? 'linear-gradient(90deg,#4ade80,#16a34a)' : 'linear-gradient(90deg,#f87171,#dc2626)'}"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">영업이익률</div>
+        <div class="kpi-value">${operatingMargin.toFixed(1)}%</div>
+        <div class="kpi-sub">${marginGap > 0 ? `목표 ${OPERATING_MARGIN_TARGET_PCT}%에 <span class="trend-down">${marginGap.toFixed(1)}%p 부족</span>` : `목표 ${OPERATING_MARGIN_TARGET_PCT}% <span class="trend-up">달성</span>`}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">손익분기 달성률</div>
+        <div class="kpi-value">${breakEvenPct.toFixed(0)}%</div>
+        <div class="kpi-sub">매출 ${won(revenue)} · 총비용 ${won(totalCost)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">총비용</div>
+        <div class="kpi-value">${won(totalCost)}</div>
+        <div class="kpi-sub">${costChangeHtml}</div>
+      </div>
+    `;
+
+    renderPlWaterfall(revenue, cogs, sga, otherCost, operatingProfit);
+    renderPlGauge(breakEvenPct, totalCost);
+    renderPlCostTable();
+    renderPlMarginList();
+  }
+
+  // ---- 손익 폭포 그래프: 매출에서 원가·판관비·기타비용이 차례로 깎여 영업이익이 남는 모양 ----
+  function renderPlWaterfall(revenue, cogs, sga, otherCost, operatingProfit) {
+    const afterCogs = revenue - cogs;
+    const afterSga = afterCogs - sga;
+    const maxVal = Math.max(revenue, Math.abs(operatingProfit), 1);
+
+    const steps = [
+      { label: '매출', bottom: 0, height: revenue, color: 'linear-gradient(180deg,#4d7cfe,#2f5ce4)', value: revenue },
+      { label: '매출원가', bottom: afterCogs, height: cogs, color: '#cbd5e1', value: -cogs },
+      { label: '판관비', bottom: afterSga, height: sga, color: '#cbd5e1', value: -sga },
+      { label: '기타비용', bottom: operatingProfit, height: otherCost, color: '#cbd5e1', value: -otherCost },
+      { label: '영업이익', bottom: 0, height: Math.abs(operatingProfit), color: operatingProfit >= 0 ? 'linear-gradient(180deg,#4ade80,#16a34a)' : 'linear-gradient(180deg,#f87171,#dc2626)', value: operatingProfit },
+    ];
+
+    document.getElementById('plWaterfall').innerHTML = steps.map(s => `
+      <div class="waterfall-col">
+        <div class="waterfall-bar" style="bottom:${Math.max(0, s.bottom / maxVal * 100).toFixed(1)}%; height:${Math.max(Math.abs(s.height) / maxVal * 100, 1.5).toFixed(1)}%; background:${s.color};">
+          <div class="waterfall-value">${won(Math.round(s.value))}</div>
+        </div>
+        <div class="waterfall-label">${s.label}</div>
+      </div>
+    `).join('');
+  }
+
+  // ---- 손익분기 반원 게이지 (0~150%) ----
+  function renderPlGauge(breakEvenPct, totalCost) {
+    const clamped = Math.max(0, Math.min(150, breakEvenPct));
+    const fraction = clamped / 150;
+    const color = breakEvenPct >= 100 ? '#16a34a' : '#f97316';
+    document.getElementById('plGauge').innerHTML = `
+      <svg viewBox="0 0 200 110" width="220" height="121">
+        <path d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="#eef1f6" stroke-width="16" stroke-linecap="round" pathLength="100"></path>
+        <path d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="${color}" stroke-width="16" stroke-linecap="round" pathLength="100" stroke-dasharray="${(fraction * 100).toFixed(1)} 100"></path>
+      </svg>
+      <div class="pl-gauge-value" style="color:${color}">${breakEvenPct.toFixed(0)}%</div>
+      <div class="pl-gauge-caption">손익분기 달성률</div>
+      <div class="pl-gauge-sub">손익분기점 매출 ${won(Math.round(totalCost))}<br>(총비용과 매출이 같아지는 지점)</div>
+    `;
+  }
+
+  // ---- 비용 순위 표 ----
+  function renderPlCostTable() {
+    const total = allPlCostRows.reduce((s, r) => s + Number(r.amount), 0);
+    const sorted = allPlCostRows.slice().sort((a, b) => Number(b.amount) - Number(a.amount));
+    const rowsHtml = sorted.map(r => {
+      const pct = total > 0 ? (Number(r.amount) / total * 100) : 0;
+      const tagClass = r.cost_type === '고정' ? 'cost-type-fixed' : 'cost-type-variable';
+      return `
+        <tr>
+          <td>${r.item}</td>
+          <td><span class="cost-type-tag ${tagClass}">${r.cost_type}</span></td>
+          <td class="num">${won(Number(r.amount))}</td>
+          <td class="num">${pct.toFixed(1)}%</td>
+        </tr>
+      `;
+    }).join('');
+    const totalRowHtml = `<tr class="channel-total-row"><td>합계</td><td></td><td class="num">${won(total)}</td><td class="num">100.0%</td></tr>`;
+    document.getElementById('plCostTable').innerHTML = rowsHtml + totalRowHtml;
+  }
+
+  // ---- 상품별 공헌이익률 가로 막대 (마이너스는 빨간색) ----
+  function renderPlMarginList() {
+    const sorted = allPlMarginRows.slice().sort((a, b) => Number(b.margin_rate) - Number(a.margin_rate));
+    const maxAbs = Math.max(...sorted.map(r => Math.abs(Number(r.margin_rate))), 1);
+    document.getElementById('plMarginList').innerHTML = sorted.map(r => {
+      const rate = Number(r.margin_rate);
+      const widthPct = Math.abs(rate) / maxAbs * 100;
+      const color = rate >= 0 ? 'linear-gradient(90deg,#4d7cfe,#2f5ce4)' : 'linear-gradient(90deg,#f87171,#dc2626)';
+      return `
+        <div class="margin-bar-row">
+          <div class="margin-bar-label">${r.product}</div>
+          <div class="margin-bar-track"><div class="margin-bar-fill" style="width:${widthPct.toFixed(1)}%; background:${color};"></div></div>
+          <div class="margin-bar-value" style="color:${rate >= 0 ? '#0f172a' : '#dc2626'}">${rate.toFixed(0)}%</div>
+        </div>
+      `;
+    }).join('');
   }
 
   const STAGES = ['문의', '수출문의', '견적', '협상', '세금계산서 발행'];
