@@ -2281,6 +2281,7 @@
     function paProductOptions() {
       const totals = {};
       allRows.forEach(r => {
+        if (isAggregatePlaceholderProduct(r.product_name)) return; // 판매처 일별 합계 placeholder는 상품이 아니므로 제외
         if (!totals[r.product_name]) totals[r.product_name] = 0;
         totals[r.product_name] += Number(r.amount);
       });
@@ -2382,9 +2383,11 @@
 
     const from = fromInput.value;
     const to = toInput.value;
+    // 상품명은 정확히 일치하는 것만 찾습니다 ("가글" 검색 시 "가글캔디" 같은 다른 상품은 포함하지 않음).
     function matchesProduct(name) {
-      if (product) return name === product;
-      return (name || '').toLowerCase().includes(searchQ);
+      if (isAggregatePlaceholderProduct(name)) return false; // 판매처 일별 합계 placeholder는 상품이 아니므로 제외
+      const target = product || searchQ;
+      return (name || '').toLowerCase() === target.toLowerCase();
     }
     function inRange(date) {
       return (!from || date >= from) && (!to || date <= to);
@@ -2434,14 +2437,14 @@
     }).join('');
 
     const totalRatio = totalRevenue > 0 ? (totalSpend / totalRevenue * 100) : (totalSpend > 0 ? null : 0);
-    const totalRowHtml = `
+    const totalRowHtml = entries.length > 1 ? `
       <tr class="channel-total-row">
         <td>합계</td>
         <td class="num">${won(totalRevenue)}</td>
         <td class="num">${won(totalSpend)}</td>
         <td class="num">${totalRatio === null ? '-' : totalRatio.toFixed(1) + '%'}</td>
       </tr>
-    `;
+    ` : '';
 
     tableEl.innerHTML = rowsHtml + totalRowHtml;
 
