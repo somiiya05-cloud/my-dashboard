@@ -979,24 +979,42 @@
     return BRAND_NAME_ALIASES[name] || name;
   }
 
-  // 특정 달의 회사 전체 실제 매출 (sales_transactions 기준. COMPANY_ACTUALS_BY_MONTH에 값이 있으면 그 값을 우선 사용)
+  // 마케팅 대시보드의 "광고매출"은 광고와 무관한 채널(직매입/수출/공동구매)과
+  // 채널템플릿에 없는 미분류(기타) 판매처를 제외하고 계산합니다.
+  // (쿠팡 로켓그로스/로켓배송은 CHANNEL_TEMPLATE에 있는 정식 채널이라 제외하지 않고 포함합니다.)
+  const AD_REVENUE_EXCLUDED_GROUPS = new Set(['직매입', '직매임', '수출', '공동구매', '컨텐츠팀']);
+  const AD_REVENUE_EXCLUDED_VENDORS = new Set();
+  CHANNEL_TEMPLATE.forEach(block => block.rows.forEach(([group, vendor]) => {
+    if (AD_REVENUE_EXCLUDED_GROUPS.has(group)) AD_REVENUE_EXCLUDED_VENDORS.add(vendor);
+  }));
+  function isAdRevenueVendor(vendor) {
+    if (AD_REVENUE_EXCLUDED_VENDORS.has(vendor)) return false;
+    if (!CHANNEL_TEMPLATE_VENDORS.has(vendor)) return false; // 템플릿에 없는 신규/미분류 판매처(기타)는 제외
+    return true;
+  }
+
+  // 특정 달의 회사 전체 광고매출 (sales_transactions 기준, 직매입/수출/공동구매/기타 제외.
+  // COMPANY_ACTUALS_BY_MONTH에 값이 있으면 그 값을 우선 사용 — 단, 이 값은 전사 총매출이라
+  // 제외 규칙이 적용되지 않은 값임에 유의)
   function getCompanyMonthlyRevenue(monthStr) {
     if (!monthStr) return 0;
     const override = COMPANY_ACTUALS_BY_MONTH[monthStr];
     if (override !== undefined) return override;
     return allRows
-      .filter(r => r.sale_date.slice(0, 7) === monthStr)
+      .filter(r => r.sale_date.slice(0, 7) === monthStr && isAdRevenueVendor(r.vendor))
       .reduce((s, r) => s + Number(r.amount), 0);
   }
 
-  // 특정 브랜드의 특정 달 실제 매출 (sales_transactions 기준. BRAND_ACTUALS_BY_MONTH에 값이 있으면 그 값을 우선 사용)
+  // 특정 브랜드의 특정 달 광고매출 (sales_transactions 기준, 직매입/수출/공동구매/기타 제외.
+  // BRAND_ACTUALS_BY_MONTH에 값이 있으면 그 값을 우선 사용 — 단, 이 값은 브랜드 총매출이라
+  // 제외 규칙이 적용되지 않은 값임에 유의)
   function getBrandMonthlyRevenue(brandName, monthStr) {
     if (!monthStr) return 0;
     const canonical = canonicalBrand(brandName);
     const override = BRAND_ACTUALS_BY_MONTH[monthStr] && BRAND_ACTUALS_BY_MONTH[monthStr][canonical];
     if (override !== undefined) return override;
     return allRows
-      .filter(r => r.sale_date.slice(0, 7) === monthStr && canonicalBrand(getBrand(r)) === canonical)
+      .filter(r => r.sale_date.slice(0, 7) === monthStr && canonicalBrand(getBrand(r)) === canonical && isAdRevenueVendor(r.vendor))
       .reduce((s, r) => s + Number(r.amount), 0);
   }
 
