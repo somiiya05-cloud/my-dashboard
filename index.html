@@ -1852,9 +1852,9 @@
         <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, adSpendRatio).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">전환수 (CVR ${cvr.toFixed(2)}%)</div>
-        <div class="kpi-value mkt-value">${totalConversions.toLocaleString('ko-KR')}건</div>
-        <div class="kpi-sub">클릭 ${totalClicks.toLocaleString('ko-KR')}회 중 전환</div>
+        <div class="kpi-label">ROAS</div>
+        <div class="kpi-value mkt-value">${won(Math.round(totalRevenue))}</div>
+        <div class="kpi-sub">광고비 ${won(Math.round(totalSpend))} 대비 ${roas.toFixed(0)}%</div>
       </div>
     `;
 
@@ -2083,9 +2083,9 @@
         <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, adSpendRatio).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">전환수 (CVR ${cvr.toFixed(2)}%)</div>
-        <div class="kpi-value mkt-value">${totalConversions.toLocaleString('ko-KR')}건</div>
-        <div class="kpi-sub">클릭 ${totalClicks.toLocaleString('ko-KR')}회 중 전환</div>
+        <div class="kpi-label">ROAS</div>
+        <div class="kpi-value mkt-value">${won(Math.round(totalRevenue))}</div>
+        <div class="kpi-sub">광고비 ${won(Math.round(totalSpend))} 대비 ${roas.toFixed(0)}%</div>
       </div>
     `;
 
