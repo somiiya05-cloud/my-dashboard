@@ -630,25 +630,16 @@
         </div>
       </section>
 
-      <section class="grid-2">
-        <div class="panel">
-          <div class="panel-head">
-            <h2>광고비 · ROAS 추이</h2>
-            <span class="panel-note">최근 6개월 · 단위: 원 / %</span>
-          </div>
-          <div class="chart-legend">
-            <span class="legend-item"><span class="legend-swatch mkt-swatch"></span>광고비</span>
-            <span class="legend-item"><span class="legend-swatch target"></span>ROAS</span>
-          </div>
-          <div class="bar-chart" id="mktTrendChart"></div>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>광고비 · ROAS 추이</h2>
+          <span class="panel-note">최근 6개월 · 단위: 원 / %</span>
         </div>
-        <div class="panel">
-          <div class="panel-head">
-            <h2>예산 소진 페이싱</h2>
-            <span class="panel-note" id="mktPacingBadge"></span>
-          </div>
-          <div id="mktPacing"></div>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-swatch mkt-swatch"></span>광고비</span>
+          <span class="legend-item"><span class="legend-swatch target"></span>ROAS</span>
         </div>
+        <div class="bar-chart" id="mktTrendChart"></div>
       </section>
     </main>
 
@@ -687,25 +678,16 @@
           </div>
         </section>
 
-        <section class="grid-2">
-          <div class="panel">
-            <div class="panel-head">
-              <h2>광고비 · ROAS 추이</h2>
-              <span class="panel-note">최근 6개월 · 단위: 원 / %</span>
-            </div>
-            <div class="chart-legend">
-              <span class="legend-item"><span class="legend-swatch mkt-swatch"></span>광고비</span>
-              <span class="legend-item"><span class="legend-swatch target"></span>ROAS</span>
-            </div>
-            <div class="bar-chart" id="mktBrandTrendChart"></div>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>광고비 · ROAS 추이</h2>
+            <span class="panel-note">최근 6개월 · 단위: 원 / %</span>
           </div>
-          <div class="panel">
-            <div class="panel-head">
-              <h2>예산 소진 페이싱</h2>
-              <span class="panel-note" id="mktBrandPacingBadge"></span>
-            </div>
-            <div id="mktBrandPacing"></div>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-swatch mkt-swatch"></span>광고비</span>
+            <span class="legend-item"><span class="legend-swatch target"></span>ROAS</span>
           </div>
+          <div class="bar-chart" id="mktBrandTrendChart"></div>
         </section>
       </div>
     </main>
@@ -1902,47 +1884,6 @@
       `;
     }).join('');
 
-    // ---- 예산 소진 페이싱 ----
-    const [py, pm] = monthStr ? monthStr.split('-').map(Number) : [null, null];
-    const daysInMonth = (py && pm) ? new Date(py, pm, 0).getDate() : 30;
-    const today = new Date();
-    const todayYM = today.getFullYear() * 12 + (today.getMonth() + 1);
-    const selectedYM = (py && pm) ? (py * 12 + pm) : null;
-    let daysElapsed;
-    if (selectedYM === todayYM) daysElapsed = today.getDate();
-    else if (selectedYM !== null && selectedYM < todayYM) daysElapsed = daysInMonth;
-    else daysElapsed = 0;
-
-    const elapsedPct = daysInMonth > 0 ? (daysElapsed / daysInMonth * 100) : 0;
-    const dailyAvg = daysElapsed > 0 ? (totalSpend / daysElapsed) : 0;
-    const projectedDay = dailyAvg > 0 ? Math.ceil(MARKETING_MONTHLY_BUDGET / dailyAvg) : null;
-    const paceDiff = budgetPct - elapsedPct;
-    const remain = Math.max(0, MARKETING_MONTHLY_BUDGET - totalSpend);
-
-    document.getElementById('mktPacingBadge').textContent = daysElapsed + '일차 / ' + daysInMonth + '일';
-    document.getElementById('mktPacing').innerHTML = `
-      <div class="mkt-pacing-row">
-        <div class="mkt-pacing-label">예산 소진</div>
-        <div class="mkt-pacing-track"><div class="mkt-pacing-fill" style="width:${Math.min(100, budgetPct).toFixed(1)}%"></div></div>
-        <div class="mkt-pacing-pct">${budgetPct.toFixed(1)}%</div>
-      </div>
-      <div class="mkt-pacing-row">
-        <div class="mkt-pacing-label">기간 경과</div>
-        <div class="mkt-pacing-track"><div class="mkt-pacing-fill elapsed" style="width:${Math.min(100, elapsedPct).toFixed(1)}%"></div></div>
-        <div class="mkt-pacing-pct">${elapsedPct.toFixed(1)}%</div>
-      </div>
-      <div class="mkt-pacing-note">
-        ${Math.abs(paceDiff) < 0.05
-          ? '경과 속도와 비슷하게 소진 중'
-          : ('경과보다 <b style="color:#ea580c">' + Math.abs(paceDiff).toFixed(1) + '%p</b> ' + (paceDiff > 0 ? '빠르게' : '느리게') + ' 소진 중')}
-        ${(projectedDay && projectedDay < daysInMonth) ? ('<br>이 속도면 <b style="color:#ea580c">' + projectedDay + '일차</b>에 예산 소진') : ''}
-      </div>
-      <div class="mkt-pacing-stats">
-        <div class="mkt-pacing-stat"><div class="stat-label">집행</div><div class="stat-value">${won(Math.round(totalSpend))}</div></div>
-        <div class="mkt-pacing-stat"><div class="stat-label">잔여</div><div class="stat-value">${won(Math.round(remain))}</div></div>
-        <div class="mkt-pacing-stat"><div class="stat-label">일 평균</div><div class="stat-value">${won(Math.round(dailyAvg))}</div></div>
-      </div>
-    `;
   }
 
   // ==================== 마케팅 - 브랜드별 개별 채널 페이지 ====================
@@ -2145,47 +2086,6 @@
       `;
     }).join('');
 
-    // ---- 예산 소진 페이싱 ----
-    const [py, pm] = monthStr ? monthStr.split('-').map(Number) : [null, null];
-    const daysInMonth = (py && pm) ? new Date(py, pm, 0).getDate() : 30;
-    const today = new Date();
-    const todayYM = today.getFullYear() * 12 + (today.getMonth() + 1);
-    const selectedYM = (py && pm) ? (py * 12 + pm) : null;
-    let daysElapsed;
-    if (selectedYM === todayYM) daysElapsed = today.getDate();
-    else if (selectedYM !== null && selectedYM < todayYM) daysElapsed = daysInMonth;
-    else daysElapsed = 0;
-
-    const elapsedPct = daysInMonth > 0 ? (daysElapsed / daysInMonth * 100) : 0;
-    const dailyAvg = daysElapsed > 0 ? (totalSpend / daysElapsed) : 0;
-    const projectedDay = dailyAvg > 0 ? Math.ceil(MARKETING_MONTHLY_BUDGET / dailyAvg) : null;
-    const paceDiff = budgetPct - elapsedPct;
-    const remain = Math.max(0, MARKETING_MONTHLY_BUDGET - totalSpend);
-
-    document.getElementById('mktBrandPacingBadge').textContent = daysElapsed + '일차 / ' + daysInMonth + '일';
-    document.getElementById('mktBrandPacing').innerHTML = `
-      <div class="mkt-pacing-row">
-        <div class="mkt-pacing-label">예산 소진</div>
-        <div class="mkt-pacing-track"><div class="mkt-pacing-fill" style="width:${Math.min(100, budgetPct).toFixed(1)}%"></div></div>
-        <div class="mkt-pacing-pct">${budgetPct.toFixed(1)}%</div>
-      </div>
-      <div class="mkt-pacing-row">
-        <div class="mkt-pacing-label">기간 경과</div>
-        <div class="mkt-pacing-track"><div class="mkt-pacing-fill elapsed" style="width:${Math.min(100, elapsedPct).toFixed(1)}%"></div></div>
-        <div class="mkt-pacing-pct">${elapsedPct.toFixed(1)}%</div>
-      </div>
-      <div class="mkt-pacing-note">
-        ${Math.abs(paceDiff) < 0.05
-          ? '경과 속도와 비슷하게 소진 중'
-          : ('경과보다 <b style="color:#ea580c">' + Math.abs(paceDiff).toFixed(1) + '%p</b> ' + (paceDiff > 0 ? '빠르게' : '느리게') + ' 소진 중')}
-        ${(projectedDay && projectedDay < daysInMonth) ? ('<br>이 속도면 <b style="color:#ea580c">' + projectedDay + '일차</b>에 예산 소진') : ''}
-      </div>
-      <div class="mkt-pacing-stats">
-        <div class="mkt-pacing-stat"><div class="stat-label">집행</div><div class="stat-value">${won(Math.round(totalSpend))}</div></div>
-        <div class="mkt-pacing-stat"><div class="stat-label">잔여</div><div class="stat-value">${won(Math.round(remain))}</div></div>
-        <div class="mkt-pacing-stat"><div class="stat-label">일 평균</div><div class="stat-value">${won(Math.round(dailyAvg))}</div></div>
-      </div>
-    `;
   }
 
   const STAGES = ['문의', '수출문의', '견적', '협상', '세금계산서 발행'];
