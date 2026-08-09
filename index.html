@@ -1096,6 +1096,12 @@
     return typeof productName === 'string' && productName.endsWith(AGGREGATE_PLACEHOLDER_SUFFIX);
   }
 
+  // 상품명 앞에 "[명퇴]", "[단종]", "[특가]" 처럼 붙는 대괄호 태그는 무시하고 같은 상품으로 취급합니다.
+  // (상품별 광고비중 페이지에서 "길운 오행 염주"와 "[명퇴] 길운 오행 염주"를 하나로 합산할 때 사용)
+  function normalizeProductName(name) {
+    return (name || '').replace(/^(\s*\[[^\]]*\]\s*)+/, '').trim();
+  }
+
   function render(rows, monthStr) {
     const totalAmount = rows.reduce((s, r) => s + Number(r.amount), 0);
     const totalQty = rows.reduce((s, r) => s + Number(r.quantity), 0);
@@ -2304,8 +2310,10 @@
       allRows.forEach(r => {
         if (isAggregatePlaceholderProduct(r.product_name)) return; // 판매처 일별 합계 placeholder는 상품이 아니므로 제외
         if (DIRECT_SUPPLY_VENDORS.has(r.vendor)) return; // 직납(직매입) 매출 건은 상품 목록/금액 집계에서 제외
-        if (!totals[r.product_name]) totals[r.product_name] = 0;
-        totals[r.product_name] += Number(r.amount);
+        const name = normalizeProductName(r.product_name); // [명퇴] 등 대괄호 태그는 무시하고 같은 상품으로 합산
+        if (!name) return;
+        if (!totals[name]) totals[name] = 0;
+        totals[name] += Number(r.amount);
       });
       return Object.entries(totals).sort((a, b) => b[1] - a[1]);
     }
@@ -2406,10 +2414,11 @@
     const from = fromInput.value;
     const to = toInput.value;
     // 상품명은 정확히 일치하는 것만 찾습니다 ("가글" 검색 시 "가글캔디" 같은 다른 상품은 포함하지 않음).
+    // 단, "[명퇴] 길운 오행 염주"처럼 앞에 대괄호 태그가 붙은 경우는 태그를 무시하고 같은 상품으로 취급합니다.
     function matchesProduct(name) {
       if (isAggregatePlaceholderProduct(name)) return false; // 판매처 일별 합계 placeholder는 상품이 아니므로 제외
       const target = product || searchQ;
-      return (name || '').toLowerCase() === target.toLowerCase();
+      return normalizeProductName(name).toLowerCase() === normalizeProductName(target).toLowerCase();
     }
     function inRange(date) {
       return (!from || date >= from) && (!to || date <= to);
@@ -2430,14 +2439,16 @@
     panelEl.style.display = '';
 
     // 판매처별로 나누지 않고 상품명 기준으로 매출·광고비를 합산합니다 (여러 판매처에서 팔려도 하나의 합계로).
+    // "[명퇴] 길운 오행 염주"처럼 대괄호 태그가 붙은 이름도 태그를 뗀 이름으로 합쳐서 하나의 상품으로 취급합니다.
     // 광고비 데이터가 없으면 광고비 0원으로 처리됩니다.
     const byProduct = {};
     salesRows.forEach(r => {
-      if (!byProduct[r.product_name]) byProduct[r.product_name] = { revenue: 0, spend: 0 };
-      byProduct[r.product_name].revenue += Number(r.amount);
+      const name = normalizeProductName(r.product_name) || r.product_name;
+      if (!byProduct[name]) byProduct[name] = { revenue: 0, spend: 0 };
+      byProduct[name].revenue += Number(r.amount);
     });
     spendRows.forEach(r => {
-      const name = r.product_name || '(상품명 미상)';
+      const name = normalizeProductName(r.product_name) || r.product_name || '(상품명 미상)';
       if (!byProduct[name]) byProduct[name] = { revenue: 0, spend: 0 };
       byProduct[name].spend += Number(r.spend);
     });
