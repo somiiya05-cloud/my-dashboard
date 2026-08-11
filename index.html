@@ -335,7 +335,6 @@
   .channel-summary { margin-top: 4px; border-top: 2px solid rgba(15,23,42,.14); padding-top: 4px; }
   .channel-summary td { font-size: 13px; }
   #channelDaysToggle { font-weight: 800; }
-  #paResultTable.pa-cost-collapsed .pa-cost-col { display: none; }
   .pa-day-subtotal-row td { font-weight: 700; color: #1e293b; background: rgba(15,23,42,.045); }
   .pa-compare-chip {
     display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px;
@@ -774,9 +773,8 @@
         <div class="scroll-box" id="paCompareResultWrap" style="display:none; margin-top: 12px;">
           <table>
             <thead><tr>
-              <th>상품명</th><th class="num">판매수량</th><th class="num">매출</th>
-              <th class="num">원가</th><th class="num">수수료</th><th class="num">배송비</th><th class="num">부가세</th>
-              <th class="num">경비</th><th class="num">1일 사용 광고비</th><th class="num">손익</th><th class="num">손익률</th>
+              <th>상품명</th><th class="num">매출</th>
+              <th class="num">1일 사용 광고비</th><th class="num">손익</th><th class="num">손익률</th>
               <th class="num">ROAS</th><th class="num">광고비중</th><th></th>
             </tr></thead>
             <tbody id="paCompareTable"></tbody>
@@ -797,14 +795,12 @@
         <div class="filter-group" style="margin-bottom: 12px;">
           <select id="paMonthFilter" class="vendor-select"><option value="">월 전체</option></select>
           <select id="paVendorFilter" class="vendor-select"><option value="">판매처 전체</option></select>
-          <button type="button" class="filter-reset-btn" id="paCostColToggle" onclick="togglePaCostCols()">원가~경비 접기</button>
         </div>
         <div class="scroll-box">
           <table id="paResultTable">
             <thead><tr>
-              <th>일자</th><th>판매처</th><th>상품명</th><th class="num">판매수량</th><th class="num">매출</th>
-              <th class="num pa-cost-col">원가</th><th class="num pa-cost-col">수수료</th><th class="num pa-cost-col">배송비</th><th class="num pa-cost-col">부가세</th>
-              <th class="num pa-cost-col">경비</th><th class="num">1일 사용 광고비</th><th class="num">손익</th><th class="num">손익률</th>
+              <th>일자</th><th>판매처</th><th>상품명</th><th class="num">매출</th>
+              <th class="num">1일 사용 광고비</th><th class="num">손익</th><th class="num">손익률</th>
               <th class="num">ROAS</th><th class="num">광고비중</th>
             </tr></thead>
             <tbody id="paTable"></tbody>
@@ -2463,13 +2459,6 @@
     return defaultFeeRatePct(vendor);
   }
 
-  function togglePaCostCols() {
-    const table = document.getElementById('paResultTable');
-    const btn = document.getElementById('paCostColToggle');
-    const collapsed = table.classList.toggle('pa-cost-collapsed');
-    btn.textContent = collapsed ? '원가~경비 펼치기' : '원가~경비 접기';
-  }
-
   async function updateRoiAdSpend(date, vendor, canonicalProductName, rawValue) {
     const spend = rawValue === '' ? 0 : Number(rawValue);
     if (isNaN(spend)) { alert('숫자만 입력해주세요.'); renderProductAdRatioResult(); return; }
@@ -2636,13 +2625,7 @@
       return `
         <tr>
           <td>${name}</td>
-          <td class="num">${m.quantity.toLocaleString('ko-KR')}</td>
           <td class="num">${won(m.revenue)}</td>
-          <td class="num">${won(m.cost)}</td>
-          <td class="num">${won(m.fee)}</td>
-          <td class="num">${won(m.shipping)}</td>
-          <td class="num">${won(m.vat)}</td>
-          <td class="num">${won(m.expense)}</td>
           <td class="num">${won(m.spend)}</td>
           <td class="num ${profitCls}">${won(m.profit)}</td>
           <td class="num ${profitCls}">${m.profitRate === null ? '-' : m.profitRate.toFixed(1) + '%'}</td>
@@ -2929,13 +2912,7 @@
     function metricsCellsHtml(m, spendCellHtml) {
       const profitCls = m.profit < 0 ? 'trend-down' : '';
       return `
-        <td class="num">${m.quantity.toLocaleString('ko-KR')}</td>
         <td class="num">${won(m.revenue)}</td>
-        <td class="num pa-cost-col">${won(m.cost)}</td>
-        <td class="num pa-cost-col">${won(m.fee)}</td>
-        <td class="num pa-cost-col">${won(m.shipping)}</td>
-        <td class="num pa-cost-col">${won(m.vat)}</td>
-        <td class="num pa-cost-col">${won(m.expense)}</td>
         ${spendCellHtml}
         <td class="num ${profitCls}">${won(m.profit)}</td>
         <td class="num ${profitCls}">${m.profitRate === null ? '-' : m.profitRate.toFixed(1) + '%'}</td>
