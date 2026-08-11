@@ -335,6 +335,7 @@
   .channel-summary { margin-top: 4px; border-top: 2px solid rgba(15,23,42,.14); padding-top: 4px; }
   .channel-summary td { font-size: 13px; }
   #channelDaysToggle { font-weight: 800; }
+  #paResultTable.pa-cost-collapsed .pa-cost-col { display: none; }
   .channel-total-all td.num { color: #0891b2; }
   .channel-total-team td.num { color: #b45309; }
 
@@ -781,13 +782,14 @@
         <div class="filter-group" style="margin-bottom: 12px;">
           <select id="paMonthFilter" class="vendor-select"><option value="">월 전체</option></select>
           <select id="paVendorFilter" class="vendor-select"><option value="">판매처 전체</option></select>
+          <button type="button" class="filter-reset-btn" id="paCostColToggle" onclick="togglePaCostCols()">원가~경비 접기</button>
         </div>
         <div class="scroll-box">
-          <table>
+          <table id="paResultTable">
             <thead><tr>
               <th>일자</th><th>판매처</th><th>상품명</th><th class="num">판매수량</th><th class="num">매출</th>
-              <th class="num">원가</th><th class="num">수수료</th><th class="num">배송비</th><th class="num">부가세</th>
-              <th class="num">경비</th><th class="num">1일 사용 광고비</th><th class="num">손익</th><th class="num">손익률</th>
+              <th class="num pa-cost-col">원가</th><th class="num pa-cost-col">수수료</th><th class="num pa-cost-col">배송비</th><th class="num pa-cost-col">부가세</th>
+              <th class="num pa-cost-col">경비</th><th class="num">1일 사용 광고비</th><th class="num">손익</th><th class="num">손익률</th>
               <th class="num">ROAS</th><th class="num">광고비중</th>
             </tr></thead>
             <tbody id="paTable"></tbody>
@@ -2461,6 +2463,13 @@
     toggle.classList.toggle('collapsed', collapsed);
   }
 
+  function togglePaCostCols() {
+    const table = document.getElementById('paResultTable');
+    const btn = document.getElementById('paCostColToggle');
+    const collapsed = table.classList.toggle('pa-cost-collapsed');
+    btn.textContent = collapsed ? '원가~경비 펼치기' : '원가~경비 접기';
+  }
+
   function renderPaFeeTable() {
     const tbody = document.getElementById('paFeeTable');
     if (!tbody) return;
@@ -2778,11 +2787,11 @@
           <td>${displayProductName}</td>
           <td class="num">${r.quantity.toLocaleString('ko-KR')}</td>
           <td class="num">${won(r.revenue)}</td>
-          <td class="num">${won(cost)}</td>
-          <td class="num">${won(fee)}</td>
-          <td class="num">${won(shipping)}</td>
-          <td class="num">${won(vat)}</td>
-          <td class="num">${won(expense)}</td>
+          <td class="num pa-cost-col">${won(cost)}</td>
+          <td class="num pa-cost-col">${won(fee)}</td>
+          <td class="num pa-cost-col">${won(shipping)}</td>
+          <td class="num pa-cost-col">${won(vat)}</td>
+          <td class="num pa-cost-col">${won(expense)}</td>
           <td class="num">
             <input type="number" class="inline-edit num" min="0" value="${spend || ''}"
               onchange="updateRoiAdSpend(${jsStr(r.date)}, ${jsStr(r.vendor)}, ${jsStr(displayProductName)}, this.value)">
@@ -2805,11 +2814,11 @@
         <td></td>
         <td class="num">${totals.quantity.toLocaleString('ko-KR')}</td>
         <td class="num">${won(totals.revenue)}</td>
-        <td class="num">${won(totals.cost)}</td>
-        <td class="num">${won(totals.fee)}</td>
-        <td class="num">${won(totals.shipping)}</td>
-        <td class="num">${won(totals.vat)}</td>
-        <td class="num">${won(totals.expense)}</td>
+        <td class="num pa-cost-col">${won(totals.cost)}</td>
+        <td class="num pa-cost-col">${won(totals.fee)}</td>
+        <td class="num pa-cost-col">${won(totals.shipping)}</td>
+        <td class="num pa-cost-col">${won(totals.vat)}</td>
+        <td class="num pa-cost-col">${won(totals.expense)}</td>
         <td class="num">${won(totals.spend)}</td>
         <td class="num ${totalProfitCls}">${won(totals.profit)}</td>
         <td class="num ${totalProfitCls}">${totalProfitRate === null ? '-' : totalProfitRate.toFixed(1) + '%'}</td>
