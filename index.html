@@ -751,18 +751,20 @@
       </section>
 
       <section class="panel" id="paFeePanel">
-        <div class="panel-head">
-          <h2>판매처별 수수료(%) 설정</h2>
+        <div class="panel-head" style="cursor: pointer;" onclick="togglePaFeePanel()">
+          <h2>판매처별 수수료(%) 설정 <span class="nav-collapse-toggle collapsed" id="paFeeToggle">▾</span></h2>
           <span class="panel-note">쿠팡 8.58% · 자사몰 2.5%는 기본값으로 자동 적용됩니다. 그 외 판매처는 직접 입력해주세요.</span>
         </div>
-        <div class="filter-group" style="margin-bottom: 12px;">
-          <input type="text" id="paFeeSearchInput" class="vendor-select" placeholder="판매처 검색" autocomplete="off">
-        </div>
-        <div class="scroll-box" style="max-height: 260px;">
-          <table>
-            <thead><tr><th>판매처</th><th class="num">수수료(%)</th></tr></thead>
-            <tbody id="paFeeTable"></tbody>
-          </table>
+        <div id="paFeeBody" style="display: none;">
+          <div class="filter-group" style="margin-bottom: 12px;">
+            <input type="text" id="paFeeSearchInput" class="vendor-select" placeholder="판매처 검색" autocomplete="off">
+          </div>
+          <div class="scroll-box" style="max-height: 260px;">
+            <table>
+              <thead><tr><th>판매처</th><th class="num">수수료(%)</th></tr></thead>
+              <tbody id="paFeeTable"></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -775,6 +777,10 @@
         <div class="panel-head">
           <h2 id="paResultTitle">상품별 광고비ROI</h2>
           <span class="panel-note" id="paResultNote"></span>
+        </div>
+        <div class="filter-group" style="margin-bottom: 12px;">
+          <select id="paMonthFilter" class="vendor-select"><option value="">월 전체</option></select>
+          <select id="paVendorFilter" class="vendor-select"><option value="">판매처 전체</option></select>
         </div>
         <div class="scroll-box">
           <table>
@@ -2447,6 +2453,14 @@
 
   let paFeeSearchQuery = '';
 
+  function togglePaFeePanel() {
+    const body = document.getElementById('paFeeBody');
+    const toggle = document.getElementById('paFeeToggle');
+    const collapsed = body.style.display !== 'none';
+    body.style.display = collapsed ? 'none' : '';
+    toggle.classList.toggle('collapsed', collapsed);
+  }
+
   function renderPaFeeTable() {
     const tbody = document.getElementById('paFeeTable');
     if (!tbody) return;
@@ -2604,6 +2618,11 @@
         renderPaFeeTable();
       });
     }
+
+    const monthFilter = document.getElementById('paMonthFilter');
+    const vendorFilter = document.getElementById('paVendorFilter');
+    if (monthFilter) monthFilter.addEventListener('change', renderProductAdRatioResult);
+    if (vendorFilter) vendorFilter.addEventListener('change', renderProductAdRatioResult);
   }
 
   function renderProductAdRatioResult() {
@@ -2653,6 +2672,33 @@
     emptyEl.style.display = 'none';
     panelEl.style.display = '';
 
+    // 월/판매처 드롭다운 필터 — 검색된 상품의 실제 데이터 기준으로 옵션을 구성합니다.
+    const monthSelect = document.getElementById('paMonthFilter');
+    const vendorSelect = document.getElementById('paVendorFilter');
+    const months = Array.from(new Set([...salesRows.map(r => r.sale_date.slice(0, 7)), ...spendRows.map(r => r.sale_date.slice(0, 7))])).sort();
+    const vendorsInResult = Array.from(new Set([...salesRows.map(r => r.vendor), ...spendRows.map(r => r.vendor)])).sort((a, b) => a.localeCompare(b));
+
+    const prevMonth = monthSelect.value;
+    monthSelect.innerHTML = '<option value="">월 전체</option>' + months.map(m => {
+      const [y, mm] = m.split('-');
+      return `<option value="${m}">${y}년 ${Number(mm)}월</option>`;
+    }).join('');
+    monthSelect.value = months.includes(prevMonth) ? prevMonth : '';
+
+    const prevVendor = vendorSelect.value;
+    vendorSelect.innerHTML = '<option value="">판매처 전체</option>' + vendorsInResult.map(v => `<option value="${escapeAttr(v)}">${v}</option>`).join('');
+    vendorSelect.value = vendorsInResult.includes(prevVendor) ? prevVendor : '';
+
+    const monthFilterValue = monthSelect.value;
+    const vendorFilterValue = vendorSelect.value;
+    function passesExtraFilter(r) {
+      if (monthFilterValue && r.sale_date.slice(0, 7) !== monthFilterValue) return false;
+      if (vendorFilterValue && r.vendor !== vendorFilterValue) return false;
+      return true;
+    }
+    const filteredSalesRows = salesRows.filter(passesExtraFilter);
+    const filteredSpendRows = spendRows.filter(passesExtraFilter);
+
     // 표시용 상품명: "[명퇴] 길운 오행 염주" 같은 대괄호 태그·띄어쓰기 차이는 모두 같은 상품으로 합치고,
     // 매출이 가장 큰 표기를 대표 이름으로 사용합니다.
     const nameVariants = {};
@@ -2670,16 +2716,23 @@
       ? costMatches.reduce((s, r) => s + Number(r.unit_cost_krw), 0) / costMatches.length
       : null;
 
+    if (!filteredSalesRows.length && !filteredSpendRows.length) {
+      tableEl.innerHTML = '';
+      titleEl.textContent = displayProductName;
+      noteEl.textContent = '선택한 월/판매처 조건에 해당하는 데이터가 없어요.';
+      return;
+    }
+
     // 일자 × 판매처로 묶어서 행을 구성합니다.
     const byDayVendor = {};
     function keyOf(date, vendor) { return date + '|' + vendor; }
-    salesRows.forEach(r => {
+    filteredSalesRows.forEach(r => {
       const k = keyOf(r.sale_date, r.vendor);
       if (!byDayVendor[k]) byDayVendor[k] = { date: r.sale_date, vendor: r.vendor, quantity: 0, revenue: 0, spend: 0 };
       byDayVendor[k].quantity += Number(r.quantity);
       byDayVendor[k].revenue += Number(r.amount);
     });
-    spendRows.forEach(r => {
+    filteredSpendRows.forEach(r => {
       const k = keyOf(r.sale_date, r.vendor);
       if (!byDayVendor[k]) byDayVendor[k] = { date: r.sale_date, vendor: r.vendor, quantity: 0, revenue: 0, spend: 0 };
       byDayVendor[k].spend += Number(r.spend);
@@ -2768,10 +2821,15 @@
     tableEl.innerHTML = rowsHtml + totalRowHtml;
 
     // 제목: 브랜드가 특정되면 "[브랜드] 상품명" 형태로 표시 (참고 이미지 스타일)
-    const brandsInRows = Array.from(new Set(salesRows.map(r => canonicalBrand(getBrand(r)))));
+    const brandsInRows = Array.from(new Set(filteredSalesRows.map(r => canonicalBrand(getBrand(r)))));
     const titleProductName = displayProductName || (searchQ ? `"${searchQ}" 검색결과` : '');
     titleEl.textContent = (brandsInRows.length === 1 ? `[${brandsInRows[0]}] ` : '') + titleProductName;
-    noteEl.textContent = `집계기간: ${from || '전체'} ~ ${to || '전체'} · 일자·판매처 ${rows.length.toLocaleString('ko-KR')}건`;
+    const filterNoteParts = [];
+    if (monthFilterValue) { const [y, mm] = monthFilterValue.split('-'); filterNoteParts.push(`${y}년 ${Number(mm)}월`); }
+    if (vendorFilterValue) filterNoteParts.push(vendorFilterValue);
+    noteEl.textContent = `집계기간: ${from || '전체'} ~ ${to || '전체'}` +
+      (filterNoteParts.length ? ` · ${filterNoteParts.join(' · ')}` : '') +
+      ` · 일자·판매처 ${rows.length.toLocaleString('ko-KR')}건`;
 
     if (avgUnitCost == null) {
       noteEl.textContent += ' · 원가 데이터 미입력(0원으로 표시)';
