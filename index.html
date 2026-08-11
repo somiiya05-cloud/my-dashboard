@@ -1108,6 +1108,11 @@
     if (DIRECT_SUPPLY_GROUPS.has(group)) DIRECT_SUPPLY_VENDORS.add(vendor);
   }));
 
+  // 상품별 광고비ROI 페이지에서 제외할 판매처 — 직납(직매입) 판매처 + 이름에 "공동구매"가 들어간 판매처(예: 공동구매(컨텐츠팀)) 전부 제외합니다.
+  function isRoiExcludedVendor(vendor) {
+    return DIRECT_SUPPLY_VENDORS.has(vendor) || (typeof vendor === 'string' && vendor.includes('공동구매'));
+  }
+
   // 채널템플릿의 표기와 실제 sales_transactions의 판매처명이 다른 경우를 보정합니다.
   // (예: 템플릿엔 "엠알엔컴퍼니(개인사업자)"로 되어 있지만 실제 거래 데이터엔 "엠알엔컴퍼니"로만 들어있어
   //  정확히 일치하지 않으면 직납 제외 필터에서 빠져나가는 문제가 있었습니다.)
@@ -2495,7 +2500,7 @@
     const groups = {}; // matchKey -> { total, variants: { 표시이름: 금액 } }
     allRows.forEach(r => {
       if (isAggregatePlaceholderProduct(r.product_name)) return; // 판매처 일별 합계 placeholder는 상품이 아니므로 제외
-      if (DIRECT_SUPPLY_VENDORS.has(r.vendor)) return; // 직납(직매입) 매출 건은 상품 목록/금액 집계에서 제외
+      if (isRoiExcludedVendor(r.vendor)) return; // 직납(직매입)/공동구매 매출 건은 상품 목록/금액 집계에서 제외
       const displayName = normalizeProductName(r.product_name); // [명퇴] 등 대괄호 태그는 제거한 표시용 이름
       const key = productMatchKey(r.product_name); // 대괄호 태그 + 띄어쓰기 차이까지 무시한 비교용 키
       if (!key) return;
@@ -2568,8 +2573,8 @@
     function inRange(date) {
       return (!from || date >= from) && (!to || date <= to);
     }
-    const salesRows = allRows.filter(r => matches(r.product_name) && inRange(r.sale_date) && !DIRECT_SUPPLY_VENDORS.has(r.vendor));
-    const spendRows = allProductAdSpendRows.filter(r => matches(r.product_name) && inRange(r.sale_date) && !DIRECT_SUPPLY_VENDORS.has(r.vendor));
+    const salesRows = allRows.filter(r => matches(r.product_name) && inRange(r.sale_date) && !isRoiExcludedVendor(r.vendor));
+    const spendRows = allProductAdSpendRows.filter(r => matches(r.product_name) && inRange(r.sale_date) && !isRoiExcludedVendor(r.vendor));
 
     const costMatches = allProductCostRows.filter(r => productMatchKey(r.product_name) === targetMatchKey && r.unit_cost_krw != null);
     const avgUnitCost = costMatches.length
@@ -2807,8 +2812,8 @@
     }
 
     // 직납(직매입) 판매처 매출 건은 상품별 광고비ROI 집계에서 전부 제외합니다.
-    const salesRows = allRows.filter(r => matchesProduct(r.product_name) && inRange(r.sale_date) && !DIRECT_SUPPLY_VENDORS.has(r.vendor));
-    const spendRows = allProductAdSpendRows.filter(r => matchesProduct(r.product_name) && inRange(r.sale_date) && !DIRECT_SUPPLY_VENDORS.has(r.vendor));
+    const salesRows = allRows.filter(r => matchesProduct(r.product_name) && inRange(r.sale_date) && !isRoiExcludedVendor(r.vendor));
+    const spendRows = allProductAdSpendRows.filter(r => matchesProduct(r.product_name) && inRange(r.sale_date) && !isRoiExcludedVendor(r.vendor));
 
     if (!salesRows.length && !spendRows.length) {
       emptyEl.innerHTML = '해당 상품의 매출/광고비 데이터를 찾을 수 없어요. 검색어를 확인해주세요.';
