@@ -337,6 +337,13 @@
   #channelDaysToggle { font-weight: 800; }
   #paResultTable.pa-cost-collapsed .pa-cost-col { display: none; }
   .pa-day-subtotal-row td { font-weight: 700; color: #1e293b; background: rgba(15,23,42,.045); }
+  .pa-compare-chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px;
+    background: rgba(77,124,254,.1); color: #1d4ed8; font-size: 13px; font-weight: 600; margin: 0 6px 6px 0;
+  }
+  .pa-compare-chip button {
+    border: none; background: none; color: #1d4ed8; cursor: pointer; font-weight: 800; font-size: 15px; line-height: 1; padding: 0;
+  }
   .channel-total-all td.num { color: #0891b2; }
   .channel-total-team td.num { color: #b45309; }
 
@@ -749,6 +756,31 @@
             <input type="date" id="paDateTo" class="date-input">
             <button type="button" class="filter-reset-btn" id="paDateReset">기간 초기화</button>
           </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>상품별 비교</h2>
+          <span class="panel-note">여러 상품을 추가하면 같은 기간(위 상품 검색의 기간) 기준으로 합계를 한눈에 비교할 수 있어요.</span>
+        </div>
+        <div class="filter-group" style="margin-bottom: 12px;">
+          <div class="searchable-select" id="paCompareSelectWrap">
+            <input type="text" id="paCompareSelectInput" class="vendor-select searchable-select-input" placeholder="비교할 상품 추가 (예: 하수구)" autocomplete="off">
+            <div class="searchable-select-dropdown" id="paCompareSelectDropdown"></div>
+          </div>
+        </div>
+        <div id="paCompareChips"></div>
+        <div class="scroll-box" id="paCompareResultWrap" style="display:none; margin-top: 12px;">
+          <table>
+            <thead><tr>
+              <th>상품명</th><th class="num">판매수량</th><th class="num">매출</th>
+              <th class="num">원가</th><th class="num">수수료</th><th class="num">배송비</th><th class="num">부가세</th>
+              <th class="num">경비</th><th class="num">1일 사용 광고비</th><th class="num">손익</th><th class="num">손익률</th>
+              <th class="num">ROAS</th><th class="num">광고비중</th><th></th>
+            </tr></thead>
+            <tbody id="paCompareTable"></tbody>
+          </table>
         </div>
       </section>
 
@@ -2516,10 +2548,172 @@
   let paSearchText = ''; // 엔터로 적용한 검색어 (상품명에 포함된 항목 전체)
   let paInitDone = false;
 
+  // 검색 가능한 상품 목록 — [명퇴] 등 대괄호 태그·띄어쓰기 차이를 무시하고 합쳐서, 직납/일별합계 placeholder는 제외합니다.
+  // (단일 상품 검색 드롭다운, 상품별 비교 추가 드롭다운에서 공통으로 사용)
+  function paProductOptions() {
+    const groups = {}; // matchKey -> { total, variants: { 표시이름: 금액 } }
+    allRows.forEach(r => {
+      if (isAggregatePlaceholderProduct(r.product_name)) return; // 판매처 일별 합계 placeholder는 상품이 아니므로 제외
+      if (DIRECT_SUPPLY_VENDORS.has(r.vendor)) return; // 직납(직매입) 매출 건은 상품 목록/금액 집계에서 제외
+      const displayName = normalizeProductName(r.product_name); // [명퇴] 등 대괄호 태그는 제거한 표시용 이름
+      const key = productMatchKey(r.product_name); // 대괄호 태그 + 띄어쓰기 차이까지 무시한 비교용 키
+      if (!key) return;
+      if (!groups[key]) groups[key] = { total: 0, variants: {} };
+      groups[key].total += Number(r.amount);
+      groups[key].variants[displayName] = (groups[key].variants[displayName] || 0) + Number(r.amount);
+    });
+    return Object.values(groups)
+      .map(g => [pickDisplayName(g.variants), g.total])
+      .sort((a, b) => b[1] - a[1]);
+  }
+
+  // ==================== 상품별 비교 ====================
+  let paCompareItems = []; // 비교 목록에 추가된 상품 표시명들
+
+  function renderCompareDropdown(filterText) {
+    const dropdown = document.getElementById('paCompareSelectDropdown');
+    if (!dropdown) return;
+    const opts = paProductOptions().filter(([p]) => !paCompareItems.some(item => productMatchKey(item) === productMatchKey(p)));
+    const q = (filterText || '').trim().toLowerCase();
+    const filtered = q ? opts.filter(([p]) => p.toLowerCase().includes(q)) : opts;
+    const shown = filtered.slice(0, 200);
+    let html = '';
+    if (!shown.length) {
+      html = `<div class="searchable-select-empty">검색 결과가 없습니다</div>`;
+    } else {
+      html = shown.map(([p]) => `<div class="searchable-select-option" data-value="${escapeAttr(p)}">${p}</div>`).join('');
+      if (filtered.length > shown.length) {
+        html += `<div class="searchable-select-empty">외 ${(filtered.length - shown.length).toLocaleString('ko-KR')}건 더 있음 · 검색어로 좁혀보세요</div>`;
+      }
+    }
+    dropdown.innerHTML = html;
+    dropdown.classList.add('open');
+  }
+
+  function addCompareItem(product) {
+    if (!product) return;
+    const key = productMatchKey(product);
+    if (paCompareItems.some(item => productMatchKey(item) === key)) return;
+    paCompareItems.push(product);
+    const input = document.getElementById('paCompareSelectInput');
+    const dropdown = document.getElementById('paCompareSelectDropdown');
+    if (input) input.value = '';
+    if (dropdown) dropdown.classList.remove('open');
+    renderPaCompareChips();
+    renderPaCompareResult();
+  }
+
+  function removeCompareItem(product) {
+    paCompareItems = paCompareItems.filter(item => item !== product);
+    renderPaCompareChips();
+    renderPaCompareResult();
+  }
+
+  function renderPaCompareChips() {
+    const el = document.getElementById('paCompareChips');
+    if (!el) return;
+    el.innerHTML = paCompareItems.map(p => `
+      <span class="pa-compare-chip">${p}<button type="button" onclick="removeCompareItem(${jsStr(p)})">×</button></span>
+    `).join('');
+  }
+
+  // 특정 상품 하나의 전체 기간 합계를 계산합니다 (판매처별로 수수료/배송비를 계산한 뒤 합산 — 판매처마다 수수료율이 다르기 때문).
+  function computeProductAggregate(displayName, from, to) {
+    const targetMatchKey = productMatchKey(displayName);
+    function matches(name) {
+      if (isAggregatePlaceholderProduct(name)) return false;
+      return productMatchKey(name) === targetMatchKey;
+    }
+    function inRange(date) {
+      return (!from || date >= from) && (!to || date <= to);
+    }
+    const salesRows = allRows.filter(r => matches(r.product_name) && inRange(r.sale_date) && !DIRECT_SUPPLY_VENDORS.has(r.vendor));
+    const spendRows = allProductAdSpendRows.filter(r => matches(r.product_name) && inRange(r.sale_date) && !DIRECT_SUPPLY_VENDORS.has(r.vendor));
+
+    const costMatches = allProductCostRows.filter(r => productMatchKey(r.product_name) === targetMatchKey && r.unit_cost_krw != null);
+    const avgUnitCost = costMatches.length
+      ? costMatches.reduce((s, r) => s + Number(r.unit_cost_krw), 0) / costMatches.length
+      : null;
+
+    const byVendor = {};
+    salesRows.forEach(r => {
+      if (!byVendor[r.vendor]) byVendor[r.vendor] = { quantity: 0, revenue: 0, spend: 0 };
+      byVendor[r.vendor].quantity += Number(r.quantity);
+      byVendor[r.vendor].revenue += Number(r.amount);
+    });
+    spendRows.forEach(r => {
+      if (!byVendor[r.vendor]) byVendor[r.vendor] = { quantity: 0, revenue: 0, spend: 0 };
+      byVendor[r.vendor].spend += Number(r.spend);
+    });
+
+    const totals = { quantity: 0, revenue: 0, cost: 0, fee: 0, shipping: 0, vat: 0, expense: 0, spend: 0, profit: 0 };
+    Object.entries(byVendor).forEach(([vendor, v]) => {
+      const cost = avgUnitCost != null ? Math.round(avgUnitCost * v.quantity) : 0;
+      const feeRate = getFeeRatePct(vendor);
+      const fee = Math.round(v.revenue * feeRate / 100);
+      const shipping = isCoupangVendor(vendor) ? v.quantity * COUPANG_SHIPPING_FEE_PER_UNIT : 0;
+      const vat = Math.round(v.revenue / 11);
+      const expense = Math.round(v.revenue * 0.24);
+      const spend = v.spend || 0;
+      const profit = v.revenue - (cost + fee + shipping + vat + expense + spend);
+      totals.quantity += v.quantity;
+      totals.revenue += v.revenue;
+      totals.cost += cost;
+      totals.fee += fee;
+      totals.shipping += shipping;
+      totals.vat += vat;
+      totals.expense += expense;
+      totals.spend += spend;
+      totals.profit += profit;
+    });
+    totals.profitRate = totals.revenue > 0 ? (totals.profit / totals.revenue * 100) : null;
+    totals.roas = totals.spend > 0 ? (totals.revenue / totals.spend * 100) : null;
+    totals.spendRatio = totals.revenue > 0 ? (totals.spend / totals.revenue * 100) : (totals.spend > 0 ? null : 0);
+    return totals;
+  }
+
+  function renderPaCompareResult() {
+    const wrap = document.getElementById('paCompareResultWrap');
+    const tbody = document.getElementById('paCompareTable');
+    if (!wrap || !tbody) return;
+    if (!paCompareItems.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+
+    const fromInput = document.getElementById('paDateFrom');
+    const toInput = document.getElementById('paDateTo');
+    const from = fromInput ? fromInput.value : '';
+    const to = toInput ? toInput.value : '';
+
+    tbody.innerHTML = paCompareItems.map(name => {
+      const m = computeProductAggregate(name, from, to);
+      const profitCls = m.profit < 0 ? 'trend-down' : '';
+      return `
+        <tr>
+          <td>${name}</td>
+          <td class="num">${m.quantity.toLocaleString('ko-KR')}</td>
+          <td class="num">${won(m.revenue)}</td>
+          <td class="num">${won(m.cost)}</td>
+          <td class="num">${won(m.fee)}</td>
+          <td class="num">${won(m.shipping)}</td>
+          <td class="num">${won(m.vat)}</td>
+          <td class="num">${won(m.expense)}</td>
+          <td class="num">${won(m.spend)}</td>
+          <td class="num ${profitCls}">${won(m.profit)}</td>
+          <td class="num ${profitCls}">${m.profitRate === null ? '-' : m.profitRate.toFixed(1) + '%'}</td>
+          <td class="num">${m.roas === null ? '-' : m.roas.toFixed(0) + '%'}</td>
+          <td class="num">${m.spendRatio === null ? '-' : m.spendRatio.toFixed(1) + '%'}</td>
+          <td><button class="btn-danger" onclick="removeCompareItem(${jsStr(name)})">삭제</button></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
   function initProductAdRatioView() {
     Promise.all([loadProductAdSpendData(), loadProductCostData(), loadVendorFeeRates()]).then(() => {
       renderPaFeeTable();
       renderProductAdRatioResult();
+      renderPaCompareChips();
+      renderPaCompareResult();
     });
 
     if (paInitDone) return;
@@ -2530,23 +2724,6 @@
     const fromInput = document.getElementById('paDateFrom');
     const toInput = document.getElementById('paDateTo');
     const resetBtn = document.getElementById('paDateReset');
-
-    function paProductOptions() {
-      const groups = {}; // matchKey -> { total, variants: { 표시이름: 금액 } }
-      allRows.forEach(r => {
-        if (isAggregatePlaceholderProduct(r.product_name)) return; // 판매처 일별 합계 placeholder는 상품이 아니므로 제외
-        if (DIRECT_SUPPLY_VENDORS.has(r.vendor)) return; // 직납(직매입) 매출 건은 상품 목록/금액 집계에서 제외
-        const displayName = normalizeProductName(r.product_name); // [명퇴] 등 대괄호 태그는 제거한 표시용 이름
-        const key = productMatchKey(r.product_name); // 대괄호 태그 + 띄어쓰기 차이까지 무시한 비교용 키
-        if (!key) return;
-        if (!groups[key]) groups[key] = { total: 0, variants: {} };
-        groups[key].total += Number(r.amount);
-        groups[key].variants[displayName] = (groups[key].variants[displayName] || 0) + Number(r.amount);
-      });
-      return Object.values(groups)
-        .map(g => [pickDisplayName(g.variants), g.total])
-        .sort((a, b) => b[1] - a[1]);
-    }
 
     function paProductLabel(product) {
       return product || '';
@@ -2613,13 +2790,42 @@
       if (!e.target.closest('#paProductSelectWrap')) closePaDropdown();
     });
 
-    fromInput.addEventListener('change', renderProductAdRatioResult);
-    toInput.addEventListener('change', renderProductAdRatioResult);
+    fromInput.addEventListener('change', () => { renderProductAdRatioResult(); renderPaCompareResult(); });
+    toInput.addEventListener('change', () => { renderProductAdRatioResult(); renderPaCompareResult(); });
     resetBtn.addEventListener('click', () => {
       fromInput.value = '';
       toInput.value = '';
       renderProductAdRatioResult();
+      renderPaCompareResult();
     });
+
+    // 상품별 비교 — 검색창/드롭다운
+    const compareInput = document.getElementById('paCompareSelectInput');
+    const compareDropdown = document.getElementById('paCompareSelectDropdown');
+    if (compareInput && compareDropdown) {
+      compareInput.addEventListener('focus', () => renderCompareDropdown(compareInput.value));
+      compareInput.addEventListener('input', () => renderCompareDropdown(compareInput.value));
+      compareInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { compareDropdown.classList.remove('open'); compareInput.blur(); }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const q = compareInput.value.trim().toLowerCase();
+          if (!q) return;
+          const opts = paProductOptions().filter(([p]) => !paCompareItems.some(item => productMatchKey(item) === productMatchKey(p)));
+          const match = opts.find(([p]) => p.toLowerCase().includes(q));
+          if (match) addCompareItem(match[0]);
+        }
+      });
+      compareDropdown.addEventListener('mousedown', (e) => {
+        const opt = e.target.closest('.searchable-select-option');
+        if (!opt) return;
+        e.preventDefault();
+        addCompareItem(opt.dataset.value);
+      });
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#paCompareSelectWrap')) compareDropdown.classList.remove('open');
+      });
+    }
 
     const feeSearchInput = document.getElementById('paFeeSearchInput');
     if (feeSearchInput) {
