@@ -784,24 +784,6 @@
         </div>
       </section>
 
-      <section class="panel" id="paFeePanel">
-        <div class="panel-head" style="cursor: pointer;" onclick="togglePaFeePanel()">
-          <h2>판매처별 수수료(%) 설정 <span class="nav-collapse-toggle collapsed" id="paFeeToggle">▾</span></h2>
-          <span class="panel-note">쿠팡 8.58% · 자사몰 2.5%는 기본값으로 자동 적용됩니다. 그 외 판매처는 직접 입력해주세요.</span>
-        </div>
-        <div id="paFeeBody" style="display: none;">
-          <div class="filter-group" style="margin-bottom: 12px;">
-            <input type="text" id="paFeeSearchInput" class="vendor-select" placeholder="판매처 검색" autocomplete="off">
-          </div>
-          <div class="scroll-box" style="max-height: 260px;">
-            <table>
-              <thead><tr><th>판매처</th><th class="num">수수료(%)</th></tr></thead>
-              <tbody id="paFeeTable"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
       <div id="paEmpty" class="mkt-empty">
         상품을 검색해서 선택하면 일자·판매처별 매출·원가·수수료·배송비·손익·ROAS를 확인할 수 있어요.<br>
         <b>1일 사용 광고비</b>는 표에서 직접 입력해서 저장할 수 있어요.
@@ -2476,52 +2458,11 @@
     return defaultFeeRatePct(vendor);
   }
 
-  async function saveFeeRate(vendor, rawValue) {
-    const value = Number(rawValue);
-    if (isNaN(value)) { alert('숫자만 입력해주세요.'); renderPaFeeTable(); return; }
-    const { error } = await client.from('vendor_fee_rate').upsert({ vendor, fee_rate_pct: value }, { onConflict: 'vendor' });
-    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
-    allVendorFeeRates[vendor] = value;
-    renderPaFeeTable();
-    renderProductAdRatioResult();
-  }
-
-  let paFeeSearchQuery = '';
-
-  function togglePaFeePanel() {
-    const body = document.getElementById('paFeeBody');
-    const toggle = document.getElementById('paFeeToggle');
-    const collapsed = body.style.display !== 'none';
-    body.style.display = collapsed ? 'none' : '';
-    toggle.classList.toggle('collapsed', collapsed);
-  }
-
   function togglePaCostCols() {
     const table = document.getElementById('paResultTable');
     const btn = document.getElementById('paCostColToggle');
     const collapsed = table.classList.toggle('pa-cost-collapsed');
     btn.textContent = collapsed ? '원가~경비 펼치기' : '원가~경비 접기';
-  }
-
-  function renderPaFeeTable() {
-    const tbody = document.getElementById('paFeeTable');
-    if (!tbody) return;
-    const vendors = Array.from(new Set(allRows.map(r => r.vendor))).sort((a, b) => a.localeCompare(b));
-    const q = paFeeSearchQuery.trim().toLowerCase();
-    const filtered = q ? vendors.filter(v => v.toLowerCase().includes(q)) : vendors;
-    tbody.innerHTML = filtered.map(v => {
-      const rate = getFeeRatePct(v);
-      const isDefault = !Object.prototype.hasOwnProperty.call(allVendorFeeRates, v);
-      return `
-        <tr>
-          <td>${v}${isDefault ? ' <span class="panel-note" style="font-weight:400;">(기본값)</span>' : ''}</td>
-          <td class="num">
-            <input type="number" class="inline-edit num" min="0" step="0.01" value="${rate}"
-              onchange="saveFeeRate(${jsStr(v)}, this.value)">
-          </td>
-        </tr>
-      `;
-    }).join('');
   }
 
   async function updateRoiAdSpend(date, vendor, canonicalProductName, rawValue) {
@@ -2710,7 +2651,6 @@
 
   function initProductAdRatioView() {
     Promise.all([loadProductAdSpendData(), loadProductCostData(), loadVendorFeeRates()]).then(() => {
-      renderPaFeeTable();
       renderProductAdRatioResult();
       renderPaCompareChips();
       renderPaCompareResult();
@@ -2824,14 +2764,6 @@
       });
       document.addEventListener('click', (e) => {
         if (!e.target.closest('#paCompareSelectWrap')) compareDropdown.classList.remove('open');
-      });
-    }
-
-    const feeSearchInput = document.getElementById('paFeeSearchInput');
-    if (feeSearchInput) {
-      feeSearchInput.addEventListener('input', (e) => {
-        paFeeSearchQuery = e.target.value;
-        renderPaFeeTable();
       });
     }
 
