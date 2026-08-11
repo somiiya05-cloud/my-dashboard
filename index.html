@@ -336,6 +336,7 @@
   .channel-summary td { font-size: 13px; }
   #channelDaysToggle { font-weight: 800; }
   #paResultTable.pa-cost-collapsed .pa-cost-col { display: none; }
+  .pa-day-subtotal-row td { font-weight: 700; color: #1e293b; background: rgba(15,23,42,.045); }
   .channel-total-all td.num { color: #0891b2; }
   .channel-total-team td.num { color: #b45309; }
 
@@ -2751,9 +2752,8 @@
       a.date === b.date ? a.vendor.localeCompare(b.vendor) : a.date.localeCompare(b.date)
     ));
 
-    const totals = { quantity: 0, revenue: 0, cost: 0, fee: 0, shipping: 0, vat: 0, expense: 0, spend: 0, profit: 0 };
-
-    const rowsHtml = rows.map(r => {
+    // 각 (일자,판매처) 행의 지표를 먼저 계산해둡니다 (일자 소계·전체 합계에서 재사용).
+    const computedRows = rows.map(r => {
       // 원가 = 판매수량 × 평균 개당원가 (원가 대시보드에 데이터가 없으면 0원)
       const cost = avgUnitCost != null ? Math.round(avgUnitCost * r.quantity) : 0;
       // 수수료 = 매출 × 판매처별 수수료율 (쿠팡 8.58% / 자사몰 2.5% 기본값, 그 외는 위 설정 화면에 입력한 값)
@@ -2768,66 +2768,90 @@
       const profitRate = r.revenue > 0 ? (profit / r.revenue * 100) : null; // 손익률
       const roas = spend > 0 ? (r.revenue / spend * 100) : null; // ROAS = 매출/광고비
       const spendRatio = r.revenue > 0 ? (spend / r.revenue * 100) : (spend > 0 ? null : 0); // 광고비중 = 광고비/매출
+      return { date: r.date, vendor: r.vendor, quantity: r.quantity, revenue: r.revenue, cost, fee, shipping, vat, expense, spend, profit, profitRate, roas, spendRatio };
+    });
 
-      totals.quantity += r.quantity;
-      totals.revenue += r.revenue;
-      totals.cost += cost;
-      totals.fee += fee;
-      totals.shipping += shipping;
-      totals.vat += vat;
-      totals.expense += expense;
-      totals.spend += spend;
-      totals.profit += profit;
+    function sumMetrics(list) {
+      const s = { quantity: 0, revenue: 0, cost: 0, fee: 0, shipping: 0, vat: 0, expense: 0, spend: 0, profit: 0 };
+      list.forEach(m => {
+        s.quantity += m.quantity; s.revenue += m.revenue; s.cost += m.cost; s.fee += m.fee;
+        s.shipping += m.shipping; s.vat += m.vat; s.expense += m.expense; s.spend += m.spend; s.profit += m.profit;
+      });
+      s.profitRate = s.revenue > 0 ? (s.profit / s.revenue * 100) : null;
+      s.roas = s.spend > 0 ? (s.revenue / s.spend * 100) : null;
+      s.spendRatio = s.revenue > 0 ? (s.spend / s.revenue * 100) : (s.spend > 0 ? null : 0);
+      return s;
+    }
 
-      const profitCls = profit < 0 ? 'trend-down' : '';
+    function metricsCellsHtml(m, spendCellHtml) {
+      const profitCls = m.profit < 0 ? 'trend-down' : '';
       return `
-        <tr>
-          <td>${r.date}</td>
-          <td>${r.vendor}</td>
-          <td>${displayProductName}</td>
-          <td class="num">${r.quantity.toLocaleString('ko-KR')}</td>
-          <td class="num">${won(r.revenue)}</td>
-          <td class="num pa-cost-col">${won(cost)}</td>
-          <td class="num pa-cost-col">${won(fee)}</td>
-          <td class="num pa-cost-col">${won(shipping)}</td>
-          <td class="num pa-cost-col">${won(vat)}</td>
-          <td class="num pa-cost-col">${won(expense)}</td>
+        <td class="num">${m.quantity.toLocaleString('ko-KR')}</td>
+        <td class="num">${won(m.revenue)}</td>
+        <td class="num pa-cost-col">${won(m.cost)}</td>
+        <td class="num pa-cost-col">${won(m.fee)}</td>
+        <td class="num pa-cost-col">${won(m.shipping)}</td>
+        <td class="num pa-cost-col">${won(m.vat)}</td>
+        <td class="num pa-cost-col">${won(m.expense)}</td>
+        ${spendCellHtml}
+        <td class="num ${profitCls}">${won(m.profit)}</td>
+        <td class="num ${profitCls}">${m.profitRate === null ? '-' : m.profitRate.toFixed(1) + '%'}</td>
+        <td class="num">${m.roas === null ? '-' : m.roas.toFixed(0) + '%'}</td>
+        <td class="num">${m.spendRatio === null ? '-' : m.spendRatio.toFixed(1) + '%'}</td>
+      `;
+    }
+
+    // 일자별로 묶어서 행마다 렌더링하고, 같은 날짜에 판매처가 2곳 이상이면 "일자 소계" 행을 추가합니다.
+    const dateOrder = [];
+    const byDate = {};
+    computedRows.forEach(m => {
+      if (!byDate[m.date]) { byDate[m.date] = []; dateOrder.push(m.date); }
+      byDate[m.date].push(m);
+    });
+
+    let bodyHtml = '';
+    dateOrder.forEach(date => {
+      const dayRows = byDate[date];
+      dayRows.forEach(m => {
+        const spendCell = `
           <td class="num">
-            <input type="number" class="inline-edit num" min="0" value="${spend || ''}"
-              onchange="updateRoiAdSpend(${jsStr(r.date)}, ${jsStr(r.vendor)}, ${jsStr(displayProductName)}, this.value)">
+            <input type="number" class="inline-edit num" min="0" value="${m.spend || ''}"
+              onchange="updateRoiAdSpend(${jsStr(m.date)}, ${jsStr(m.vendor)}, ${jsStr(displayProductName)}, this.value)">
           </td>
-          <td class="num ${profitCls}">${won(profit)}</td>
-          <td class="num ${profitCls}">${profitRate === null ? '-' : profitRate.toFixed(1) + '%'}</td>
-          <td class="num">${roas === null ? '-' : roas.toFixed(0) + '%'}</td>
-          <td class="num">${spendRatio === null ? '-' : spendRatio.toFixed(1) + '%'}</td>
+        `;
+        bodyHtml += `
+          <tr>
+            <td>${m.date}</td>
+            <td>${m.vendor}</td>
+            <td>${displayProductName}</td>
+            ${metricsCellsHtml(m, spendCell)}
+          </tr>
+        `;
+      });
+      if (dayRows.length > 1) {
+        const daySum = sumMetrics(dayRows);
+        bodyHtml += `
+          <tr class="pa-day-subtotal-row">
+            <td colspan="2">${date} 소계</td>
+            <td></td>
+            ${metricsCellsHtml(daySum, `<td class="num">${won(daySum.spend)}</td>`)}
+          </tr>
+        `;
+      }
+    });
+
+    if (rows.length > 1) {
+      const grandTotal = sumMetrics(computedRows);
+      bodyHtml += `
+        <tr class="channel-total-row">
+          <td colspan="2">TTL</td>
+          <td></td>
+          ${metricsCellsHtml(grandTotal, `<td class="num">${won(grandTotal.spend)}</td>`)}
         </tr>
       `;
-    }).join('');
+    }
 
-    const totalProfitRate = totals.revenue > 0 ? (totals.profit / totals.revenue * 100) : null;
-    const totalRoas = totals.spend > 0 ? (totals.revenue / totals.spend * 100) : null;
-    const totalSpendRatio = totals.revenue > 0 ? (totals.spend / totals.revenue * 100) : (totals.spend > 0 ? null : 0);
-    const totalProfitCls = totals.profit < 0 ? 'trend-down' : '';
-    const totalRowHtml = rows.length > 1 ? `
-      <tr class="channel-total-row">
-        <td colspan="2">TTL</td>
-        <td></td>
-        <td class="num">${totals.quantity.toLocaleString('ko-KR')}</td>
-        <td class="num">${won(totals.revenue)}</td>
-        <td class="num pa-cost-col">${won(totals.cost)}</td>
-        <td class="num pa-cost-col">${won(totals.fee)}</td>
-        <td class="num pa-cost-col">${won(totals.shipping)}</td>
-        <td class="num pa-cost-col">${won(totals.vat)}</td>
-        <td class="num pa-cost-col">${won(totals.expense)}</td>
-        <td class="num">${won(totals.spend)}</td>
-        <td class="num ${totalProfitCls}">${won(totals.profit)}</td>
-        <td class="num ${totalProfitCls}">${totalProfitRate === null ? '-' : totalProfitRate.toFixed(1) + '%'}</td>
-        <td class="num">${totalRoas === null ? '-' : totalRoas.toFixed(0) + '%'}</td>
-        <td class="num">${totalSpendRatio === null ? '-' : totalSpendRatio.toFixed(1) + '%'}</td>
-      </tr>
-    ` : '';
-
-    tableEl.innerHTML = rowsHtml + totalRowHtml;
+    tableEl.innerHTML = bodyHtml;
 
     // 제목: 브랜드가 특정되면 "[브랜드] 상품명" 형태로 표시 (참고 이미지 스타일)
     const brandsInRows = Array.from(new Set(filteredSalesRows.map(r => canonicalBrand(getBrand(r)))));
