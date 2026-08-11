@@ -730,7 +730,7 @@
       <div class="topbar">
         <div>
           <h1>상품별 광고비ROI</h1>
-          <div class="subtitle" id="paSubtitle">상품을 검색하면 상품별 매출·광고비·광고비중을 보여줍니다.</div>
+          <div class="subtitle" id="paSubtitle">상품을 검색하면 일자·판매처별 매출·원가·수수료·손익·ROAS를 보여줍니다.</div>
         </div>
       </div>
 
@@ -750,9 +750,25 @@
         </div>
       </section>
 
+      <section class="panel" id="paFeePanel">
+        <div class="panel-head">
+          <h2>판매처별 수수료(%) 설정</h2>
+          <span class="panel-note">쿠팡 8.58% · 자사몰 2.5%는 기본값으로 자동 적용됩니다. 그 외 판매처는 직접 입력해주세요.</span>
+        </div>
+        <div class="filter-group" style="margin-bottom: 12px;">
+          <input type="text" id="paFeeSearchInput" class="vendor-select" placeholder="판매처 검색" autocomplete="off">
+        </div>
+        <div class="scroll-box" style="max-height: 260px;">
+          <table>
+            <thead><tr><th>판매처</th><th class="num">수수료(%)</th></tr></thead>
+            <tbody id="paFeeTable"></tbody>
+          </table>
+        </div>
+      </section>
+
       <div id="paEmpty" class="mkt-empty">
-        상품을 검색해서 선택하면 상품별 매출·광고비·광고비중을 확인할 수 있어요.<br>
-        <b>상품별 광고비 데이터가 아직 입력되지 않은 경우</b> 광고비는 0원으로 표시됩니다.
+        상품을 검색해서 선택하면 일자·판매처별 매출·원가·수수료·배송비·손익·ROAS를 확인할 수 있어요.<br>
+        <b>1일 사용 광고비</b>는 표에서 직접 입력해서 저장할 수 있어요.
       </div>
 
       <section class="panel" id="paResultPanel" style="display:none">
@@ -762,7 +778,12 @@
         </div>
         <div class="scroll-box">
           <table>
-            <thead><tr><th>상품명</th><th class="num">매출액</th><th class="num">광고비</th><th class="num">광고비중</th></tr></thead>
+            <thead><tr>
+              <th>일자</th><th>판매처</th><th>상품명</th><th class="num">판매수량</th><th class="num">매출</th>
+              <th class="num">원가</th><th class="num">수수료</th><th class="num">배송비</th><th class="num">부가세</th>
+              <th class="num">경비</th><th class="num">1일 사용 광고비</th><th class="num">손익</th><th class="num">손익률</th>
+              <th class="num">ROAS</th><th class="num">광고비중</th>
+            </tr></thead>
             <tbody id="paTable"></tbody>
           </table>
         </div>
@@ -1077,6 +1098,30 @@
   }
   addVendorAliases(AD_REVENUE_EXCLUDED_VENDORS);
   addVendorAliases(DIRECT_SUPPLY_VENDORS);
+
+  // 상품별 광고비ROI 계산용 판매처 분류 · 기본 수수료율
+  // 자사몰(CHANNEL_TEMPLATE의 '자사몰' 그룹) 2.5%, 쿠팡(이름이 "쿠팡"으로 시작하는 모든 하위 채널) 8.58%가 기본값이고,
+  // 그 외 판매처는 "판매처별 수수료(%) 설정" 화면에서 직접 입력한 값을 사용합니다(입력 전엔 0%).
+  const JASAMALL_VENDORS = new Set();
+  CHANNEL_TEMPLATE.forEach(block => block.rows.forEach(([group, vendor]) => {
+    if (group === '자사몰') JASAMALL_VENDORS.add(vendor);
+  }));
+  function isJasamallVendor(vendor) {
+    return JASAMALL_VENDORS.has(vendor);
+  }
+  function isCoupangVendor(vendor) {
+    return typeof vendor === 'string' && vendor.startsWith('쿠팡');
+  }
+  function defaultFeeRatePct(vendor) {
+    if (isCoupangVendor(vendor)) return 8.58;
+    if (isJasamallVendor(vendor)) return 2.5;
+    return 0;
+  }
+  const COUPANG_SHIPPING_FEE_PER_UNIT = 2500; // 쿠팡 배송비: 판매수량 × 2,500원 (자사몰은 유료배송 포함이라 0원)
+
+  function jsStr(s) {
+    return "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+  }
 
   // 특정 달의 회사 전체 광고매출 (sales_transactions 기준, 직매입/수출/공동구매/기타 제외.
   // COMPANY_ACTUALS_BY_MONTH에 값이 있으면 그 값을 우선 사용 — 단, 이 값은 전사 총매출이라
@@ -2347,14 +2392,14 @@
 
   }
 
-  // ==================== 상품별 광고비중 ====================
-  // 상품별 실제 광고비는 Supabase의 product_ad_spend 테이블(sale_date, product_name, vendor, spend)에서
-  // 가져옵니다. 아직 데이터가 입력되지 않았거나 테이블이 없다면 광고비 0으로 처리합니다.
+  // ==================== 상품별 광고비ROI ====================
+  // 상품별 실제 광고비("1일 사용 광고비")는 Supabase의 product_ad_spend 테이블
+  // (sale_date, product_name, vendor, spend)에서 가져오고, 이 화면에서 직접 입력/수정도 가능합니다.
   let allProductAdSpendRows = [];
   let productAdSpendLoaded = false;
 
-  async function loadProductAdSpendData() {
-    if (productAdSpendLoaded) return;
+  async function loadProductAdSpendData(force) {
+    if (productAdSpendLoaded && !force) return;
     try {
       const { data, error } = await client
         .from('product_ad_spend')
@@ -2370,12 +2415,88 @@
     productAdSpendLoaded = true;
   }
 
+  // 판매처별 수수료(%) — vendor_fee_rate 테이블에 저장된 값이 있으면 그 값을, 없으면 기본값(쿠팡 8.58%/자사몰 2.5%/그 외 0%)을 씁니다.
+  let allVendorFeeRates = {}; // vendor -> fee_rate_pct
+
+  async function loadVendorFeeRates() {
+    try {
+      const { data, error } = await client.from('vendor_fee_rate').select('*');
+      if (!error && data) {
+        allVendorFeeRates = {};
+        data.forEach(r => { allVendorFeeRates[r.vendor] = Number(r.fee_rate_pct); });
+      }
+    } catch (e) {
+      // vendor_fee_rate 테이블이 아직 없으면 기본값만 사용
+    }
+  }
+
+  function getFeeRatePct(vendor) {
+    if (Object.prototype.hasOwnProperty.call(allVendorFeeRates, vendor)) return allVendorFeeRates[vendor];
+    return defaultFeeRatePct(vendor);
+  }
+
+  async function saveFeeRate(vendor, rawValue) {
+    const value = Number(rawValue);
+    if (isNaN(value)) { alert('숫자만 입력해주세요.'); renderPaFeeTable(); return; }
+    const { error } = await client.from('vendor_fee_rate').upsert({ vendor, fee_rate_pct: value }, { onConflict: 'vendor' });
+    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
+    allVendorFeeRates[vendor] = value;
+    renderPaFeeTable();
+    renderProductAdRatioResult();
+  }
+
+  let paFeeSearchQuery = '';
+
+  function renderPaFeeTable() {
+    const tbody = document.getElementById('paFeeTable');
+    if (!tbody) return;
+    const vendors = Array.from(new Set(allRows.map(r => r.vendor))).sort((a, b) => a.localeCompare(b));
+    const q = paFeeSearchQuery.trim().toLowerCase();
+    const filtered = q ? vendors.filter(v => v.toLowerCase().includes(q)) : vendors;
+    tbody.innerHTML = filtered.map(v => {
+      const rate = getFeeRatePct(v);
+      const isDefault = !Object.prototype.hasOwnProperty.call(allVendorFeeRates, v);
+      return `
+        <tr>
+          <td>${v}${isDefault ? ' <span class="panel-note" style="font-weight:400;">(기본값)</span>' : ''}</td>
+          <td class="num">
+            <input type="number" class="inline-edit num" min="0" step="0.01" value="${rate}"
+              onchange="saveFeeRate(${jsStr(v)}, this.value)">
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async function updateRoiAdSpend(date, vendor, canonicalProductName, rawValue) {
+    const spend = rawValue === '' ? 0 : Number(rawValue);
+    if (isNaN(spend)) { alert('숫자만 입력해주세요.'); renderProductAdRatioResult(); return; }
+    const matchKey = productMatchKey(canonicalProductName);
+    const existing = allProductAdSpendRows.find(r => r.sale_date === date && r.vendor === vendor && productMatchKey(r.product_name) === matchKey);
+    let error;
+    if (existing) {
+      if (existing.id != null) {
+        ({ error } = await client.from('product_ad_spend').update({ spend }).eq('id', existing.id));
+      } else {
+        ({ error } = await client.from('product_ad_spend').update({ spend }).eq('sale_date', date).eq('vendor', vendor).eq('product_name', existing.product_name));
+      }
+    } else {
+      ({ error } = await client.from('product_ad_spend').insert([{ sale_date: date, vendor, product_name: canonicalProductName, spend }]));
+    }
+    if (error) { alert('광고비 저장 실패: ' + error.message); return; }
+    await loadProductAdSpendData(true);
+    renderProductAdRatioResult();
+  }
+
   let paSelectedProduct = ''; // 드롭다운에서 정확히 선택한 상품명
   let paSearchText = ''; // 엔터로 적용한 검색어 (상품명에 포함된 항목 전체)
   let paInitDone = false;
 
   function initProductAdRatioView() {
-    loadProductAdSpendData().then(() => renderProductAdRatioResult());
+    Promise.all([loadProductAdSpendData(), loadProductCostData(), loadVendorFeeRates()]).then(() => {
+      renderPaFeeTable();
+      renderProductAdRatioResult();
+    });
 
     if (paInitDone) return;
     paInitDone = true;
@@ -2475,6 +2596,14 @@
       toInput.value = '';
       renderProductAdRatioResult();
     });
+
+    const feeSearchInput = document.getElementById('paFeeSearchInput');
+    if (feeSearchInput) {
+      feeSearchInput.addEventListener('input', (e) => {
+        paFeeSearchQuery = e.target.value;
+        renderPaFeeTable();
+      });
+    }
   }
 
   function renderProductAdRatioResult() {
@@ -2490,7 +2619,7 @@
     const product = paSelectedProduct;
     const searchQ = paSearchText.trim().toLowerCase();
     if (!product && !searchQ) {
-      emptyEl.innerHTML = '상품을 검색해서 선택하면 상품별 매출·광고비·광고비중을 확인할 수 있어요.<br><b>상품별 광고비 데이터가 아직 입력되지 않은 경우</b> 광고비는 0원으로 표시됩니다.';
+      emptyEl.innerHTML = '상품을 검색해서 선택하면 일자·판매처별 매출·원가·수수료·배송비·손익·ROAS를 확인할 수 있어요.<br><b>1일 사용 광고비</b>는 표에서 직접 입력해서 저장할 수 있어요.';
       emptyEl.style.display = '';
       panelEl.style.display = 'none';
       return;
@@ -2510,7 +2639,7 @@
       return (!from || date >= from) && (!to || date <= to);
     }
 
-    // 직납(직매입) 판매처 매출 건은 상품별 광고비중 집계에서 전부 제외합니다.
+    // 직납(직매입) 판매처 매출 건은 상품별 광고비ROI 집계에서 전부 제외합니다.
     const salesRows = allRows.filter(r => matchesProduct(r.product_name) && inRange(r.sale_date) && !DIRECT_SUPPLY_VENDORS.has(r.vendor));
     const spendRows = allProductAdSpendRows.filter(r => matchesProduct(r.product_name) && inRange(r.sale_date) && !DIRECT_SUPPLY_VENDORS.has(r.vendor));
 
@@ -2524,52 +2653,115 @@
     emptyEl.style.display = 'none';
     panelEl.style.display = '';
 
-    // 판매처별로 나누지 않고 상품명 기준으로 매출·광고비를 합산합니다 (여러 판매처에서 팔려도 하나의 합계로).
-    // "[명퇴] 길운 오행 염주" 같은 대괄호 태그 차이, "세정서버"/"세정 서버" 같은 띄어쓰기 차이도
-    // 모두 같은 상품으로 합쳐서 취급합니다 (표시 이름은 금액이 가장 큰 표기를 사용).
-    // 광고비 데이터가 없으면 광고비 0원으로 처리됩니다.
-    const byProductKeyed = {}; // matchKey -> { revenue, spend, variants: { 표시이름: 매출액 } }
+    // 표시용 상품명: "[명퇴] 길운 오행 염주" 같은 대괄호 태그·띄어쓰기 차이는 모두 같은 상품으로 합치고,
+    // 매출이 가장 큰 표기를 대표 이름으로 사용합니다.
+    const nameVariants = {};
     salesRows.forEach(r => {
-      const key = productMatchKey(r.product_name) || '(상품명 미상)';
-      const displayName = normalizeProductName(r.product_name) || r.product_name || '(상품명 미상)';
-      if (!byProductKeyed[key]) byProductKeyed[key] = { revenue: 0, spend: 0, variants: {} };
-      byProductKeyed[key].revenue += Number(r.amount);
-      byProductKeyed[key].variants[displayName] = (byProductKeyed[key].variants[displayName] || 0) + Number(r.amount);
+      const dn = normalizeProductName(r.product_name) || r.product_name || '(상품명 미상)';
+      nameVariants[dn] = (nameVariants[dn] || 0) + Number(r.amount);
+    });
+    const displayProductName = pickDisplayName(nameVariants) || product || searchQ;
+
+    // 원가: 원가 대시보드(product_cost)에 등록된 같은 상품명(옵션 무관, 태그·띄어쓰기 무시)의 평균 개당원가 × 판매수량.
+    // 같은 상품명이라도 사이즈/색상 옵션별로 원가가 다르게 등록되어 있을 수 있어 평균값을 사용합니다.
+    const targetMatchKey = productMatchKey(product || searchQ);
+    const costMatches = allProductCostRows.filter(r => productMatchKey(r.product_name) === targetMatchKey && r.unit_cost_krw != null);
+    const avgUnitCost = costMatches.length
+      ? costMatches.reduce((s, r) => s + Number(r.unit_cost_krw), 0) / costMatches.length
+      : null;
+
+    // 일자 × 판매처로 묶어서 행을 구성합니다.
+    const byDayVendor = {};
+    function keyOf(date, vendor) { return date + '|' + vendor; }
+    salesRows.forEach(r => {
+      const k = keyOf(r.sale_date, r.vendor);
+      if (!byDayVendor[k]) byDayVendor[k] = { date: r.sale_date, vendor: r.vendor, quantity: 0, revenue: 0, spend: 0 };
+      byDayVendor[k].quantity += Number(r.quantity);
+      byDayVendor[k].revenue += Number(r.amount);
     });
     spendRows.forEach(r => {
-      const key = productMatchKey(r.product_name) || '(상품명 미상)';
-      const displayName = normalizeProductName(r.product_name) || r.product_name || '(상품명 미상)';
-      if (!byProductKeyed[key]) byProductKeyed[key] = { revenue: 0, spend: 0, variants: {} };
-      byProductKeyed[key].spend += Number(r.spend);
-      if (!(displayName in byProductKeyed[key].variants)) byProductKeyed[key].variants[displayName] = 0;
+      const k = keyOf(r.sale_date, r.vendor);
+      if (!byDayVendor[k]) byDayVendor[k] = { date: r.sale_date, vendor: r.vendor, quantity: 0, revenue: 0, spend: 0 };
+      byDayVendor[k].spend += Number(r.spend);
     });
 
-    const entries = Object.values(byProductKeyed)
-      .map(v => [pickDisplayName(v.variants) || '(상품명 미상)', v])
-      .sort((a, b) => b[1].revenue - a[1].revenue);
-    let totalRevenue = 0, totalSpend = 0;
+    const rows = Object.values(byDayVendor).sort((a, b) => (
+      a.date === b.date ? a.vendor.localeCompare(b.vendor) : a.date.localeCompare(b.date)
+    ));
 
-    const rowsHtml = entries.map(([productName, v]) => {
-      totalRevenue += v.revenue;
-      totalSpend += v.spend;
-      const ratio = v.revenue > 0 ? (v.spend / v.revenue * 100) : (v.spend > 0 ? null : 0);
+    const totals = { quantity: 0, revenue: 0, cost: 0, fee: 0, shipping: 0, vat: 0, expense: 0, spend: 0, profit: 0 };
+
+    const rowsHtml = rows.map(r => {
+      // 원가 = 판매수량 × 평균 개당원가 (원가 대시보드에 데이터가 없으면 0원)
+      const cost = avgUnitCost != null ? Math.round(avgUnitCost * r.quantity) : 0;
+      // 수수료 = 매출 × 판매처별 수수료율 (쿠팡 8.58% / 자사몰 2.5% 기본값, 그 외는 위 설정 화면에 입력한 값)
+      const feeRate = getFeeRatePct(r.vendor);
+      const fee = Math.round(r.revenue * feeRate / 100);
+      // 배송비 = 쿠팡만 판매수량 × 2,500원, 자사몰 등은 유료배송 포함이라 0원
+      const shipping = isCoupangVendor(r.vendor) ? r.quantity * COUPANG_SHIPPING_FEE_PER_UNIT : 0;
+      const vat = Math.round(r.revenue / 11); // 부가세 = 매출 / 11
+      const expense = Math.round(r.revenue * 0.24); // 경비 = 매출 × 24%
+      const spend = r.spend || 0; // 1일 사용 광고비 (수기 입력)
+      const profit = r.revenue - (cost + fee + shipping + vat + expense + spend); // 손익
+      const profitRate = r.revenue > 0 ? (profit / r.revenue * 100) : null; // 손익률
+      const roas = spend > 0 ? (r.revenue / spend * 100) : null; // ROAS = 매출/광고비
+      const spendRatio = r.revenue > 0 ? (spend / r.revenue * 100) : (spend > 0 ? null : 0); // 광고비중 = 광고비/매출
+
+      totals.quantity += r.quantity;
+      totals.revenue += r.revenue;
+      totals.cost += cost;
+      totals.fee += fee;
+      totals.shipping += shipping;
+      totals.vat += vat;
+      totals.expense += expense;
+      totals.spend += spend;
+      totals.profit += profit;
+
+      const profitCls = profit < 0 ? 'trend-down' : '';
       return `
         <tr>
-          <td>${productName}</td>
-          <td class="num">${won(v.revenue)}</td>
-          <td class="num">${won(v.spend)}</td>
-          <td class="num">${ratio === null ? '-' : ratio.toFixed(1) + '%'}</td>
+          <td>${r.date}</td>
+          <td>${r.vendor}</td>
+          <td>${displayProductName}</td>
+          <td class="num">${r.quantity.toLocaleString('ko-KR')}</td>
+          <td class="num">${won(r.revenue)}</td>
+          <td class="num">${won(cost)}</td>
+          <td class="num">${won(fee)}</td>
+          <td class="num">${won(shipping)}</td>
+          <td class="num">${won(vat)}</td>
+          <td class="num">${won(expense)}</td>
+          <td class="num">
+            <input type="number" class="inline-edit num" min="0" value="${spend || ''}"
+              onchange="updateRoiAdSpend(${jsStr(r.date)}, ${jsStr(r.vendor)}, ${jsStr(displayProductName)}, this.value)">
+          </td>
+          <td class="num ${profitCls}">${won(profit)}</td>
+          <td class="num ${profitCls}">${profitRate === null ? '-' : profitRate.toFixed(1) + '%'}</td>
+          <td class="num">${roas === null ? '-' : roas.toFixed(0) + '%'}</td>
+          <td class="num">${spendRatio === null ? '-' : spendRatio.toFixed(1) + '%'}</td>
         </tr>
       `;
     }).join('');
 
-    const totalRatio = totalRevenue > 0 ? (totalSpend / totalRevenue * 100) : (totalSpend > 0 ? null : 0);
-    const totalRowHtml = entries.length > 1 ? `
+    const totalProfitRate = totals.revenue > 0 ? (totals.profit / totals.revenue * 100) : null;
+    const totalRoas = totals.spend > 0 ? (totals.revenue / totals.spend * 100) : null;
+    const totalSpendRatio = totals.revenue > 0 ? (totals.spend / totals.revenue * 100) : (totals.spend > 0 ? null : 0);
+    const totalProfitCls = totals.profit < 0 ? 'trend-down' : '';
+    const totalRowHtml = rows.length > 1 ? `
       <tr class="channel-total-row">
-        <td>합계</td>
-        <td class="num">${won(totalRevenue)}</td>
-        <td class="num">${won(totalSpend)}</td>
-        <td class="num">${totalRatio === null ? '-' : totalRatio.toFixed(1) + '%'}</td>
+        <td colspan="2">TTL</td>
+        <td></td>
+        <td class="num">${totals.quantity.toLocaleString('ko-KR')}</td>
+        <td class="num">${won(totals.revenue)}</td>
+        <td class="num">${won(totals.cost)}</td>
+        <td class="num">${won(totals.fee)}</td>
+        <td class="num">${won(totals.shipping)}</td>
+        <td class="num">${won(totals.vat)}</td>
+        <td class="num">${won(totals.expense)}</td>
+        <td class="num">${won(totals.spend)}</td>
+        <td class="num ${totalProfitCls}">${won(totals.profit)}</td>
+        <td class="num ${totalProfitCls}">${totalProfitRate === null ? '-' : totalProfitRate.toFixed(1) + '%'}</td>
+        <td class="num">${totalRoas === null ? '-' : totalRoas.toFixed(0) + '%'}</td>
+        <td class="num">${totalSpendRatio === null ? '-' : totalSpendRatio.toFixed(1) + '%'}</td>
       </tr>
     ` : '';
 
@@ -2577,10 +2769,13 @@
 
     // 제목: 브랜드가 특정되면 "[브랜드] 상품명" 형태로 표시 (참고 이미지 스타일)
     const brandsInRows = Array.from(new Set(salesRows.map(r => canonicalBrand(getBrand(r)))));
-    const titleProductName = product || (searchQ ? `"${searchQ}" 검색결과` : '');
+    const titleProductName = displayProductName || (searchQ ? `"${searchQ}" 검색결과` : '');
     titleEl.textContent = (brandsInRows.length === 1 ? `[${brandsInRows[0]}] ` : '') + titleProductName;
-    noteEl.textContent = (from || to ? `기간: ${from || '전체'} ~ ${to || '전체'} · ` : '') + `상품 ${entries.length.toLocaleString('ko-KR')}개`;
+    noteEl.textContent = `집계기간: ${from || '전체'} ~ ${to || '전체'} · 일자·판매처 ${rows.length.toLocaleString('ko-KR')}건`;
 
+    if (avgUnitCost == null) {
+      noteEl.textContent += ' · 원가 데이터 미입력(0원으로 표시)';
+    }
     if (!allProductAdSpendRows.length) {
       noteEl.textContent += ' · 광고비 데이터 미입력(0원으로 표시)';
     }
