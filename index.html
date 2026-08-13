@@ -773,7 +773,7 @@
         <div class="scroll-box" id="paCompareResultWrap" style="display:none; margin-top: 12px;">
           <table>
             <thead><tr>
-              <th>상품명</th><th>판매처</th><th class="num">매출</th>
+              <th>상품명</th><th>일자</th><th>판매처</th><th class="num">매출</th>
               <th class="num">1일 사용 광고비</th><th class="num">손익</th><th class="num">손익률</th>
               <th class="num">ROAS</th><th class="num">광고비중</th><th></th>
             </tr></thead>
@@ -2570,15 +2570,18 @@
       ? costMatches.reduce((s, r) => s + Number(r.unit_cost_krw), 0) / costMatches.length
       : null;
 
-    const byVendor = {};
+    // 일자+판매처 단위로 묶습니다 (같은 날 같은 판매처의 매출/광고비를 합산).
+    const byDateVendor = {};
     salesRows.forEach(r => {
-      if (!byVendor[r.vendor]) byVendor[r.vendor] = { quantity: 0, revenue: 0, spend: 0 };
-      byVendor[r.vendor].quantity += Number(r.quantity);
-      byVendor[r.vendor].revenue += Number(r.amount);
+      const key = r.sale_date + '|' + r.vendor;
+      if (!byDateVendor[key]) byDateVendor[key] = { date: r.sale_date, vendor: r.vendor, quantity: 0, revenue: 0, spend: 0 };
+      byDateVendor[key].quantity += Number(r.quantity);
+      byDateVendor[key].revenue += Number(r.amount);
     });
     spendRows.forEach(r => {
-      if (!byVendor[r.vendor]) byVendor[r.vendor] = { quantity: 0, revenue: 0, spend: 0 };
-      byVendor[r.vendor].spend += Number(r.spend);
+      const key = r.sale_date + '|' + r.vendor;
+      if (!byDateVendor[key]) byDateVendor[key] = { date: r.sale_date, vendor: r.vendor, quantity: 0, revenue: 0, spend: 0 };
+      byDateVendor[key].spend += Number(r.spend);
     });
 
     function blankMetrics() {
@@ -2592,12 +2595,12 @@
     }
 
     const totals = blankMetrics();
-    const vendorRows = [];
-    Object.entries(byVendor).forEach(([vendor, v]) => {
+    const dateVendorRows = [];
+    Object.values(byDateVendor).forEach(v => {
       const cost = avgUnitCost != null ? Math.round(avgUnitCost * v.quantity) : 0;
-      const feeRate = getFeeRatePct(vendor);
+      const feeRate = getFeeRatePct(v.vendor);
       const fee = Math.round(v.revenue * feeRate / 100);
-      const shipping = isCoupangVendor(vendor) ? v.quantity * COUPANG_SHIPPING_FEE_PER_UNIT : 0;
+      const shipping = isCoupangVendor(v.vendor) ? v.quantity * COUPANG_SHIPPING_FEE_PER_UNIT : 0;
       const vat = Math.round(v.revenue / 11);
       const expense = Math.round(v.revenue * 0.24);
       const spend = v.spend || 0;
@@ -2612,13 +2615,27 @@
       totals.spend += spend;
       totals.profit += profit;
 
-      vendorRows.push(deriveRates({ name: vendor, quantity: v.quantity, revenue: v.revenue, cost, fee, shipping, vat, expense, spend, profit }));
+      dateVendorRows.push(deriveRates({ date: v.date, name: v.vendor, quantity: v.quantity, revenue: v.revenue, cost, fee, shipping, vat, expense, spend, profit }));
     });
     deriveRates(totals);
 
-    vendorRows.sort((a, b) => b.revenue - a.revenue);
-    totals.groups = vendorRows;
+    dateVendorRows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : b.revenue - a.revenue));
+    totals.rows = dateVendorRows;
     return totals;
+  }
+
+  // 여러 개의 metrics 객체(판매수량/매출/원가/수수료/배송비/부가세/경비/광고비/손익)를 합산해서 손익률/ROAS/광고비중까지 다시 계산합니다.
+  // (상품별 비교의 일자 소계/판매처 소계 계산에 사용)
+  function sumMetricsList(list) {
+    const s = { quantity: 0, revenue: 0, cost: 0, fee: 0, shipping: 0, vat: 0, expense: 0, spend: 0, profit: 0 };
+    list.forEach(m => {
+      s.quantity += m.quantity; s.revenue += m.revenue; s.cost += m.cost; s.fee += m.fee;
+      s.shipping += m.shipping; s.vat += m.vat; s.expense += m.expense; s.spend += m.spend; s.profit += m.profit;
+    });
+    s.profitRate = s.revenue > 0 ? (s.profit / s.revenue * 100) : null;
+    s.roas = s.spend > 0 ? (s.revenue / s.spend * 100) : null;
+    s.spendRatio = s.revenue > 0 ? (s.spend / s.revenue * 100) : (s.spend > 0 ? null : 0);
+    return s;
   }
 
   function renderPaCompareResult() {
@@ -2647,35 +2664,66 @@
 
     tbody.innerHTML = paCompareItems.map(name => {
       const m = computeProductAggregate(name, from, to);
-      const groups = m.groups || [];
-      const rowCount = Math.max(groups.length, 1) + 1; // 판매처별 행 + 합계 행
-      const deleteCell = `<td rowspan="${rowCount}"><button class="btn-danger" onclick="removeCompareItem(${jsStr(name)})">삭제</button></td>`;
+      const rows = m.rows || [];
+
+      // 일자별로 묶어서, 같은 날짜에 판매처가 2곳 이상이면 그 날짜의 소계 행도 추가합니다.
+      const dateOrder = [];
+      const byDate = {};
+      rows.forEach(r => {
+        if (!byDate[r.date]) { byDate[r.date] = []; dateOrder.push(r.date); }
+        byDate[r.date].push(r);
+      });
+
+      const dayBlocks = [];
+      dateOrder.forEach(date => {
+        const dayRows = byDate[date];
+        dayRows.forEach(r => dayBlocks.push({ type: 'row', date, vendor: r.name, metrics: r }));
+        if (dayRows.length > 1) {
+          dayBlocks.push({ type: 'subtotal', date, metrics: sumMetricsList(dayRows) });
+        }
+      });
+
+      const totalRowCount = Math.max(dayBlocks.length, 1) + 1; // 일자·판매처 행들 + 합계 행
+      const deleteCell = `<td rowspan="${totalRowCount}"><button class="btn-danger" onclick="removeCompareItem(${jsStr(name)})">삭제</button></td>`;
 
       let rowsHtml = '';
-      if (!groups.length) {
+      if (!dayBlocks.length) {
         rowsHtml += `
           <tr>
-            <td rowspan="${rowCount}">${name}</td>
+            <td rowspan="${totalRowCount}">${name}</td>
+            <td>-</td>
             <td>-</td>
             ${metricsRowCells(m)}
             ${deleteCell}
           </tr>
         `;
       } else {
-        groups.forEach((g, idx) => {
-          rowsHtml += `
-            <tr>
-              ${idx === 0 ? `<td rowspan="${rowCount}">${name}</td>` : ''}
-              <td>${g.name}</td>
-              ${metricsRowCells(g)}
-              ${idx === 0 ? deleteCell : ''}
-            </tr>
-          `;
+        dayBlocks.forEach((block, idx) => {
+          if (block.type === 'row') {
+            rowsHtml += `
+              <tr>
+                ${idx === 0 ? `<td rowspan="${totalRowCount}">${name}</td>` : ''}
+                <td>${block.date}</td>
+                <td>${block.vendor}</td>
+                ${metricsRowCells(block.metrics)}
+                ${idx === 0 ? deleteCell : ''}
+              </tr>
+            `;
+          } else {
+            rowsHtml += `
+              <tr class="pa-day-subtotal-row">
+                ${idx === 0 ? `<td rowspan="${totalRowCount}">${name}</td>` : ''}
+                <td colspan="2">${block.date} 소계</td>
+                ${metricsRowCells(block.metrics)}
+                ${idx === 0 ? deleteCell : ''}
+              </tr>
+            `;
+          }
         });
       }
       rowsHtml += `
-        <tr class="pa-day-subtotal-row">
-          <td>합계</td>
+        <tr class="channel-total-row">
+          <td colspan="2">합계</td>
           ${metricsRowCells(m)}
         </tr>
       `;
