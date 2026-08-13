@@ -2553,14 +2553,6 @@
   }
 
   // 특정 상품 하나의 전체 기간 합계를 계산합니다 (판매처별로 수수료/배송비를 계산한 뒤 합산 — 판매처마다 수수료율이 다르기 때문).
-  // 판매처를 채널 그룹으로 묶습니다 — 광고비는 자사몰/쿠팡에서만 쓰기 때문에 상품별 비교 화면에서 이 두 그룹만 따로 보여주고,
-  // 그 외 채널(카카오/오프라인/폐쇄몰/종합몰 등)은 '기타'로 묶습니다.
-  function channelGroupOf(vendor) {
-    if (isJasamallVendor(vendor)) return '자사몰';
-    if (isCoupangVendor(vendor)) return '쿠팡';
-    return '기타';
-  }
-
   function computeProductAggregate(displayName, from, to) {
     const targetMatchKey = productMatchKey(displayName);
     function matches(name) {
@@ -2600,7 +2592,7 @@
     }
 
     const totals = blankMetrics();
-    const groupTotals = {}; // 채널그룹명 -> metrics
+    const vendorRows = [];
     Object.entries(byVendor).forEach(([vendor, v]) => {
       const cost = avgUnitCost != null ? Math.round(avgUnitCost * v.quantity) : 0;
       const feeRate = getFeeRatePct(vendor);
@@ -2620,20 +2612,12 @@
       totals.spend += spend;
       totals.profit += profit;
 
-      const group = channelGroupOf(vendor);
-      if (!groupTotals[group]) groupTotals[group] = blankMetrics();
-      const g = groupTotals[group];
-      g.quantity += v.quantity; g.revenue += v.revenue; g.cost += cost; g.fee += fee;
-      g.shipping += shipping; g.vat += vat; g.expense += expense; g.spend += spend; g.profit += profit;
+      vendorRows.push(deriveRates({ name: vendor, quantity: v.quantity, revenue: v.revenue, cost, fee, shipping, vat, expense, spend, profit }));
     });
     deriveRates(totals);
 
-    const GROUP_ORDER = ['자사몰', '쿠팡', '기타'];
-    const groups = GROUP_ORDER
-      .filter(name => groupTotals[name])
-      .map(name => deriveRates(Object.assign({ name }, groupTotals[name])));
-
-    totals.groups = groups;
+    vendorRows.sort((a, b) => b.revenue - a.revenue);
+    totals.groups = vendorRows;
     return totals;
   }
 
@@ -2664,7 +2648,7 @@
     tbody.innerHTML = paCompareItems.map(name => {
       const m = computeProductAggregate(name, from, to);
       const groups = m.groups || [];
-      const rowCount = Math.max(groups.length, 1) + 1; // 채널그룹 행 + 합계 행
+      const rowCount = Math.max(groups.length, 1) + 1; // 판매처별 행 + 합계 행
       const deleteCell = `<td rowspan="${rowCount}"><button class="btn-danger" onclick="removeCompareItem(${jsStr(name)})">삭제</button></td>`;
 
       let rowsHtml = '';
