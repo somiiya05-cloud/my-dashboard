@@ -773,7 +773,7 @@
         <div class="scroll-box" id="paCompareResultWrap" style="display:none; margin-top: 12px;">
           <table>
             <thead><tr>
-              <th>상품명</th><th class="num">매출</th>
+              <th>상품명</th><th>판매처</th><th class="num">매출</th>
               <th class="num">1일 사용 광고비</th><th class="num">손익</th><th class="num">손익률</th>
               <th class="num">ROAS</th><th class="num">광고비중</th><th></th>
             </tr></thead>
@@ -2553,6 +2553,14 @@
   }
 
   // 특정 상품 하나의 전체 기간 합계를 계산합니다 (판매처별로 수수료/배송비를 계산한 뒤 합산 — 판매처마다 수수료율이 다르기 때문).
+  // 판매처를 채널 그룹으로 묶습니다 — 광고비는 자사몰/쿠팡에서만 쓰기 때문에 상품별 비교 화면에서 이 두 그룹만 따로 보여주고,
+  // 그 외 채널(카카오/오프라인/폐쇄몰/종합몰 등)은 '기타'로 묶습니다.
+  function channelGroupOf(vendor) {
+    if (isJasamallVendor(vendor)) return '자사몰';
+    if (isCoupangVendor(vendor)) return '쿠팡';
+    return '기타';
+  }
+
   function computeProductAggregate(displayName, from, to) {
     const targetMatchKey = productMatchKey(displayName);
     function matches(name) {
@@ -2581,7 +2589,18 @@
       byVendor[r.vendor].spend += Number(r.spend);
     });
 
-    const totals = { quantity: 0, revenue: 0, cost: 0, fee: 0, shipping: 0, vat: 0, expense: 0, spend: 0, profit: 0 };
+    function blankMetrics() {
+      return { quantity: 0, revenue: 0, cost: 0, fee: 0, shipping: 0, vat: 0, expense: 0, spend: 0, profit: 0 };
+    }
+    function deriveRates(m) {
+      m.profitRate = m.revenue > 0 ? (m.profit / m.revenue * 100) : null;
+      m.roas = m.spend > 0 ? (m.revenue / m.spend * 100) : null;
+      m.spendRatio = m.revenue > 0 ? (m.spend / m.revenue * 100) : (m.spend > 0 ? null : 0);
+      return m;
+    }
+
+    const totals = blankMetrics();
+    const groupTotals = {}; // 채널그룹명 -> metrics
     Object.entries(byVendor).forEach(([vendor, v]) => {
       const cost = avgUnitCost != null ? Math.round(avgUnitCost * v.quantity) : 0;
       const feeRate = getFeeRatePct(vendor);
@@ -2600,10 +2619,21 @@
       totals.expense += expense;
       totals.spend += spend;
       totals.profit += profit;
+
+      const group = channelGroupOf(vendor);
+      if (!groupTotals[group]) groupTotals[group] = blankMetrics();
+      const g = groupTotals[group];
+      g.quantity += v.quantity; g.revenue += v.revenue; g.cost += cost; g.fee += fee;
+      g.shipping += shipping; g.vat += vat; g.expense += expense; g.spend += spend; g.profit += profit;
     });
-    totals.profitRate = totals.revenue > 0 ? (totals.profit / totals.revenue * 100) : null;
-    totals.roas = totals.spend > 0 ? (totals.revenue / totals.spend * 100) : null;
-    totals.spendRatio = totals.revenue > 0 ? (totals.spend / totals.revenue * 100) : (totals.spend > 0 ? null : 0);
+    deriveRates(totals);
+
+    const GROUP_ORDER = ['자사몰', '쿠팡', '기타'];
+    const groups = GROUP_ORDER
+      .filter(name => groupTotals[name])
+      .map(name => deriveRates(Object.assign({ name }, groupTotals[name])));
+
+    totals.groups = groups;
     return totals;
   }
 
@@ -2619,21 +2649,53 @@
     const from = fromInput ? fromInput.value : '';
     const to = toInput ? toInput.value : '';
 
-    tbody.innerHTML = paCompareItems.map(name => {
-      const m = computeProductAggregate(name, from, to);
+    function metricsRowCells(m) {
       const profitCls = m.profit < 0 ? 'trend-down' : '';
       return `
-        <tr>
-          <td>${name}</td>
-          <td class="num">${won(m.revenue)}</td>
-          <td class="num">${won(m.spend)}</td>
-          <td class="num ${profitCls}">${won(m.profit)}</td>
-          <td class="num ${profitCls}">${m.profitRate === null ? '-' : m.profitRate.toFixed(1) + '%'}</td>
-          <td class="num">${m.roas === null ? '-' : m.roas.toFixed(0) + '%'}</td>
-          <td class="num">${m.spendRatio === null ? '-' : m.spendRatio.toFixed(1) + '%'}</td>
-          <td><button class="btn-danger" onclick="removeCompareItem(${jsStr(name)})">삭제</button></td>
+        <td class="num">${won(m.revenue)}</td>
+        <td class="num">${won(m.spend)}</td>
+        <td class="num ${profitCls}">${won(m.profit)}</td>
+        <td class="num ${profitCls}">${m.profitRate === null ? '-' : m.profitRate.toFixed(1) + '%'}</td>
+        <td class="num">${m.roas === null ? '-' : m.roas.toFixed(0) + '%'}</td>
+        <td class="num">${m.spendRatio === null ? '-' : m.spendRatio.toFixed(1) + '%'}</td>
+      `;
+    }
+
+    tbody.innerHTML = paCompareItems.map(name => {
+      const m = computeProductAggregate(name, from, to);
+      const groups = m.groups || [];
+      const rowCount = Math.max(groups.length, 1) + 1; // 채널그룹 행 + 합계 행
+      const deleteCell = `<td rowspan="${rowCount}"><button class="btn-danger" onclick="removeCompareItem(${jsStr(name)})">삭제</button></td>`;
+
+      let rowsHtml = '';
+      if (!groups.length) {
+        rowsHtml += `
+          <tr>
+            <td rowspan="${rowCount}">${name}</td>
+            <td>-</td>
+            ${metricsRowCells(m)}
+            ${deleteCell}
+          </tr>
+        `;
+      } else {
+        groups.forEach((g, idx) => {
+          rowsHtml += `
+            <tr>
+              ${idx === 0 ? `<td rowspan="${rowCount}">${name}</td>` : ''}
+              <td>${g.name}</td>
+              ${metricsRowCells(g)}
+              ${idx === 0 ? deleteCell : ''}
+            </tr>
+          `;
+        });
+      }
+      rowsHtml += `
+        <tr class="pa-day-subtotal-row">
+          <td>합계</td>
+          ${metricsRowCells(m)}
         </tr>
       `;
+      return rowsHtml;
     }).join('');
   }
 
