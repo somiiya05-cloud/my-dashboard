@@ -902,24 +902,10 @@
 
       <section class="panel">
         <div class="panel-head">
-          <h2>상품 원가 추가</h2>
+          <h2>브랜드별 원가율 (2026년 6월)</h2>
+          <span class="panel-note">원가율 = 원가 ÷ 매출 (해당 브랜드의 6월 판매 기준, 원가 대시보드에 등록된 개당 원가 사용)</span>
         </div>
-        <form class="deal-form" id="pcForm">
-          <input type="text" name="productCode" placeholder="상품코드(선택)">
-          <input type="text" name="brand" placeholder="브랜드">
-          <input type="text" name="productName" placeholder="상품명" required>
-          <input type="text" name="optionSize" placeholder="옵션(사이즈, 선택)">
-          <input type="text" name="optionColor" placeholder="옵션(색상, 선택)">
-          <select name="status">
-            <option value="판매중">판매중</option>
-            <option value="품절">품절</option>
-            <option value="단종">단종</option>
-            <option value="출시 전">출시 전</option>
-          </select>
-          <input type="text" name="unitCost" placeholder="원가(원)">
-          <input type="text" name="sellingPrice" placeholder="판매가(원, 선택)">
-          <button type="submit" class="btn-primary">추가</button>
-        </form>
+        <div id="pcBrandCostRatio"></div>
       </section>
 
       <section class="panel">
@@ -3587,6 +3573,7 @@
     setupPcFilters();
     renderPcCards();
     renderPcTable();
+    renderPcBrandCostRatio();
   }
 
   function setupPcFilters() {
@@ -3706,31 +3693,57 @@
     loadProductCostData();
   }
 
-  document.getElementById('pcForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const productName = form.productName.value.trim();
-    if (!productName) return;
+  // 브랜드별 원가율 (원가 ÷ 매출, 해당 브랜드의 해당 월 판매 기준)
+  const PC_BRAND_COST_RATIO_BRANDS = ['코드니처', '라이프스타일마트', '그로우뮤즈', '빠이러스'];
+  const PC_BRAND_COST_RATIO_MONTH = '2026-06';
 
-    const row = {
-      product_code: form.productCode.value.trim() || null,
-      brand: form.brand.value.trim() || null,
-      product_name: productName,
-      option_size: form.optionSize.value.trim() || null,
-      option_color: form.optionColor.value.trim() || null,
-      status: form.status.value,
-      unit_cost_krw: form.unitCost.value.trim() ? Number(form.unitCost.value.trim()) : null,
-      selling_price: form.sellingPrice.value.trim() ? Number(form.sellingPrice.value.trim()) : null,
-    };
+  function computeBrandCostRatio(brandName, monthStr) {
+    const canonical = canonicalBrand(brandName);
+    const rows = allRows.filter(r => r.sale_date.slice(0, 7) === monthStr && canonicalBrand(getBrand(r)) === canonical);
+    let revenue = 0;
+    let cost = 0;
+    let costMissingRevenue = 0;
+    const costCache = {};
+    rows.forEach(r => {
+      const amount = Number(r.amount) || 0;
+      revenue += amount;
+      const key = productMatchKey(r.product_name);
+      if (!(key in costCache)) {
+        const matches = allProductCostRows.filter(c => productMatchKey(c.product_name) === key && c.unit_cost_krw != null);
+        costCache[key] = matches.length ? matches.reduce((s, c) => s + Number(c.unit_cost_krw), 0) / matches.length : null;
+      }
+      const avgUnitCost = costCache[key];
+      if (avgUnitCost != null) {
+        cost += avgUnitCost * Number(r.quantity);
+      } else {
+        costMissingRevenue += amount;
+      }
+    });
+    return { revenue, cost, ratio: revenue > 0 ? (cost / revenue * 100) : null, costMissingRevenue };
+  }
 
-    const { error } = await client.from('product_cost').insert([row]);
-    if (error) {
-      alert('추가하지 못했습니다: ' + error.message);
-      return;
-    }
-    form.reset();
-    loadProductCostData();
-  });
+  function renderPcBrandCostRatio() {
+    const container = document.getElementById('pcBrandCostRatio');
+    if (!container) return;
+    if (!allRows.length) { container.innerHTML = '<div class="panel-note">매출 데이터 로딩 중...</div>'; return; }
+    container.innerHTML = `
+      <div class="kpi-row" style="margin-bottom:0;">
+        ${PC_BRAND_COST_RATIO_BRANDS.map(b => {
+          const r = computeBrandCostRatio(b, PC_BRAND_COST_RATIO_MONTH);
+          const ratioText = r.ratio == null ? '-' : r.ratio.toFixed(1) + '%';
+          const missingPct = r.revenue > 0 ? (r.costMissingRevenue / r.revenue * 100) : 0;
+          return `
+            <div class="kpi-card">
+              <div class="kpi-label">${b}</div>
+              <div class="kpi-value">${ratioText}</div>
+              <div class="kpi-sub">매출 ${Math.round(r.revenue).toLocaleString('ko-KR')}원 · 원가 ${Math.round(r.cost).toLocaleString('ko-KR')}원</div>
+              ${missingPct >= 0.5 ? `<div class="kpi-sub" style="color:#dc2626;">원가 미등록 매출 비중 ${missingPct.toFixed(0)}% (원가율이 실제보다 낮게 표시될 수 있음)</div>` : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
 
   // ==================== 물류 대시보드 ====================
   let allLogisticsRows = [];
