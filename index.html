@@ -1611,22 +1611,28 @@
         ? allRows.filter(r => (!from || r.sale_date >= from) && (!to || r.sale_date <= to))
         : rows;
 
-      const map = {};
+      // 표기가 다른 같은 상품(대괄호 태그 · 띄어쓰기 차이)을 하나로 합치기 위해 productMatchKey로 그룹핑합니다.
+      // 화면에 보여줄 이름은 nameAmounts에 표기별 매출을 기록해뒀다가 pickDisplayName으로 대표 표기를 고릅니다.
+      const map = {}; // vendor -> matchKey -> { amount, quantity, nameAmounts }
       const vTotals = {};
-      const pTotals = {};
+      const pTotals = {}; // matchKey -> { amount, quantity, nameAmounts }
       sourceRows.forEach(r => {
+        const key = productMatchKey(r.product_name);
+
         if (!map[r.vendor]) map[r.vendor] = {};
-        if (!map[r.vendor][r.product_name]) map[r.vendor][r.product_name] = { amount: 0, quantity: 0 };
-        map[r.vendor][r.product_name].amount += Number(r.amount);
-        map[r.vendor][r.product_name].quantity += Number(r.quantity);
+        if (!map[r.vendor][key]) map[r.vendor][key] = { amount: 0, quantity: 0, nameAmounts: {} };
+        map[r.vendor][key].amount += Number(r.amount);
+        map[r.vendor][key].quantity += Number(r.quantity);
+        map[r.vendor][key].nameAmounts[r.product_name] = (map[r.vendor][key].nameAmounts[r.product_name] || 0) + Number(r.amount);
 
         if (!vTotals[r.vendor]) vTotals[r.vendor] = { amount: 0, quantity: 0 };
         vTotals[r.vendor].amount += Number(r.amount);
         vTotals[r.vendor].quantity += Number(r.quantity);
 
-        if (!pTotals[r.product_name]) pTotals[r.product_name] = { amount: 0, quantity: 0 };
-        pTotals[r.product_name].amount += Number(r.amount);
-        pTotals[r.product_name].quantity += Number(r.quantity);
+        if (!pTotals[key]) pTotals[key] = { amount: 0, quantity: 0, nameAmounts: {} };
+        pTotals[key].amount += Number(r.amount);
+        pTotals[key].quantity += Number(r.quantity);
+        pTotals[key].nameAmounts[r.product_name] = (pTotals[key].nameAmounts[r.product_name] || 0) + Number(r.amount);
       });
       vdMap = map;
       vdVendorEntries = Object.entries(vTotals).sort((a, b) => b[1].amount - a[1].amount);
@@ -1654,29 +1660,30 @@
     function refreshProductSelect(keepSelection) {
       const prevProduct = keepSelection ? productValue : ALL_VALUE;
       const opts = productOptionsFor(vendorSelect.value);
-      const stillValid = opts.some(([p]) => p === prevProduct);
+      const stillValid = opts.some(([key]) => key === prevProduct);
       productValue = stillValid ? prevProduct : ALL_VALUE;
       if (!keepSelection) productSearchText = '';
       if (productValue) {
-        const found = opts.find(([p]) => p === productValue);
-        productInput.value = found ? productLabel(found[0], found[1].amount) : '';
+        const found = opts.find(([key]) => key === productValue);
+        productInput.value = found ? productLabel(pickDisplayName(found[1].nameAmounts), found[1].amount) : '';
       } else {
         productInput.value = productSearchText || '';
       }
     }
 
     // 제품 검색형 드롭다운: 입력한 글자로 제품명을 즉시 필터링합니다 (제품 수가 많아 일반 드롭박스로는 찾기 어려움)
+    // 표기가 다른 같은 상품(대괄호 태그 · 띄어쓰기 차이)은 productMatchKey로 이미 하나로 합쳐져 있어 대표 이름 하나만 보여줍니다.
     function renderProductDropdown(filterText) {
-      const opts = productOptionsFor(vendorSelect.value);
+      const opts = productOptionsFor(vendorSelect.value).map(([key, v]) => [key, v, pickDisplayName(v.nameAmounts)]);
       const q = (filterText || '').trim().toLowerCase();
-      const filtered = q ? opts.filter(([p]) => p.toLowerCase().includes(q)) : opts;
+      const filtered = q ? opts.filter(([, , name]) => name.toLowerCase().includes(q)) : opts;
       const shown = filtered.slice(0, 200);
       let html = `<div class="searchable-select-option${(!productValue && !productSearchText) ? ' active' : ''}" data-value="">전체 제품</div>`;
       if (!shown.length) {
         html += `<div class="searchable-select-empty">검색 결과가 없습니다</div>`;
       } else {
-        html += shown.map(([p, v]) => `
-          <div class="searchable-select-option${p === productValue ? ' active' : ''}" data-value="${escapeAttr(p)}">${p} (${won(v.amount)})</div>
+        html += shown.map(([key, v, name]) => `
+          <div class="searchable-select-option${key === productValue ? ' active' : ''}" data-value="${escapeAttr(key)}">${name} (${won(v.amount)})</div>
         `).join('');
         if (filtered.length > shown.length) {
           html += `<div class="searchable-select-empty">외 ${(filtered.length - shown.length).toLocaleString('ko-KR')}건 더 있음 · 검색어로 좁혀보세요</div>`;
@@ -1690,12 +1697,12 @@
       productDropdown.classList.remove('open');
     }
 
-    function selectProduct(product) {
+    function selectProduct(key) {
       const opts = productOptionsFor(vendorSelect.value);
-      const found = product ? opts.find(([p]) => p === product) : null;
-      productValue = product || ALL_VALUE;
+      const found = key ? opts.find(([k]) => k === key) : null;
+      productValue = key || ALL_VALUE;
       productSearchText = '';
-      productInput.value = found ? productLabel(found[0], found[1].amount) : '';
+      productInput.value = found ? productLabel(pickDisplayName(found[1].nameAmounts), found[1].amount) : '';
       closeProductDropdown();
       renderVendorDetail();
     }
@@ -1732,19 +1739,20 @@
 
     function renderVendorDetail() {
       const vendor = vendorSelect.value;
-      const product = productValue;
+      const product = productValue; // productMatchKey 값 (또는 전체일 때 '')
       const searchQ = productSearchText.trim().toLowerCase();
       const vendorsToScan = vendor ? [vendor] : Object.keys(vdMap);
       let flatRows = [];
       vendorsToScan.forEach(v => {
         const prodMap = vdMap[v] || {};
-        Object.entries(prodMap).forEach(([p, val]) => {
+        Object.entries(prodMap).forEach(([key, val]) => {
+          const displayName = pickDisplayName(val.nameAmounts);
           if (product) {
-            if (p !== product) return;
-          } else if (searchQ && !p.toLowerCase().includes(searchQ)) {
+            if (key !== product) return;
+          } else if (searchQ && !displayName.toLowerCase().includes(searchQ)) {
             return;
           }
-          flatRows.push({ vendor: v, product: p, quantity: val.quantity, amount: val.amount });
+          flatRows.push({ vendor: v, product: displayName, quantity: val.quantity, amount: val.amount });
         });
       });
       flatRows.sort((a, b) => b.amount - a.amount);
