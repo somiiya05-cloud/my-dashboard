@@ -322,6 +322,15 @@
     background: rgba(239,68,68,.12); color: #dc2626; border: 1px solid rgba(239,68,68,.3);
     border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
   }
+  .ra-filter-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .ra-filter-btn {
+    background: #f4f5f8; color: #475569; border: 1px solid rgba(15,23,42,.12);
+    border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .ra-filter-btn.active { background: #0f172a; color: #fff; border-color: #0f172a; }
+  .ra-badge { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .ra-badge-flag { background: rgba(239,68,68,.12); color: #dc2626; }
+  .ra-badge-normal { background: rgba(100,116,139,.12); color: #475569; }
   .stage-select {
     background: #f4f5f8; color: #0f172a; border: 1px solid rgba(15,23,42,.12);
     border-radius: 6px; padding: 5px 8px; font-size: 12px;
@@ -1003,7 +1012,7 @@
       <div class="topbar">
         <div>
           <h1>리뷰 알림</h1>
-          <div class="subtitle">쿠팡·스마트스토어에서 다운받은 리뷰 파일을 분석해 별점이 낮거나 위험 키워드가 포함된 리뷰만 모아서 보여줍니다. (자동 수집이 아니라, 셀러센터에서 내려받은 리뷰 파일을 올려주시면 반영돼요)</div>
+          <div class="subtitle">스마트스토어는 매시간 전체 리뷰를 자동으로 가져와 별점이 낮거나 위험 키워드가 포함된 리뷰를 구분해줍니다. 쿠팡은 셀러센터에서 내려받은 리뷰 파일을 업로드하면 반영돼요.</div>
         </div>
         <div class="topbar-right">
           <button class="btn-danger" onclick="markAllReviewsRead()">전체 확인 처리</button>
@@ -1014,13 +1023,18 @@
 
       <section class="panel">
         <div class="panel-head">
-          <h2>악성 리뷰 목록</h2>
+          <h2>리뷰 목록</h2>
           <span class="panel-note" id="raListNote"></span>
+        </div>
+        <div class="ra-filter-tabs" id="raFilterTabs">
+          <button type="button" class="ra-filter-btn active" data-filter="all" onclick="setReviewFilter('all')">전체</button>
+          <button type="button" class="ra-filter-btn" data-filter="flagged" onclick="setReviewFilter('flagged')">악성 의심</button>
+          <button type="button" class="ra-filter-btn" data-filter="normal" onclick="setReviewFilter('normal')">정상</button>
         </div>
         <div class="scroll-box">
           <table>
             <thead>
-              <tr><th>채널</th><th>상품명</th><th>별점</th><th>리뷰 내용</th><th>작성일</th><th>감지 사유</th><th></th></tr>
+              <tr><th>채널</th><th>상품명</th><th>별점</th><th>리뷰 내용</th><th>작성일</th><th>구분</th><th>감지 사유</th><th></th></tr>
             </thead>
             <tbody id="raTable"></tbody>
           </table>
@@ -4058,12 +4072,21 @@
     loadCodenitProducts();
   });
 
-  // ==================== 리뷰 알림 (쿠팡·스마트스토어 - 셀러센터에서 다운받은 파일을 분석해서 반영) ====================
+  // ==================== 리뷰 알림 (스마트스토어 자동 수집 + 쿠팡 수동 업로드) ====================
   let allReviewAlerts = [];
+  let reviewFilter = 'all'; // 'all' | 'flagged' | 'normal'
+
+  function setReviewFilter(filter) {
+    reviewFilter = filter;
+    document.querySelectorAll('#raFilterTabs .ra-filter-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+    renderReviewAlertTable();
+  }
 
   async function refreshReviewAlertBadge() {
     const badge = document.getElementById('reviewAlertBadge');
-    const { count, error } = await client.from('platform_reviews').select('id', { count: 'exact', head: true }).eq('is_read', false);
+    const { count, error } = await client.from('platform_reviews').select('id', { count: 'exact', head: true }).eq('is_read', false).eq('is_flagged', true);
     if (error || !count) {
       badge.style.display = 'none';
       return;
@@ -4090,6 +4113,8 @@
 
   function renderReviewAlertCards() {
     const total = allReviewAlerts.length;
+    const flagged = allReviewAlerts.filter(r => r.is_flagged).length;
+    const normal = total - flagged;
     const unread = allReviewAlerts.filter(r => !r.is_read).length;
     const byPlatform = {};
     allReviewAlerts.forEach(r => { byPlatform[r.platform || '기타'] = (byPlatform[r.platform || '기타'] || 0) + 1; });
@@ -4097,11 +4122,19 @@
 
     document.getElementById('raCards').innerHTML = `
       <div class="kpi-card">
-        <div class="kpi-label">전체 악성 리뷰</div>
+        <div class="kpi-label">전체 리뷰</div>
         <div class="kpi-value">${total.toLocaleString('ko-KR')}건</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">미확인</div>
+        <div class="kpi-label">악성 의심</div>
+        <div class="kpi-value" style="color:#dc2626;">${flagged.toLocaleString('ko-KR')}건</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">정상</div>
+        <div class="kpi-value">${normal.toLocaleString('ko-KR')}건</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">미확인(악성 의심)</div>
         <div class="kpi-value">${unread.toLocaleString('ko-KR')}건</div>
       </div>
       <div class="kpi-card">
@@ -4112,16 +4145,22 @@
   }
 
   function renderReviewAlertTable() {
-    document.getElementById('raListNote').textContent = `${allReviewAlerts.length.toLocaleString('ko-KR')}건`;
-    document.getElementById('raTable').innerHTML = allReviewAlerts.map(r => `
+    const filtered = allReviewAlerts.filter(r => {
+      if (reviewFilter === 'flagged') return !!r.is_flagged;
+      if (reviewFilter === 'normal') return !r.is_flagged;
+      return true;
+    });
+    document.getElementById('raListNote').textContent = `${filtered.length.toLocaleString('ko-KR')}건`;
+    document.getElementById('raTable').innerHTML = filtered.map(r => `
       <tr class="${r.is_read ? '' : 'ra-unread'}">
         <td>${r.platform || ''}</td>
         <td>${r.product_name || ''}</td>
         <td class="num">${r.rating != null ? '★'.repeat(r.rating) + '☆'.repeat(Math.max(0, 5 - r.rating)) : '-'}</td>
         <td style="max-width:360px;white-space:pre-wrap;">${escapeAttr(r.review_text || '')}</td>
         <td>${r.review_date || ''}</td>
+        <td>${r.is_flagged ? '<span class="ra-badge ra-badge-flag">⚠️ 악성 의심</span>' : '<span class="ra-badge ra-badge-normal">정상</span>'}</td>
         <td>${escapeAttr(r.matched_reason || '')}</td>
-        <td>${r.is_read ? '확인함' : `<button class="btn-danger" onclick="markReviewRead(${r.id})">확인</button>`}</td>
+        <td>${r.is_flagged ? (r.is_read ? '확인함' : `<button class="btn-danger" onclick="markReviewRead(${r.id})">확인</button>`) : ''}</td>
       </tr>
     `).join('');
   }
@@ -4133,8 +4172,8 @@
   }
 
   async function markAllReviewsRead() {
-    if (!confirm('전체 악성 리뷰를 확인 처리할까요?')) return;
-    const { error } = await client.from('platform_reviews').update({ is_read: true }).eq('is_read', false);
+    if (!confirm('악성 의심 리뷰를 전체 확인 처리할까요?')) return;
+    const { error } = await client.from('platform_reviews').update({ is_read: true }).eq('is_read', false).eq('is_flagged', true);
     if (error) { alert('처리하지 못했습니다: ' + error.message); return; }
     loadReviewAlerts();
   }
