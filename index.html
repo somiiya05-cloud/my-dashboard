@@ -40,6 +40,11 @@
     font-size: 13px; color: #a7adc1; padding: 8px; border-radius: 8px; margin-bottom: 2px;
   }
   .nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: #3c4257; flex-shrink:0; }
+  .nav-count-badge {
+    margin-left: auto; background: #dc2626; color: #fff; font-size: 10px; font-weight: 800;
+    padding: 1px 7px; border-radius: 999px; line-height: 1.5;
+  }
+  .ra-unread { background: rgba(220,38,38,.07); }
   .nav-item.active { background: rgba(79,124,254,.12); color: #f5f6fa; }
   .nav-item.active .dot { background: #4d7cfe; }
   .dot-mkt { background: #f97316; }
@@ -424,6 +429,13 @@
       <div class="nav-group">
         <div class="nav-label">물류</div>
         <div class="nav-item" id="navLogistics" onclick="switchView('logistics')"><span class="dot dot-pl"></span>물류 대시보드</div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">CS</div>
+        <div class="nav-item" id="navReviewAlerts" onclick="switchView('review-alerts')">
+          <span class="dot" style="background:#dc2626;"></span>리뷰 알림
+          <span class="nav-count-badge" id="reviewAlertBadge" style="display:none;"></span>
+        </div>
       </div>
       <div class="sidebar-footer">
         <div class="avatar">H</div>
@@ -982,6 +994,35 @@
               <tr><th>브랜드</th><th>상품명</th><th>물류지</th><th>택배사</th><th class="num">택배비</th><th class="num">합포가능수량</th><th>포장 단위</th><th class="num">완박 수량</th><th></th></tr>
             </thead>
             <tbody id="lgTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <main class="main" id="reviewAlertsView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>리뷰 알림</h1>
+          <div class="subtitle">쿠팡·스마트스토어에서 다운받은 리뷰 파일을 분석해 별점이 낮거나 위험 키워드가 포함된 리뷰만 모아서 보여줍니다. (자동 수집이 아니라, 셀러센터에서 내려받은 리뷰 파일을 올려주시면 반영돼요)</div>
+        </div>
+        <div class="topbar-right">
+          <button class="btn-danger" onclick="markAllReviewsRead()">전체 확인 처리</button>
+        </div>
+      </div>
+
+      <section class="kpi-row" id="raCards"></section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>악성 리뷰 목록</h2>
+          <span class="panel-note" id="raListNote"></span>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead>
+              <tr><th>채널</th><th>상품명</th><th>별점</th><th>리뷰 내용</th><th>작성일</th><th>감지 사유</th><th></th></tr>
+            </thead>
+            <tbody id="raTable"></tbody>
           </table>
         </div>
       </section>
@@ -1895,6 +1936,7 @@
     document.getElementById('productCostView').style.display = view === 'product-cost' ? '' : 'none';
     document.getElementById('logisticsView').style.display = view === 'logistics' ? '' : 'none';
     document.getElementById('codenitProductsView').style.display = view === 'codenit-products' ? '' : 'none';
+    document.getElementById('reviewAlertsView').style.display = view === 'review-alerts' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
     document.getElementById('navMonthlyTrend').classList.toggle('active', view === 'monthly-trend');
     document.getElementById('navPipeline').classList.toggle('active', view === 'pipeline');
@@ -1906,6 +1948,7 @@
     document.getElementById('navProductCost').classList.toggle('active', view === 'product-cost');
     document.getElementById('navLogistics').classList.toggle('active', view === 'logistics');
     document.getElementById('navCodenitProducts').classList.toggle('active', view === 'codenit-products');
+    document.getElementById('navReviewAlerts').classList.toggle('active', view === 'review-alerts');
     document.querySelectorAll('#navMarketingBrands .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'marketing-brand' && el.dataset.channel === brandChannel);
     });
@@ -1923,6 +1966,7 @@
     if (view === 'product-cost') loadProductCostData();
     if (view === 'logistics') loadLogisticsData();
     if (view === 'codenit-products') loadCodenitProducts();
+    if (view === 'review-alerts') loadReviewAlerts();
   }
 
   // ==================== 품별 (월별 / 일자별 제품 판매 순위) ====================
@@ -4013,6 +4057,89 @@
     form.reset();
     loadCodenitProducts();
   });
+
+  // ==================== 리뷰 알림 (쿠팡·스마트스토어 - 셀러센터에서 다운받은 파일을 분석해서 반영) ====================
+  let allReviewAlerts = [];
+
+  async function refreshReviewAlertBadge() {
+    const badge = document.getElementById('reviewAlertBadge');
+    const { count, error } = await client.from('platform_reviews').select('id', { count: 'exact', head: true }).eq('is_read', false);
+    if (error || !count) {
+      badge.style.display = 'none';
+      return;
+    }
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.style.display = '';
+  }
+
+  async function loadReviewAlerts() {
+    const note = document.getElementById('raListNote');
+    const { data, error } = await client
+      .from('platform_reviews')
+      .select('*')
+      .order('review_date', { ascending: false });
+    if (error) {
+      note.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
+      return;
+    }
+    allReviewAlerts = data || [];
+    renderReviewAlertCards();
+    renderReviewAlertTable();
+    refreshReviewAlertBadge();
+  }
+
+  function renderReviewAlertCards() {
+    const total = allReviewAlerts.length;
+    const unread = allReviewAlerts.filter(r => !r.is_read).length;
+    const byPlatform = {};
+    allReviewAlerts.forEach(r => { byPlatform[r.platform || '기타'] = (byPlatform[r.platform || '기타'] || 0) + 1; });
+    const platformSummary = Object.entries(byPlatform).map(([p, c]) => `${p} ${c}건`).join(' · ') || '-';
+
+    document.getElementById('raCards').innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label">전체 악성 리뷰</div>
+        <div class="kpi-value">${total.toLocaleString('ko-KR')}건</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">미확인</div>
+        <div class="kpi-value">${unread.toLocaleString('ko-KR')}건</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">채널별</div>
+        <div class="kpi-value" style="font-size:13px;">${platformSummary}</div>
+      </div>
+    `;
+  }
+
+  function renderReviewAlertTable() {
+    document.getElementById('raListNote').textContent = `${allReviewAlerts.length.toLocaleString('ko-KR')}건`;
+    document.getElementById('raTable').innerHTML = allReviewAlerts.map(r => `
+      <tr class="${r.is_read ? '' : 'ra-unread'}">
+        <td>${r.platform || ''}</td>
+        <td>${r.product_name || ''}</td>
+        <td class="num">${r.rating != null ? '★'.repeat(r.rating) + '☆'.repeat(Math.max(0, 5 - r.rating)) : '-'}</td>
+        <td style="max-width:360px;white-space:pre-wrap;">${escapeAttr(r.review_text || '')}</td>
+        <td>${r.review_date || ''}</td>
+        <td>${escapeAttr(r.matched_reason || '')}</td>
+        <td>${r.is_read ? '확인함' : `<button class="btn-danger" onclick="markReviewRead(${r.id})">확인</button>`}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function markReviewRead(id) {
+    const { error } = await client.from('platform_reviews').update({ is_read: true }).eq('id', id);
+    if (error) { alert('처리하지 못했습니다: ' + error.message); return; }
+    loadReviewAlerts();
+  }
+
+  async function markAllReviewsRead() {
+    if (!confirm('전체 악성 리뷰를 확인 처리할까요?')) return;
+    const { error } = await client.from('platform_reviews').update({ is_read: true }).eq('is_read', false);
+    if (error) { alert('처리하지 못했습니다: ' + error.message); return; }
+    loadReviewAlerts();
+  }
+
+  refreshReviewAlertBadge();
 </script>
 </body>
 </html>
