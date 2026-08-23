@@ -397,7 +397,7 @@
   .channel-total-all td.num { color: #0891b2; }
   .channel-total-team td.num { color: #b45309; }
 
-  /* ---- 팀관리: 업무 프로세스 ---- */
+  /* ---- 영업팀: 업무 프로세스 ---- */
   .process-step-list { display: flex; flex-direction: column; gap: 10px; }
   .process-step { display: flex; gap: 12px; align-items: flex-start; background: #f4f5f8; border-radius: 12px; padding: 12px 14px; }
   .process-step-num {
@@ -413,7 +413,7 @@
   }
   .process-step-order-btns button:disabled { opacity: .35; cursor: default; }
 
-  /* ---- 팀관리: 할일 관리(칸반) ---- */
+  /* ---- 영업팀: 할일 관리(칸반) ---- */
   .kanban-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   .kanban-col { background: #f4f5f8; border-radius: 12px; padding: 12px; min-height: 100px; }
   .kanban-col-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700; margin-bottom: 10px; padding: 0 2px; }
@@ -459,7 +459,7 @@
             <span class="dot" style="background:#4d7cfe;"></span>매출관리
           </div>
           <div class="workspace-menu-item" data-ws="team" onclick="event.stopPropagation(); switchWorkspace('team');">
-            <span class="dot dot-team"></span>팀관리
+            <span class="dot dot-team"></span>영업팀
           </div>
         </div>
       </div>
@@ -507,7 +507,7 @@
 
       <div id="teamNavGroups" style="display:none;">
         <div class="nav-group">
-          <div class="nav-label">팀관리</div>
+          <div class="nav-label">영업팀</div>
           <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process')"><span class="dot dot-team"></span>업무 프로세스</div>
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')"><span class="dot dot-team"></span>할일 관리</div>
         </div>
@@ -4307,7 +4307,7 @@
     loadReviewAlerts();
   }
 
-  // ==================== 워크스페이스 전환 (매출관리 ↔ 팀관리) ====================
+  // ==================== 워크스페이스 전환 (매출관리 ↔ 영업팀) ====================
   let currentWorkspace = 'sales';
 
   function toggleWorkspaceMenu(e) {
@@ -4340,13 +4340,13 @@
       document.getElementById('brandSub').textContent = 'SALES OPS';
       switchView('dashboard');
     } else {
-      document.getElementById('brandTitle').textContent = '팀관리';
-      document.getElementById('brandSub').textContent = 'TEAM OPS';
+      document.getElementById('brandTitle').textContent = '영업팀';
+      document.getElementById('brandSub').textContent = 'SALES TEAM';
       switchView('team-process');
     }
   }
 
-  // ==================== 팀관리 - 업무 프로세스 ====================
+  // ==================== 영업팀 - 업무 프로세스 ====================
   let currentProcessSteps = [];
 
   async function loadTeamProcess() {
@@ -4432,7 +4432,7 @@
     loadTeamProcess();
   }
 
-  // ==================== 팀관리 - 할일 관리 ====================
+  // ==================== 영업팀 - 할일 관리 ====================
   const TASK_STATUSES = ['할일', '진행중', '완료'];
   let currentTasks = [];
 
