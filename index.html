@@ -429,6 +429,28 @@
   .status-pill.doing { background: rgba(249,115,22,.15); color: #c2410c; }
   .status-pill.done { background: rgba(22,163,74,.15); color: #15803d; }
 
+  /* ---- 영업팀 Overall Operations: 구조 흐름도 ---- */
+  .ops-flow { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .ops-node { background: #f4f5f8; border: 1px solid rgba(15,23,42,.08); border-radius: 12px; padding: 14px 16px; }
+  .ops-node-source { background: rgba(77,124,254,.08); border-color: rgba(77,124,254,.25); min-width: 240px; text-align: center; }
+  .ops-node-title { font-size: 13px; font-weight: 800; margin-bottom: 4px; text-align: center; }
+  .ops-node-sub { font-size: 11px; color: #64748b; text-align: center; }
+  .ops-arrow-down { font-size: 18px; color: #94a3b8; line-height: 1.4; }
+  .ops-branches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; width: 100%; margin-top: 4px; align-items: start; }
+  .ops-node-list { font-size: 12px; color: #334155; line-height: 1.8; margin-top: 6px; }
+  .ops-node-note {
+    font-size: 11px; color: #7c3aed; margin-top: 10px; padding-top: 8px;
+    border-top: 1px dashed rgba(124,58,237,.3); line-height: 1.6;
+  }
+
+  /* ---- 영업팀 Overall Operations: 루틴 업무 보드 ---- */
+  .ops-routine-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .ops-routine-col { background: #f4f5f8; border-radius: 12px; padding: 14px 16px; border-top: 3px solid #4d7cfe; }
+  .ops-routine-weekly { border-top-color: #fb923c; }
+  .ops-routine-monthly { border-top-color: #7c3aed; }
+  .ops-routine-head { font-size: 13px; font-weight: 800; margin-bottom: 10px; color: #0f172a; }
+  .ops-routine-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; color: #334155; line-height: 1.5; }
+
   /* ---- 마케팅 대시보드 (오렌지 테마) ---- */
   .mkt-value { color: #ea580c; }
   .mkt-swatch { background: #fb923c; }
@@ -1157,9 +1179,84 @@
       <div class="topbar">
         <div>
           <h1>Overall Operations</h1>
-          <div class="subtitle">영업팀 업무 프로세스와 할일 현황을 한눈에 확인합니다.</div>
+          <div class="subtitle">영업팀이 다루는 채널 구조와 루틴 업무, 프로세스·할일 현황을 한눈에 확인합니다.</div>
         </div>
       </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>영업 구조 &amp; 채널</h2>
+          <span class="panel-note">메타 광고 → 자사몰 랜딩 기준 전체 채널 흐름</span>
+        </div>
+        <div class="ops-flow">
+          <div class="ops-node ops-node-source">
+            <div class="ops-node-title">메타 광고</div>
+            <div class="ops-node-sub">주력 광고 채널 · 자사몰로 랜딩</div>
+          </div>
+          <div class="ops-arrow-down">↓</div>
+          <div class="ops-branches">
+            <div class="ops-node ops-node-branch">
+              <div class="ops-node-title">자사몰 (Cafe24)</div>
+              <div class="ops-node-list">
+                명퉤 · 코드니처 · 잠비에 · 폴크 · 미니멀룸 · 글로리핏 · 라이프스타일마트 · 그로우뮤즈 · 멜루션
+              </div>
+              <div class="ops-node-note">
+                상품등록: 대표님 · 신규 런칭 상품등록/메타 광고 소재 제작은 콘텐츠기획팀
+              </div>
+            </div>
+            <div class="ops-node ops-node-branch">
+              <div class="ops-node-title">외부몰</div>
+              <div class="ops-node-list">
+                <b>네이버 스마트스토어</b> — 코드니처 · 미니멀룸 · 잠비에 · 빠이러서 · 명퉤<br>
+                <b>쿠팡</b> — 로켓그로스(2P) · 판매자배송(1P)<br>
+                <b>톡딜</b> — 입점 진행중<br>
+                <b>오늘의집</b> — 코드니처 입점 진행중
+              </div>
+            </div>
+            <div class="ops-node ops-node-branch">
+              <div class="ops-node-title">기타 채널</div>
+              <div class="ops-node-list">공동구매 · 오프라인 직납 · 해외수출</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>영업팀 루틴 업무</h2>
+          <span class="panel-note">데일리 · 주차별 · 월마감</span>
+        </div>
+        <div class="ops-routine-board">
+          <div class="ops-routine-col ops-routine-daily">
+            <div class="ops-routine-head">데일리 업무</div>
+            <ol class="ops-routine-list">
+              <li>카카오 선물하기 명퉤 일자 변경</li>
+              <li>자사몰 광고보고</li>
+              <li>전일자 매출마감</li>
+              <li>판매처 품절 처리</li>
+            </ol>
+          </div>
+          <div class="ops-routine-col ops-routine-weekly">
+            <div class="ops-routine-head">주차별 업무</div>
+            <ol class="ops-routine-list">
+              <li>광고비 정산 (W. 회계팀) — 메타 · GFA · SA · 인스타그램 바이럴 · 쿠팡</li>
+              <li>목요일마다 광고비 충전</li>
+              <li>수 or 목요일 올리브영 마감</li>
+              <li>인스타그램 바이럴 신청</li>
+            </ol>
+          </div>
+          <div class="ops-routine-col ops-routine-monthly">
+            <div class="ops-routine-head">월마감 업무</div>
+            <ol class="ops-routine-list">
+              <li>자사몰 광고보고서</li>
+              <li>쿠팡 월마감</li>
+              <li>파스토 월마감</li>
+              <li>오프하우스 월마감</li>
+              <li>올리브영 월마감</li>
+            </ol>
+          </div>
+        </div>
+      </section>
 
       <section class="kpi-row" id="teamOverviewCards"></section>
 
