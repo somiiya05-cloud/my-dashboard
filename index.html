@@ -424,6 +424,10 @@
   .kanban-card-actions { display: flex; gap: 6px; align-items: center; }
   .kanban-card-actions select { font-size: 11px; border-radius: 6px; border: 1px solid rgba(15,23,42,.12); padding: 3px 6px; }
   .kanban-empty { padding: 16px 8px; font-size: 12px; color: #94a3b8; text-align: center; }
+  .status-pill { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .status-pill.todo { background: rgba(100,116,139,.15); color: #475569; }
+  .status-pill.doing { background: rgba(249,115,22,.15); color: #c2410c; }
+  .status-pill.done { background: rgba(22,163,74,.15); color: #15803d; }
 
   /* ---- 마케팅 대시보드 (오렌지 테마) ---- */
   .mkt-value { color: #ea580c; }
@@ -508,6 +512,7 @@
       <div id="teamNavGroups" style="display:none;">
         <div class="nav-group">
           <div class="nav-label">영업팀</div>
+          <div class="nav-item" id="navTeamOverview" onclick="switchView('team-overview')"><span class="dot dot-team"></span>Overall Operations</div>
           <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process')"><span class="dot dot-team"></span>업무 프로세스</div>
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')"><span class="dot dot-team"></span>할일 관리</div>
         </div>
@@ -1145,6 +1150,34 @@
           <input type="text" id="cpSearchInput" class="vendor-select" placeholder="상품명 검색" autocomplete="off">
         </div>
         <div class="product-card-grid" id="cpGrid"></div>
+      </section>
+    </main>
+
+    <main class="main" id="teamOverviewView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>Overall Operations</h1>
+          <div class="subtitle">영업팀 업무 프로세스와 할일 현황을 한눈에 확인합니다.</div>
+        </div>
+      </div>
+
+      <section class="kpi-row" id="teamOverviewCards"></section>
+
+      <section class="grid-2">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>업무 프로세스</h2>
+            <span class="panel-note" id="ovProcessNote"></span>
+          </div>
+          <div class="process-step-list" id="ovProcessList"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>할일 현황</h2>
+            <span class="panel-note" id="ovTaskNote"></span>
+          </div>
+          <div id="ovTaskList"></div>
+        </div>
       </section>
     </main>
 
@@ -2074,6 +2107,7 @@
     document.getElementById('logisticsView').style.display = view === 'logistics' ? '' : 'none';
     document.getElementById('codenitProductsView').style.display = view === 'codenit-products' ? '' : 'none';
     document.getElementById('reviewAlertsView').style.display = view === 'review-alerts' ? '' : 'none';
+    document.getElementById('teamOverviewView').style.display = view === 'team-overview' ? '' : 'none';
     document.getElementById('teamProcessView').style.display = view === 'team-process' ? '' : 'none';
     document.getElementById('teamTasksView').style.display = view === 'team-tasks' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
@@ -2088,6 +2122,7 @@
     document.getElementById('navLogistics').classList.toggle('active', view === 'logistics');
     document.getElementById('navCodenitProducts').classList.toggle('active', view === 'codenit-products');
     document.getElementById('navReviewAlerts').classList.toggle('active', view === 'review-alerts');
+    document.getElementById('navTeamOverview').classList.toggle('active', view === 'team-overview');
     document.getElementById('navTeamProcess').classList.toggle('active', view === 'team-process');
     document.getElementById('navTeamTasks').classList.toggle('active', view === 'team-tasks');
     document.querySelectorAll('#navMarketingBrands .nav-subitem').forEach((el) => {
@@ -2108,6 +2143,7 @@
     if (view === 'logistics') loadLogisticsData();
     if (view === 'codenit-products') loadCodenitProducts();
     if (view === 'review-alerts') loadReviewAlerts();
+    if (view === 'team-overview') loadTeamOverview();
     if (view === 'team-process') loadTeamProcess();
     if (view === 'team-tasks') loadTeamTasks();
   }
@@ -4342,8 +4378,82 @@
     } else {
       document.getElementById('brandTitle').textContent = '영업팀';
       document.getElementById('brandSub').textContent = 'SALES TEAM';
-      switchView('team-process');
+      switchView('team-overview');
     }
+  }
+
+  // ==================== 영업팀 - Overall Operations ====================
+  function taskStatusClass(status) {
+    if (status === '진행중') return 'doing';
+    if (status === '완료') return 'done';
+    return 'todo';
+  }
+
+  async function loadTeamOverview() {
+    const cardsWrap = document.getElementById('teamOverviewCards');
+    const [stepsRes, tasksRes] = await Promise.all([
+      client.from('team_process_steps').select('*').order('step_order', { ascending: true }),
+      client.from('team_tasks').select('*').order('created_at', { ascending: false }),
+    ]);
+
+    if (stepsRes.error || tasksRes.error) {
+      const err = stepsRes.error || tasksRes.error;
+      cardsWrap.innerHTML = '<span class="error">불러오지 못했습니다: ' + err.message + '</span>';
+      return;
+    }
+
+    const steps = stepsRes.data || [];
+    const tasks = tasksRes.data || [];
+    const todoCount = tasks.filter(t => t.status === '할일').length;
+    const doingCount = tasks.filter(t => t.status === '진행중').length;
+    const doneCount = tasks.filter(t => t.status === '완료').length;
+
+    cardsWrap.innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label">업무 프로세스 단계</div>
+        <div class="kpi-value">${steps.length}개</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">할일</div>
+        <div class="kpi-value">${todoCount}건</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">진행중</div>
+        <div class="kpi-value">${doingCount}건</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">완료</div>
+        <div class="kpi-value">${doneCount}건</div>
+      </div>
+    `;
+
+    const processNote = document.getElementById('ovProcessNote');
+    processNote.textContent = steps.length + '개 단계';
+    const processList = document.getElementById('ovProcessList');
+    processList.innerHTML = steps.length ? steps.map((s, i) => `
+      <div class="process-step">
+        <div class="process-step-num">${i + 1}</div>
+        <div class="process-step-body">
+          <div class="process-step-title-row"><strong>${escapeAttr(s.title || '')}</strong></div>
+          ${s.description ? `<div style="font-size:12px; color:#64748b;">${escapeAttr(s.description)}</div>` : ''}
+        </div>
+      </div>
+    `).join('') : '<div class="mkt-empty">등록된 업무 단계가 없습니다.</div>';
+
+    const taskNote = document.getElementById('ovTaskNote');
+    const openTasks = tasks.filter(t => t.status !== '완료');
+    taskNote.textContent = openTasks.length + '건 진행 중';
+    const taskList = document.getElementById('ovTaskList');
+    taskList.innerHTML = openTasks.length ? openTasks.slice(0, 8).map(t => `
+      <div class="kanban-card">
+        <div class="kanban-card-title">${escapeAttr(t.title || '')}</div>
+        <div class="kanban-card-meta">
+          <span>${t.assignee ? escapeAttr(t.assignee) : '담당자 미지정'}</span>
+          <span>${t.due_date ? String(t.due_date).slice(0, 10) : ''}</span>
+        </div>
+        <span class="status-pill ${taskStatusClass(t.status)}">${t.status}</span>
+      </div>
+    `).join('') : '<div class="mkt-empty">진행 중인 할일이 없습니다.</div>';
   }
 
   // ==================== 영업팀 - 업무 프로세스 ====================
