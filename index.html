@@ -4154,7 +4154,7 @@
     document.getElementById('raTable').innerHTML = filtered.map(r => `
       <tr class="${r.is_read ? '' : 'ra-unread'}">
         <td>${r.platform || ''}</td>
-        <td>${r.product_name || ''}</td>
+        <td>${r.product_url ? `<a href="${escapeAttr(r.product_url)}" target="_blank" rel="noopener" style="color:#2f5ce4;text-decoration:underline;">${escapeAttr(r.product_name || '')}</a>` : (r.product_name || '')}</td>
         <td class="num">${r.rating != null ? '★'.repeat(r.rating) + '☆'.repeat(Math.max(0, 5 - r.rating)) : '-'}</td>
         <td style="max-width:360px;white-space:pre-wrap;">${escapeAttr(r.review_text || '')}</td>
         <td>${r.review_date || ''}</td>
