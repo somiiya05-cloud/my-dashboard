@@ -425,6 +425,14 @@
   .kanban-card-actions select { font-size: 11px; border-radius: 6px; border: 1px solid rgba(15,23,42,.12); padding: 3px 6px; }
   .kanban-empty { padding: 16px 8px; font-size: 12px; color: #94a3b8; text-align: center; }
 
+  /* ---- 영업팀: 사업자·회계 ---- */
+  .acct-note-textarea {
+    width: 100%; min-height: 140px; resize: vertical; font-family: inherit; font-size: 13px;
+    padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(15,23,42,.12); color: #0f172a;
+    background: #fff; line-height: 1.6;
+  }
+  .acct-note-textarea:focus { outline: 1px solid #7c3aed; }
+
   /* ---- 영업팀 Overall Operations: 구조 흐름도 ---- */
   .ops-flow { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .ops-node { background: #f4f5f8; border: 1px solid rgba(15,23,42,.08); border-radius: 12px; padding: 14px 16px; }
@@ -533,6 +541,7 @@
           <div class="nav-item" id="navTeamOverview" onclick="switchView('team-overview')"><span class="dot dot-team"></span>Overall Operations</div>
           <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process')"><span class="dot dot-team"></span>업무 프로세스</div>
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')"><span class="dot dot-team"></span>할일 관리</div>
+          <div class="nav-item" id="navTeamAccounting" onclick="switchView('team-accounting')"><span class="dot dot-team"></span>사업자·회계</div>
         </div>
       </div>
 
@@ -1308,6 +1317,61 @@
           <span class="panel-note" id="taskListNote"></span>
         </div>
         <div class="kanban-board" id="taskBoard"></div>
+      </section>
+    </main>
+
+    <main class="main" id="teamAccountingView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>사업자 · 회계</h1>
+          <div class="subtitle">판매처별 사업자 매핑과 세금계산서·수출 관련 회계 기준을 관리합니다.</div>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head"><h2>사업자 추가</h2></div>
+        <form class="deal-form" id="entityForm">
+          <input type="text" name="entityName" placeholder="사업자명" required style="flex:1; min-width:140px;">
+          <input type="text" name="channels" placeholder="담당 판매처/브랜드 (예: 코드니처, 잠비에)" style="flex:2; min-width:200px;">
+          <input type="text" name="regNo" placeholder="사업자등록번호(선택)" style="width:160px;">
+          <input type="text" name="memo" placeholder="비고(선택)" style="flex:1; min-width:140px;">
+          <button type="submit" class="btn-primary">추가</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>사업자별 판매처 매핑</h2>
+          <span class="panel-note" id="entityListNote"></span>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead><tr><th>사업자명</th><th>담당 판매처/브랜드</th><th>사업자등록번호</th><th>비고</th><th></th></tr></thead>
+            <tbody id="entityTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>세금계산서 발행 기준</h2>
+          <span class="panel-note" id="acctTaxInvoiceStatus"></span>
+        </div>
+        <textarea class="acct-note-textarea" id="acctTaxInvoiceContent" placeholder="세금계산서 발행 기준을 입력하세요."></textarea>
+        <div style="margin-top:10px;">
+          <button type="button" class="btn-primary" onclick="saveAccountingNote('tax_invoice', 'acctTaxInvoiceContent', 'acctTaxInvoiceStatus')">저장</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>수출 처리 기준 (직납수출 · 간접수출 · 영세율)</h2>
+          <span class="panel-note" id="acctExportStatus"></span>
+        </div>
+        <textarea class="acct-note-textarea" id="acctExportContent" placeholder="직납수출/간접수출 구분 기준과 영세율 적용 기준을 입력하세요."></textarea>
+        <div style="margin-top:10px;">
+          <button type="button" class="btn-primary" onclick="saveAccountingNote('export', 'acctExportContent', 'acctExportStatus')">저장</button>
+        </div>
       </section>
     </main>
   </div>
@@ -2184,6 +2248,7 @@
     document.getElementById('teamOverviewView').style.display = view === 'team-overview' ? '' : 'none';
     document.getElementById('teamProcessView').style.display = view === 'team-process' ? '' : 'none';
     document.getElementById('teamTasksView').style.display = view === 'team-tasks' ? '' : 'none';
+    document.getElementById('teamAccountingView').style.display = view === 'team-accounting' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
     document.getElementById('navMonthlyTrend').classList.toggle('active', view === 'monthly-trend');
     document.getElementById('navPipeline').classList.toggle('active', view === 'pipeline');
@@ -2199,6 +2264,7 @@
     document.getElementById('navTeamOverview').classList.toggle('active', view === 'team-overview');
     document.getElementById('navTeamProcess').classList.toggle('active', view === 'team-process');
     document.getElementById('navTeamTasks').classList.toggle('active', view === 'team-tasks');
+    document.getElementById('navTeamAccounting').classList.toggle('active', view === 'team-accounting');
     document.querySelectorAll('#navMarketingBrands .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'marketing-brand' && el.dataset.channel === brandChannel);
     });
@@ -2219,6 +2285,7 @@
     if (view === 'review-alerts') loadReviewAlerts();
     if (view === 'team-process') loadTeamProcess();
     if (view === 'team-tasks') loadTeamTasks();
+    if (view === 'team-accounting') loadTeamAccounting();
   }
 
   // ==================== 품별 (월별 / 일자별 제품 판매 순위) ====================
@@ -4629,6 +4696,104 @@
     const { error } = await client.from('team_tasks').delete().eq('id', id);
     if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
     loadTeamTasks();
+  }
+
+  // ==================== 영업팀 - 사업자·회계 ====================
+  let currentEntities = [];
+
+  async function loadTeamAccounting() {
+    await Promise.all([
+      loadEntities(),
+      loadAccountingNote('tax_invoice', 'acctTaxInvoiceContent', 'acctTaxInvoiceStatus'),
+      loadAccountingNote('export', 'acctExportContent', 'acctExportStatus'),
+    ]);
+  }
+
+  async function loadEntities() {
+    const note = document.getElementById('entityListNote');
+    const { data, error } = await client
+      .from('business_entities')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (error) {
+      note.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
+      return;
+    }
+    currentEntities = data || [];
+    note.textContent = currentEntities.length + '개 사업자';
+    renderEntityTable();
+  }
+
+  function renderEntityTable() {
+    document.getElementById('entityTable').innerHTML = currentEntities.map(e => `
+      <tr>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(e.entity_name || '')}"
+          onchange="updateEntityField(${e.id}, 'entity_name', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(e.channels || '')}"
+          onchange="updateEntityField(${e.id}, 'channels', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(e.reg_no || '')}"
+          onchange="updateEntityField(${e.id}, 'reg_no', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(e.memo || '')}"
+          onchange="updateEntityField(${e.id}, 'memo', this.value)"></td>
+        <td><button class="btn-danger" onclick="deleteEntity(${e.id})">삭제</button></td>
+      </tr>
+    `).join('');
+  }
+
+  document.getElementById('entityForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const entityName = form.entityName.value.trim();
+    const channels = form.channels.value.trim() || null;
+    const regNo = form.regNo.value.trim() || null;
+    const memo = form.memo.value.trim() || null;
+    if (!entityName) return;
+    const { error } = await client.from('business_entities').insert([{ entity_name: entityName, channels, reg_no: regNo, memo }]);
+    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+    form.reset();
+    loadEntities();
+  });
+
+  async function updateEntityField(id, field, rawValue) {
+    const value = rawValue.trim() || null;
+    const { error } = await client.from('business_entities').update({ [field]: value }).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadEntities();
+  }
+
+  async function deleteEntity(id) {
+    if (!confirm('이 사업자 정보를 삭제할까요?')) return;
+    const { error } = await client.from('business_entities').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadEntities();
+  }
+
+  async function loadAccountingNote(sectionKey, textareaId, statusId) {
+    const statusEl = document.getElementById(statusId);
+    const { data, error } = await client
+      .from('accounting_notes')
+      .select('*')
+      .eq('section_key', sectionKey)
+      .maybeSingle();
+    if (error) {
+      statusEl.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
+      return;
+    }
+    document.getElementById(textareaId).value = data ? (data.content || '') : '';
+    statusEl.textContent = data && data.updated_at ? '최근 수정: ' + String(data.updated_at).slice(0, 10) : '';
+  }
+
+  async function saveAccountingNote(sectionKey, textareaId, statusId) {
+    const content = document.getElementById(textareaId).value;
+    const statusEl = document.getElementById(statusId);
+    const { error } = await client
+      .from('accounting_notes')
+      .upsert({ section_key: sectionKey, content, updated_at: new Date().toISOString() }, { onConflict: 'section_key' });
+    if (error) {
+      statusEl.innerHTML = '<span class="error">저장하지 못했습니다: ' + error.message + '</span>';
+      return;
+    }
+    statusEl.textContent = '저장됨 · ' + new Date().toISOString().slice(0, 10);
   }
 
   refreshReviewAlertBadge();
