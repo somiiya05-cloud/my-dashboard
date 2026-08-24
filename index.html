@@ -136,6 +136,7 @@
   .kpi-card-clickable { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
   .kpi-card-clickable:hover { border-color: rgba(77,124,254,.35); }
   .kpi-card-clickable.active { border-color: #4d7cfe; box-shadow: 0 0 0 2px rgba(77,124,254,.15); }
+  #taskAssigneeInput:read-only { background: #f4f5f8; color: #64748b; }
   .kpi-label { font-size: 14px; font-weight: 700; color: #475569; margin-bottom: 12px; }
   .kpi-label-team { color: #b45309; }
   .kpi-value { font-size: 34px; font-weight: 800; margin-bottom: 10px; }
@@ -1306,7 +1307,7 @@
           <input type="text" name="detail" placeholder="세부 내용/진행사항" style="flex:1; min-width:160px;">
           <input type="text" name="resultNote" placeholder="결과/특이사항" style="flex:1; min-width:140px;">
           <input type="text" name="followup" placeholder="후속 업무" style="flex:1; min-width:140px;">
-          <input type="text" name="assignee" placeholder="담당자" style="width:90px;">
+          <input type="text" name="assignee" id="taskAssigneeInput" placeholder="담당자" style="width:90px;">
           <input type="date" name="dueDate" style="width:140px;">
           <button type="submit" class="btn-primary">추가</button>
         </form>
@@ -4651,12 +4652,17 @@
   function updateTaskViewHeader() {
     const title = document.getElementById('taskViewTitle');
     const subtitle = document.getElementById('taskViewSubtitle');
+    const assigneeInput = document.getElementById('taskAssigneeInput');
     if (currentTaskAssignee) {
       title.textContent = currentTaskAssignee + '의 할일 관리';
       subtitle.textContent = currentTaskAssignee + '님에게 배정된 업무를 관리합니다.';
+      assigneeInput.value = currentTaskAssignee;
+      assigneeInput.readOnly = true;
     } else {
       title.textContent = '업무 분배 · 할일 관리';
       subtitle.textContent = '팀원별 업무를 등록하고 진행 상태를 관리합니다.';
+      assigneeInput.readOnly = false;
+      assigneeInput.value = '';
     }
   }
 
