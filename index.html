@@ -86,6 +86,7 @@
   .nav-collapse-toggle:hover { color: #f5f6fa; background: rgba(255,255,255,.08); }
   .nav-collapse-toggle.collapsed { transform: rotate(-90deg); }
   #navMarketingBrands.collapsed { display: none; }
+  #navTeamAssignees.collapsed { display: none; }
   .mkt-empty { padding: 60px 20px; text-align: center; color: #6d7488; font-size: 13px; }
   .mkt-empty b { color: #c7cbe0; }
   .sidebar-footer {
@@ -533,7 +534,11 @@
           <div class="nav-label">영업팀</div>
           <div class="nav-item" id="navTeamOverview" onclick="switchView('team-overview')"><span class="dot dot-team"></span>Overall Operations</div>
           <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process')"><span class="dot dot-team"></span>업무 프로세스</div>
-          <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')"><span class="dot dot-team"></span>할일 관리</div>
+          <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
+            <span class="dot dot-team"></span>할일 관리
+            <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
+          </div>
+          <div id="navTeamAssignees"></div>
           <div class="nav-item" id="navTeamAccounting" onclick="switchView('team-accounting')"><span class="dot dot-team"></span>사업자·회계</div>
         </div>
       </div>
@@ -1286,8 +1291,8 @@
     <main class="main" id="teamTasksView" style="display:none">
       <div class="topbar">
         <div>
-          <h1>업무 분배 · 할일 관리</h1>
-          <div class="subtitle">팀원별 업무를 등록하고 진행 상태를 관리합니다.</div>
+          <h1 id="taskViewTitle">업무 분배 · 할일 관리</h1>
+          <div class="subtitle" id="taskViewSubtitle">팀원별 업무를 등록하고 진행 상태를 관리합니다.</div>
         </div>
       </div>
 
@@ -2274,6 +2279,9 @@
     document.querySelectorAll('#navMarketingBrands .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'marketing-brand' && el.dataset.channel === brandChannel);
     });
+    document.querySelectorAll('#navTeamAssignees .nav-subitem').forEach((el) => {
+      el.classList.toggle('active', view === 'team-tasks' && el.dataset.assignee === brandChannel);
+    });
     if (view === 'monthly-trend') renderMonthlyTrendView();
     if (view === 'pipeline') loadPipeline();
     if (view === 'product') renderProductView();
@@ -2290,7 +2298,10 @@
     if (view === 'codenit-products') loadCodenitProducts();
     if (view === 'review-alerts') loadReviewAlerts();
     if (view === 'team-process') loadTeamProcess();
-    if (view === 'team-tasks') loadTeamTasks();
+    if (view === 'team-tasks') {
+      currentTaskAssignee = brandChannel || null;
+      loadTeamTasks();
+    }
     if (view === 'team-accounting') loadTeamAccounting();
   }
 
@@ -4618,6 +4629,7 @@
   const TASK_STATUSES = ['할일', '진행중', '완료'];
   let currentTasks = [];
   let taskStatusFilter = null;
+  let currentTaskAssignee = null;
 
   async function loadTeamTasks() {
     const note = document.getElementById('taskListNote');
@@ -4630,8 +4642,55 @@
       return;
     }
     currentTasks = data || [];
+    renderTaskAssigneeNav();
+    updateTaskViewHeader();
     renderTaskCards();
     renderTaskTable();
+  }
+
+  function updateTaskViewHeader() {
+    const title = document.getElementById('taskViewTitle');
+    const subtitle = document.getElementById('taskViewSubtitle');
+    if (currentTaskAssignee) {
+      title.textContent = currentTaskAssignee + '의 할일 관리';
+      subtitle.textContent = currentTaskAssignee + '님에게 배정된 업무를 관리합니다.';
+    } else {
+      title.textContent = '업무 분배 · 할일 관리';
+      subtitle.textContent = '팀원별 업무를 등록하고 진행 상태를 관리합니다.';
+    }
+  }
+
+  function toggleTeamAssignees() {
+    const container = document.getElementById('navTeamAssignees');
+    const toggle = document.getElementById('teamAssigneesToggle');
+    const collapsed = container.classList.toggle('collapsed');
+    toggle.classList.toggle('collapsed', collapsed);
+    localStorage.setItem('teamAssigneesCollapsed', collapsed ? '1' : '0');
+  }
+  (function initTeamAssigneesCollapsedState() {
+    if (localStorage.getItem('teamAssigneesCollapsed') === '1') {
+      const container = document.getElementById('navTeamAssignees');
+      const toggle = document.getElementById('teamAssigneesToggle');
+      if (container && toggle) {
+        container.classList.add('collapsed');
+        toggle.classList.add('collapsed');
+      }
+    }
+  })();
+
+  function renderTaskAssigneeNav() {
+    const container = document.getElementById('navTeamAssignees');
+    if (!container) return;
+    const assignees = Array.from(new Set(currentTasks.map(t => t.assignee).filter(Boolean))).sort();
+    container.innerHTML = assignees.map(name => `
+      <div class="nav-subitem" data-assignee="${escapeAttr(name)}" onclick="switchView('team-tasks', '${escapeAttr(name)}')">
+        <span class="sub-dot"></span>${escapeAttr(name)}
+      </div>
+    `).join('');
+  }
+
+  function getAssigneeScopedTasks() {
+    return currentTaskAssignee ? currentTasks.filter(t => t.assignee === currentTaskAssignee) : currentTasks;
   }
 
   function filterTaskStatus(status) {
@@ -4641,8 +4700,9 @@
   }
 
   function renderTaskCards() {
+    const scoped = getAssigneeScopedTasks();
     document.getElementById('taskCards').innerHTML = TASK_STATUSES.map(status => {
-      const count = currentTasks.filter(t => t.status === status).length;
+      const count = scoped.filter(t => t.status === status).length;
       const active = taskStatusFilter === status;
       return `
         <div class="kpi-card kpi-card-clickable${active ? ' active' : ''}" onclick="filterTaskStatus('${status}')">
@@ -4655,9 +4715,10 @@
 
   function renderTaskTable() {
     const note = document.getElementById('taskListNote');
+    const scoped = getAssigneeScopedTasks();
     const visibleTasks = taskStatusFilter
-      ? currentTasks.filter(t => t.status === taskStatusFilter)
-      : currentTasks.filter(t => t.status !== '완료');
+      ? scoped.filter(t => t.status === taskStatusFilter)
+      : scoped.filter(t => t.status !== '완료');
     note.textContent = taskStatusFilter
       ? visibleTasks.length + '건 (' + taskStatusFilter + ')'
       : visibleTasks.length + '건 (완료 제외)';
