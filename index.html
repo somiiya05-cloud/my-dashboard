@@ -4626,7 +4626,7 @@
       return;
     }
     currentTasks = data || [];
-    note.textContent = currentTasks.length + '건';
+    note.textContent = currentTasks.filter(t => t.status !== '완료').length + '건 (완료 제외)';
     renderTaskCards();
     renderTaskTable();
   }
@@ -4644,7 +4644,7 @@
   }
 
   function renderTaskTable() {
-    document.getElementById('taskTableBody').innerHTML = currentTasks.map(t => `
+    document.getElementById('taskTableBody').innerHTML = currentTasks.filter(t => t.status !== '완료').map(t => `
       <tr>
         <td><input type="checkbox" ${t.status === '완료' ? 'checked' : ''} onchange="toggleTaskDone(${t.id}, this.checked)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(t.category || '')}"
