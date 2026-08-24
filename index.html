@@ -132,6 +132,9 @@
     background: #ffffff; border: 1px solid rgba(15,23,42,.07);
     border-radius: 16px; padding: 24px 26px;
   }
+  .kpi-card-clickable { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+  .kpi-card-clickable:hover { border-color: rgba(77,124,254,.35); }
+  .kpi-card-clickable.active { border-color: #4d7cfe; box-shadow: 0 0 0 2px rgba(77,124,254,.15); }
   .kpi-label { font-size: 14px; font-weight: 700; color: #475569; margin-bottom: 12px; }
   .kpi-label-team { color: #b45309; }
   .kpi-value { font-size: 34px; font-weight: 800; margin-bottom: 10px; }
@@ -4614,6 +4617,7 @@
   // ==================== 영업팀 - 할일 관리 ====================
   const TASK_STATUSES = ['할일', '진행중', '완료'];
   let currentTasks = [];
+  let taskStatusFilter = null;
 
   async function loadTeamTasks() {
     const note = document.getElementById('taskListNote');
@@ -4626,7 +4630,12 @@
       return;
     }
     currentTasks = data || [];
-    note.textContent = currentTasks.filter(t => t.status !== '완료').length + '건 (완료 제외)';
+    renderTaskCards();
+    renderTaskTable();
+  }
+
+  function filterTaskStatus(status) {
+    taskStatusFilter = taskStatusFilter === status ? null : status;
     renderTaskCards();
     renderTaskTable();
   }
@@ -4634,8 +4643,9 @@
   function renderTaskCards() {
     document.getElementById('taskCards').innerHTML = TASK_STATUSES.map(status => {
       const count = currentTasks.filter(t => t.status === status).length;
+      const active = taskStatusFilter === status;
       return `
-        <div class="kpi-card">
+        <div class="kpi-card kpi-card-clickable${active ? ' active' : ''}" onclick="filterTaskStatus('${status}')">
           <div class="kpi-label">${status}</div>
           <div class="kpi-value">${count}건</div>
         </div>
@@ -4644,7 +4654,14 @@
   }
 
   function renderTaskTable() {
-    document.getElementById('taskTableBody').innerHTML = currentTasks.filter(t => t.status !== '완료').map(t => `
+    const note = document.getElementById('taskListNote');
+    const visibleTasks = taskStatusFilter
+      ? currentTasks.filter(t => t.status === taskStatusFilter)
+      : currentTasks.filter(t => t.status !== '완료');
+    note.textContent = taskStatusFilter
+      ? visibleTasks.length + '건 (' + taskStatusFilter + ')'
+      : visibleTasks.length + '건 (완료 제외)';
+    document.getElementById('taskTableBody').innerHTML = visibleTasks.map(t => `
       <tr>
         <td><input type="checkbox" ${t.status === '완료' ? 'checked' : ''} onchange="toggleTaskDone(${t.id}, this.checked)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(t.category || '')}"
