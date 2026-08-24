@@ -413,18 +413,6 @@
   }
   .process-step-order-btns button:disabled { opacity: .35; cursor: default; }
 
-  /* ---- 영업팀: 할일 관리(칸반) ---- */
-  .kanban-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .kanban-col { background: #f4f5f8; border-radius: 12px; padding: 12px; min-height: 100px; }
-  .kanban-col-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700; margin-bottom: 10px; padding: 0 2px; }
-  .kanban-count { font-size: 11px; color: #64748b; background: #fff; border-radius: 999px; padding: 2px 8px; }
-  .kanban-card { background: #fff; border: 1px solid rgba(15,23,42,.07); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
-  .kanban-card-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
-  .kanban-card-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: #64748b; margin-bottom: 8px; }
-  .kanban-card-actions { display: flex; gap: 6px; align-items: center; }
-  .kanban-card-actions select { font-size: 11px; border-radius: 6px; border: 1px solid rgba(15,23,42,.12); padding: 3px 6px; }
-  .kanban-empty { padding: 16px 8px; font-size: 12px; color: #94a3b8; text-align: center; }
-
   /* ---- 영업팀: 사업자·회계 ---- */
   .acct-note-textarea {
     width: 100%; min-height: 140px; resize: vertical; font-family: inherit; font-size: 13px;
@@ -1305,20 +1293,33 @@
       <section class="panel">
         <div class="panel-head"><h2>할일 추가</h2></div>
         <form class="deal-form" id="taskForm">
-          <input type="text" name="title" placeholder="할일 제목" required style="flex:2; min-width:160px;">
-          <input type="text" name="assignee" placeholder="담당자" style="width:110px;">
-          <input type="date" name="dueDate" style="width:150px;">
-          <input type="text" name="memo" placeholder="메모(선택)" style="flex:1; min-width:140px;">
+          <input type="text" name="category" placeholder="구분 (예: 매출/채널)" style="width:130px;">
+          <input type="text" name="title" placeholder="업무 내용" required style="flex:1; min-width:140px;">
+          <input type="text" name="detail" placeholder="세부 내용/진행사항" style="flex:1; min-width:160px;">
+          <input type="text" name="resultNote" placeholder="결과/특이사항" style="flex:1; min-width:140px;">
+          <input type="text" name="followup" placeholder="후속 업무" style="flex:1; min-width:140px;">
+          <input type="text" name="assignee" placeholder="담당자" style="width:90px;">
+          <input type="date" name="dueDate" style="width:140px;">
           <button type="submit" class="btn-primary">추가</button>
         </form>
       </section>
 
       <section class="panel">
         <div class="panel-head">
-          <h2>할일 보드</h2>
+          <h2>일별 업무일지</h2>
           <span class="panel-note" id="taskListNote"></span>
         </div>
-        <div class="kanban-board" id="taskBoard"></div>
+        <div class="scroll-box">
+          <table>
+            <thead>
+              <tr>
+                <th>완료</th><th>구분</th><th>업무 내용</th><th>세부 내용 / 진행사항</th>
+                <th>진행상태</th><th>결과 / 특이사항</th><th>후속 업무</th><th>담당자</th><th>마감일</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="taskTableBody"></tbody>
+          </table>
+        </div>
       </section>
     </main>
 
@@ -4627,7 +4628,7 @@
     currentTasks = data || [];
     note.textContent = currentTasks.length + '건';
     renderTaskCards();
-    renderTaskBoard();
+    renderTaskTable();
   }
 
   function renderTaskCards() {
@@ -4642,55 +4643,67 @@
     }).join('');
   }
 
-  function renderTaskBoard() {
-    document.getElementById('taskBoard').innerHTML = TASK_STATUSES.map(status => {
-      const tasks = currentTasks.filter(t => t.status === status);
-      const cards = tasks.map(t => `
-        <div class="kanban-card">
-          <div class="kanban-card-title">${escapeAttr(t.title || '')}</div>
-          <div class="kanban-card-meta">
-            <span>${t.assignee ? escapeAttr(t.assignee) : '담당자 미지정'}</span>
-            <span>${t.due_date ? String(t.due_date).slice(0, 10) : ''}</span>
-          </div>
-          ${t.memo ? `<div class="kanban-card-meta">${escapeAttr(t.memo)}</div>` : ''}
-          <div class="kanban-card-actions">
-            <select onchange="updateTaskStatus(${t.id}, this.value)">
-              ${TASK_STATUSES.map(s => `<option value="${s}" ${s === t.status ? 'selected' : ''}>${s}</option>`).join('')}
-            </select>
-            <button class="btn-danger" onclick="deleteTask(${t.id})">삭제</button>
-          </div>
-        </div>
-      `).join('');
-      return `
-        <div class="kanban-col">
-          <div class="kanban-col-head">
-            <span>${status}</span>
-            <span class="kanban-count">${tasks.length}</span>
-          </div>
-          ${cards || '<div class="kanban-empty">없음</div>'}
-        </div>
-      `;
-    }).join('');
+  function renderTaskTable() {
+    document.getElementById('taskTableBody').innerHTML = currentTasks.map(t => `
+      <tr>
+        <td><input type="checkbox" ${t.status === '완료' ? 'checked' : ''} onchange="toggleTaskDone(${t.id}, this.checked)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(t.category || '')}"
+          onchange="updateTaskField(${t.id}, 'category', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(t.title || '')}"
+          onchange="updateTaskField(${t.id}, 'title', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(t.detail || '')}"
+          onchange="updateTaskField(${t.id}, 'detail', this.value)"></td>
+        <td>
+          <select onchange="updateTaskStatus(${t.id}, this.value)">
+            ${TASK_STATUSES.map(s => `<option value="${s}" ${s === t.status ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(t.result_note || '')}"
+          onchange="updateTaskField(${t.id}, 'result_note', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(t.followup || '')}"
+          onchange="updateTaskField(${t.id}, 'followup', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(t.assignee || '')}"
+          onchange="updateTaskField(${t.id}, 'assignee', this.value)"></td>
+        <td>${t.due_date ? String(t.due_date).slice(0, 10) : ''}</td>
+        <td><button class="btn-danger" onclick="deleteTask(${t.id})">삭제</button></td>
+      </tr>
+    `).join('');
   }
 
   document.getElementById('taskForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
+    const category = form.category.value.trim() || null;
     const title = form.title.value.trim();
+    const detail = form.detail.value.trim() || null;
+    const resultNote = form.resultNote.value.trim() || null;
+    const followup = form.followup.value.trim() || null;
     const assignee = form.assignee.value.trim() || null;
     const dueDate = form.dueDate.value || null;
-    const memo = form.memo.value.trim() || null;
     if (!title) return;
-    const { error } = await client.from('team_tasks').insert([{ title, assignee, due_date: dueDate, memo, status: '할일' }]);
+    const { error } = await client.from('team_tasks').insert([{
+      category, title, detail, result_note: resultNote, followup, assignee, due_date: dueDate, status: '할일',
+    }]);
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
     form.reset();
     loadTeamTasks();
   });
 
+  async function updateTaskField(id, field, rawValue) {
+    const value = rawValue.trim() || null;
+    const { error } = await client.from('team_tasks').update({ [field]: value }).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadTeamTasks();
+  }
+
   async function updateTaskStatus(id, status) {
     const { error } = await client.from('team_tasks').update({ status }).eq('id', id);
     if (error) { alert('변경하지 못했습니다: ' + error.message); return; }
     loadTeamTasks();
+  }
+
+  async function toggleTaskDone(id, checked) {
+    await updateTaskStatus(id, checked ? '완료' : '할일');
   }
 
   async function deleteTask(id) {
