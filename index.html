@@ -137,6 +137,15 @@
   .kpi-card-clickable:hover { border-color: rgba(77,124,254,.35); }
   .kpi-card-clickable.active { border-color: #4d7cfe; box-shadow: 0 0 0 2px rgba(77,124,254,.15); }
   #taskAssigneeInput:read-only { background: #f4f5f8; color: #64748b; }
+
+  /* ---- 할일 관리: 전체 보기 담당자별 그룹 헤더 ---- */
+  .task-group-header-row td { padding: 14px 4px 8px; border-bottom: none; }
+  .task-group-header { display: flex; align-items: center; gap: 14px; }
+  .task-group-name { font-size: 13px; font-weight: 800; color: #0f172a; flex-shrink: 0; }
+  .task-group-progress { font-size: 12px; color: #64748b; flex-shrink: 0; }
+  .task-group-bar { flex: 1; max-width: 200px; height: 8px; background: rgba(15,23,42,.07); border-radius: 4px; overflow: hidden; }
+  .task-group-bar-fill { height: 100%; background: linear-gradient(90deg,#4d7cfe,#2f5ce4); border-radius: 4px; }
+  .task-group-pct { font-size: 12px; font-weight: 700; color: #1d4ed8; flex-shrink: 0; width: 36px; text-align: right; }
   .kpi-label { font-size: 14px; font-weight: 700; color: #475569; margin-bottom: 12px; }
   .kpi-label-team { color: #b45309; }
   .kpi-value { font-size: 34px; font-weight: 800; margin-bottom: 10px; }
@@ -4719,16 +4728,8 @@
     }).join('');
   }
 
-  function renderTaskTable() {
-    const note = document.getElementById('taskListNote');
-    const scoped = getAssigneeScopedTasks();
-    const visibleTasks = taskStatusFilter
-      ? scoped.filter(t => t.status === taskStatusFilter)
-      : scoped.filter(t => t.status !== '완료');
-    note.textContent = taskStatusFilter
-      ? visibleTasks.length + '건 (' + taskStatusFilter + ')'
-      : visibleTasks.length + '건 (완료 제외)';
-    document.getElementById('taskTableBody').innerHTML = visibleTasks.map(t => `
+  function taskRowHtml(t) {
+    return `
       <tr>
         <td><input type="checkbox" ${t.status === '완료' ? 'checked' : ''} onchange="toggleTaskDone(${t.id}, this.checked)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(t.category || '')}"
@@ -4751,7 +4752,60 @@
         <td>${t.due_date ? String(t.due_date).slice(0, 10) : ''}</td>
         <td><button class="btn-danger" onclick="deleteTask(${t.id})">삭제</button></td>
       </tr>
-    `).join('');
+    `;
+  }
+
+  function taskGroupHeaderHtml(name, groupAllTasks) {
+    const total = groupAllTasks.length;
+    const done = groupAllTasks.filter(t => t.status === '완료').length;
+    const doing = groupAllTasks.filter(t => t.status === '진행중').length;
+    const todo = groupAllTasks.filter(t => t.status === '할일').length;
+    const pct = total ? Math.round(done / total * 100) : 0;
+    return `
+      <tr class="task-group-header-row">
+        <td colspan="10">
+          <div class="task-group-header">
+            <span class="task-group-name">${escapeAttr(name)}</span>
+            <span class="task-group-progress">완료 ${done} · 진행중 ${doing} · 할일 ${todo} (전체 ${total}건)</span>
+            <div class="task-group-bar"><div class="task-group-bar-fill" style="width:${pct}%"></div></div>
+            <span class="task-group-pct">${pct}%</span>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  function renderTaskTable() {
+    const note = document.getElementById('taskListNote');
+    const scoped = getAssigneeScopedTasks();
+    const visibleTasks = taskStatusFilter
+      ? scoped.filter(t => t.status === taskStatusFilter)
+      : scoped.filter(t => t.status !== '완료');
+    note.textContent = taskStatusFilter
+      ? visibleTasks.length + '건 (' + taskStatusFilter + ')'
+      : visibleTasks.length + '건 (완료 제외)';
+
+    if (currentTaskAssignee) {
+      document.getElementById('taskTableBody').innerHTML = visibleTasks.map(taskRowHtml).join('');
+      return;
+    }
+
+    // 전체 보기에서는 담당자별로 묶어서 업무 진척도와 함께 보여줍니다.
+    const groups = {};
+    visibleTasks.forEach(t => {
+      const key = t.assignee || '담당자 미지정';
+      (groups[key] = groups[key] || []).push(t);
+    });
+    const names = Object.keys(groups).sort((a, b) => {
+      if (a === '담당자 미지정') return 1;
+      if (b === '담당자 미지정') return -1;
+      return a.localeCompare(b);
+    });
+
+    document.getElementById('taskTableBody').innerHTML = names.map(name => {
+      const groupAllTasks = currentTasks.filter(t => (t.assignee || '담당자 미지정') === name);
+      return taskGroupHeaderHtml(name, groupAllTasks) + groups[name].map(taskRowHtml).join('');
+    }).join('') || '<tr><td colspan="10" style="text-align:center; color:#94a3b8; padding:16px;">등록된 할일이 없습니다.</td></tr>';
   }
 
   document.getElementById('taskForm').addEventListener('submit', async (e) => {
