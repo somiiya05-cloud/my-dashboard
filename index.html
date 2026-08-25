@@ -557,6 +557,10 @@
           <div id="navTeamAssignees"></div>
           <div class="nav-item" id="navTeamAccounting" onclick="switchView('team-accounting')"><span class="dot dot-team"></span>사업자·회계</div>
         </div>
+        <div class="nav-group">
+          <div class="nav-label">재고</div>
+          <div class="nav-item" id="navTeamInventory" onclick="switchView('team-inventory')"><span class="dot dot-team"></span>재고 현황</div>
+        </div>
       </div>
 
       <div class="sidebar-footer">
@@ -1403,6 +1407,39 @@
         <textarea class="acct-note-textarea" id="acctExportContent" placeholder="직납수출/간접수출 구분 기준과 영세율 적용 기준을 입력하세요."></textarea>
         <div style="margin-top:10px;">
           <button type="button" class="btn-primary" onclick="saveAccountingNote('export', 'acctExportContent', 'acctExportStatus')">저장</button>
+        </div>
+      </section>
+    </main>
+
+    <main class="main" id="teamInventoryView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>재고 현황</h1>
+          <div class="subtitle">상품별 현재 재고수량을 관리합니다. (현재는 직접 입력 방식이며, 추후 이지어드민 API 연동 시 자동으로 채워지도록 확장할 수 있습니다.)</div>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head"><h2>재고 추가</h2></div>
+        <form class="deal-form" id="inventoryForm">
+          <input type="text" name="brand" placeholder="브랜드" style="width:120px;">
+          <input type="text" name="productName" placeholder="상품명" required style="flex:1; min-width:160px;">
+          <input type="text" name="sku" placeholder="SKU(선택)" style="width:140px;">
+          <input type="number" name="stockQty" placeholder="재고수량" required style="width:110px;">
+          <button type="submit" class="btn-primary">추가</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>상품별 재고</h2>
+          <span class="panel-note" id="inventoryListNote"></span>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead><tr><th>브랜드</th><th>상품명</th><th>SKU</th><th class="num">재고수량</th><th>최근 수정</th><th></th></tr></thead>
+            <tbody id="inventoryTable"></tbody>
+          </table>
         </div>
       </section>
     </main>
@@ -2281,6 +2318,7 @@
     document.getElementById('teamProcessView').style.display = view === 'team-process' ? '' : 'none';
     document.getElementById('teamTasksView').style.display = view === 'team-tasks' ? '' : 'none';
     document.getElementById('teamAccountingView').style.display = view === 'team-accounting' ? '' : 'none';
+    document.getElementById('teamInventoryView').style.display = view === 'team-inventory' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
     document.getElementById('navMonthlyTrend').classList.toggle('active', view === 'monthly-trend');
     document.getElementById('navPipeline').classList.toggle('active', view === 'pipeline');
@@ -2297,6 +2335,7 @@
     document.getElementById('navTeamProcess').classList.toggle('active', view === 'team-process');
     document.getElementById('navTeamTasks').classList.toggle('active', view === 'team-tasks');
     document.getElementById('navTeamAccounting').classList.toggle('active', view === 'team-accounting');
+    document.getElementById('navTeamInventory').classList.toggle('active', view === 'team-inventory');
     document.querySelectorAll('#navMarketingBrands .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'marketing-brand' && el.dataset.channel === brandChannel);
     });
@@ -2324,6 +2363,7 @@
       loadTeamTasks();
     }
     if (view === 'team-accounting') loadTeamAccounting();
+    if (view === 'team-inventory') loadTeamInventory();
   }
 
   // ==================== 품별 (월별 / 일자별 제품 판매 순위) ====================
@@ -4978,6 +5018,76 @@
       return;
     }
     statusEl.textContent = '저장됨 · ' + new Date().toISOString().slice(0, 10);
+  }
+
+  // ==================== 영업팀 - 재고 현황 ====================
+  let currentInventory = [];
+
+  async function loadTeamInventory() {
+    const note = document.getElementById('inventoryListNote');
+    const { data, error } = await client
+      .from('product_inventory')
+      .select('*')
+      .order('brand', { ascending: true });
+    if (error) {
+      note.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
+      return;
+    }
+    currentInventory = data || [];
+    note.textContent = currentInventory.length + '개 상품';
+    renderInventoryTable();
+  }
+
+  function renderInventoryTable() {
+    document.getElementById('inventoryTable').innerHTML = currentInventory.map(item => `
+      <tr>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(item.brand || '')}"
+          onchange="updateInventoryField(${item.id}, 'brand', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(item.product_name || '')}"
+          onchange="updateInventoryField(${item.id}, 'product_name', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(item.sku || '')}"
+          onchange="updateInventoryField(${item.id}, 'sku', this.value)"></td>
+        <td class="num"><input type="number" class="inline-edit num" value="${item.stock_qty != null ? item.stock_qty : 0}"
+          onchange="updateInventoryField(${item.id}, 'stock_qty', this.value)"></td>
+        <td>${item.updated_at ? String(item.updated_at).slice(0, 10) : ''}</td>
+        <td><button class="btn-danger" onclick="deleteInventoryItem(${item.id})">삭제</button></td>
+      </tr>
+    `).join('') || '<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:16px;">등록된 재고가 없습니다.</td></tr>';
+  }
+
+  document.getElementById('inventoryForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const brand = form.brand.value.trim() || null;
+    const productName = form.productName.value.trim();
+    const sku = form.sku.value.trim() || null;
+    const stockQty = form.stockQty.value === '' ? 0 : Number(form.stockQty.value);
+    if (!productName) return;
+    const { error } = await client.from('product_inventory').insert([{
+      brand, product_name: productName, sku, stock_qty: stockQty, updated_at: new Date().toISOString(),
+    }]);
+    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+    form.reset();
+    loadTeamInventory();
+  });
+
+  async function updateInventoryField(id, field, rawValue) {
+    let value = typeof rawValue === 'string' ? rawValue.trim() : rawValue;
+    if (field === 'stock_qty') {
+      value = value === '' ? 0 : Number(value);
+    } else {
+      value = value || null;
+    }
+    const { error } = await client.from('product_inventory').update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadTeamInventory();
+  }
+
+  async function deleteInventoryItem(id) {
+    if (!confirm('이 재고 항목을 삭제할까요?')) return;
+    const { error } = await client.from('product_inventory').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadTeamInventory();
   }
 
   refreshReviewAlertBadge();
