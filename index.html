@@ -137,6 +137,10 @@
   .kpi-card-clickable:hover { border-color: rgba(77,124,254,.35); }
   .kpi-card-clickable.active { border-color: #4d7cfe; box-shadow: 0 0 0 2px rgba(77,124,254,.15); }
   #taskAssigneeInput:read-only { background: #f4f5f8; color: #64748b; }
+  .task-priority-select { font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid transparent; padding: 3px 6px; }
+  .task-priority-select.high { background: rgba(220,38,38,.12); color: #b91c1c; }
+  .task-priority-select.mid { background: rgba(100,116,139,.12); color: #475569; }
+  .task-priority-select.low { background: rgba(100,116,139,.06); color: #94a3b8; }
 
   /* ---- 할일 관리: 전체 보기 담당자별 그룹 헤더 ---- */
   .task-group-header-row td { padding: 14px 4px 8px; border-bottom: none; }
@@ -1311,6 +1315,11 @@
       <section class="panel">
         <div class="panel-head"><h2>할일 추가</h2></div>
         <form class="deal-form" id="taskForm">
+          <select name="priority" style="width:90px;">
+            <option value="보통" selected>보통</option>
+            <option value="높음">높음</option>
+            <option value="낮음">낮음</option>
+          </select>
           <input type="text" name="category" placeholder="구분 (예: 매출/채널)" style="width:130px;">
           <input type="text" name="title" placeholder="업무 내용" required style="flex:1; min-width:140px;">
           <input type="text" name="detail" placeholder="세부 내용/진행사항" style="flex:1; min-width:160px;">
@@ -1331,7 +1340,7 @@
           <table>
             <thead>
               <tr>
-                <th>완료</th><th>구분</th><th>업무 내용</th><th>세부 내용 / 진행사항</th>
+                <th>우선순위</th><th>완료</th><th>구분</th><th>업무 내용</th><th>세부 내용 / 진행사항</th>
                 <th>진행상태</th><th>결과 / 특이사항</th><th>후속 업무</th><th>담당자</th><th>마감일</th><th></th>
               </tr>
             </thead>
@@ -4728,9 +4737,22 @@
     }).join('');
   }
 
+  const TASK_PRIORITIES = ['높음', '보통', '낮음'];
+  function taskPriorityClass(p) {
+    if (p === '높음') return 'high';
+    if (p === '낮음') return 'low';
+    return 'mid';
+  }
+
   function taskRowHtml(t) {
+    const priority = t.priority || '보통';
     return `
       <tr>
+        <td>
+          <select class="task-priority-select ${taskPriorityClass(priority)}" onchange="updateTaskField(${t.id}, 'priority', this.value); this.className = 'task-priority-select ' + taskPriorityClass(this.value);">
+            ${TASK_PRIORITIES.map(p => `<option value="${p}" ${p === priority ? 'selected' : ''}>${p}</option>`).join('')}
+          </select>
+        </td>
         <td><input type="checkbox" ${t.status === '완료' ? 'checked' : ''} onchange="toggleTaskDone(${t.id}, this.checked)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(t.category || '')}"
           onchange="updateTaskField(${t.id}, 'category', this.value)"></td>
@@ -4763,7 +4785,7 @@
     const pct = total ? Math.round(done / total * 100) : 0;
     return `
       <tr class="task-group-header-row">
-        <td colspan="10">
+        <td colspan="11">
           <div class="task-group-header">
             <span class="task-group-name">${escapeAttr(name)}</span>
             <span class="task-group-progress">완료 ${done} · 진행중 ${doing} · 할일 ${todo} (전체 ${total}건)</span>
@@ -4805,12 +4827,13 @@
     document.getElementById('taskTableBody').innerHTML = names.map(name => {
       const groupAllTasks = currentTasks.filter(t => (t.assignee || '담당자 미지정') === name);
       return taskGroupHeaderHtml(name, groupAllTasks) + groups[name].map(taskRowHtml).join('');
-    }).join('') || '<tr><td colspan="10" style="text-align:center; color:#94a3b8; padding:16px;">등록된 할일이 없습니다.</td></tr>';
+    }).join('') || '<tr><td colspan="11" style="text-align:center; color:#94a3b8; padding:16px;">등록된 할일이 없습니다.</td></tr>';
   }
 
   document.getElementById('taskForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
+    const priority = form.priority.value || '보통';
     const category = form.category.value.trim() || null;
     const title = form.title.value.trim();
     const detail = form.detail.value.trim() || null;
@@ -4820,7 +4843,7 @@
     const dueDate = form.dueDate.value || null;
     if (!title) return;
     const { error } = await client.from('team_tasks').insert([{
-      category, title, detail, result_note: resultNote, followup, assignee, due_date: dueDate, status: '할일',
+      priority, category, title, detail, result_note: resultNote, followup, assignee, due_date: dueDate, status: '할일',
     }]);
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
     form.reset();
