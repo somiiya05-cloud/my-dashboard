@@ -144,6 +144,8 @@
 
   /* ---- 할일 관리: 전체 보기 담당자별 그룹 헤더 ---- */
   .task-group-header-row td { padding: 14px 4px 8px; border-bottom: none; }
+  .task-group-header-row.clickable { cursor: pointer; }
+  .task-group-header-row.clickable:hover .task-group-name { color: #1d4ed8; text-decoration: underline; }
   .task-group-header { display: flex; align-items: center; gap: 14px; }
   .task-group-name { font-size: 13px; font-weight: 800; color: #0f172a; flex-shrink: 0; }
   .task-group-progress { font-size: 12px; color: #64748b; flex-shrink: 0; }
@@ -4783,8 +4785,9 @@
     const doing = groupAllTasks.filter(t => t.status === '진행중').length;
     const todo = groupAllTasks.filter(t => t.status === '할일').length;
     const pct = total ? Math.round(done / total * 100) : 0;
+    const clickable = name !== '담당자 미지정';
     return `
-      <tr class="task-group-header-row">
+      <tr class="task-group-header-row${clickable ? ' clickable' : ''}" ${clickable ? `onclick="switchView('team-tasks', '${escapeAttr(name)}')"` : ''}>
         <td colspan="11">
           <div class="task-group-header">
             <span class="task-group-name">${escapeAttr(name)}</span>
@@ -4824,9 +4827,11 @@
       return a.localeCompare(b);
     });
 
+    // 전체 보기에서는 개별 업무 행은 숨기고 담당자별 진척도 요약만 보여줍니다.
+    // (개별 업무는 담당자 이름을 눌러 해당 담당자 탭으로 들어가면 확인할 수 있습니다.)
     document.getElementById('taskTableBody').innerHTML = names.map(name => {
       const groupAllTasks = currentTasks.filter(t => (t.assignee || '담당자 미지정') === name);
-      return taskGroupHeaderHtml(name, groupAllTasks) + groups[name].map(taskRowHtml).join('');
+      return taskGroupHeaderHtml(name, groupAllTasks);
     }).join('') || '<tr><td colspan="11" style="text-align:center; color:#94a3b8; padding:16px;">등록된 할일이 없습니다.</td></tr>';
   }
 
