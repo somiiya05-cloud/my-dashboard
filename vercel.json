@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/sync-meta-ads", "schedule": "0 22 * * *" }
+    { "path": "/api/sync-meta-ads", "schedule": "0 22 * * *" },
+    { "path": "/api/sync-ezadmin-inventory", "schedule": "0 23 * * *" }
   ]
 }

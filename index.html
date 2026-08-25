@@ -1120,6 +1120,24 @@
         </div>
       </section>
 
+      <section class="panel">
+        <div class="panel-head">
+          <h2>재고 연동 (이지어드민)</h2>
+          <span class="panel-note" id="eiListNote"></span>
+        </div>
+        <div class="filter-group" style="margin-bottom: 12px;">
+          <input type="text" id="eiSearchInput" class="vendor-select" placeholder="상품코드 · 상품명 검색" autocomplete="off">
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead>
+              <tr><th>상품코드</th><th>브랜드</th><th>상품명</th><th class="num">재고</th><th class="num">가용재고</th><th>마지막 동기화</th></tr>
+            </thead>
+            <tbody id="eiTable"></tbody>
+          </table>
+        </div>
+      </section>
+
     </main>
 
     <main class="main" id="reviewAlertsView" style="display:none">
@@ -2317,7 +2335,7 @@
     if (view === 'product-ad-ratio') initProductAdRatioView();
     if (view === 'pl') loadPlData();
     if (view === 'product-cost') loadProductCostData();
-    if (view === 'logistics') loadLogisticsData();
+    if (view === 'logistics') { loadLogisticsData(); loadEzadminInventory(); }
     if (view === 'codenit-products') loadCodenitProducts();
     if (view === 'review-alerts') loadReviewAlerts();
     if (view === 'team-process') loadTeamProcess();
@@ -4299,6 +4317,76 @@
     form.reset();
     loadLogisticsData();
   });
+
+  // ==================== 재고 연동 (이지어드민) ====================
+  let allEzadminInventoryRows = [];
+  let eiSearchQuery = '';
+  let eiFiltersInitDone = false;
+
+  async function loadEzadminInventory() {
+    const note = document.getElementById('eiListNote');
+    const [invRes, costRes] = await Promise.all([
+      client.from('product_inventory').select('*'),
+      client.from('product_cost').select('product_code,brand,product_name')
+    ]);
+    if (invRes.error) {
+      note.innerHTML = '<span class="error">불러오지 못했습니다: ' + invRes.error.message + '</span>';
+      return;
+    }
+    const costByCode = {};
+    (costRes.data || []).forEach(r => {
+      if (r.product_code) costByCode[r.product_code] = r;
+    });
+    allEzadminInventoryRows = (invRes.data || []).map(r => ({
+      ...r,
+      brand: costByCode[r.product_id] ? costByCode[r.product_id].brand : '',
+      product_name: costByCode[r.product_id] ? costByCode[r.product_id].product_name : ''
+    }));
+    setupEiFilters();
+    renderEiTable();
+  }
+
+  function setupEiFilters() {
+    if (eiFiltersInitDone) return;
+    eiFiltersInitDone = true;
+    document.getElementById('eiSearchInput').addEventListener('input', (e) => {
+      eiSearchQuery = e.target.value.trim().toLowerCase();
+      renderEiTable();
+    });
+  }
+
+  function renderEiTable() {
+    const note = document.getElementById('eiListNote');
+    if (allEzadminInventoryRows.length === 0) {
+      note.textContent = '아직 동기화된 재고가 없습니다. 이지어드민 API 키(파트너키·업체키)가 Vercel에 설정되면 매일 자동으로 재고가 동기화됩니다.';
+      document.getElementById('eiTable').innerHTML = '';
+      return;
+    }
+    const q = eiSearchQuery;
+    const rows = allEzadminInventoryRows.filter(r => {
+      if (q) {
+        const hay = `${r.product_id || ''} ${r.product_name || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    note.textContent = `${rows.length.toLocaleString('ko-KR')}개 표시 중 (전체 ${allEzadminInventoryRows.length.toLocaleString('ko-KR')}개)`;
+
+    document.getElementById('eiTable').innerHTML = rows.map(r => {
+      const available = (r.stock != null && r.ready_trans_stock != null) ? (Number(r.stock) - Number(r.ready_trans_stock)) : r.stock;
+      return `
+        <tr>
+          <td>${r.product_id || ''}</td>
+          <td>${r.brand || ''}</td>
+          <td>${r.product_name || ''}</td>
+          <td class="num">${r.stock != null ? Number(r.stock).toLocaleString('ko-KR') : '-'}</td>
+          <td class="num">${available != null ? Number(available).toLocaleString('ko-KR') : '-'}</td>
+          <td>${r.synced_at ? new Date(r.synced_at).toLocaleString('ko-KR') : '-'}</td>
+        </tr>
+      `;
+    }).join('');
+  }
 
   // ==================== 코드니처 자사몰 상품 ====================
   let allCodenitProducts = [];
