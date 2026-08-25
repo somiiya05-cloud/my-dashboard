@@ -1335,7 +1335,7 @@
 
       <section class="panel">
         <div class="panel-head">
-          <h2>일별 업무일지</h2>
+          <h2 id="taskLogTitle">담당자별 업무 진척도</h2>
           <span class="panel-note" id="taskListNote"></span>
         </div>
         <div class="scroll-box">
@@ -4673,16 +4673,19 @@
     const title = document.getElementById('taskViewTitle');
     const subtitle = document.getElementById('taskViewSubtitle');
     const assigneeInput = document.getElementById('taskAssigneeInput');
+    const logTitle = document.getElementById('taskLogTitle');
     if (currentTaskAssignee) {
       title.textContent = currentTaskAssignee + '의 할일 관리';
       subtitle.textContent = currentTaskAssignee + '님에게 배정된 업무를 관리합니다.';
       assigneeInput.value = currentTaskAssignee;
       assigneeInput.readOnly = true;
+      logTitle.textContent = currentTaskAssignee + '의 일별 업무일지';
     } else {
       title.textContent = '업무 분배 · 할일 관리';
       subtitle.textContent = '팀원별 업무를 등록하고 진행 상태를 관리합니다.';
       assigneeInput.readOnly = false;
       assigneeInput.value = '';
+      logTitle.textContent = '담당자별 업무 진척도';
     }
   }
 
