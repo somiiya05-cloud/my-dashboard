@@ -557,6 +557,10 @@
           <div id="navTeamAssignees"></div>
           <div class="nav-item" id="navTeamAccounting" onclick="switchView('team-accounting')"><span class="dot dot-team"></span>사업자·회계</div>
         </div>
+        <div class="nav-group">
+          <div class="nav-label">물류</div>
+          <div class="nav-item" id="navTeamLogistics" onclick="switchView('logistics')"><span class="dot dot-pl"></span>물류 대시보드</div>
+        </div>
       </div>
 
       <div class="sidebar-footer">
@@ -2291,6 +2295,7 @@
     document.getElementById('navPl').classList.toggle('active', view === 'pl');
     document.getElementById('navProductCost').classList.toggle('active', view === 'product-cost');
     document.getElementById('navLogistics').classList.toggle('active', view === 'logistics');
+    document.getElementById('navTeamLogistics').classList.toggle('active', view === 'logistics');
     document.getElementById('navCodenitProducts').classList.toggle('active', view === 'codenit-products');
     document.getElementById('navReviewAlerts').classList.toggle('active', view === 'review-alerts');
     document.getElementById('navTeamOverview').classList.toggle('active', view === 'team-overview');
