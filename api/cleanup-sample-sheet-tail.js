@@ -87,11 +87,25 @@ module.exports = async function handler(req, res) {
         }),
       }
     );
+    const batchJson = await batchRes.json();
     if (!batchRes.ok) {
-      return res.status(500).json({ error: 'sheets_delete_error', detail: await batchRes.text() });
+      return res.status(500).json({ error: 'sheets_delete_error', detail: batchJson });
     }
 
-    return res.status(200).json({ ok: true, deletedRows: rowCount });
+    // 삭제 직후 같은 범위를 다시 읽어서 실제로 바뀌었는지 확인합니다(진단용).
+    const verifyRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A${START_ROW_1INDEXED}:P${END_ROW_1INDEXED}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const verifyValues = verifyRes.ok ? (await verifyRes.json()).values || [] : null;
+
+    return res.status(200).json({
+      ok: true,
+      deletedRows: rowCount,
+      batchUpdateResponse: batchJson,
+      beforeValues: values,
+      afterValuesAtSameRange: verifyValues,
+    });
   } catch (err) {
     return res.status(500).json({ error: 'unexpected_error', detail: String(err) });
   }
