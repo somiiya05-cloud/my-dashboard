@@ -532,6 +532,7 @@
         <div class="nav-group">
           <div class="nav-label">물류</div>
           <div class="nav-item" id="navLogistics" onclick="switchView('logistics')"><span class="dot dot-pl"></span>물류 대시보드</div>
+          <div class="nav-item" id="navSampleSync" onclick="switchView('sample-sync')"><span class="dot dot-pl"></span>샘플연동</div>
         </div>
         <div class="nav-group">
           <div class="nav-label">CS</div>
@@ -1140,6 +1141,32 @@
         </div>
       </section>
 
+    </main>
+
+    <main class="main" id="sampleSyncView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>샘플연동</h1>
+          <div class="subtitle">신규 샘플 출고 요청을 등록하면 구글시트 "[기획팀] 샘플 출고 요청 리스트"에 자동으로 추가됩니다.</div>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head"><h2>샘플 출고 요청 추가</h2></div>
+        <form class="deal-form" id="sampleSyncForm">
+          <input type="text" name="requester" placeholder="요청자" required style="width:100px;">
+          <input type="date" name="desiredDate" style="width:150px;" title="희망 수령일">
+          <input type="text" name="productOption" placeholder="상품명 / 옵션" required style="flex:1; min-width:180px;">
+          <input type="number" name="quantity" placeholder="수량" min="1" style="width:80px;">
+          <input type="text" name="recipientName" placeholder="수령자명" style="width:90px;">
+          <input type="text" name="recipientPhone" placeholder="수령자 연락처" style="width:130px;">
+          <input type="text" name="recipientAddress" placeholder="수령 주소지" style="flex:1; min-width:200px;">
+          <input type="text" name="purpose" placeholder="사용목적" style="width:110px;">
+          <input type="text" name="note" placeholder="요청사항" style="flex:1; min-width:140px;">
+          <button type="submit" class="btn-primary">추가</button>
+        </form>
+        <span class="panel-note" id="sampleSyncStatus"></span>
+      </section>
     </main>
 
     <main class="main" id="reviewAlertsView" style="display:none">
@@ -2278,6 +2305,7 @@
     document.getElementById('plView').style.display = view === 'pl' ? '' : 'none';
     document.getElementById('productCostView').style.display = view === 'product-cost' ? '' : 'none';
     document.getElementById('logisticsView').style.display = view === 'logistics' ? '' : 'none';
+    document.getElementById('sampleSyncView').style.display = view === 'sample-sync' ? '' : 'none';
     document.getElementById('codenitProductsView').style.display = view === 'codenit-products' ? '' : 'none';
     document.getElementById('reviewAlertsView').style.display = view === 'review-alerts' ? '' : 'none';
     document.getElementById('teamOverviewView').style.display = view === 'team-overview' ? '' : 'none';
@@ -2294,6 +2322,7 @@
     document.getElementById('navPl').classList.toggle('active', view === 'pl');
     document.getElementById('navProductCost').classList.toggle('active', view === 'product-cost');
     document.getElementById('navLogistics').classList.toggle('active', view === 'logistics');
+    document.getElementById('navSampleSync').classList.toggle('active', view === 'sample-sync');
     document.getElementById('navCodenitProducts').classList.toggle('active', view === 'codenit-products');
     document.getElementById('navReviewAlerts').classList.toggle('active', view === 'review-alerts');
     document.getElementById('navTeamOverview').classList.toggle('active', view === 'team-overview');
@@ -4430,6 +4459,43 @@
     };
     reader.readAsArrayBuffer(file);
   }
+
+  // ==================== 샘플연동 (구글시트) ====================
+  document.getElementById('sampleSyncForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const status = document.getElementById('sampleSyncStatus');
+    const payload = {
+      requester: form.requester.value.trim(),
+      desiredDate: form.desiredDate.value || '',
+      productOption: form.productOption.value.trim(),
+      quantity: form.quantity.value.trim(),
+      recipientName: form.recipientName.value.trim(),
+      recipientPhone: form.recipientPhone.value.trim(),
+      recipientAddress: form.recipientAddress.value.trim(),
+      purpose: form.purpose.value.trim(),
+      note: form.note.value.trim(),
+    };
+    if (!payload.requester || !payload.productOption) return;
+
+    status.textContent = '추가하는 중...';
+    try {
+      const res = await fetch('/api/add-sample-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        status.innerHTML = '<span class="error">추가하지 못했습니다: ' + (json.detail || json.error || '') + '</span>';
+        return;
+      }
+      status.textContent = 'NO.' + json.no + ' 로 구글시트에 추가되었습니다.';
+      form.reset();
+    } catch (err) {
+      status.innerHTML = '<span class="error">추가하지 못했습니다: ' + err.message + '</span>';
+    }
+  });
 
   // ==================== 코드니처 자사몰 상품 ====================
   let allCodenitProducts = [];
