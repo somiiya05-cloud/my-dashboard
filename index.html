@@ -153,6 +153,9 @@
   .task-week-item.high { background: rgba(220,38,38,.1); color: #b91c1c; }
   .task-week-item.low { background: rgba(100,116,139,.06); color: #94a3b8; }
   .task-week-status { font-size: 11px; font-weight: 700; opacity: .7; }
+  .task-week-assignee-group { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px; margin-bottom: 8px; }
+  .task-week-assignee-group:last-child { margin-bottom: 0; }
+  .task-week-assignee-name { font-size: 12px; font-weight: 800; color: #0f172a; margin-right: 6px; flex-shrink: 0; }
 
   /* ---- 할일 관리: 전체 보기 담당자별 그룹 헤더 ---- */
   .task-group-header-row td { padding: 14px 4px 8px; border-bottom: none; }
@@ -5302,12 +5305,33 @@
     document.getElementById('taskWeeklyBody').innerHTML = keys.length
       ? keys.map(key => {
           const g = groups[key];
-          const items = g.tasks.map(t => `
-            <span class="task-week-item ${taskPriorityClass(t.priority || '보통')}">
-              ${currentTaskAssignee ? '' : `<b>${escapeAttr(t.assignee || '미지정')}</b> · `}${escapeAttr(t.title || '(제목없음)')} <span class="task-week-status">· ${t.status}</span>
-            </span>
-          `).join('');
-          return `<tr><td class="task-week-label">${g.label}</td><td>${items}</td></tr>`;
+          const byAssignee = {};
+          g.tasks.forEach(t => {
+            const name = t.assignee || '담당자 미지정';
+            (byAssignee[name] = byAssignee[name] || []).push(t);
+          });
+          const assigneeNames = Object.keys(byAssignee).sort((a, b) => {
+            if (a === '담당자 미지정') return 1;
+            if (b === '담당자 미지정') return -1;
+            return a.localeCompare(b);
+          });
+          const cell = currentTaskAssignee
+            ? g.tasks.map(t => `
+                <span class="task-week-item ${taskPriorityClass(t.priority || '보통')}">
+                  ${escapeAttr(t.title || '(제목없음)')} <span class="task-week-status">· ${t.status}</span>
+                </span>
+              `).join('')
+            : assigneeNames.map(name => `
+                <div class="task-week-assignee-group">
+                  <span class="task-week-assignee-name">${escapeAttr(name)}</span>
+                  ${byAssignee[name].map(t => `
+                    <span class="task-week-item ${taskPriorityClass(t.priority || '보통')}">
+                      ${escapeAttr(t.title || '(제목없음)')} <span class="task-week-status">· ${t.status}</span>
+                    </span>
+                  `).join('')}
+                </div>
+              `).join('');
+          return `<tr><td class="task-week-label">${g.label}</td><td>${cell}</td></tr>`;
         }).join('')
       : '<tr><td colspan="2" style="text-align:center; color:#94a3b8; padding:16px;">시작일/마감일이 등록된 업무가 없습니다.</td></tr>';
   }
