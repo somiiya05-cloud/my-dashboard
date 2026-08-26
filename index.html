@@ -5312,18 +5312,55 @@
     return 0;
   }
 
+  // 연속된 행의 업무분류가 같으면 하나로 합쳐서(rowspan) 보여줍니다.
+  function taskReportRowsHtml(tasks) {
+    const rows = [];
+    let idx = 0;
+    while (idx < tasks.length) {
+      const cat = tasks[idx].category || '';
+      let span = 1;
+      while (idx + span < tasks.length && (tasks[idx + span].category || '') === cat) span++;
+      const groupIds = tasks.slice(idx, idx + span).map(t => t.id).join(',');
+      for (let j = 0; j < span; j++) {
+        const t = tasks[idx + j];
+        const categoryCell = j === 0
+          ? `<td rowspan="${span}"><input type="text" class="inline-edit" value="${escapeAttr(cat)}"
+              onchange="updateTaskCategoryGroup([${groupIds}], this.value)"></td>`
+          : '';
+        rows.push(`
+          <tr>
+            <td>${idx + j + 1}</td>
+            ${categoryCell}
+            <td class="task-report-name"><input type="text" class="inline-edit" value="${escapeAttr(t.title || '')}"
+              onchange="updateTaskField(${t.id}, 'title', this.value)"></td>
+            <td class="task-report-detail"><input type="text" class="inline-edit" value="${escapeAttr(t.detail || '')}"
+              onchange="updateTaskField(${t.id}, 'detail', this.value)"></td>
+            <td><input type="date" class="inline-edit" value="${t.due_date ? String(t.due_date).slice(0, 10) : ''}"
+              onchange="updateTaskField(${t.id}, 'due_date', this.value)"></td>
+            <td>
+              <select class="inline-edit" onchange="updateTaskStatus(${t.id}, this.value)">
+                ${TASK_STATUSES.map(s => `<option value="${s}" ${s === t.status ? 'selected' : ''}>${s} (${taskProgressPct(s)}%)</option>`).join('')}
+              </select>
+            </td>
+            <td class="task-report-detail"><input type="text" class="inline-edit" value="${escapeAttr(t.result_note || '')}"
+              onchange="updateTaskField(${t.id}, 'result_note', this.value)"></td>
+          </tr>
+        `);
+      }
+      idx += span;
+    }
+    return rows.join('') || '<tr><td colspan="7" class="task-report-empty">해당 주차에 등록된 업무가 없습니다.</td></tr>';
+  }
+
+  async function updateTaskCategoryGroup(ids, rawValue) {
+    const value = rawValue.trim() || null;
+    const { error } = await client.from('team_tasks').update({ category: value }).in('id', ids);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadTeamTasks();
+  }
+
   function taskReportBlockHtml(range, assigneeName, tasks) {
-    const rows = tasks.map((t, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${escapeAttr(t.category || '')}</td>
-        <td class="task-report-name">${escapeAttr(t.title || '')}</td>
-        <td class="task-report-detail">${escapeAttr(t.detail || '')}</td>
-        <td>${t.due_date ? String(t.due_date).slice(0, 10) : ''}</td>
-        <td>${taskProgressPct(t.status)}%</td>
-        <td class="task-report-detail">${escapeAttr(t.result_note || '')}</td>
-      </tr>
-    `).join('') || '<tr><td colspan="7" class="task-report-empty">해당 주차에 등록된 업무가 없습니다.</td></tr>';
+    const rows = taskReportRowsHtml(tasks);
 
     const nextPlans = tasks.map(t => t.followup).filter(Boolean);
     const nextText = nextPlans.length ? nextPlans.map(escapeAttr).join('\n') : '';
