@@ -5376,8 +5376,15 @@
     return 'todo';
   }
 
-  // 연속된 행의 업무분류가 같으면 하나로 합쳐서(rowspan) 보여줍니다.
-  function taskReportRowsHtml(tasks) {
+  // 업무분류가 같은 업무끼리 먼저 모아서 정렬한 뒤(미지정은 맨 뒤), 같은 분류를 하나로 합쳐서(rowspan) 보여줍니다.
+  function taskReportRowsHtml(rawTasks) {
+    const tasks = rawTasks.slice().sort((a, b) => {
+      const ca = a.category || '';
+      const cb = b.category || '';
+      if (!ca && cb) return 1;
+      if (ca && !cb) return -1;
+      return ca.localeCompare(cb, 'ko');
+    });
     const rows = [];
     let idx = 0;
     while (idx < tasks.length) {
