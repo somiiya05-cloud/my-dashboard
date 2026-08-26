@@ -1202,7 +1202,11 @@
         <form class="deal-form" id="sampleSyncForm">
           <input type="text" name="requester" placeholder="요청자" required style="width:100px;">
           <input type="date" name="desiredDate" style="width:150px;" title="희망 수령일">
-          <input type="text" name="productOption" placeholder="상품명 / 옵션" required style="flex:1; min-width:180px;">
+          <div class="searchable-select" id="sampleProductSelectWrap" style="flex:1; min-width:180px;">
+            <input type="text" name="productOption" id="sampleProductInput" class="searchable-select-input"
+              placeholder="상품명 / 옵션 검색" required autocomplete="off" style="width:100%;">
+            <div class="searchable-select-dropdown" id="sampleProductDropdown"></div>
+          </div>
           <input type="number" name="quantity" placeholder="수량" min="1" style="width:80px;">
           <input type="text" name="recipientName" placeholder="수령자명" style="width:90px;">
           <input type="text" name="recipientPhone" placeholder="수령자 연락처" style="width:130px;">
@@ -2444,7 +2448,7 @@
     if (view === 'pl') loadPlData();
     if (view === 'product-cost') loadProductCostData();
     if (view === 'logistics') { loadLogisticsData(); loadEzadminInventory(); }
-    if (view === 'sample-sync') loadSampleRequests();
+    if (view === 'sample-sync') { loadSampleRequests(); setupSampleProductSelect(); loadSampleProductList(); }
     if (view === 'codenit-products') loadCodenitProducts();
     if (view === 'review-alerts') loadReviewAlerts();
     if (view === 'team-process') loadTeamProcess();
@@ -4618,6 +4622,64 @@
   }
 
   // ==================== 샘플연동 (구글시트) ====================
+  // 상품명/옵션 입력을 구글시트 "상품리스트NEW" 탭 목록(619개)으로 검색·선택할 수 있게 합니다.
+  let sampleProductList = null; // null = 아직 안 불러옴
+  async function loadSampleProductList() {
+    if (sampleProductList) return sampleProductList;
+    try {
+      const res = await fetch('/api/get-sample-product-list');
+      const json = await res.json();
+      sampleProductList = res.ok ? (json.products || []) : [];
+    } catch (err) {
+      sampleProductList = [];
+    }
+    return sampleProductList;
+  }
+
+  let sampleProductFiltersInitDone = false;
+  function setupSampleProductSelect() {
+    if (sampleProductFiltersInitDone) return;
+    sampleProductFiltersInitDone = true;
+    const input = document.getElementById('sampleProductInput');
+    const dropdown = document.getElementById('sampleProductDropdown');
+
+    async function renderDropdown(filterText) {
+      const list = await loadSampleProductList();
+      const q = (filterText || '').trim().toLowerCase();
+      const filtered = q ? list.filter(p => p.toLowerCase().includes(q)) : list;
+      const shown = filtered.slice(0, 200);
+      let html;
+      if (!list.length) {
+        html = `<div class="searchable-select-empty">상품 목록을 불러오지 못했습니다. 직접 입력해도 등록됩니다.</div>`;
+      } else if (!shown.length) {
+        html = `<div class="searchable-select-empty">검색 결과가 없습니다 (직접 입력해도 등록됩니다)</div>`;
+      } else {
+        html = shown.map(p => `<div class="searchable-select-option" data-value="${escapeAttr(p)}">${escapeAttr(p)}</div>`).join('');
+        if (filtered.length > shown.length) {
+          html += `<div class="searchable-select-empty">외 ${(filtered.length - shown.length).toLocaleString('ko-KR')}건 더 있음 · 검색어로 좁혀보세요</div>`;
+        }
+      }
+      dropdown.innerHTML = html;
+      dropdown.classList.add('open');
+    }
+
+    input.addEventListener('focus', () => renderDropdown(input.value));
+    input.addEventListener('input', () => renderDropdown(input.value));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { dropdown.classList.remove('open'); input.blur(); }
+    });
+    dropdown.addEventListener('mousedown', (e) => {
+      const opt = e.target.closest('.searchable-select-option');
+      if (!opt) return;
+      e.preventDefault();
+      input.value = opt.dataset.value;
+      dropdown.classList.remove('open');
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#sampleProductSelectWrap')) dropdown.classList.remove('open');
+    });
+  }
+
   document.getElementById('sampleSyncForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
