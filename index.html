@@ -2633,7 +2633,7 @@
     const roas = totalSpend > 0 ? (totalRevenue / totalSpend * 100) : 0;
     const cac = totalConversions > 0 ? (totalSpend / totalConversions) : 0; // 아래 채널별 성과 표의 합계·평균(CPA) 행에서 사용
     const cvr = totalClicks > 0 ? (totalConversions / totalClicks * 100) : 0;
-    const budgetPct = Math.min(999, totalSpend / MARKETING_MONTHLY_BUDGET * 100);
+    const budgetPct = totalSpend / MARKETING_MONTHLY_BUDGET * 100;
     const monthNum = monthStr ? Number(monthStr.split('-')[1]) : null;
 
     // "전체 매출" 카드와 광고비중은 실제 매출 원장(sales_transactions) 기준으로 계산합니다.
@@ -2863,7 +2863,7 @@
 
     const roas = totalSpend > 0 ? (totalRevenue / totalSpend * 100) : 0;
     const cvr = totalClicks > 0 ? (totalConversions / totalClicks * 100) : 0;
-    const budgetPct = Math.min(999, totalSpend / MARKETING_MONTHLY_BUDGET * 100);
+    const budgetPct = totalSpend / MARKETING_MONTHLY_BUDGET * 100;
     const monthNum = monthStr ? Number(monthStr.split('-')[1]) : null;
 
     // "전체 매출" 카드와 광고비중은 실제 매출 원장(sales_transactions)에서 이 브랜드에 해당하는 매출로 계산합니다.
