@@ -1399,7 +1399,7 @@
 
       <section class="kpi-row" id="taskCards"></section>
 
-      <section class="panel">
+      <section class="panel" id="taskFormPanel" style="display:none">
         <div class="panel-head"><h2>할일 추가</h2></div>
         <form class="deal-form" id="taskForm">
           <select name="priority" style="width:90px;">
@@ -5064,6 +5064,7 @@
     const subtitle = document.getElementById('taskViewSubtitle');
     const logTitle = document.getElementById('taskLogTitle');
     const assigneeInput = document.getElementById('taskAssigneeInput');
+    document.getElementById('taskFormPanel').style.display = currentTaskAssignee ? '' : 'none';
     if (currentTaskAssignee) {
       title.textContent = currentTaskAssignee + '의 할일 관리';
       subtitle.textContent = currentTaskAssignee + '님에게 배정된 업무를 관리합니다.';
