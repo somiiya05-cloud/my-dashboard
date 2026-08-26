@@ -1,14 +1,16 @@
 // 일회성 정리용 스크립트: "[기획팀] 샘플 출고 요청 리스트" 시트("2026" 탭) 맨 끝에 남아있던
-// 예전 테스트 잔재 빈 줄(번호만 있거나 "진행전"만 남은 줄) 5개를 지웁니다.
-// 삭제 전에 해당 행들이 정말 예상한 빈 패턴인지 다시 확인하고, 하나라도 다르면 아무것도 지우지 않고 중단합니다.
+// 예전 테스트 잔재 빈 줄(번호만 있거나 "진행전"만 남은 줄)을 지웁니다.
+//
+// 고정된 행 번호 대신, 라이브 데이터에서 "요청자(B열)가 실제로 채워진 마지막 행"을 직접 찾아서
+// 그 다음 행부터 시트의 진짜 마지막 행까지를 삭제 대상으로 삼습니다(구글시트 공개 CSV 내보내기는
+// 캐시가 걸려 실제 행 번호와 어긋날 수 있어 쓰지 않습니다).
+// 삭제 전 대상 행들에 요청자/상품명이 하나라도 있으면 즉시 중단합니다.
 //
 // 같은 GOOGLE_OAUTH_* 환경변수를 재사용합니다. 정리가 끝나면 이 파일은 삭제할 예정입니다.
 
 const SPREADSHEET_ID = '1wG0zBTGreD_ClMiSz-iJBplgCMjQPTD7xIdV3jfMqFA';
 const SHEET_NAME = '2026';
 const SHEET_ID = 1670467574; // "2026" 탭의 내부 sheetId (gid)
-const START_ROW_1INDEXED = 645; // 지울 첫 행 (사람이 보는 행 번호)
-const END_ROW_1INDEXED = 649;   // 지울 마지막 행 (포함)
 
 async function getAccessToken(clientId, clientSecret, refreshToken) {
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -38,35 +40,51 @@ module.exports = async function handler(req, res) {
 
   try {
     const accessToken = await getAccessToken(clientId, clientSecret, refreshToken);
+    const headers = { Authorization: `Bearer ${accessToken}` };
 
-    const rangeRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A${START_ROW_1INDEXED}:P${END_ROW_1INDEXED}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    if (!rangeRes.ok) {
-      return res.status(500).json({ error: 'sheets_read_error', detail: await rangeRes.text() });
+    const [colARes, colBRes, colERes, colLRes] = await Promise.all([
+      fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A:A`, { headers }),
+      fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!B:B`, { headers }),
+      fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!E:E`, { headers }),
+      fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!L:L`, { headers }),
+    ]);
+    if (!colARes.ok || !colBRes.ok || !colERes.ok || !colLRes.ok) {
+      return res.status(500).json({ error: 'sheets_read_error' });
     }
-    const values = (await rangeRes.json()).values || [];
+    const colA = (await colARes.json()).values || [];
+    const colB = (await colBRes.json()).values || [];
+    const colE = (await colERes.json()).values || [];
+    const colL = (await colLRes.json()).values || [];
 
-    // 안전장치: 5개 행 모두 "번호(A열)만 있고 B~K열은 비어있음" 이거나
-    // "완전히 비어있음" 또는 "L열에 진행전만 있고 나머지는 비어있음" 패턴이어야만 삭제를 진행합니다.
-    const isExpectedRow = (row) => {
-      const cells = row || [];
-      const hasRequester = (cells[1] || '').trim(); // B열: 요청자
-      const hasProduct = (cells[4] || '').trim(); // E열: 상품명/옵션
-      if (hasRequester || hasProduct) return false; // 실제 요청 데이터가 있으면 절대 지우지 않음
-      return true;
-    };
-    const rowCount = END_ROW_1INDEXED - START_ROW_1INDEXED + 1;
-    for (let i = 0; i < rowCount; i++) {
-      if (!isExpectedRow(values[i])) {
+    const totalRows = Math.max(colA.length, colB.length, colE.length, colL.length);
+
+    // 요청자(B열)가 실제로 채워진 마지막 행(1-indexed)을 찾습니다. 1행은 헤더.
+    let lastFilledRow = 1;
+    for (let i = totalRows - 1; i >= 1; i--) {
+      if (colB[i] && String(colB[i][0] || '').trim()) { lastFilledRow = i + 1; break; }
+    }
+
+    if (totalRows <= lastFilledRow) {
+      return res.status(200).json({ ok: true, deletedRows: 0, detail: '정리할 빈 줄이 없습니다.', lastFilledRow, totalRows });
+    }
+
+    // lastFilledRow 다음 행부터 시트 끝까지가 삭제 대상. 안전장치로 그 구간에
+    // 요청자(B) 또는 상품명(E)이 하나라도 있으면 중단합니다.
+    for (let i = lastFilledRow; i < totalRows; i++) {
+      const b = (colB[i] && colB[i][0]) || '';
+      const e = (colE[i] && colE[i][0]) || '';
+      if (String(b).trim() || String(e).trim()) {
         return res.status(409).json({
           error: 'unexpected_row_content',
-          detail: `${START_ROW_1INDEXED + i}행에 예상하지 못한 데이터가 있어 삭제를 중단했습니다.`,
-          row: values[i] || null,
+          detail: `${i + 1}행에 요청자/상품명이 있어 삭제를 중단했습니다.`,
+          row: i + 1, requester: b, product: e,
         });
       }
     }
+
+    const startRow1Indexed = lastFilledRow + 1;
+    const endRow1Indexed = totalRows;
+    const rowCount = endRow1Indexed - startRow1Indexed + 1;
 
     const batchRes = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`,
@@ -79,8 +97,8 @@ module.exports = async function handler(req, res) {
               range: {
                 sheetId: SHEET_ID,
                 dimension: 'ROWS',
-                startIndex: START_ROW_1INDEXED - 1,
-                endIndex: END_ROW_1INDEXED,
+                startIndex: startRow1Indexed - 1,
+                endIndex: endRow1Indexed,
               },
             },
           }],
@@ -92,19 +110,12 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: 'sheets_delete_error', detail: batchJson });
     }
 
-    // 삭제 직후 같은 범위를 다시 읽어서 실제로 바뀌었는지 확인합니다(진단용).
-    const verifyRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A${START_ROW_1INDEXED}:P${END_ROW_1INDEXED}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    const verifyValues = verifyRes.ok ? (await verifyRes.json()).values || [] : null;
-
     return res.status(200).json({
       ok: true,
       deletedRows: rowCount,
-      batchUpdateResponse: batchJson,
-      beforeValues: values,
-      afterValuesAtSameRange: verifyValues,
+      deletedRange: `${startRow1Indexed}~${endRow1Indexed}`,
+      lastFilledRow,
+      totalRowsBefore: totalRows,
     });
   } catch (err) {
     return res.status(500).json({ error: 'unexpected_error', detail: String(err) });
