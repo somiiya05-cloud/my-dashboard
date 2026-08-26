@@ -5,41 +5,26 @@
 //    최종 경로: api/add-sample-request.js
 //
 // 필요한 Vercel 환경변수:
-//   GOOGLE_SERVICE_ACCOUNT_EMAIL       - 구글 클라우드 서비스 계정 이메일
-//   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY - 그 서비스 계정의 비공개 키(private_key, PEM 형식 그대로)
+//   GOOGLE_OAUTH_CLIENT_ID     - OAuth 클라이언트 ID (Google Cloud Console > API 및 서비스 > 사용자 인증 정보)
+//   GOOGLE_OAUTH_CLIENT_SECRET - 그 클라이언트의 보안 비밀번호
+//   GOOGLE_OAUTH_REFRESH_TOKEN - 시트 편집 권한이 있는 구글 계정으로 한 번 로그인해서 발급받은 리프레시 토큰
 //
-// 이 서비스 계정 이메일을 대상 구글시트에 "편집자"로 공유해줘야 합니다.
-// 두 환경변수가 없으면 이 함수는 오류를 반환합니다(설정 전까지는 사용할 수 없음을 안내).
-
-const crypto = require('crypto');
+// 이 방식은 실제 구글 계정(시트 편집 권한을 이미 가진 계정)의 권한을 위임받아 쓰는 방식이라
+// 서비스 계정과 달리 시트를 별도로 공유해줄 필요가 없습니다.
+// 세 환경변수가 없으면 이 함수는 오류를 반환합니다(설정 전까지는 사용할 수 없음을 안내).
 
 const SPREADSHEET_ID = '1wG0zBTGreD_ClMiSz-iJBplgCMjQPTD7xIdV3jfMqFA';
 const SHEET_NAME = '2026';
 
-function base64url(input) {
-  return Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-async function getAccessToken(clientEmail, privateKey) {
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: 'RS256', typ: 'JWT' };
-  const payload = {
-    iss: clientEmail,
-    scope: 'https://www.googleapis.com/auth/spreadsheets',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now,
-  };
-  const unsigned = `${base64url(JSON.stringify(header))}.${base64url(JSON.stringify(payload))}`;
-  const signature = crypto.sign('RSA-SHA256', Buffer.from(unsigned), privateKey);
-  const jwt = `${unsigned}.${base64url(signature)}`;
-
+async function getAccessToken(clientId, clientSecret, refreshToken) {
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
     }),
   });
   const tokenJson = await tokenRes.json();
@@ -54,15 +39,15 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'method_not_allowed' });
   }
 
-  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKeyRaw = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
-  if (!clientEmail || !privateKeyRaw) {
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+  if (!clientId || !clientSecret || !refreshToken) {
     return res.status(500).json({
       error: 'missing_env_vars',
-      detail: 'GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY 환경변수가 아직 설정되지 않았습니다.',
+      detail: 'GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET / GOOGLE_OAUTH_REFRESH_TOKEN 환경변수가 아직 설정되지 않았습니다.',
     });
   }
-  const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
 
   const body = req.body || {};
   const requester = String(body.requester || '').trim();
@@ -72,7 +57,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const accessToken = await getAccessToken(clientEmail, privateKey);
+    const accessToken = await getAccessToken(clientId, clientSecret, refreshToken);
 
     // 마지막 NO. 값을 읽어서 다음 번호를 계산합니다.
     const colARes = await fetch(
