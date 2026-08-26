@@ -59,20 +59,36 @@ module.exports = async function handler(req, res) {
   try {
     const accessToken = await getAccessToken(clientId, clientSecret, refreshToken);
 
-    // 마지막 NO. 값을 읽어서 다음 번호를 계산합니다.
+    // 시트 중간에 번호만 있고 나머지가 비어있는 행(예전 테스트 잔재 등)이 있으면
+    // append가 그 다음 빈 줄로 밀려 들어가면서 앞의 빈 줄이 계속 남아있게 됩니다.
+    // 그래서 "번호"가 아니라 "요청자(B열)가 실제로 채워진 마지막 행"을 기준으로 다음 행을 정하고,
+    // append 대신 그 정확한 행 번호에 직접 써서 중간의 빈 줄부터 순서대로 채워지게 합니다.
+    const colBRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!B:B`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!colBRes.ok) {
+      const errText = await colBRes.text();
+      return res.status(500).json({ error: 'sheets_read_error', detail: errText });
+    }
+    const colBValues = (await colBRes.json()).values || [];
+    let lastFilledRow = 1; // 1행은 헤더
+    for (let i = colBValues.length - 1; i >= 1; i--) {
+      if (colBValues[i] && String(colBValues[i][0] || '').trim()) { lastFilledRow = i + 1; break; }
+    }
+
     const colARes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A:A`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A${lastFilledRow}`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     if (!colARes.ok) {
       const errText = await colARes.text();
       return res.status(500).json({ error: 'sheets_read_error', detail: errText });
     }
-    const colAJson = await colARes.json();
-    const colAValues = colAJson.values || [];
-    const lastRow = colAValues[colAValues.length - 1];
-    const lastNo = (colAValues.length > 1 && lastRow) ? Number(lastRow[0]) || 0 : 0;
+    const colAValues = (await colARes.json()).values || [];
+    const lastNo = lastFilledRow > 1 ? (Number(colAValues[0] && colAValues[0][0]) || 0) : 0;
     const nextNo = lastNo + 1;
+    const targetRow = lastFilledRow + 1;
 
     const requestDate = new Date().toISOString().slice(0, 10);
     const row = [
@@ -91,17 +107,17 @@ module.exports = async function handler(req, res) {
       '', '', '', '',
     ];
 
-    const appendRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A:P:append?valueInputOption=USER_ENTERED`,
+    const updateRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A${targetRow}:P${targetRow}?valueInputOption=USER_ENTERED`,
       {
-        method: 'POST',
+        method: 'PUT',
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ values: [row] }),
       }
     );
-    if (!appendRes.ok) {
-      const errText = await appendRes.text();
-      return res.status(500).json({ error: 'sheets_append_error', detail: errText });
+    if (!updateRes.ok) {
+      const errText = await updateRes.text();
+      return res.status(500).json({ error: 'sheets_write_error', detail: errText });
     }
 
     return res.status(200).json({ ok: true, no: nextNo });
