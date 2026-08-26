@@ -134,6 +134,9 @@
     background: #ffffff; border: 1px solid rgba(15,23,42,.07);
     border-radius: 16px; padding: 24px 26px;
   }
+  .kpi-card-clickable { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+  .kpi-card-clickable:hover { border-color: rgba(77,124,254,.35); }
+  .kpi-card-clickable.active { border-color: #4d7cfe; box-shadow: 0 0 0 2px rgba(77,124,254,.15); }
   .task-priority-select { font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid transparent; padding: 3px 6px; }
   .task-priority-select.high { background: rgba(220,38,38,.12); color: #b91c1c; }
   .task-priority-select.mid { background: rgba(100,116,139,.12); color: #475569; }
@@ -4849,9 +4852,11 @@
   const TASK_STATUSES = ['할일', '진행중', '완료'];
   let currentTasks = [];
   let currentTaskAssignee = null;
+  let taskStatusFilter = null;
 
   async function loadTeamTasks() {
     const note = document.getElementById('taskListNote');
+    taskStatusFilter = null;
     const { data, error } = await client
       .from('team_tasks')
       .select('*')
@@ -4863,8 +4868,32 @@
     currentTasks = data || [];
     renderTaskAssigneeNav();
     updateTaskViewHeader();
-    renderTeamSalesKpi();
+    if (currentTaskAssignee) {
+      renderTaskCards();
+    } else {
+      renderTeamSalesKpi();
+    }
     renderTaskTable();
+  }
+
+  function filterTaskStatus(status) {
+    taskStatusFilter = taskStatusFilter === status ? null : status;
+    renderTaskCards();
+    renderTaskTable();
+  }
+
+  function renderTaskCards() {
+    const scoped = getAssigneeScopedTasks();
+    document.getElementById('taskCards').innerHTML = TASK_STATUSES.map(status => {
+      const count = scoped.filter(t => t.status === status).length;
+      const active = taskStatusFilter === status;
+      return `
+        <div class="kpi-card kpi-card-clickable${active ? ' active' : ''}" onclick="filterTaskStatus('${status}')">
+          <div class="kpi-label">${status}</div>
+          <div class="kpi-value">${count}건</div>
+        </div>
+      `;
+    }).join('');
   }
 
   function renderTeamSalesKpi() {
@@ -5011,14 +5040,21 @@
   function renderTaskTable() {
     const note = document.getElementById('taskListNote');
     const scoped = getAssigneeScopedTasks();
-    const visibleTasks = scoped.filter(t => t.status !== '완료');
-    note.textContent = visibleTasks.length + '건 (완료 제외)';
     document.getElementById('taskTableHead').style.display = currentTaskAssignee ? '' : 'none';
 
     if (currentTaskAssignee) {
+      const visibleTasks = taskStatusFilter
+        ? scoped.filter(t => t.status === taskStatusFilter)
+        : scoped.filter(t => t.status !== '완료');
+      note.textContent = taskStatusFilter
+        ? visibleTasks.length + '건 (' + taskStatusFilter + ')'
+        : visibleTasks.length + '건 (완료 제외)';
       document.getElementById('taskTableBody').innerHTML = visibleTasks.map(taskRowHtml).join('');
       return;
     }
+
+    const visibleTasks = scoped.filter(t => t.status !== '완료');
+    note.textContent = visibleTasks.length + '건 (완료 제외)';
 
     // 전체 보기에서는 담당자별로 묶어서 업무 진척도와 함께 보여줍니다.
     const groups = {};
