@@ -143,19 +143,36 @@
   .task-priority-select.mid { background: rgba(100,116,139,.12); color: #475569; }
   .task-priority-select.low { background: rgba(100,116,139,.06); color: #94a3b8; }
 
-  /* ---- 할일 관리: 주차별 진행 업무 ---- */
-  .task-week-label { font-weight: 700; color: #0f172a; white-space: nowrap; }
-  .task-week-item {
-    display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
-    background: rgba(100,116,139,.08); color: #334155; border-radius: 6px;
-    padding: 4px 8px; margin: 2px 4px 2px 0;
+  /* ---- 할일 관리: 주차별 진행 업무 (주간보고 양식) ---- */
+  .task-report-block {
+    border: 1px solid #0f172a; margin-bottom: 22px; font-size: 12px; color: #0f172a;
   }
-  .task-week-item.high { background: rgba(220,38,38,.1); color: #b91c1c; }
-  .task-week-item.low { background: rgba(100,116,139,.06); color: #94a3b8; }
-  .task-week-status { font-size: 11px; font-weight: 700; opacity: .7; }
-  .task-week-assignee-group { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px; margin-bottom: 8px; }
-  .task-week-assignee-group:last-child { margin-bottom: 0; }
-  .task-week-assignee-name { font-size: 12px; font-weight: 800; color: #0f172a; margin-right: 6px; flex-shrink: 0; }
+  .task-report-block:last-child { margin-bottom: 0; }
+  .task-report-meta { display: flex; border-bottom: 1px solid #0f172a; }
+  .task-report-meta > div { display: flex; flex: 1; border-right: 1px solid #0f172a; }
+  .task-report-meta > div:last-child { border-right: none; }
+  .task-report-meta .label {
+    background: #fbe4de; font-weight: 700; padding: 6px 10px; white-space: nowrap;
+    border-right: 1px solid #0f172a; display: flex; align-items: center;
+  }
+  .task-report-meta .value { padding: 6px 10px; display: flex; align-items: center; }
+  .task-report-title {
+    background: #fbe4de; font-weight: 800; text-align: center; padding: 6px;
+    border-bottom: 1px solid #0f172a;
+  }
+  .task-report-table { width: 100%; border-collapse: collapse; }
+  .task-report-table th, .task-report-table td {
+    border: 1px solid #0f172a; padding: 6px 8px; text-align: center; vertical-align: middle;
+  }
+  .task-report-table th { background: #fbe4de; font-weight: 700; }
+  .task-report-table td.task-report-name, .task-report-table td.task-report-detail { text-align: left; }
+  .task-report-table td.task-report-empty { color: #94a3b8; padding: 14px; }
+  .task-report-next { display: flex; }
+  .task-report-next .label {
+    background: #fbe4de; font-weight: 700; padding: 6px 10px; white-space: nowrap;
+    border-right: 1px solid #0f172a; display: flex; align-items: center;
+  }
+  .task-report-next .value { padding: 8px 10px; flex: 1; white-space: pre-line; }
 
   /* ---- 할일 관리: 전체 보기 담당자별 그룹 헤더 ---- */
   .task-group-header-row td { padding: 14px 4px 8px; border-bottom: none; }
@@ -1446,12 +1463,7 @@
         <div class="panel-head">
           <h2>주차별 진행 업무</h2>
         </div>
-        <div class="scroll-box">
-          <table>
-            <thead><tr><th style="width:160px;">주차</th><th>진행한 업무</th></tr></thead>
-            <tbody id="taskWeeklyBody"></tbody>
-          </table>
-        </div>
+        <div id="taskWeeklyBody"></div>
       </section>
     </main>
 
@@ -5280,13 +5292,64 @@
     }).join('') || '<tr><td colspan="12" style="text-align:center; color:#94a3b8; padding:16px;">등록된 할일이 없습니다.</td></tr>';
   }
 
-  // 할일 관리 메뉴(전체 보기 · 담당자별 화면 공통)에서 "담당자별 업무 진척도" 표 아래에 보여주는 주차별 진행 업무 표.
-  // 업무마다 시작일(없으면 마감일, 그것도 없으면 등록일)을 기준으로 1~7/8~14/15~21/22~28/29~31일 구간에 묶습니다.
-  const TASK_WEEK_LABELS = ['1~7일', '8~14일', '15~21일', '22~28일', '29일~31일'];
+  // 할일 관리 메뉴(전체 보기 · 담당자별 화면 공통)에서 "담당자별 업무 진척도" 표 아래에 보여주는 주차별 업무 보고 양식.
+  // 업무마다 시작일(없으면 마감일, 그것도 없으면 등록일)을 기준으로 1~7/8~14/15~21/22~28/29~31일 구간에 묶고,
+  // 구간(주차) x 담당자 조합마다 종이 주간보고 양식과 같은 표를 하나씩 만듭니다.
   function taskWeekBucket(dateStr) {
     const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number);
     const idx = Math.min(4, Math.floor((d - 1) / 7));
-    return { key: `${y}-${String(m).padStart(2, '0')}-${idx}`, label: `${y}년 ${m}월 ${TASK_WEEK_LABELS[idx]}` };
+    const startDay = idx * 7 + 1;
+    const lastDayOfMonth = new Date(y, m, 0).getDate();
+    const endDay = Math.min(lastDayOfMonth, startDay + 6);
+    const pad = n => String(n).padStart(2, '0');
+    const range = `${y}-${pad(m)}-${pad(startDay)} ~ ${y}-${pad(m)}-${pad(endDay)}`;
+    return { key: `${y}-${pad(m)}-${idx}`, range };
+  }
+
+  function taskProgressPct(status) {
+    if (status === '완료') return 100;
+    if (status === '진행중') return 50;
+    return 0;
+  }
+
+  function taskReportBlockHtml(range, assigneeName, tasks) {
+    const rows = tasks.map((t, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${escapeAttr(t.category || '')}</td>
+        <td class="task-report-name">${escapeAttr(t.title || '')}</td>
+        <td class="task-report-detail">${escapeAttr(t.detail || '')}</td>
+        <td>${t.due_date ? String(t.due_date).slice(0, 10) : ''}</td>
+        <td>${taskProgressPct(t.status)}%</td>
+        <td class="task-report-detail">${escapeAttr(t.result_note || '')}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="7" class="task-report-empty">해당 주차에 등록된 업무가 없습니다.</td></tr>';
+
+    const nextPlans = tasks.map(t => t.followup).filter(Boolean);
+    const nextText = nextPlans.length ? nextPlans.map(escapeAttr).join('\n') : '';
+
+    return `
+      <div class="task-report-block">
+        <div class="task-report-meta">
+          <div><span class="label">작성일자</span><span class="value">${range}</span></div>
+          <div><span class="label">소속</span><span class="value">영업팀</span></div>
+          <div><span class="label">보고자</span><span class="value">${escapeAttr(assigneeName)}</span></div>
+        </div>
+        <div class="task-report-title">이번주 업무 진행사항</div>
+        <table class="task-report-table">
+          <thead>
+            <tr>
+              <th style="width:36px;">NO</th><th style="width:90px;">업무분류</th><th>업무명</th><th>업무 내용</th>
+              <th style="width:100px;">완료예정일</th><th style="width:70px;">진행률(%)</th><th>비고</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="task-report-next">
+          <span class="label">차주 예정사항</span><span class="value">${nextText}</span>
+        </div>
+      </div>
+    `;
   }
 
   function renderTaskWeeklyTable() {
@@ -5297,14 +5360,17 @@
     scoped.forEach(t => {
       const anchor = t.start_date || t.due_date || t.created_at;
       if (!anchor) return;
-      const { key, label } = taskWeekBucket(anchor);
-      (groups[key] = groups[key] || { label, tasks: [] }).tasks.push(t);
+      const { key, range } = taskWeekBucket(anchor);
+      (groups[key] = groups[key] || { range, tasks: [] }).tasks.push(t);
     });
 
     const keys = Object.keys(groups).sort().reverse();
     document.getElementById('taskWeeklyBody').innerHTML = keys.length
       ? keys.map(key => {
           const g = groups[key];
+          if (currentTaskAssignee) {
+            return taskReportBlockHtml(g.range, currentTaskAssignee, g.tasks);
+          }
           const byAssignee = {};
           g.tasks.forEach(t => {
             const name = t.assignee || '담당자 미지정';
@@ -5315,25 +5381,9 @@
             if (b === '담당자 미지정') return -1;
             return a.localeCompare(b);
           });
-          const cell = currentTaskAssignee
-            ? g.tasks.map(t => `
-                <span class="task-week-item ${taskPriorityClass(t.priority || '보통')}">
-                  ${escapeAttr(t.title || '(제목없음)')} <span class="task-week-status">· ${t.status}</span>
-                </span>
-              `).join('')
-            : assigneeNames.map(name => `
-                <div class="task-week-assignee-group">
-                  <span class="task-week-assignee-name">${escapeAttr(name)}</span>
-                  ${byAssignee[name].map(t => `
-                    <span class="task-week-item ${taskPriorityClass(t.priority || '보통')}">
-                      ${escapeAttr(t.title || '(제목없음)')} <span class="task-week-status">· ${t.status}</span>
-                    </span>
-                  `).join('')}
-                </div>
-              `).join('');
-          return `<tr><td class="task-week-label">${g.label}</td><td>${cell}</td></tr>`;
+          return assigneeNames.map(name => taskReportBlockHtml(g.range, name, byAssignee[name])).join('');
         }).join('')
-      : '<tr><td colspan="2" style="text-align:center; color:#94a3b8; padding:16px;">시작일/마감일이 등록된 업무가 없습니다.</td></tr>';
+      : '<p style="text-align:center; color:#94a3b8; padding:16px;">시작일/마감일이 등록된 업무가 없습니다.</p>';
   }
 
   document.getElementById('taskForm').addEventListener('submit', async (e) => {
