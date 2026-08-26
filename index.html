@@ -137,10 +137,22 @@
   .kpi-card-clickable { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
   .kpi-card-clickable:hover { border-color: rgba(77,124,254,.35); }
   .kpi-card-clickable.active { border-color: #4d7cfe; box-shadow: 0 0 0 2px rgba(77,124,254,.15); }
+  #taskAssigneeInput:read-only { background: #f4f5f8; color: #64748b; }
   .task-priority-select { font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid transparent; padding: 3px 6px; }
   .task-priority-select.high { background: rgba(220,38,38,.12); color: #b91c1c; }
   .task-priority-select.mid { background: rgba(100,116,139,.12); color: #475569; }
   .task-priority-select.low { background: rgba(100,116,139,.06); color: #94a3b8; }
+
+  /* ---- 할일 관리: 주차별 진행 업무 ---- */
+  .task-week-label { font-weight: 700; color: #0f172a; white-space: nowrap; }
+  .task-week-item {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+    background: rgba(100,116,139,.08); color: #334155; border-radius: 6px;
+    padding: 4px 8px; margin: 2px 4px 2px 0;
+  }
+  .task-week-item.high { background: rgba(220,38,38,.1); color: #b91c1c; }
+  .task-week-item.low { background: rgba(100,116,139,.06); color: #94a3b8; }
+  .task-week-status { font-size: 11px; font-weight: 700; opacity: .7; }
 
   /* ---- 할일 관리: 전체 보기 담당자별 그룹 헤더 ---- */
   .task-group-header-row td { padding: 14px 4px 8px; border-bottom: none; }
@@ -515,7 +527,6 @@
           <div class="nav-label">데이터</div>
           <div class="nav-item" id="navProduct" onclick="switchView('product')"><span class="dot"></span>품별</div>
           <div class="nav-item" id="navChannel" onclick="switchView('channel')"><span class="dot"></span>몰별</div>
-          <div class="nav-item"><span class="dot"></span>리포트</div>
           <div class="nav-item" id="navCodenitProducts" onclick="switchView('codenit-products')"><span class="dot"></span>코드니처 자사몰</div>
         </div>
         <div class="nav-group">
@@ -1170,6 +1181,29 @@
         </form>
         <span class="panel-note" id="sampleSyncStatus"></span>
       </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>샘플 출고 요청 목록</h2>
+          <span class="panel-note" id="sampleSyncListNote"></span>
+        </div>
+        <div class="filter-group" style="margin-bottom: 12px;">
+          <input type="text" id="sampleSyncSearchInput" class="vendor-select" placeholder="요청자 · 상품명 검색" autocomplete="off">
+          <button type="button" class="btn-primary" onclick="loadSampleRequests()">새로고침</button>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead>
+              <tr>
+                <th>NO</th><th>요청자</th><th>요청일</th><th>희망 수령일</th><th>상품명 / 옵션</th><th class="num">수량</th>
+                <th>수령자명</th><th>수령자 연락처</th><th>수령 주소지</th><th>사용목적</th><th>요청사항</th>
+                <th>진행사항</th><th>출고일</th><th>택배사</th><th>운송장번호</th><th>작업자</th>
+              </tr>
+            </thead>
+            <tbody id="sampleSyncTable"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
 
     <main class="main" id="reviewAlertsView" style="display:none">
@@ -1366,6 +1400,26 @@
       <section class="kpi-row" id="taskCards"></section>
 
       <section class="panel">
+        <div class="panel-head"><h2>할일 추가</h2></div>
+        <form class="deal-form" id="taskForm">
+          <select name="priority" style="width:90px;">
+            <option value="보통" selected>보통</option>
+            <option value="높음">높음</option>
+            <option value="낮음">낮음</option>
+          </select>
+          <input type="text" name="category" placeholder="구분 (예: 매출/채널)" style="width:130px;">
+          <input type="text" name="title" placeholder="업무 내용" required style="flex:1; min-width:140px;">
+          <input type="text" name="detail" placeholder="세부 내용/진행사항" style="flex:1; min-width:160px;">
+          <input type="text" name="resultNote" placeholder="결과/특이사항" style="flex:1; min-width:140px;">
+          <input type="text" name="followup" placeholder="후속 업무" style="flex:1; min-width:140px;">
+          <input type="text" name="assignee" id="taskAssigneeInput" placeholder="담당자" style="width:90px;">
+          <input type="date" name="startDate" title="시작일" style="width:140px;">
+          <input type="date" name="dueDate" title="마감일" style="width:140px;">
+          <button type="submit" class="btn-primary">추가</button>
+        </form>
+      </section>
+
+      <section class="panel">
         <div class="panel-head">
           <h2 id="taskLogTitle">담당자별 업무 진척도</h2>
           <span class="panel-note" id="taskListNote"></span>
@@ -1375,10 +1429,22 @@
             <thead id="taskTableHead">
               <tr>
                 <th>우선순위</th><th>완료</th><th>구분</th><th>업무 내용</th><th>세부 내용 / 진행사항</th>
-                <th>진행상태</th><th>결과 / 특이사항</th><th>후속 업무</th><th>담당자</th><th>마감일</th><th></th>
+                <th>진행상태</th><th>결과 / 특이사항</th><th>후속 업무</th><th>담당자</th><th>시작일</th><th>마감일</th><th></th>
               </tr>
             </thead>
             <tbody id="taskTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" id="taskWeeklyPanel" style="display:none">
+        <div class="panel-head">
+          <h2>주차별 진행 업무</h2>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead><tr><th style="width:160px;">주차</th><th>진행한 업무</th></tr></thead>
+            <tbody id="taskWeeklyBody"></tbody>
           </table>
         </div>
       </section>
@@ -4495,10 +4561,74 @@
       }
       status.textContent = 'NO.' + json.no + ' 로 구글시트에 추가되었습니다.';
       form.reset();
+      loadSampleRequests();
     } catch (err) {
       status.innerHTML = '<span class="error">추가하지 못했습니다: ' + err.message + '</span>';
     }
   });
+
+  let allSampleRequests = [];
+  let sampleSyncSearchQuery = '';
+  let sampleSyncFiltersInitDone = false;
+
+  async function loadSampleRequests() {
+    const note = document.getElementById('sampleSyncListNote');
+    note.textContent = '불러오는 중...';
+    try {
+      const res = await fetch('/api/get-sample-requests');
+      const json = await res.json();
+      if (!res.ok) {
+        note.innerHTML = '<span class="error">불러오지 못했습니다: ' + (json.detail || json.error || '') + '</span>';
+        return;
+      }
+      allSampleRequests = json.rows || [];
+      setupSampleSyncFilters();
+      renderSampleSyncTable();
+    } catch (err) {
+      note.innerHTML = '<span class="error">불러오지 못했습니다: ' + err.message + '</span>';
+    }
+  }
+
+  function setupSampleSyncFilters() {
+    if (sampleSyncFiltersInitDone) return;
+    sampleSyncFiltersInitDone = true;
+    document.getElementById('sampleSyncSearchInput').addEventListener('input', (e) => {
+      sampleSyncSearchQuery = e.target.value.trim().toLowerCase();
+      renderSampleSyncTable();
+    });
+  }
+
+  function renderSampleSyncTable() {
+    const note = document.getElementById('sampleSyncListNote');
+    const q = sampleSyncSearchQuery;
+    const rows = allSampleRequests.filter(r => {
+      if (!q) return true;
+      const hay = `${r[1] || ''} ${r[4] || ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+    note.textContent = `${rows.length.toLocaleString('ko-KR')}건 표시 중 (전체 ${allSampleRequests.length.toLocaleString('ko-KR')}건)`;
+
+    document.getElementById('sampleSyncTable').innerHTML = rows.slice().reverse().map(r => `
+        <tr>
+          <td>${r[0] || ''}</td>
+          <td>${r[1] || ''}</td>
+          <td>${r[2] || ''}</td>
+          <td>${r[3] || ''}</td>
+          <td>${r[4] || ''}</td>
+          <td class="num">${r[5] || ''}</td>
+          <td>${r[6] || ''}</td>
+          <td>${r[7] || ''}</td>
+          <td>${r[8] || ''}</td>
+          <td>${r[9] || ''}</td>
+          <td>${r[10] || ''}</td>
+          <td>${r[11] || ''}</td>
+          <td>${r[12] || ''}</td>
+          <td>${r[13] || ''}</td>
+          <td>${r[14] || ''}</td>
+          <td>${r[15] || ''}</td>
+        </tr>
+      `).join('');
+  }
 
   // ==================== 코드니처 자사몰 상품 ====================
   let allCodenitProducts = [];
@@ -4874,6 +5004,7 @@
       renderTeamSalesKpi();
     }
     renderTaskTable();
+    renderTaskWeeklyTable();
   }
 
   function filterTaskStatus(status) {
@@ -4931,14 +5062,19 @@
     const title = document.getElementById('taskViewTitle');
     const subtitle = document.getElementById('taskViewSubtitle');
     const logTitle = document.getElementById('taskLogTitle');
+    const assigneeInput = document.getElementById('taskAssigneeInput');
     if (currentTaskAssignee) {
       title.textContent = currentTaskAssignee + '의 할일 관리';
       subtitle.textContent = currentTaskAssignee + '님에게 배정된 업무를 관리합니다.';
       logTitle.textContent = currentTaskAssignee + '의 일별 업무일지';
+      assigneeInput.value = currentTaskAssignee;
+      assigneeInput.readOnly = true;
     } else {
       title.textContent = '업무 분배 · 할일 관리';
       subtitle.textContent = '팀원별 업무를 등록하고 진행 상태를 관리합니다.';
       logTitle.textContent = '담당자별 업무 진척도';
+      assigneeInput.readOnly = false;
+      assigneeInput.value = '';
     }
   }
 
@@ -5010,6 +5146,7 @@
           onchange="updateTaskField(${t.id}, 'followup', this.value)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(t.assignee || '')}"
           onchange="updateTaskField(${t.id}, 'assignee', this.value)"></td>
+        <td>${t.start_date ? String(t.start_date).slice(0, 10) : ''}</td>
         <td>${t.due_date ? String(t.due_date).slice(0, 10) : ''}</td>
         <td><button class="btn-danger" onclick="deleteTask(${t.id})">삭제</button></td>
       </tr>
@@ -5025,7 +5162,7 @@
     const clickable = name !== '담당자 미지정';
     return `
       <tr class="task-group-header-row${clickable ? ' clickable' : ''}" ${clickable ? `onclick="switchView('team-tasks', '${escapeAttr(name)}')"` : ''}>
-        <td colspan="11">
+        <td colspan="12">
           <div class="task-group-header">
             <span class="task-group-name">${escapeAttr(name)}</span>
             <span class="task-group-progress">완료 ${done} · 진행중 ${doing} · 할일 ${todo} (전체 ${total}건)</span>
@@ -5073,8 +5210,66 @@
     document.getElementById('taskTableBody').innerHTML = names.map(name => {
       const groupAllTasks = currentTasks.filter(t => (t.assignee || '담당자 미지정') === name);
       return taskGroupHeaderHtml(name, groupAllTasks);
-    }).join('') || '<tr><td colspan="11" style="text-align:center; color:#94a3b8; padding:16px;">등록된 할일이 없습니다.</td></tr>';
+    }).join('') || '<tr><td colspan="12" style="text-align:center; color:#94a3b8; padding:16px;">등록된 할일이 없습니다.</td></tr>';
   }
+
+  // 담당자별 화면에서만 보여주는 주차별 진행 업무 표.
+  // 업무마다 시작일(없으면 마감일, 그것도 없으면 등록일)을 기준으로 1~7/8~14/15~21/22~28/29~31일 구간에 묶습니다.
+  const TASK_WEEK_LABELS = ['1~7일', '8~14일', '15~21일', '22~28일', '29일~31일'];
+  function taskWeekBucket(dateStr) {
+    const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number);
+    const idx = Math.min(4, Math.floor((d - 1) / 7));
+    return { key: `${y}-${String(m).padStart(2, '0')}-${idx}`, label: `${y}년 ${m}월 ${TASK_WEEK_LABELS[idx]}` };
+  }
+
+  function renderTaskWeeklyTable() {
+    const panel = document.getElementById('taskWeeklyPanel');
+    if (!currentTaskAssignee) { panel.style.display = 'none'; return; }
+    panel.style.display = '';
+
+    const scoped = getAssigneeScopedTasks();
+    const groups = {};
+    scoped.forEach(t => {
+      const anchor = t.start_date || t.due_date || t.created_at;
+      if (!anchor) return;
+      const { key, label } = taskWeekBucket(anchor);
+      (groups[key] = groups[key] || { label, tasks: [] }).tasks.push(t);
+    });
+
+    const keys = Object.keys(groups).sort().reverse();
+    document.getElementById('taskWeeklyBody').innerHTML = keys.length
+      ? keys.map(key => {
+          const g = groups[key];
+          const items = g.tasks.map(t => `
+            <span class="task-week-item ${taskPriorityClass(t.priority || '보통')}">
+              ${escapeAttr(t.title || '(제목없음)')} <span class="task-week-status">· ${t.status}</span>
+            </span>
+          `).join('');
+          return `<tr><td class="task-week-label">${g.label}</td><td>${items}</td></tr>`;
+        }).join('')
+      : '<tr><td colspan="2" style="text-align:center; color:#94a3b8; padding:16px;">시작일/마감일이 등록된 업무가 없습니다.</td></tr>';
+  }
+
+  document.getElementById('taskForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const priority = form.priority.value || '보통';
+    const category = form.category.value.trim() || null;
+    const title = form.title.value.trim();
+    const detail = form.detail.value.trim() || null;
+    const resultNote = form.resultNote.value.trim() || null;
+    const followup = form.followup.value.trim() || null;
+    const assignee = form.assignee.value.trim() || null;
+    const startDate = form.startDate.value || null;
+    const dueDate = form.dueDate.value || null;
+    if (!title) return;
+    const { error } = await client.from('team_tasks').insert([{
+      priority, category, title, detail, result_note: resultNote, followup, assignee, start_date: startDate, due_date: dueDate, status: '할일',
+    }]);
+    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+    form.reset();
+    loadTeamTasks();
+  });
 
   async function updateTaskField(id, field, rawValue) {
     const value = rawValue.trim() || null;
