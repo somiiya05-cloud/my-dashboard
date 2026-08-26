@@ -112,7 +112,7 @@ module.exports = async function handler(req, res) {
       const rows = Object.values(ezJson.data || {}).map((item) => ({
         product_id: item.product_id,
         stock: Number(item.stock || 0),
-        ready_trans_stock: Number(item.ready_trans_stock || 0),
+        available_stock: Number(item.stock || 0) - Number(item.ready_trans_stock || 0),
         stock_unit: item.stock_unit || null,
         checked_at: item.check_date || null,
         synced_at: now
