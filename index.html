@@ -134,10 +134,6 @@
     background: #ffffff; border: 1px solid rgba(15,23,42,.07);
     border-radius: 16px; padding: 24px 26px;
   }
-  .kpi-card-clickable { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
-  .kpi-card-clickable:hover { border-color: rgba(77,124,254,.35); }
-  .kpi-card-clickable.active { border-color: #4d7cfe; box-shadow: 0 0 0 2px rgba(77,124,254,.15); }
-  #taskAssigneeInput:read-only { background: #f4f5f8; color: #64748b; }
   .task-priority-select { font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid transparent; padding: 3px 6px; }
   .task-priority-select.high { background: rgba(220,38,38,.12); color: #b91c1c; }
   .task-priority-select.mid { background: rgba(100,116,139,.12); color: #475569; }
@@ -1338,25 +1334,6 @@
       </div>
 
       <section class="kpi-row" id="taskCards"></section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>할일 추가</h2></div>
-        <form class="deal-form" id="taskForm">
-          <select name="priority" style="width:90px;">
-            <option value="보통" selected>보통</option>
-            <option value="높음">높음</option>
-            <option value="낮음">낮음</option>
-          </select>
-          <input type="text" name="category" placeholder="구분 (예: 매출/채널)" style="width:130px;">
-          <input type="text" name="title" placeholder="업무 내용" required style="flex:1; min-width:140px;">
-          <input type="text" name="detail" placeholder="세부 내용/진행사항" style="flex:1; min-width:160px;">
-          <input type="text" name="resultNote" placeholder="결과/특이사항" style="flex:1; min-width:140px;">
-          <input type="text" name="followup" placeholder="후속 업무" style="flex:1; min-width:140px;">
-          <input type="text" name="assignee" id="taskAssigneeInput" placeholder="담당자" style="width:90px;">
-          <input type="date" name="dueDate" style="width:140px;">
-          <button type="submit" class="btn-primary">추가</button>
-        </form>
-      </section>
 
       <section class="panel">
         <div class="panel-head">
@@ -4805,7 +4782,6 @@
   // ==================== 영업팀 - 할일 관리 ====================
   const TASK_STATUSES = ['할일', '진행중', '완료'];
   let currentTasks = [];
-  let taskStatusFilter = null;
   let currentTaskAssignee = null;
 
   async function loadTeamTasks() {
@@ -4821,26 +4797,52 @@
     currentTasks = data || [];
     renderTaskAssigneeNav();
     updateTaskViewHeader();
-    renderTaskCards();
+    renderTeamSalesKpi();
     renderTaskTable();
+  }
+
+  function renderTeamSalesKpi() {
+    const now = new Date();
+    const currentMonthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const teamRows = allRows.filter(r => r.sale_date.slice(0, 7) === currentMonthStr && !EXCLUDED_FROM_TEAM.includes(r.vendor));
+    const teamMonthlyActual = teamRows.reduce((s, r) => s + Number(r.amount), 0);
+    const dates = teamRows.map(r => r.sale_date).sort();
+    const todayDate = dates[dates.length - 1];
+    const teamTodayAmount = teamRows.filter(r => r.sale_date === todayDate).reduce((s, r) => s + Number(r.amount), 0);
+
+    const teamDailyPct = teamTodayAmount / TEAM_DAILY_TARGET * 100;
+    const teamMonthlyPct = teamMonthlyActual / TEAM_MONTHLY_TARGET * 100;
+
+    document.getElementById('taskCards').innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label">일매출 목표</div>
+        <div class="kpi-value">${won(TEAM_DAILY_TARGET)}</div>
+        <div class="kpi-sub">오늘 매출 ${won(teamTodayAmount)} · <span class="pct-red">${teamDailyPct.toFixed(1)}%</span></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">월매출 목표</div>
+        <div class="kpi-value">${won(TEAM_MONTHLY_TARGET)}</div>
+        <div class="kpi-sub">이번달 매출 ${won(teamMonthlyActual)} · <span class="pct-red">${teamMonthlyPct.toFixed(1)}%</span></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">현재 도달률</div>
+        <div class="kpi-value">${teamMonthlyPct.toFixed(1)}%</div>
+        <div class="kpi-sub">월매출 목표 대비</div>
+      </div>
+    `;
   }
 
   function updateTaskViewHeader() {
     const title = document.getElementById('taskViewTitle');
     const subtitle = document.getElementById('taskViewSubtitle');
-    const assigneeInput = document.getElementById('taskAssigneeInput');
     const logTitle = document.getElementById('taskLogTitle');
     if (currentTaskAssignee) {
       title.textContent = currentTaskAssignee + '의 할일 관리';
       subtitle.textContent = currentTaskAssignee + '님에게 배정된 업무를 관리합니다.';
-      assigneeInput.value = currentTaskAssignee;
-      assigneeInput.readOnly = true;
       logTitle.textContent = currentTaskAssignee + '의 일별 업무일지';
     } else {
       title.textContent = '업무 분배 · 할일 관리';
       subtitle.textContent = '팀원별 업무를 등록하고 진행 상태를 관리합니다.';
-      assigneeInput.readOnly = false;
-      assigneeInput.value = '';
       logTitle.textContent = '담당자별 업무 진척도';
     }
   }
@@ -4878,25 +4880,6 @@
     return currentTaskAssignee ? currentTasks.filter(t => t.assignee === currentTaskAssignee) : currentTasks;
   }
 
-  function filterTaskStatus(status) {
-    taskStatusFilter = taskStatusFilter === status ? null : status;
-    renderTaskCards();
-    renderTaskTable();
-  }
-
-  function renderTaskCards() {
-    const scoped = getAssigneeScopedTasks();
-    document.getElementById('taskCards').innerHTML = TASK_STATUSES.map(status => {
-      const count = scoped.filter(t => t.status === status).length;
-      const active = taskStatusFilter === status;
-      return `
-        <div class="kpi-card kpi-card-clickable${active ? ' active' : ''}" onclick="filterTaskStatus('${status}')">
-          <div class="kpi-label">${status}</div>
-          <div class="kpi-value">${count}건</div>
-        </div>
-      `;
-    }).join('');
-  }
 
   const TASK_PRIORITIES = ['높음', '보통', '낮음'];
   function taskPriorityClass(p) {
@@ -4962,12 +4945,8 @@
   function renderTaskTable() {
     const note = document.getElementById('taskListNote');
     const scoped = getAssigneeScopedTasks();
-    const visibleTasks = taskStatusFilter
-      ? scoped.filter(t => t.status === taskStatusFilter)
-      : scoped.filter(t => t.status !== '완료');
-    note.textContent = taskStatusFilter
-      ? visibleTasks.length + '건 (' + taskStatusFilter + ')'
-      : visibleTasks.length + '건 (완료 제외)';
+    const visibleTasks = scoped.filter(t => t.status !== '완료');
+    note.textContent = visibleTasks.length + '건 (완료 제외)';
 
     if (currentTaskAssignee) {
       document.getElementById('taskTableBody').innerHTML = visibleTasks.map(taskRowHtml).join('');
@@ -4993,26 +4972,6 @@
       return taskGroupHeaderHtml(name, groupAllTasks);
     }).join('') || '<tr><td colspan="11" style="text-align:center; color:#94a3b8; padding:16px;">등록된 할일이 없습니다.</td></tr>';
   }
-
-  document.getElementById('taskForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const priority = form.priority.value || '보통';
-    const category = form.category.value.trim() || null;
-    const title = form.title.value.trim();
-    const detail = form.detail.value.trim() || null;
-    const resultNote = form.resultNote.value.trim() || null;
-    const followup = form.followup.value.trim() || null;
-    const assignee = form.assignee.value.trim() || null;
-    const dueDate = form.dueDate.value || null;
-    if (!title) return;
-    const { error } = await client.from('team_tasks').insert([{
-      priority, category, title, detail, result_note: resultNote, followup, assignee, due_date: dueDate, status: '할일',
-    }]);
-    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
-    form.reset();
-    loadTeamTasks();
-  });
 
   async function updateTaskField(id, field, rawValue) {
     const value = rawValue.trim() || null;
