@@ -1062,6 +1062,8 @@
         <div class="filter-group" style="margin-bottom: 12px;">
           <input type="text" id="pcSearchInput" class="vendor-select" placeholder="상품명 · 상품코드 검색" autocomplete="off">
           <select id="pcBrandFilter" class="vendor-select"><option value="">브랜드 전체</option></select>
+          <button type="button" class="btn-primary" onclick="syncProductCostFromSheet()">구글시트에서 동기화</button>
+          <span id="pcSyncStatus" style="font-size: 13px; color: #64748b;"></span>
           <select id="pcStatusFilter" class="vendor-select">
             <option value="">상태 전체</option>
             <option value="판매중">판매중</option>
@@ -4087,6 +4089,66 @@
     renderPcBrandCostRatio();
   }
 
+  function parseWon(v) {
+    if (!v) return null;
+    const n = Number(String(v).replace(/[^\d.-]/g, ''));
+    return Number.isFinite(n) ? Math.round(n) : null;
+  }
+
+  async function syncProductCostFromSheet() {
+    const status = document.getElementById('pcSyncStatus');
+    status.textContent = '구글시트에서 불러오는 중...';
+    try {
+      const res = await fetch('/api/get-product-cost-sheet');
+      const json = await res.json();
+      if (!res.ok) {
+        status.innerHTML = '<span class="error">' + (json.detail || json.error || '동기화 실패') + '</span>';
+        return;
+      }
+
+      const existingKeys = new Set(
+        allProductCostRows.map(r => `${r.product_code || ''}|${r.option_size || ''}|${r.option_color || ''}`)
+      );
+
+      const newRows = [];
+      (json.rows || []).forEach(r => {
+        const productCode = (r[0] || '').trim();
+        if (!productCode) return;
+        const optionSize = (r[4] || '').trim() || null;
+        const optionColor = (r[5] || '').trim() || null;
+        const key = `${productCode}|${optionSize || ''}|${optionColor || ''}`;
+        if (existingKeys.has(key)) return;
+        existingKeys.add(key);
+        newRows.push({
+          product_code: productCode,
+          brand: (r[2] || '').trim() || null,
+          product_name: (r[3] || '').trim() || null,
+          option_size: optionSize,
+          option_color: optionColor,
+          status: (r[8] || '').trim() || null,
+          unit_cost_krw: parseWon(r[13]),
+          selling_price: parseWon(r[15]),
+        });
+      });
+
+      if (newRows.length === 0) {
+        status.textContent = '새로 추가할 상품이 없습니다 (이미 모두 동기화됨).';
+        return;
+      }
+
+      const { error } = await client.from('product_cost').insert(newRows);
+      if (error) {
+        status.innerHTML = '<span class="error">추가하지 못했습니다: ' + error.message + '</span>';
+        return;
+      }
+
+      status.textContent = `신규 상품 ${newRows.length.toLocaleString('ko-KR')}개를 구글시트에서 동기화했습니다.`;
+      loadProductCostData();
+    } catch (err) {
+      status.innerHTML = '<span class="error">' + err.message + '</span>';
+    }
+  }
+
   function setupPcFilters() {
     const brandSelect = document.getElementById('pcBrandFilter');
     const prevBrand = brandSelect.value;
@@ -5215,7 +5277,7 @@
     }).join('') || '<tr><td colspan="12" style="text-align:center; color:#94a3b8; padding:16px;">등록된 할일이 없습니다.</td></tr>';
   }
 
-  // 담당자별 화면에서만 보여주는 주차별 진행 업무 표.
+  // 할일 관리 메뉴(전체 보기 · 담당자별 화면 공통)에서 "담당자별 업무 진척도" 표 아래에 보여주는 주차별 진행 업무 표.
   // 업무마다 시작일(없으면 마감일, 그것도 없으면 등록일)을 기준으로 1~7/8~14/15~21/22~28/29~31일 구간에 묶습니다.
   const TASK_WEEK_LABELS = ['1~7일', '8~14일', '15~21일', '22~28일', '29일~31일'];
   function taskWeekBucket(dateStr) {
@@ -5225,9 +5287,7 @@
   }
 
   function renderTaskWeeklyTable() {
-    const panel = document.getElementById('taskWeeklyPanel');
-    if (!currentTaskAssignee) { panel.style.display = 'none'; return; }
-    panel.style.display = '';
+    document.getElementById('taskWeeklyPanel').style.display = '';
 
     const scoped = getAssigneeScopedTasks();
     const groups = {};
@@ -5244,7 +5304,7 @@
           const g = groups[key];
           const items = g.tasks.map(t => `
             <span class="task-week-item ${taskPriorityClass(t.priority || '보통')}">
-              ${escapeAttr(t.title || '(제목없음)')} <span class="task-week-status">· ${t.status}</span>
+              ${currentTaskAssignee ? '' : `<b>${escapeAttr(t.assignee || '미지정')}</b> · `}${escapeAttr(t.title || '(제목없음)')} <span class="task-week-status">· ${t.status}</span>
             </span>
           `).join('');
           return `<tr><td class="task-week-label">${g.label}</td><td>${items}</td></tr>`;
