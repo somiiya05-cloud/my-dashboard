@@ -4851,9 +4851,12 @@
       const nameHtml = r.product_url
         ? `<a href="${escapeAttr(r.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">${r.product_name || ''}</a>`
         : (r.product_name || '');
+      const imgWrap = r.product_url
+        ? `<a href="${escapeAttr(r.product_url)}" target="_blank" rel="noopener" class="product-card-img-wrap" style="display:block;">${imgTag}</a>`
+        : `<div class="product-card-img-wrap">${imgTag}</div>`;
       return `
         <div class="product-card">
-          <div class="product-card-img-wrap">${imgTag}</div>
+          ${imgWrap}
           <div class="product-card-body">
             <div class="product-card-name">${nameHtml}</div>
             <div class="product-card-price">${priceText}</div>
