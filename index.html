@@ -1114,7 +1114,6 @@
         <form class="deal-form" id="lgForm">
           <input type="text" name="brand" placeholder="브랜드">
           <input type="text" name="productName" placeholder="상품명" required>
-          <input type="text" name="logisticsCenter" placeholder="물류지">
           <input type="text" name="courier" placeholder="택배사">
           <input type="text" name="deliveryFee" placeholder="택배비(원)">
           <input type="text" name="comboQty" placeholder="합포가능수량">
@@ -4401,7 +4400,6 @@
     const row = {
       brand: form.brand.value.trim() || null,
       product_name: productName,
-      logistics_center: form.logisticsCenter.value.trim() || null,
       courier: form.courier.value.trim() || null,
       delivery_fee: form.deliveryFee.value.trim() ? Number(form.deliveryFee.value.trim()) : null,
       combo_qty: form.comboQty.value.trim() ? Number(form.comboQty.value.trim()) : null,
