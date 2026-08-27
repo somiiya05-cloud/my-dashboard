@@ -1013,52 +1013,34 @@
       <div class="topbar">
         <div>
           <h1>SKU손익</h1>
-          <div class="subtitle" id="plSubtitle">불러오는 중...</div>
+          <div class="subtitle" id="plSubtitle">상품별(SKU) 손익입니다. 우선 코드니처 자사몰 상품 기준으로 계산합니다.</div>
         </div>
         <div class="topbar-right">
           <span class="live-badge"><span class="live-dot"></span>LIVE</span>
-          <select id="plMonthSelect" class="month-select"></select>
         </div>
       </div>
 
       <section class="kpi-row" id="plCards"></section>
 
-      <section class="grid-2">
-        <div class="panel">
-          <div class="panel-head">
-            <h2>손익 구조</h2>
-            <span class="panel-note">매출 → 원가·판관비·기타비용 차감 → 영업이익</span>
-          </div>
-          <div class="waterfall-wrap" id="plWaterfall"></div>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>상품별 SKU손익</h2>
+          <span class="panel-note" id="plListNote"></span>
         </div>
-        <div class="panel">
-          <div class="panel-head">
-            <h2>손익분기 달성률</h2>
-            <span class="panel-note">0~150% · 100% 이상이면 흑자</span>
-          </div>
-          <div class="pl-gauge-wrap" id="plGauge"></div>
+        <div class="filter-group" style="margin-bottom: 12px;">
+          <input type="text" id="plSearchInput" class="vendor-select" placeholder="상품명 검색" autocomplete="off">
         </div>
-      </section>
-
-      <section class="grid-2">
-        <div class="panel">
-          <div class="panel-head">
-            <h2>비용 순위</h2>
-            <span class="panel-note">단위: 원</span>
-          </div>
-          <div class="scroll-box">
-            <table>
-              <thead><tr><th>항목</th><th>구분</th><th class="num">금액</th><th class="num">비중</th></tr></thead>
-              <tbody id="plCostTable"></tbody>
-            </table>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="panel-head">
-            <h2>상품별 공헌이익률</h2>
-            <span class="panel-note">마이너스는 적자 상품</span>
-          </div>
-          <div id="plMarginList"></div>
+        <div class="scroll-box">
+          <table>
+            <thead>
+              <tr>
+                <th>상품명</th><th class="num">판매가</th><th class="num">원가</th><th class="num">배송비</th>
+                <th class="num">수수료(3.5%)</th><th class="num">경비(24%)</th><th class="num">부가세(11%)</th>
+                <th class="num">SKU손익</th><th class="num">손익률</th>
+              </tr>
+            </thead>
+            <tbody id="plTable"></tbody>
+          </table>
         </div>
       </section>
     </main>
@@ -3735,184 +3717,113 @@
     }
   }
 
-  // ==================== 손익 대시보드 ====================
-  // 목표값은 샘플입니다. 회사 실제 목표에 맞게 아래 숫자만 바꾸시면 됩니다.
-  const OPERATING_PROFIT_MONTHLY_TARGET = 11000000; // 영업이익 목표 (원)
-  const OPERATING_MARGIN_TARGET_PCT = 12; // 영업이익률 목표 (%)
+  // ==================== SKU손익 (우선 코드니처 자사몰 기준) ====================
+  // SKU손익 = 판매가 - 원가 - 배송비 - 수수료(판매가*3.5%) - 경비(판매가*24%) - 부가세(판매가*11%)
+  const SKU_FEE_PCT = 3.5;
+  const SKU_EXPENSE_PCT = 24;
+  const SKU_VAT_PCT = 11;
 
-  let allPlSummaryRows = [];
-  let allPlCostRows = [];
-  let allPlMarginRows = [];
-  let plDataLoaded = false;
+  let allSkuPlRows = [];
+  let plSearchQuery = '';
+  let plFiltersInitDone = false;
+
+  function normalizeProductName(name) {
+    return String(name || '').replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase().trim();
+  }
 
   async function loadPlData() {
-    if (!plDataLoaded) {
-      document.getElementById('plSubtitle').textContent = '불러오는 중...';
-      const [summaryRes, costRes, marginRes] = await Promise.all([
-        client.from('pl_summary').select('*').order('sort_order', { ascending: true }),
-        client.from('pl_cost').select('*'),
-        client.from('pl_margin').select('*'),
-      ]);
-      if (summaryRes.error) {
-        document.getElementById('plSubtitle').innerHTML =
-          '<span class="error">데이터를 불러오지 못했습니다: ' + summaryRes.error.message + '</span>';
-        return;
-      }
-      allPlSummaryRows = summaryRes.data || [];
-      allPlCostRows = costRes.data || [];
-      allPlMarginRows = marginRes.data || [];
-      plDataLoaded = true;
-    }
-    setupPlMonthSelector();
-  }
-
-  function setupPlMonthSelector() {
-    const monthSelect = document.getElementById('plMonthSelect');
-    const prevSelected = monthSelect.value;
-    monthSelect.innerHTML = allPlSummaryRows.map(r => `<option value="${r.sort_order}">${r.month}</option>`).join('');
-    const validValues = allPlSummaryRows.map(r => String(r.sort_order));
-    const valueToShow = validValues.includes(prevSelected) ? prevSelected : (validValues[validValues.length - 1] || '');
-    monthSelect.value = valueToShow;
-    monthSelect.onchange = () => renderPl(monthSelect.value);
-    if (valueToShow) renderPl(valueToShow);
-  }
-
-  function renderPl(sortOrderStr) {
-    const row = allPlSummaryRows.find(r => String(r.sort_order) === String(sortOrderStr));
-    if (!row) {
-      document.getElementById('plSubtitle').textContent = '손익 데이터가 없습니다.';
+    const note = document.getElementById('plListNote');
+    note.textContent = '불러오는 중...';
+    const [cpRes, costRes] = await Promise.all([
+      client.from('codenit_products').select('*'),
+      client.from('product_cost').select('product_name, unit_cost_krw').eq('brand', '코드니처'),
+    ]);
+    if (cpRes.error) {
+      note.innerHTML = '<span class="error">불러오지 못했습니다: ' + cpRes.error.message + '</span>';
       return;
     }
 
-    const revenue = Number(row.revenue);
-    const cogs = Number(row.cogs);
-    const sga = Number(row.sga);
-    const otherCost = Number(row.other_cost);
-    const totalCost = cogs + sga + otherCost;
-    const operatingProfit = revenue - totalCost;
-    const operatingMargin = revenue > 0 ? (operatingProfit / revenue * 100) : 0;
-    const breakEvenPct = totalCost > 0 ? (revenue / totalCost * 100) : (revenue > 0 ? 999 : 0);
+    const costByName = {};
+    (costRes.data || []).forEach(r => {
+      const key = normalizeProductName(r.product_name);
+      if (costByName[key] === undefined && r.unit_cost_krw != null) costByName[key] = Number(r.unit_cost_krw);
+    });
 
-    // 전월 대비 총비용 증감
-    const idx = allPlSummaryRows.findIndex(r => String(r.sort_order) === String(sortOrderStr));
-    const prevRow = idx > 0 ? allPlSummaryRows[idx - 1] : null;
-    const prevTotalCost = prevRow ? (Number(prevRow.cogs) + Number(prevRow.sga) + Number(prevRow.other_cost)) : null;
-    const costChangePct = (prevTotalCost !== null && prevTotalCost > 0) ? ((totalCost - prevTotalCost) / prevTotalCost * 100) : null;
+    allSkuPlRows = (cpRes.data || []).map(r => {
+      const price = Number(r.price) || 0;
+      const shipping = r.shipping_fee != null ? Number(r.shipping_fee) : 0;
+      const cost = costByName[normalizeProductName(r.product_name)];
+      const fee = price * SKU_FEE_PCT / 100;
+      const expense = price * SKU_EXPENSE_PCT / 100;
+      const vat = price * SKU_VAT_PCT / 100;
+      const profit = (cost != null) ? (price - cost - shipping - fee - expense - vat) : null;
+      return { ...r, cost, fee, expense, vat, profit };
+    });
 
-    document.getElementById('plSubtitle').textContent =
-      `${row.month} · 영업이익 ${operatingProfit >= 0 ? '흑자' : '적자'}`;
+    setupPlFilters();
+    renderPlCards();
+    renderPlTable();
+  }
 
-    // ---- KPI 카드 ----
-    const profitPct = OPERATING_PROFIT_MONTHLY_TARGET !== 0 ? (operatingProfit / OPERATING_PROFIT_MONTHLY_TARGET * 100) : 0;
-    const marginGap = OPERATING_MARGIN_TARGET_PCT - operatingMargin;
-    const costChangeHtml = costChangePct !== null
-      ? `전월 대비 <span class="${costChangePct >= 0 ? 'trend-down' : 'trend-up'}">${costChangePct >= 0 ? '+' : ''}${costChangePct.toFixed(1)}%</span>`
-      : '전월 데이터 없음';
+  function setupPlFilters() {
+    if (plFiltersInitDone) return;
+    plFiltersInitDone = true;
+    document.getElementById('plSearchInput').addEventListener('input', (e) => {
+      plSearchQuery = e.target.value.trim().toLowerCase();
+      renderPlTable();
+    });
+  }
+
+  function renderPlCards() {
+    const withCost = allSkuPlRows.filter(r => r.cost != null);
+    const avgMarginRate = withCost.length
+      ? withCost.reduce((s, r) => s + (r.price > 0 ? r.profit / r.price * 100 : 0), 0) / withCost.length
+      : null;
+    const lossCount = withCost.filter(r => r.profit < 0).length;
+    const noCostCount = allSkuPlRows.length - withCost.length;
 
     document.getElementById('plCards').innerHTML = `
       <div class="kpi-card">
-        <div class="kpi-label">${row.month} 영업이익</div>
-        <div class="kpi-value" style="color:${operatingProfit >= 0 ? '#16a34a' : '#dc2626'}">${won(Math.round(operatingProfit))}</div>
-        <div class="kpi-sub">목표 ${won(OPERATING_PROFIT_MONTHLY_TARGET)} 대비 <span class="${profitPct >= 100 ? 'trend-up' : 'trend-down'}">${profitPct.toFixed(1)}%</span></div>
-        <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.max(0, Math.min(100, profitPct)).toFixed(1)}%; background:${operatingProfit >= 0 ? 'linear-gradient(90deg,#4ade80,#16a34a)' : 'linear-gradient(90deg,#f87171,#dc2626)'}"></div></div>
+        <div class="kpi-label">등록 상품 수</div>
+        <div class="kpi-value">${allSkuPlRows.length.toLocaleString('ko-KR')}개</div>
+        <div class="kpi-sub">원가 미매칭 ${noCostCount.toLocaleString('ko-KR')}개</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">영업이익률</div>
-        <div class="kpi-value">${operatingMargin.toFixed(1)}%</div>
-        <div class="kpi-sub">${marginGap > 0 ? `목표 ${OPERATING_MARGIN_TARGET_PCT}%에 <span class="trend-down">${marginGap.toFixed(1)}%p 부족</span>` : `목표 ${OPERATING_MARGIN_TARGET_PCT}% <span class="trend-up">달성</span>`}</div>
+        <div class="kpi-label">평균 SKU손익률</div>
+        <div class="kpi-value">${avgMarginRate === null ? '-' : avgMarginRate.toFixed(1) + '%'}</div>
+        <div class="kpi-sub">원가 매칭된 ${withCost.length.toLocaleString('ko-KR')}개 기준</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">손익분기 달성률</div>
-        <div class="kpi-value">${breakEvenPct.toFixed(0)}%</div>
-        <div class="kpi-sub">매출 ${won(revenue)} · 총비용 ${won(totalCost)}</div>
+        <div class="kpi-label">SKU손익 적자 상품</div>
+        <div class="kpi-value">${lossCount.toLocaleString('ko-KR')}개</div>
+        <div class="kpi-sub">SKU손익 &lt; 0</div>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-label">총비용</div>
-        <div class="kpi-value">${won(totalCost)}</div>
-        <div class="kpi-sub">${costChangeHtml}</div>
-      </div>
-    `;
-
-    renderPlWaterfall(revenue, cogs, sga, otherCost, operatingProfit);
-    renderPlGauge(breakEvenPct, totalCost);
-    renderPlCostTable();
-    renderPlMarginList();
-  }
-
-  // ---- 손익 폭포 그래프: 매출에서 원가·판관비·기타비용이 차례로 깎여 영업이익이 남는 모양 ----
-  function renderPlWaterfall(revenue, cogs, sga, otherCost, operatingProfit) {
-    const afterCogs = revenue - cogs;
-    const afterSga = afterCogs - sga;
-    const maxVal = Math.max(revenue, Math.abs(operatingProfit), 1);
-
-    const steps = [
-      { label: '매출', bottom: 0, height: revenue, color: 'linear-gradient(180deg,#4d7cfe,#2f5ce4)', value: revenue },
-      { label: '매출원가', bottom: afterCogs, height: cogs, color: '#cbd5e1', value: -cogs },
-      { label: '판관비', bottom: afterSga, height: sga, color: '#cbd5e1', value: -sga },
-      { label: '기타비용', bottom: operatingProfit, height: otherCost, color: '#cbd5e1', value: -otherCost },
-      { label: '영업이익', bottom: 0, height: Math.abs(operatingProfit), color: operatingProfit >= 0 ? 'linear-gradient(180deg,#4ade80,#16a34a)' : 'linear-gradient(180deg,#f87171,#dc2626)', value: operatingProfit },
-    ];
-
-    document.getElementById('plWaterfall').innerHTML = steps.map(s => `
-      <div class="waterfall-col">
-        <div class="waterfall-bar" style="bottom:${Math.max(0, s.bottom / maxVal * 100).toFixed(1)}%; height:${Math.max(Math.abs(s.height) / maxVal * 100, 1.5).toFixed(1)}%; background:${s.color};">
-          <div class="waterfall-value">${won(Math.round(s.value))}</div>
-        </div>
-        <div class="waterfall-label">${s.label}</div>
-      </div>
-    `).join('');
-  }
-
-  // ---- 손익분기 반원 게이지 (0~150%) ----
-  function renderPlGauge(breakEvenPct, totalCost) {
-    const clamped = Math.max(0, Math.min(150, breakEvenPct));
-    const fraction = clamped / 150;
-    const color = breakEvenPct >= 100 ? '#16a34a' : '#f97316';
-    document.getElementById('plGauge').innerHTML = `
-      <svg viewBox="0 0 200 110" width="220" height="121">
-        <path d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="#eef1f6" stroke-width="16" stroke-linecap="round" pathLength="100"></path>
-        <path d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="${color}" stroke-width="16" stroke-linecap="round" pathLength="100" stroke-dasharray="${(fraction * 100).toFixed(1)} 100"></path>
-      </svg>
-      <div class="pl-gauge-value" style="color:${color}">${breakEvenPct.toFixed(0)}%</div>
-      <div class="pl-gauge-caption">손익분기 달성률</div>
-      <div class="pl-gauge-sub">손익분기점 매출 ${won(Math.round(totalCost))}<br>(총비용과 매출이 같아지는 지점)</div>
     `;
   }
 
-  // ---- 비용 순위 표 ----
-  function renderPlCostTable() {
-    const total = allPlCostRows.reduce((s, r) => s + Number(r.amount), 0);
-    const sorted = allPlCostRows.slice().sort((a, b) => Number(b.amount) - Number(a.amount));
-    const rowsHtml = sorted.map(r => {
-      const pct = total > 0 ? (Number(r.amount) / total * 100) : 0;
-      const tagClass = r.cost_type === '고정' ? 'cost-type-fixed' : 'cost-type-variable';
+  function renderPlTable() {
+    const note = document.getElementById('plListNote');
+    const q = plSearchQuery;
+    const rows = allSkuPlRows.filter(r => !q || (r.product_name || '').toLowerCase().includes(q));
+    note.textContent = `${rows.length.toLocaleString('ko-KR')}개 표시 중 (전체 ${allSkuPlRows.length.toLocaleString('ko-KR')}개)`;
+
+    document.getElementById('plTable').innerHTML = rows.map(r => {
+      const marginRate = (r.profit != null && r.price > 0) ? (r.profit / r.price * 100) : null;
+      const nameHtml = r.product_url
+        ? `<a href="${escapeAttr(r.product_url)}" target="_blank" rel="noopener" style="color:#2f5ce4;text-decoration:underline;">${escapeAttr(r.product_name || '')}</a>`
+        : (r.product_name || '');
       return `
         <tr>
-          <td>${r.item}</td>
-          <td><span class="cost-type-tag ${tagClass}">${r.cost_type}</span></td>
-          <td class="num">${won(Number(r.amount))}</td>
-          <td class="num">${pct.toFixed(1)}%</td>
+          <td>${nameHtml}</td>
+          <td class="num">${r.price ? Number(r.price).toLocaleString('ko-KR') : '-'}</td>
+          <td class="num">${r.cost != null ? Number(r.cost).toLocaleString('ko-KR') : '<span class="error">미매칭</span>'}</td>
+          <td class="num">${r.shipping_fee != null ? Number(r.shipping_fee).toLocaleString('ko-KR') : '-'}</td>
+          <td class="num">${Math.round(r.fee).toLocaleString('ko-KR')}</td>
+          <td class="num">${Math.round(r.expense).toLocaleString('ko-KR')}</td>
+          <td class="num">${Math.round(r.vat).toLocaleString('ko-KR')}</td>
+          <td class="num" style="font-weight:700; color:${r.profit == null ? '#94a3b8' : (r.profit >= 0 ? '#0f172a' : '#dc2626')}">${r.profit != null ? Math.round(r.profit).toLocaleString('ko-KR') : '-'}</td>
+          <td class="num" style="color:${marginRate == null ? '#94a3b8' : (marginRate >= 0 ? '#0f172a' : '#dc2626')}">${marginRate != null ? marginRate.toFixed(1) + '%' : '-'}</td>
         </tr>
-      `;
-    }).join('');
-    const totalRowHtml = `<tr class="channel-total-row"><td>합계</td><td></td><td class="num">${won(total)}</td><td class="num">100.0%</td></tr>`;
-    document.getElementById('plCostTable').innerHTML = rowsHtml + totalRowHtml;
-  }
-
-  // ---- 상품별 공헌이익률 가로 막대 (마이너스는 빨간색) ----
-  function renderPlMarginList() {
-    const sorted = allPlMarginRows.slice().sort((a, b) => Number(b.margin_rate) - Number(a.margin_rate));
-    const maxAbs = Math.max(...sorted.map(r => Math.abs(Number(r.margin_rate))), 1);
-    document.getElementById('plMarginList').innerHTML = sorted.map(r => {
-      const rate = Number(r.margin_rate);
-      const widthPct = Math.abs(rate) / maxAbs * 100;
-      const color = rate >= 0 ? 'linear-gradient(90deg,#4d7cfe,#2f5ce4)' : 'linear-gradient(90deg,#f87171,#dc2626)';
-      return `
-        <div class="margin-bar-row">
-          <div class="margin-bar-label">${r.product}</div>
-          <div class="margin-bar-track"><div class="margin-bar-fill" style="width:${widthPct.toFixed(1)}%; background:${color};"></div></div>
-          <div class="margin-bar-value" style="color:${rate >= 0 ? '#0f172a' : '#dc2626'}">${rate.toFixed(0)}%</div>
-        </div>
       `;
     }).join('');
   }
