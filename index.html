@@ -2375,6 +2375,7 @@
 
   // ==================== 재무 메뉴 비밀번호 잠금 ====================
   const FINANCE_PASSWORD = 'sales0813';
+  const TEAM_WORKSPACE_PASSWORD = 'team0813';
   function openFinanceView(view) {
     if (sessionStorage.getItem('financeUnlocked') === '1') {
       switchView(view);
@@ -4952,6 +4953,12 @@
     document.getElementById('workspaceMenu').classList.remove('open');
     document.getElementById('brandCaret').classList.remove('open');
     if (ws === currentWorkspace) return;
+    if (ws === 'team' && sessionStorage.getItem('teamUnlocked') !== '1') {
+      const input = prompt('영업팀 워크스페이스 비밀번호를 입력하세요');
+      if (input === null) return;
+      if (input !== TEAM_WORKSPACE_PASSWORD) { alert('비밀번호가 올바르지 않습니다.'); return; }
+      sessionStorage.setItem('teamUnlocked', '1');
+    }
     currentWorkspace = ws;
 
     document.querySelectorAll('.workspace-menu-item').forEach((el) => {
