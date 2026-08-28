@@ -399,6 +399,12 @@
   .gs-ev-card-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
   .gs-ev-card-tags .gs-tag { padding: 1px 6px; font-size: 10px; border-radius: 999px; font-weight: 600; }
 
+  .gs-ev-card-filled { background: #0d9488; border-color: #0d9488; }
+  .gs-ev-card-filled .gs-ev-card-title { color: #ffffff; }
+  .gs-ev-card-filled .gs-ev-card-meta { color: rgba(255,255,255,.85); }
+  .gs-ev-card-filled .gs-ev-card-meta b { color: #ffffff; }
+  .gs-ev-card-filled .gs-ev-card-tags .gs-tag { background: rgba(255,255,255,.22); color: #ffffff; }
+
   .gs-tag-default, .gs-tag-gray { background: rgba(100,116,139,.12); color: #475569; }
   .gs-tag-brown { background: rgba(146,100,63,.14); color: #92643f; }
   .gs-tag-orange { background: rgba(234,140,26,.14); color: #b3620a; }
@@ -5756,14 +5762,16 @@
       title: r.mall ? `${r.mall} · ${r.title}` : r.title,
       pctText: null,
       tags: r.memo ? [{ text: r.memo, color: 'mall' }] : [],
-      accent: 'mall'
+      accent: 'mall',
+      filled: true
     }));
   }
 
   function gsEvCardHtml(r, style) {
     const meta = `<div class="gs-ev-card-meta">${r.pctText ? `<b>수수료 ${escapeAttr(r.pctText)}</b><br>` : ''}${gsShortDate(r.start)} → ${gsShortDate(r.end)}</div>`;
     const tags = r.tags.map((t) => `<span class="gs-tag gs-tag-${escapeAttr(t.color)}">${escapeAttr(t.text)}</span>`).join('');
-    return `<div class="gs-ev-card gs-accent-${escapeAttr(r.accent)}" style="${style}" title="${escapeAttr(r.title)}">
+    const cls = `gs-ev-card gs-accent-${escapeAttr(r.accent)}${r.filled ? ' gs-ev-card-filled' : ''}`;
+    return `<div class="${cls}" style="${style}" title="${escapeAttr(r.title)}">
       <div class="gs-ev-card-title">${escapeAttr(r.title)}</div>${meta}
       <div class="gs-ev-card-tags">${tags}</div></div>`;
   }
