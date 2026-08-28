@@ -414,7 +414,21 @@
   .gs-tag-pink { background: rgba(219,39,119,.14); color: #be185d; }
   .gs-tag-red { background: rgba(239,68,68,.12); color: #dc2626; }
 
-  .gs-toggle-row { display: flex; gap: 18px; margin-bottom: 14px; }
+  .gs-toggle-row { display: flex; align-items: center; gap: 18px; margin-bottom: 14px; flex-wrap: wrap; }
+  .gs-search-input {
+    margin-left: auto; background: #f4f5f8; color: #0f172a; border: 1px solid rgba(15,23,42,.12);
+    border-radius: 8px; padding: 7px 12px; font-size: 13px; width: 240px; max-width: 100%;
+  }
+  .gs-search-input:focus { outline: none; border-color: #4d7cfe; background: #ffffff; }
+  .gs-search-results { border: 1px solid rgba(15,23,42,.09); border-radius: 10px; margin-bottom: 14px; overflow: hidden; }
+  .gs-search-results-head { padding: 8px 12px; font-size: 12px; color: #64748b; background: #f4f5f8; }
+  .gs-search-result-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 13px; cursor: pointer;
+    border-top: 1px solid rgba(15,23,42,.06);
+  }
+  .gs-search-result-row:hover { background: #f8f9fb; }
+  .gs-search-result-date { font-size: 12px; color: #64748b; white-space: nowrap; }
+  .gs-search-result-title { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .gs-toggle { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: #334155; cursor: pointer; user-select: none; }
   .gs-toggle input { margin: 0; }
   .gs-toggle-dot { width: 9px; height: 9px; border-radius: 50%; background: #94a3b8; }
@@ -677,7 +691,7 @@
             <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
           </div>
           <div id="navTeamAssignees"></div>
-          <div class="nav-item" id="navTeamSchedule" onclick="switchView('team-schedule')"><span class="dot dot-team"></span>일정</div>
+          <div class="nav-item" id="navTeamSchedule" onclick="switchView('team-schedule')"><span class="dot dot-team"></span>프로모션</div>
           <div class="nav-item" id="navTeamAccounting" onclick="switchView('team-accounting')"><span class="dot dot-team"></span>사업자·회계</div>
         </div>
       </div>
@@ -1547,7 +1561,7 @@
     <main class="main" id="teamScheduleView" style="display:none">
       <div class="topbar">
         <div>
-          <h1>일정</h1>
+          <h1>프로모션</h1>
           <div class="subtitle">공구 일정은 인플루언서 매니저에서 자동 동기화되고, 외부몰 행사는 아래에서 직접 등록합니다.</div>
         </div>
       </div>
@@ -1556,7 +1570,9 @@
         <div class="gs-toggle-row">
           <label class="gs-toggle"><input type="checkbox" id="gsFilterGroupbuy" checked onchange="gsToggleFilter('groupbuy', this.checked)"><span class="gs-toggle-dot gs-accent-blue"></span>공구 일정</label>
           <label class="gs-toggle"><input type="checkbox" id="gsFilterMall" checked onchange="gsToggleFilter('mall', this.checked)"><span class="gs-toggle-dot gs-accent-mall"></span>외부몰 행사</label>
+          <input type="text" id="gsSearchInput" class="gs-search-input" placeholder="브랜드·인플루언서·행사명 검색" oninput="gsSearch(this.value)">
         </div>
+        <div id="scheduleSearchResults"></div>
         <div id="scheduleCalendar"><div class="gs-empty">불러오는 중...</div></div>
       </section>
 
@@ -5681,9 +5697,26 @@
   let gsRows = [];
   let gsMallRows = [];
   const gsFilters = { groupbuy: true, mall: true };
+  let gsSearchQuery = '';
 
   function gsToggleFilter(key, checked) {
     gsFilters[key] = checked;
+    renderTeamSchedule();
+  }
+
+  function gsSearch(value) {
+    gsSearchQuery = value.trim();
+    renderTeamSchedule();
+  }
+
+  function gsMatchesQuery(r, q) {
+    const haystack = [r.title, ...r.tags.map((t) => t.text)].join(' ').toLowerCase();
+    return haystack.includes(q);
+  }
+
+  function gsJumpTo(dateStr) {
+    const [y, m] = dateStr.split('-').map(Number);
+    gsCursor.y = y; gsCursor.m = m;
     renderTeamSchedule();
   }
 
@@ -5821,9 +5854,29 @@
   function renderTeamSchedule() {
     const root = document.getElementById('scheduleCalendar');
     if (!root) return;
-    let records = [];
-    if (gsFilters.groupbuy) records = records.concat(gsToRecords(gsRows));
-    if (gsFilters.mall) records = records.concat(gsMallToRecords(gsMallRows));
+    let allRecords = [];
+    if (gsFilters.groupbuy) allRecords = allRecords.concat(gsToRecords(gsRows));
+    if (gsFilters.mall) allRecords = allRecords.concat(gsMallToRecords(gsMallRows));
+
+    const q = gsSearchQuery.toLowerCase();
+    const resultsBox = document.getElementById('scheduleSearchResults');
+    if (q) {
+      const matches = allRecords.filter((r) => gsMatchesQuery(r, q)).sort((a, b) => a.start.localeCompare(b.start));
+      resultsBox.innerHTML = matches.length
+        ? `<div class="gs-search-results">
+            <div class="gs-search-results-head">검색 결과 ${matches.length}건 — 클릭하면 그 달로 이동합니다</div>
+            ${matches.map((r) => `
+              <div class="gs-search-result-row" onclick="gsJumpTo('${escapeAttr(r.start)}')">
+                <span class="gs-search-result-date">${escapeAttr(r.start)} → ${escapeAttr(r.end)}</span>
+                <span class="gs-search-result-title">${escapeAttr(r.title)}</span>
+              </div>`).join('')}
+          </div>`
+        : `<div class="gs-search-results"><div class="gs-search-results-head">검색 결과가 없습니다</div></div>`;
+    } else {
+      resultsBox.innerHTML = '';
+    }
+
+    const records = q ? allRecords.filter((r) => gsMatchesQuery(r, q)) : allRecords;
     const { y, m } = gsCursor;
     const today = new Date().toISOString().slice(0, 10);
     const weeks = gsCalendarWeeks(y, m);
