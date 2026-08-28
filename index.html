@@ -3897,6 +3897,7 @@
   let allSkuPlRows = [];
   let plSearchQuery = '';
   let plFiltersInitDone = false;
+  let plCostOptions = []; // 원가 대시보드(product_cost) 항목 중 수동 연결용 원가가 있는 것만
 
   function normalizeProductName(name) {
     return String(name || '').replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase().trim();
@@ -3907,15 +3908,21 @@
     note.textContent = '불러오는 중...';
     const [cpRes, costRes] = await Promise.all([
       client.from('codenit_products').select('*'),
-      client.from('product_cost').select('product_name, unit_cost_krw').eq('brand', '코드니처'),
+      client.from('product_cost').select('id, product_name, option_size, option_color, unit_cost_krw').eq('brand', '코드니처'),
     ]);
     if (cpRes.error) {
       note.innerHTML = '<span class="error">불러오지 못했습니다: ' + cpRes.error.message + '</span>';
       return;
     }
 
+    const costRows = costRes.data || [];
+    plCostOptions = costRows.filter(r => r.unit_cost_krw != null);
+
+    const costById = {};
+    costRows.forEach(r => { if (r.unit_cost_krw != null) costById[r.id] = Number(r.unit_cost_krw); });
+
     const costByName = {};
-    (costRes.data || []).forEach(r => {
+    costRows.forEach(r => {
       const key = normalizeProductName(r.product_name);
       if (costByName[key] === undefined && r.unit_cost_krw != null) costByName[key] = Number(r.unit_cost_krw);
     });
@@ -3923,7 +3930,8 @@
     allSkuPlRows = (cpRes.data || []).map(r => {
       const price = Number(r.price) || 0;
       const shipping = r.shipping_fee != null ? Number(r.shipping_fee) : 0;
-      const cost = costByName[normalizeProductName(r.product_name)];
+      const linkedCost = r.cost_product_id != null ? costById[r.cost_product_id] : undefined;
+      const cost = linkedCost !== undefined ? linkedCost : costByName[normalizeProductName(r.product_name)];
       const fee = price * SKU_FEE_PCT / 100;
       const expense = price * SKU_EXPENSE_PCT / 100;
       const vat = price * SKU_VAT_PCT / 100;
@@ -3934,6 +3942,15 @@
     setupPlFilters();
     renderPlCards();
     renderPlTable();
+  }
+
+  async function linkProductCost(codenitId, costId) {
+    const { error } = await client
+      .from('codenit_products')
+      .update({ cost_product_id: costId ? Number(costId) : null })
+      .eq('id', codenitId);
+    if (error) { alert('연결하지 못했습니다: ' + error.message); return; }
+    loadPlData();
   }
 
   function setupPlFilters() {
@@ -3983,11 +4000,22 @@
       const nameHtml = r.product_url
         ? `<a href="${escapeAttr(r.product_url)}" target="_blank" rel="noopener" style="color:#2f5ce4;text-decoration:underline;">${escapeAttr(r.product_name || '')}</a>`
         : (r.product_name || '');
+      const costCellHtml = r.cost != null
+        ? Number(r.cost).toLocaleString('ko-KR')
+        : `
+          <select onchange="linkProductCost(${r.id}, this.value)" style="max-width:220px; font-size:12px;">
+            <option value="">미매칭 - 원가상품 연결</option>
+            ${plCostOptions.map(c => {
+              const optionLabel = [c.option_size, c.option_color].filter(Boolean).join('/');
+              return `<option value="${c.id}">${escapeAttr(c.product_name)}${optionLabel ? ' (' + escapeAttr(optionLabel) + ')' : ''} - ${Number(c.unit_cost_krw).toLocaleString('ko-KR')}원</option>`;
+            }).join('')}
+          </select>
+        `;
       return `
         <tr>
           <td>${nameHtml}</td>
           <td class="num">${r.price ? Number(r.price).toLocaleString('ko-KR') : '-'}</td>
-          <td class="num">${r.cost != null ? Number(r.cost).toLocaleString('ko-KR') : '<span class="error">미매칭</span>'}</td>
+          <td class="num">${costCellHtml}</td>
           <td class="num">${r.shipping_fee != null ? Number(r.shipping_fee).toLocaleString('ko-KR') : '-'}</td>
           <td class="num">${Math.round(r.fee).toLocaleString('ko-KR')}</td>
           <td class="num">${Math.round(r.expense).toLocaleString('ko-KR')}</td>
