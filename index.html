@@ -409,7 +409,16 @@
   .gs-tag-pink { background: rgba(219,39,119,.14); color: #be185d; }
   .gs-tag-red { background: rgba(239,68,68,.12); color: #dc2626; }
 
+  .gs-toggle-row { display: flex; gap: 18px; margin-bottom: 14px; }
+  .gs-toggle { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: #334155; cursor: pointer; user-select: none; }
+  .gs-toggle input { margin: 0; }
+  .gs-toggle-dot { width: 9px; height: 9px; border-radius: 50%; background: #94a3b8; }
+  .gs-toggle-dot.gs-accent-blue { background: #2f5ce4; }
+  .gs-toggle-dot.gs-accent-mall { background: #0d9488; }
+  .gs-tag-mall { background: rgba(13,148,136,.14); color: #0d9488; }
+
   .gs-accent-default, .gs-accent-gray { border-left-color: #94a3b8; }
+  .gs-accent-mall { border-left-color: #0d9488; }
   .gs-accent-brown { border-left-color: #92643f; }
   .gs-accent-orange { border-left-color: #b3620a; }
   .gs-accent-yellow { border-left-color: #a16207; }
@@ -1534,12 +1543,41 @@
       <div class="topbar">
         <div>
           <h1>일정</h1>
-          <div class="subtitle">인플루언서 매니저(공구 &gt; 일정)에서 자동 동기화됩니다. 수정은 인플루언서 매니저에서 해주세요.</div>
+          <div class="subtitle">공구 일정은 인플루언서 매니저에서 자동 동기화되고, 외부몰 행사는 아래에서 직접 등록합니다.</div>
         </div>
       </div>
 
       <section class="panel">
+        <div class="gs-toggle-row">
+          <label class="gs-toggle"><input type="checkbox" id="gsFilterGroupbuy" checked onchange="gsToggleFilter('groupbuy', this.checked)"><span class="gs-toggle-dot gs-accent-blue"></span>공구 일정</label>
+          <label class="gs-toggle"><input type="checkbox" id="gsFilterMall" checked onchange="gsToggleFilter('mall', this.checked)"><span class="gs-toggle-dot gs-accent-mall"></span>외부몰 행사</label>
+        </div>
         <div id="scheduleCalendar"><div class="gs-empty">불러오는 중...</div></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>외부몰 행사 등록</h2></div>
+        <form class="deal-form" id="mallEventForm">
+          <input type="text" name="mall" placeholder="몰/채널명 (예: 쿠팡, 스마트스토어)" style="flex:1; min-width:140px;">
+          <input type="text" name="title" placeholder="행사명" required style="flex:2; min-width:180px;">
+          <input type="date" name="startDate" required>
+          <input type="date" name="endDate" required>
+          <input type="text" name="memo" placeholder="메모(선택)" style="flex:1; min-width:140px;">
+          <button type="submit" class="btn-primary">추가</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>외부몰 행사 목록</h2>
+          <span class="panel-note" id="mallEventListNote"></span>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead><tr><th>몰/채널</th><th>행사명</th><th>시작일</th><th>종료일</th><th>메모</th><th></th></tr></thead>
+            <tbody id="mallEventTable"></tbody>
+          </table>
+        </div>
       </section>
     </main>
 
@@ -5636,17 +5674,29 @@
   // 읽기 전용입니다 — 수정은 인플루언서 매니저에서 해야 다음 동기화 때 반영됩니다.
   const gsCursor = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1 }; })();
   let gsRows = [];
+  let gsMallRows = [];
+  const gsFilters = { groupbuy: true, mall: true };
+
+  function gsToggleFilter(key, checked) {
+    gsFilters[key] = checked;
+    renderTeamSchedule();
+  }
 
   async function loadTeamSchedule() {
     const root = document.getElementById('scheduleCalendar');
     root.innerHTML = '<div class="gs-empty">불러오는 중...</div>';
-    const { data, error } = await client.from('groupbuy_schedule').select('*').order('start_date', { ascending: true });
-    if (error) {
-      root.innerHTML = `<div class="gs-empty error">일정을 불러오지 못했습니다: ${escapeAttr(error.message)}</div>`;
+    const [groupbuyRes, mallRes] = await Promise.all([
+      client.from('groupbuy_schedule').select('*').order('start_date', { ascending: true }),
+      client.from('mall_events').select('*').order('start_date', { ascending: true })
+    ]);
+    if (groupbuyRes.error) {
+      root.innerHTML = `<div class="gs-empty error">일정을 불러오지 못했습니다: ${escapeAttr(groupbuyRes.error.message)}</div>`;
       return;
     }
-    gsRows = data || [];
+    gsRows = groupbuyRes.data || [];
+    gsMallRows = mallRes.error ? [] : (mallRes.data || []);
     renderTeamSchedule();
+    renderMallEventTable();
   }
 
   function gsDiffDays(a, b) {
@@ -5696,6 +5746,18 @@
         accent: r.department_color || 'default'
       };
     });
+  }
+
+  function gsMallToRecords(rows) {
+    return rows.map((r) => ({
+      id: `mall-${r.id}`,
+      start: r.start_date,
+      end: r.end_date || r.start_date,
+      title: r.mall ? `${r.mall} · ${r.title}` : r.title,
+      pctText: null,
+      tags: r.memo ? [{ text: r.memo, color: 'mall' }] : [],
+      accent: 'mall'
+    }));
   }
 
   function gsEvCardHtml(r, style) {
@@ -5752,7 +5814,9 @@
   function renderTeamSchedule() {
     const root = document.getElementById('scheduleCalendar');
     if (!root) return;
-    const records = gsToRecords(gsRows);
+    let records = [];
+    if (gsFilters.groupbuy) records = records.concat(gsToRecords(gsRows));
+    if (gsFilters.mall) records = records.concat(gsMallToRecords(gsMallRows));
     const { y, m } = gsCursor;
     const today = new Date().toISOString().slice(0, 10);
     const weeks = gsCalendarWeeks(y, m);
@@ -5763,7 +5827,7 @@
     root.innerHTML = `
       <div class="gs-cal-nav">
         <button type="button" class="gs-btn-icon" id="gsPrev" title="이전 달">‹</button>
-        <div class="gs-cal-month">${y}년 ${m}월 <span class="gs-muted">· 공구 ${monthTotal}건</span></div>
+        <div class="gs-cal-month">${y}년 ${m}월 <span class="gs-muted">· ${monthTotal}건</span></div>
         <button type="button" class="gs-btn-icon" id="gsNext" title="다음 달">›</button>
         <button type="button" class="gs-btn-today" id="gsToday">오늘</button>
       </div>
@@ -5772,11 +5836,67 @@
           `<div class="gs-cal-dow${i === 0 ? ' dow-sun' : i === 6 ? ' dow-sat' : ''}" style="--c:${i + 1}">${d}</div>`).join('')}</div>
         ${weeksHtml}
       </div>
-      ${records.length ? '' : '<div class="gs-empty">동기화된 공구 일정이 아직 없습니다.</div>'}`;
+      ${records.length ? '' : '<div class="gs-empty">표시할 일정이 없습니다.</div>'}`;
 
     document.getElementById('gsPrev').onclick = () => { gsCursor.m--; if (gsCursor.m < 1) { gsCursor.m = 12; gsCursor.y--; } renderTeamSchedule(); };
     document.getElementById('gsNext').onclick = () => { gsCursor.m++; if (gsCursor.m > 12) { gsCursor.m = 1; gsCursor.y++; } renderTeamSchedule(); };
     document.getElementById('gsToday').onclick = () => { const d = new Date(); gsCursor.y = d.getFullYear(); gsCursor.m = d.getMonth() + 1; renderTeamSchedule(); };
+  }
+
+  // ---- 외부몰 행사 (직접 입력) ----
+  function renderMallEventTable() {
+    const note = document.getElementById('mallEventListNote');
+    const table = document.getElementById('mallEventTable');
+    if (!note || !table) return;
+    note.textContent = gsMallRows.length + '개 행사';
+    if (!gsMallRows.length) {
+      table.innerHTML = '<tr><td colspan="6" class="gs-empty">등록된 외부몰 행사가 없습니다. 위에서 추가해보세요.</td></tr>';
+      return;
+    }
+    table.innerHTML = gsMallRows.map((r) => `
+      <tr>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(r.mall || '')}"
+          onchange="updateMallEventField(${r.id}, 'mall', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(r.title || '')}"
+          onchange="updateMallEventField(${r.id}, 'title', this.value)"></td>
+        <td><input type="date" class="inline-edit" value="${escapeAttr(r.start_date || '')}"
+          onchange="updateMallEventField(${r.id}, 'start_date', this.value)"></td>
+        <td><input type="date" class="inline-edit" value="${escapeAttr(r.end_date || '')}"
+          onchange="updateMallEventField(${r.id}, 'end_date', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(r.memo || '')}"
+          onchange="updateMallEventField(${r.id}, 'memo', this.value)"></td>
+        <td><button class="btn-danger" onclick="deleteMallEvent(${r.id})">삭제</button></td>
+      </tr>
+    `).join('');
+  }
+
+  document.getElementById('mallEventForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const mall = form.mall.value.trim() || null;
+    const title = form.title.value.trim();
+    const startDate = form.startDate.value;
+    const endDate = form.endDate.value;
+    const memo = form.memo.value.trim() || null;
+    if (!title || !startDate || !endDate) return;
+    const { error } = await client.from('mall_events').insert([{ mall, title, start_date: startDate, end_date: endDate, memo }]);
+    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+    form.reset();
+    loadTeamSchedule();
+  });
+
+  async function updateMallEventField(id, field, rawValue) {
+    const value = rawValue.trim() || null;
+    const { error } = await client.from('mall_events').update({ [field]: value }).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadTeamSchedule();
+  }
+
+  async function deleteMallEvent(id) {
+    if (!confirm('이 행사를 삭제할까요?')) return;
+    const { error } = await client.from('mall_events').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadTeamSchedule();
   }
 
   // ==================== 영업팀 - 사업자·회계 ====================
