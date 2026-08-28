@@ -352,6 +352,73 @@
   .calendar-day { font-size: 11px; color: #64748b; }
   .calendar-amount { font-size: 12px; font-weight: 700; color: #0f172a; }
 
+  /* ---- 영업팀 일정 캘린더 (공구 일정 동기화) ---- */
+  .gs-empty { font-size: 13px; color: #64748b; padding: 24px 0; text-align: center; }
+  .gs-cal-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .gs-cal-nav .gs-cal-month { font-size: 15px; font-weight: 700; flex: 1; }
+  .gs-cal-nav .gs-cal-month .gs-muted { color: #64748b; font-weight: 500; font-size: 12.5px; }
+  .gs-btn-icon {
+    width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+    background: #ffffff; border: 1px solid rgba(15,23,42,.12); border-radius: 8px;
+    color: #475569; cursor: pointer; font-size: 17px; line-height: 1;
+  }
+  .gs-btn-icon:hover { background: #f4f5f8; color: #0f172a; }
+  .gs-btn-today {
+    background: #f4f5f8; color: #475569; border: 1px solid rgba(15,23,42,.12);
+    border-radius: 8px; padding: 6px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+  .gs-btn-today:hover { background: #eceef4; }
+
+  .gs-cal-grid { border: 1px solid rgba(15,23,42,.09); border-radius: 10px; overflow: hidden; min-width: 760px; }
+  .gs-cal-week { display: grid; grid-template-columns: repeat(7, 1fr); position: relative; border-top: 1px solid rgba(15,23,42,.07); }
+  .gs-cal-week:first-child { border-top: none; }
+  .gs-cal-week-head { grid-template-rows: 32px; background: #f4f5f8; }
+  .gs-cal-dow { grid-column: var(--c); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #475569; }
+  .gs-cal-dow.dow-sun { color: #dc2626; }
+  .gs-cal-dow.dow-sat { color: #2f5ce4; }
+
+  .gs-day-bg { grid-column: var(--c); grid-row: 1 / -1; border-left: 1px solid rgba(15,23,42,.07); }
+  .gs-day-bg.adjacent { background: #f8f9fb; }
+  .gs-day-bg.today { background: rgba(77,124,254,.08); }
+
+  .gs-day-num { grid-row: 1; grid-column: var(--c); font-size: 11.5px; font-weight: 600; color: #475569; padding: 4px 6px; }
+  .gs-day-num.adjacent { color: #a7adc1; }
+  .gs-day-num.today { color: #2f5ce4; font-weight: 800; }
+  .gs-day-num.dow-sun { color: #dc2626; }
+  .gs-day-num.dow-sat { color: #2f5ce4; }
+  .gs-day-num.month-label { font-weight: 800; }
+
+  .gs-ev-card {
+    grid-row: var(--r); grid-column: var(--c);
+    margin: 2px 3px; padding: 4px 7px; border-radius: 6px; font-size: 11px; line-height: 1.4;
+    background: #ffffff; border: 1px solid rgba(15,23,42,.08); border-left: 3px solid #94a3b8;
+    overflow: hidden; cursor: default; align-self: start;
+  }
+  .gs-ev-card-title { font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gs-ev-card-meta { color: #64748b; margin-top: 1px; }
+  .gs-ev-card-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+  .gs-ev-card-tags .gs-tag { padding: 1px 6px; font-size: 10px; border-radius: 999px; font-weight: 600; }
+
+  .gs-tag-default, .gs-tag-gray { background: rgba(100,116,139,.12); color: #475569; }
+  .gs-tag-brown { background: rgba(146,100,63,.14); color: #92643f; }
+  .gs-tag-orange { background: rgba(234,140,26,.14); color: #b3620a; }
+  .gs-tag-yellow { background: rgba(250,204,21,.18); color: #a16207; }
+  .gs-tag-green { background: rgba(34,197,94,.14); color: #15803d; }
+  .gs-tag-blue { background: rgba(77,124,254,.14); color: #1d4ed8; }
+  .gs-tag-purple { background: rgba(147,51,234,.14); color: #9333ea; }
+  .gs-tag-pink { background: rgba(219,39,119,.14); color: #be185d; }
+  .gs-tag-red { background: rgba(239,68,68,.12); color: #dc2626; }
+
+  .gs-accent-default, .gs-accent-gray { border-left-color: #94a3b8; }
+  .gs-accent-brown { border-left-color: #92643f; }
+  .gs-accent-orange { border-left-color: #b3620a; }
+  .gs-accent-yellow { border-left-color: #a16207; }
+  .gs-accent-green { border-left-color: #15803d; }
+  .gs-accent-blue { border-left-color: #2f5ce4; }
+  .gs-accent-purple { border-left-color: #9333ea; }
+  .gs-accent-pink { border-left-color: #be185d; }
+  .gs-accent-red { border-left-color: #dc2626; }
+
   /* ---- Tables ---- */
   .scroll-box { max-height: 420px; overflow-y: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; color: #1e293b; }
@@ -596,6 +663,7 @@
             <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
           </div>
           <div id="navTeamAssignees"></div>
+          <div class="nav-item" id="navTeamSchedule" onclick="switchView('team-schedule')"><span class="dot dot-team"></span>일정</div>
           <div class="nav-item" id="navTeamAccounting" onclick="switchView('team-accounting')"><span class="dot dot-team"></span>사업자·회계</div>
         </div>
       </div>
@@ -669,6 +737,7 @@
         <div class="panel-head">
           <h2>판매처별 상세</h2>
           <div class="filter-group">
+            <button type="button" class="filter-reset-btn" id="vendorDetailExportBtn">엑셀 다운로드</button>
             <select id="vendorSelect" class="vendor-select"></select>
             <div class="searchable-select" id="productSelectWrap">
               <input type="text" id="productSelectInput" class="vendor-select searchable-select-input" placeholder="전체 제품 (검색 가능)" autocomplete="off">
@@ -1461,6 +1530,19 @@
       </section>
     </main>
 
+    <main class="main" id="teamScheduleView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>일정</h1>
+          <div class="subtitle">인플루언서 매니저(공구 &gt; 일정)에서 자동 동기화됩니다. 수정은 인플루언서 매니저에서 해주세요.</div>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div id="scheduleCalendar"><div class="gs-empty">불러오는 중...</div></div>
+      </section>
+    </main>
+
     <main class="main" id="teamAccountingView" style="display:none">
       <div class="topbar">
         <div>
@@ -2092,6 +2174,7 @@
     let vdMap = {};
     let vdVendorEntries = [];
     let vdProductEntries = [];
+    let vdFlatRows = [];
     let productValue = ALL_VALUE; // 드롭다운에서 정확히 선택한 제품명 (하나로 고정)
     let productSearchText = ''; // 엔터로 적용한 검색어 (제품명에 이 글자가 포함된 항목 전체를 보여줌)
 
@@ -2247,6 +2330,7 @@
         });
       });
       flatRows.sort((a, b) => b.amount - a.amount);
+      vdFlatRows = flatRows;
 
       const rangeNote = (vdFromInput.value || vdToInput.value)
         ? ` · ${vdFromInput.value || '처음'} ~ ${vdToInput.value || '오늘'}`
@@ -2274,6 +2358,16 @@
     vdFromInput.onchange = () => refreshVendorDetailAll(true);
     vdToInput.onchange = () => refreshVendorDetailAll(true);
     vdDateReset.onclick = () => { vdFromInput.value = ''; vdToInput.value = ''; refreshVendorDetailAll(false); };
+
+    document.getElementById('vendorDetailExportBtn').onclick = () => {
+      if (!vdFlatRows.length) return;
+      const data = vdFlatRows.map(r => ({ 판매처: r.vendor, 제품명: r.product, 수량: r.quantity, 매출: r.amount }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '판매처별 상세');
+      const stamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `판매처별_상세_${stamp}.xlsx`);
+    };
 
     refreshVendorDetailAll(false);
 
@@ -2409,6 +2503,7 @@
     document.getElementById('teamOverviewView').style.display = view === 'team-overview' ? '' : 'none';
     document.getElementById('teamProcessView').style.display = view === 'team-process' ? '' : 'none';
     document.getElementById('teamTasksView').style.display = view === 'team-tasks' ? '' : 'none';
+    document.getElementById('teamScheduleView').style.display = view === 'team-schedule' ? '' : 'none';
     document.getElementById('teamAccountingView').style.display = view === 'team-accounting' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
     document.getElementById('navMonthlyTrend').classList.toggle('active', view === 'monthly-trend');
@@ -2425,6 +2520,7 @@
     document.getElementById('navTeamOverview').classList.toggle('active', view === 'team-overview');
     document.getElementById('navTeamProcess').classList.toggle('active', view === 'team-process');
     document.getElementById('navTeamTasks').classList.toggle('active', view === 'team-tasks');
+    document.getElementById('navTeamSchedule').classList.toggle('active', view === 'team-schedule');
     document.getElementById('navTeamAccounting').classList.toggle('active', view === 'team-accounting');
     document.querySelectorAll('#navMarketingBrands .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'marketing-brand' && el.dataset.channel === brandChannel);
@@ -2453,6 +2549,7 @@
       currentTaskAssignee = brandChannel || null;
       loadTeamTasks();
     }
+    if (view === 'team-schedule') loadTeamSchedule();
     if (view === 'team-accounting') loadTeamAccounting();
   }
 
@@ -5531,6 +5628,155 @@
     const { error } = await client.from('team_tasks').delete().eq('id', id);
     if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
     loadTeamTasks();
+  }
+
+  // ==================== 영업팀 - 일정 (공구 일정 동기화) ====================
+  // 인플루언서 매니저의 "공구 > 일정" 화면과 같은 형태로, Supabase groupbuy_schedule
+  // 테이블(api/sync-groupbuy-schedule.js가 주기적으로 채워 넣음)을 월간 캘린더로 보여줍니다.
+  // 읽기 전용입니다 — 수정은 인플루언서 매니저에서 해야 다음 동기화 때 반영됩니다.
+  const gsCursor = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1 }; })();
+  let gsRows = [];
+
+  async function loadTeamSchedule() {
+    const root = document.getElementById('scheduleCalendar');
+    root.innerHTML = '<div class="gs-empty">불러오는 중...</div>';
+    const { data, error } = await client.from('groupbuy_schedule').select('*').order('start_date', { ascending: true });
+    if (error) {
+      root.innerHTML = `<div class="gs-empty error">일정을 불러오지 못했습니다: ${escapeAttr(error.message)}</div>`;
+      return;
+    }
+    gsRows = data || [];
+    renderTeamSchedule();
+  }
+
+  function gsDiffDays(a, b) {
+    const A = a.split('-').map(Number), B = b.split('-').map(Number);
+    return Math.round((Date.UTC(A[0], A[1] - 1, A[2]) - Date.UTC(B[0], B[1] - 1, B[2])) / 86400000);
+  }
+  function gsShortDate(s) { const p = s.split('-'); return `${Number(p[1])}.${Number(p[2])}`; }
+
+  function gsCalendarWeeks(y, m) {
+    const firstDow = new Date(y, m - 1, 1).getDay();
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const weeksCount = Math.ceil((firstDow + daysInMonth) / 7);
+    const gridStartMs = Date.UTC(y, m - 1, 1 - firstDow);
+    const weeks = [];
+    for (let w = 0; w < weeksCount; w++) {
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        const dt = new Date(gridStartMs + (w * 7 + i) * 86400000);
+        const yy = dt.getUTCFullYear(), mm = dt.getUTCMonth() + 1, dd = dt.getUTCDate();
+        days.push({
+          key: `${yy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`,
+          day: dd, dow: i,
+          inMonth: mm === m && yy === y,
+          isFirstOfMonth: dd === 1,
+          monthLabel: `${mm}월 ${dd}일`
+        });
+      }
+      weeks.push(days);
+    }
+    return weeks;
+  }
+
+  function gsToRecords(rows) {
+    return rows.map((r) => {
+      const tags = [];
+      if (r.brand_product) tags.push({ text: r.brand_product, color: 'blue' });
+      if (r.status) tags.push({ text: r.status, color: r.status_color || 'default' });
+      if (r.settlement_method) tags.push({ text: r.settlement_method, color: r.settlement_method_color || 'default' });
+      if (r.department) tags.push({ text: r.department, color: r.department_color || 'default' });
+      return {
+        id: r.id,
+        start: r.start_date,
+        end: r.end_date || r.start_date,
+        title: `${r.brand_name || '브랜드미정'} · ${r.influencer_name || '(이름없음)'}`,
+        pctText: typeof r.commission_rate === 'number' ? `${Math.round(r.commission_rate * 100)}%` : null,
+        tags,
+        accent: r.department_color || 'default'
+      };
+    });
+  }
+
+  function gsEvCardHtml(r, style) {
+    const meta = `<div class="gs-ev-card-meta">${r.pctText ? `<b>수수료 ${escapeAttr(r.pctText)}</b><br>` : ''}${gsShortDate(r.start)} → ${gsShortDate(r.end)}</div>`;
+    const tags = r.tags.map((t) => `<span class="gs-tag gs-tag-${escapeAttr(t.color)}">${escapeAttr(t.text)}</span>`).join('');
+    return `<div class="gs-ev-card gs-accent-${escapeAttr(r.accent)}" style="${style}" title="${escapeAttr(r.title)}">
+      <div class="gs-ev-card-title">${escapeAttr(r.title)}</div>${meta}
+      <div class="gs-ev-card-tags">${tags}</div></div>`;
+  }
+
+  // 한 주(週) 한 줄 — 그 주에 걸치는 카드를 겹치지 않는 레인에 배정하고,
+  // 실제 겹치는 기간만큼 grid-column을 이어붙여 넓게 그립니다.
+  function gsBuildWeekHtml(days, records, today) {
+    const weekStart = days[0].key, weekEnd = days[6].key;
+    const occ = [];
+    records.forEach((r) => {
+      if (r.end < weekStart || r.start > weekEnd) return;
+      const startCol = Math.max(0, gsDiffDays(r.start, weekStart));
+      const endCol = Math.min(6, gsDiffDays(r.end, weekStart));
+      occ.push({ r, startCol, endCol, order: r.start });
+    });
+    occ.sort((a, b) => (a.startCol - b.startCol) || a.order.localeCompare(b.order));
+    const laneEnds = [];
+    occ.forEach((o) => {
+      let lane = laneEnds.findIndex((end) => end < o.startCol);
+      if (lane === -1) { lane = laneEnds.length; laneEnds.push(o.endCol); }
+      else laneEnds[lane] = o.endCol;
+      o.lane = lane;
+    });
+    const laneCount = laneEnds.length;
+
+    const dayBg = days.map((day) => {
+      const cls = ['gs-day-bg'];
+      if (!day.inMonth) cls.push('adjacent');
+      if (day.key === today) cls.push('today');
+      return `<div class="${cls.join(' ')}" style="--c:${day.dow + 1}"></div>`;
+    }).join('');
+
+    const dayNum = days.map((day) => {
+      const cls = ['gs-day-num'];
+      if (day.dow === 0) cls.push('dow-sun'); else if (day.dow === 6) cls.push('dow-sat');
+      if (!day.inMonth) cls.push('adjacent');
+      if (day.key === today) cls.push('today');
+      if (day.isFirstOfMonth) cls.push('month-label');
+      const label = day.isFirstOfMonth ? day.monthLabel : String(day.day);
+      return `<div class="${cls.join(' ')}" style="--c:${day.dow + 1}">${label}</div>`;
+    }).join('');
+
+    const cards = occ.map((o) => gsEvCardHtml(o.r, `--c:${o.startCol + 1} / ${o.endCol + 2};--r:${2 + o.lane}`)).join('');
+
+    return `<div class="gs-cal-week" style="grid-template-rows:26px repeat(${Math.max(1, laneCount)}, auto)">${dayBg}${dayNum}${cards}</div>`;
+  }
+
+  function renderTeamSchedule() {
+    const root = document.getElementById('scheduleCalendar');
+    if (!root) return;
+    const records = gsToRecords(gsRows);
+    const { y, m } = gsCursor;
+    const today = new Date().toISOString().slice(0, 10);
+    const weeks = gsCalendarWeeks(y, m);
+    const prefix = `${y}-${String(m).padStart(2, '0')}`;
+    const weeksHtml = weeks.map((days) => gsBuildWeekHtml(days, records, today)).join('');
+    const monthTotal = new Set(records.filter((r) => !(r.end < `${prefix}-01` || r.start > `${prefix}-31`)).map((r) => r.id)).size;
+
+    root.innerHTML = `
+      <div class="gs-cal-nav">
+        <button type="button" class="gs-btn-icon" id="gsPrev" title="이전 달">‹</button>
+        <div class="gs-cal-month">${y}년 ${m}월 <span class="gs-muted">· 공구 ${monthTotal}건</span></div>
+        <button type="button" class="gs-btn-icon" id="gsNext" title="다음 달">›</button>
+        <button type="button" class="gs-btn-today" id="gsToday">오늘</button>
+      </div>
+      <div class="gs-cal-grid">
+        <div class="gs-cal-week gs-cal-week-head">${['일', '월', '화', '수', '목', '금', '토'].map((d, i) =>
+          `<div class="gs-cal-dow${i === 0 ? ' dow-sun' : i === 6 ? ' dow-sat' : ''}" style="--c:${i + 1}">${d}</div>`).join('')}</div>
+        ${weeksHtml}
+      </div>
+      ${records.length ? '' : '<div class="gs-empty">동기화된 공구 일정이 아직 없습니다.</div>'}`;
+
+    document.getElementById('gsPrev').onclick = () => { gsCursor.m--; if (gsCursor.m < 1) { gsCursor.m = 12; gsCursor.y--; } renderTeamSchedule(); };
+    document.getElementById('gsNext').onclick = () => { gsCursor.m++; if (gsCursor.m > 12) { gsCursor.m = 1; gsCursor.y++; } renderTeamSchedule(); };
+    document.getElementById('gsToday').onclick = () => { const d = new Date(); gsCursor.y = d.getFullYear(); gsCursor.m = d.getMonth() + 1; renderTeamSchedule(); };
   }
 
   // ==================== 영업팀 - 사업자·회계 ====================

@@ -1,0 +1,21 @@
+name: 공구 일정 동기화 호출
+
+# 이 저장소는 Vercel Hobby 플랜의 cron 2개 한도를 이미 다 쓰고 있어서(sync-meta-ads,
+# sync-ezadmin-inventory), 세 번째 동기화(api/sync-groupbuy-schedule)는 Vercel Cron 대신
+# GitHub Actions가 주기적으로 그 엔드포인트를 호출하는 방식으로 실행합니다.
+# 실제 동기화 로직은 전부 api/sync-groupbuy-schedule.js(Vercel 서버리스 함수) 안에 있고,
+# 여기서는 그 함수를 깨우기만 합니다.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vercel sync 엔드포인트 호출
+        run: |
+          curl -sf -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.VERCEL_APP_URL }}/api/sync-groupbuy-schedule"
