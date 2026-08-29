@@ -1487,6 +1487,7 @@
         </div>
       </div>
 
+      <div id="processSubExport">
       <section class="panel">
         <div class="panel-head"><h2>직접수출 / 간접수출 비교</h2></div>
         <div class="scroll-box">
@@ -1614,6 +1615,13 @@
           <div class="exp-note">국내 수출업체와 거래 시 '구매확인서 발급 가능한 거래인지' 사전 확인. 구매확인서 없이 임의로 영세율 세금계산서를 발행하지 않도록 주의</div>
         </div>
       </section>
+      </div>
+
+      <div id="processSubB2B" style="display:none">
+        <section class="panel">
+          <div class="gs-empty">아직 등록된 B2B 일반 프로세스 자료가 없습니다. 자료를 주시면 채워드릴게요.</div>
+        </section>
+      </div>
     </main>
 
     <main class="main" id="teamTasksView" style="display:none">
@@ -2658,6 +2666,7 @@
   }
 
   // ==================== 파이프라인 (B2B / 수출) ====================
+  let currentProcessSub = 'export';
   function switchView(view, brandChannel) {
     document.getElementById('dashboardView').style.display = view === 'dashboard' ? '' : 'none';
     document.getElementById('monthlyTrendView').style.display = view === 'monthly-trend' ? '' : 'none';
