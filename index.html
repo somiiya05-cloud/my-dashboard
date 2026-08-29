@@ -683,7 +683,11 @@
         <div class="nav-group">
           <div class="nav-label">영업팀</div>
           <div class="nav-item" id="navTeamOverview" onclick="switchView('team-overview')"><span class="dot dot-team"></span>Overall Operations</div>
-          <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process')"><span class="dot dot-team"></span>수출 프로세스</div>
+          <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process', 'export')"><span class="dot dot-team"></span>수출 프로세스</div>
+          <div id="navProcessSub">
+            <div class="nav-subitem" data-processsub="export" onclick="switchView('team-process', 'export')">수출</div>
+            <div class="nav-subitem" data-processsub="b2b" onclick="switchView('team-process', 'b2b')">B2B 일반</div>
+          </div>
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
             <span class="dot dot-team"></span>할일 관리
             <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
@@ -2697,6 +2701,14 @@
     document.querySelectorAll('#navTeamAssignees .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'team-tasks' && el.dataset.assignee === brandChannel);
     });
+    document.querySelectorAll('#navProcessSub .nav-subitem').forEach((el) => {
+      el.classList.toggle('active', view === 'team-process' && el.dataset.processsub === (brandChannel || currentProcessSub));
+    });
+    if (view === 'team-process') {
+      currentProcessSub = brandChannel || currentProcessSub;
+      document.getElementById('processSubExport').style.display = currentProcessSub === 'export' ? '' : 'none';
+      document.getElementById('processSubB2B').style.display = currentProcessSub === 'b2b' ? '' : 'none';
+    }
     if (view === 'monthly-trend') renderMonthlyTrendView();
     if (view === 'pipeline') loadPipeline();
     if (view === 'product') renderProductView();
@@ -4051,12 +4063,14 @@
       const price = Number(r.price) || 0;
       const shipping = r.shipping_fee != null ? Number(r.shipping_fee) : 0;
       const linkedCost = r.cost_product_id != null ? costById[r.cost_product_id] : undefined;
-      const cost = linkedCost !== undefined ? linkedCost : costByName[normalizeProductName(r.product_name)];
+      const unitCost = linkedCost !== undefined ? linkedCost : costByName[normalizeProductName(r.product_name)];
+      const qty = Math.max(1, parseInt(r.cost_qty, 10) || 1);
+      const cost = unitCost != null ? unitCost * qty : null;
       const fee = price * SKU_FEE_PCT / 100;
       const expense = price * SKU_EXPENSE_PCT / 100;
       const vat = price * SKU_VAT_PCT / 100;
       const profit = (cost != null) ? (price - cost - shipping - fee - expense - vat) : null;
-      return { ...r, cost, fee, expense, vat, profit };
+      return { ...r, unitCost, qty, cost, fee, expense, vat, profit };
     });
 
     setupPlFilters();
@@ -4064,23 +4078,30 @@
     renderPlTable();
   }
 
-  async function linkProductCost(codenitId, costId) {
+  async function updateCodenitProductCost(codenitId, { costId, qty } = {}) {
+    const update = {};
+    if (costId !== undefined) update.cost_product_id = costId ? Number(costId) : null;
+    if (qty !== undefined) update.cost_qty = Math.max(1, parseInt(qty, 10) || 1);
     const { error } = await client
       .from('codenit_products')
-      .update({ cost_product_id: costId ? Number(costId) : null })
+      .update(update)
       .eq('id', codenitId);
-    if (error) { alert('연결하지 못했습니다: ' + error.message); return; }
+    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
     loadPlData();
   }
 
-  function linkProductCostByLabel(codenitId, label, inputEl) {
+  function linkProductCostByLabel(codenitId, label, inputEl, qtyInputEl) {
     const costId = plCostLabelToId[label];
     if (!costId) {
       if (label) alert('목록에 있는 원가상품을 선택해주세요.');
       if (inputEl) inputEl.value = '';
       return;
     }
-    linkProductCost(codenitId, costId);
+    updateCodenitProductCost(codenitId, { costId, qty: qtyInputEl ? qtyInputEl.value : 1 });
+  }
+
+  function updateCostQty(codenitId, qty) {
+    updateCodenitProductCost(codenitId, { qty });
   }
 
   function setupPlFilters() {
@@ -4131,16 +4152,37 @@
         ? `<a href="${escapeAttr(r.product_url)}" target="_blank" rel="noopener" style="color:#2f5ce4;text-decoration:underline;">${escapeAttr(r.product_name || '')}</a>`
         : (r.product_name || '');
       const costCellHtml = r.cost != null
-        ? Number(r.cost).toLocaleString('ko-KR')
+        ? `
+          <div>${Number(r.cost).toLocaleString('ko-KR')}</div>
+          <div style="font-size:11px; color:#94a3b8; font-weight:400;">
+            개당 ${Number(r.unitCost).toLocaleString('ko-KR')} ×
+            <input
+              type="number" min="1"
+              value="${r.qty}"
+              title="묶음 수량 (1+1 등)"
+              onchange="updateCostQty(${r.id}, this.value)"
+              style="width:36px; font-size:11px;"
+            >개
+          </div>
+        `
         : `
-          <input
-            type="text"
-            list="plCostOptionsDatalist"
-            placeholder="미매칭 - 원가상품 검색"
-            autocomplete="off"
-            onchange="linkProductCostByLabel(${r.id}, this.value, this)"
-            style="max-width:220px; font-size:12px;"
-          >
+          <div style="display:flex; gap:4px; justify-content:flex-end; align-items:center;">
+            <input
+              type="text"
+              list="plCostOptionsDatalist"
+              placeholder="미매칭 - 원가상품 검색"
+              autocomplete="off"
+              onchange="linkProductCostByLabel(${r.id}, this.value, this, document.getElementById('costQty-${r.id}'))"
+              style="max-width:170px; font-size:12px;"
+            >
+            <input
+              type="number" min="1"
+              id="costQty-${r.id}"
+              value="1"
+              title="묶음 수량 (1+1 등)"
+              style="width:36px; font-size:12px;"
+            >
+          </div>
         `;
       return `
         <tr>
