@@ -554,21 +554,19 @@
   .channel-total-all td.num { color: #0891b2; }
   .channel-total-team td.num { color: #b45309; }
 
-  /* ---- 영업팀: 업무 프로세스 ---- */
-  .process-step-list { display: flex; flex-direction: column; gap: 10px; }
-  .process-step { display: flex; gap: 12px; align-items: flex-start; background: #f4f5f8; border-radius: 12px; padding: 12px 14px; }
-  .process-step-num {
-    width: 26px; height: 26px; border-radius: 50%; background: #7c3aed; color: #fff;
-    font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;
+  /* ---- 영업팀: 수출 프로세스 ---- */
+  .exp-badge-direct { color: #1d4ed8; }
+  .exp-badge-indirect { color: #0d9488; }
+  .exp-lead { font-size: 13.5px; color: #334155; line-height: 1.6; margin: 0 0 14px; }
+  .exp-sub { margin-top: 16px; }
+  .exp-sub h3 { font-size: 13px; margin: 0 0 6px; color: #0f172a; }
+  .exp-sub p { margin: 0; font-size: 13px; color: #334155; line-height: 1.7; }
+  .exp-sub ul, .exp-sub ol { margin: 0; padding-left: 18px; font-size: 13px; color: #334155; line-height: 1.7; }
+  .exp-flow { font-size: 12.5px; color: #334155; line-height: 1.8; background: #f4f5f8; border-radius: 8px; padding: 8px 10px; }
+  .exp-note {
+    margin-top: 6px; padding: 8px 10px; background: rgba(234,179,8,.12); border-left: 3px solid #eab308;
+    font-size: 12px; color: #854d0e; border-radius: 6px; line-height: 1.6;
   }
-  .process-step-body { flex: 1; display: flex; flex-direction: column; gap: 6px; }
-  .process-step-title-row { display: flex; gap: 8px; align-items: center; }
-  .process-step-order-btns { display: flex; gap: 2px; }
-  .process-step-order-btns button {
-    border: none; background: #fff; border-radius: 6px; cursor: pointer; color: #64748b; font-size: 12px;
-    padding: 4px 6px; border: 1px solid rgba(15,23,42,.1);
-  }
-  .process-step-order-btns button:disabled { opacity: .35; cursor: default; }
 
   /* ---- 영업팀: 사업자·회계 ---- */
   .acct-note-textarea {
@@ -685,7 +683,7 @@
         <div class="nav-group">
           <div class="nav-label">영업팀</div>
           <div class="nav-item" id="navTeamOverview" onclick="switchView('team-overview')"><span class="dot dot-team"></span>Overall Operations</div>
-          <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process')"><span class="dot dot-team"></span>업무 프로세스</div>
+          <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process')"><span class="dot dot-team"></span>수출 프로세스</div>
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
             <span class="dot dot-team"></span>할일 관리
             <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
@@ -1138,6 +1136,7 @@
             <tbody id="plTable"></tbody>
           </table>
         </div>
+        <datalist id="plCostOptionsDatalist"></datalist>
       </section>
     </main>
 
@@ -1479,26 +1478,137 @@
     <main class="main" id="teamProcessView" style="display:none">
       <div class="topbar">
         <div>
-          <h1>영업팀 업무 프로세스</h1>
-          <div class="subtitle">문의 접수부터 사후관리까지, 팀이 따르는 업무 단계를 정리하고 관리합니다.</div>
+          <h1>수출 프로세스</h1>
+          <div class="subtitle">수출 업무 인수인계 자료 — 직접수출 · 간접수출 진행 방법과 회계 처리 기준</div>
         </div>
       </div>
 
       <section class="panel">
-        <div class="panel-head"><h2>단계 추가</h2></div>
-        <form class="deal-form" id="processForm">
-          <input type="text" name="title" placeholder="단계 이름 (예: 리드 확보)" required style="flex:1; min-width:140px;">
-          <input type="text" name="description" placeholder="설명 (선택)" style="flex:2; min-width:200px;">
-          <button type="submit" class="btn-primary">추가</button>
-        </form>
+        <div class="panel-head"><h2 class="exp-badge-direct">직접수출</h2></div>
+        <p class="exp-lead">브랜드사가 해외 바이어와 직접 계약하고 브랜드사 명의로 수출을 진행합니다.<br>거래 구조: 브랜드사 → 해외 바이어</p>
+        <div class="exp-sub">
+          <h3>물류 업무 — 필요 자료</h3>
+          <ul>
+            <li>Commercial Invoice</li><li>Packing List</li><li>제품명 및 영문 제품명</li><li>HS CODE</li>
+            <li>제품 수량 및 단가</li><li>원산지</li><li>해외 바이어 정보(Consignee)</li>
+            <li>Incoterms 조건(EXW / FOB / CIF 등)</li><li>필요 시 MSDS</li><li>필요 시 원산지증명서(C/O)</li>
+          </ul>
+          <div class="exp-note">신규 제품의 HS CODE는 임의로 확정하지 말고 필요 시 관세사 또는 포워더에 확인</div>
+        </div>
+        <div class="exp-sub">
+          <h3>물류 업무 — 진행 절차</h3>
+          <p class="exp-flow">해외 바이어 발주 → 결제조건 확인 및 입금 → 제품 출고 준비 → Commercial Invoice / Packing List 작성 → 포워더 또는 관세사 전달 → 수출신고 → 수출신고필증 확인 → 선적 및 해외 배송 → 바이어 배송 완료 확인</p>
+          <div class="exp-note">포워더나 관세사가 수출신고를 대행하더라도 수출자가 브랜드사 명의인 경우 직접수출에 해당</div>
+        </div>
+        <div class="exp-sub">
+          <h3>회계 처리 — 영세율 매출</h3>
+          <p>직접수출은 부가세 영세율(0%) 매출로 처리.<br>해외 바이어에게는 일반적인 국내 전자세금계산서를 발행하지 않고 수출 관련 증빙을 기준으로 관리</p>
+          <div class="exp-note">주요 증빙: Commercial Invoice / 수출신고필증 / Packing List / 해외 송금 입금내역 / 거래계약서 또는 PO</div>
+        </div>
+        <div class="exp-sub">
+          <h3>회계 처리 — 유의사항</h3>
+          <p>외화로 대금을 수취하는 경우 환율 변동에 따라 환차익 또는 환차손 발생 가능.<br>수출신고필증의 신고금액, Invoice 금액, 실제 입금금액을 상호 확인하여 관리</p>
+          <div class="exp-note">수출 관련 증빙은 부가세 영세율 신고 시 필요하므로 반드시 보관</div>
+        </div>
       </section>
 
       <section class="panel">
-        <div class="panel-head">
-          <h2>업무 프로세스 단계</h2>
-          <span class="panel-note" id="processListNote"></span>
+        <div class="panel-head"><h2 class="exp-badge-indirect">간접수출</h2></div>
+        <p class="exp-lead">국내 무역회사 또는 수출업체에 상품을 공급하고 해당 업체가 해외로 수출합니다.<br>거래 구조: 브랜드사 → 국내 수출업체 → 해외 바이어</p>
+        <div class="exp-note" style="margin-bottom:14px;">브랜드사의 거래처는 국내 수출업체 / 실제 수출신고 및 해외 통관은 국내 수출업체가 진행 / 원화 거래 시 환차손익 없음</div>
+        <div class="exp-sub">
+          <h3>물류 업무 — 국내 수출업체 창고 입고</h3>
+          <p class="exp-flow">브랜드사 창고 → 국내 수출업체 → 포워더 → 해외</p>
+          <div class="exp-note">출고처와 수출업체의 물류 일정 사전 확인</div>
         </div>
-        <div class="process-step-list" id="processStepList"></div>
+        <div class="exp-sub">
+          <h3>물류 업무 — 브랜드사 창고에서 해외 직배송</h3>
+          <p class="exp-flow">브랜드사 창고 → 수출업체 지정 포워더 → 해외</p>
+          <div class="exp-note">브랜드사 창고에서 바로 해외로 나가더라도 해외 계약 및 수출신고 주체가 국내 수출업체라면 브랜드사 기준 간접수출</div>
+        </div>
+        <div class="exp-sub">
+          <h3>회계 처리 — 구매확인서 발급 시</h3>
+          <p>국내 수출업체가 구매확인서를 발급하는 경우 브랜드사는 해당 거래를 영세율 0% 세금계산서로 처리 가능.<br>구매확인서를 기준으로 간접수출 실적 인정 가능</p>
+          <div class="exp-note">주요 증빙: 구매확인서 / 영세율 세금계산서 / 거래명세서 / 발주서 또는 계약서 / 입금내역</div>
+        </div>
+        <div class="exp-sub">
+          <h3>회계 처리 — 구매확인서 미발급 시</h3>
+          <p>일반 국내 거래로 처리.<br>예: 공급가액 10,000,000원 + 부가세 1,000,000원 = 총 청구금액 11,000,000원</p>
+          <div class="exp-note">국내 수출업체와 거래 시 '구매확인서 발급 가능한 거래인지' 사전 확인. 구매확인서 없이 임의로 영세율 세금계산서를 발행하지 않도록 주의</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>직접수출 / 간접수출 비교</h2></div>
+        <div class="scroll-box">
+          <table>
+            <thead><tr><th>구분</th><th>직접수출</th><th>간접수출</th></tr></thead>
+            <tbody>
+              <tr><td>거래처</td><td>해외 바이어</td><td>국내 수출업체</td></tr>
+              <tr><td>해외 계약</td><td>브랜드사</td><td>국내 수출업체</td></tr>
+              <tr><td>수출신고</td><td>브랜드사 명의</td><td>국내 수출업체 명의</td></tr>
+              <tr><td>수출대금</td><td>해외에서 직접 수취</td><td>국내 업체에서 수취</td></tr>
+              <tr><td>세금계산서</td><td>일반적으로 미발행</td><td>구매확인서 있을 경우 영세율 발행</td></tr>
+              <tr><td>VAT</td><td>영세율 0%</td><td>구매확인서 있을 경우 0%</td></tr>
+              <tr><td>Invoice</td><td>브랜드사 발행</td><td>국내 수출업체 발행</td></tr>
+              <tr><td>물류 관리</td><td>브랜드사 관리 비중 높음</td><td>수출업체 관리 비중 높음</td></tr>
+              <tr><td>통관 관리</td><td>브랜드사 / 포워더</td><td>국내 수출업체</td></tr>
+              <tr><td>환율 리스크</td><td>있음</td><td>원화 거래 시 없음</td></tr>
+              <tr><td>수출 업무 난이도</td><td>높음</td><td>상대적으로 낮음</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>공통 체크사항</h2></div>
+        <div class="exp-sub" style="margin-top:0;">
+          <h3>수출 업무 필수 체크사항</h3>
+          <ol>
+            <li>직접수출/간접수출 여부 확인</li><li>거래조건 확인</li><li>공급가 및 결제조건 확인</li>
+            <li>Incoterms 확인</li><li>HS CODE 확인</li><li>제품 원산지 확인</li>
+            <li>Invoice / Packing List 작성</li><li>포워더 및 출고 일정 확인</li><li>수출신고 여부 확인</li>
+            <li>수출신고필증 수취 및 보관</li><li>입금금액 확인</li><li>회계팀에 관련 증빙 전달</li>
+          </ol>
+          <div class="exp-note">수출 건마다 체크리스트 기준으로 누락 여부 확인</div>
+        </div>
+        <div class="exp-sub">
+          <h3>실무상 주의사항</h3>
+          <ul>
+            <li>포워더를 이용한다고 해서 간접수출이 되는 것은 아님.</li>
+            <li>수출신고 명의와 실제 거래구조를 기준으로 직접수출 / 간접수출 판단.</li>
+            <li>간접수출 영세율 적용 시 구매확인서 반드시 확인.</li>
+            <li>해외 거래 시 Invoice의 제품명, 수량, 금액, HS CODE가 실제 출고내용과 일치하는지 확인.</li>
+            <li>수출신고 완료 후 수출신고필증 반드시 보관.</li>
+            <li>외화 입금 시 Invoice 금액과 실제 입금금액 차이 확인.</li>
+            <li>해외 운송비 부담 주체는 Incoterms 기준 확인.</li>
+          </ul>
+          <div class="exp-note">신규 제품 수출 시 HS CODE를 임의로 확정하지 말고 필요 시 관세사 또는 포워더에 확인</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>수출 업무 체크리스트</h2></div>
+        <div class="scroll-box">
+          <table>
+            <thead><tr><th style="width:44px;">No.</th><th>체크 항목</th><th>확인 내용</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>수출 방식 확인</td><td>직접수출 / 간접수출 여부 확인</td></tr>
+              <tr><td>2</td><td>거래조건 확인</td><td>해외 바이어 또는 국내 수출업체 거래조건 확인</td></tr>
+              <tr><td>3</td><td>공급가 / 결제조건</td><td>공급가, 선입금/후불 등 결제조건 확인</td></tr>
+              <tr><td>4</td><td>Incoterms</td><td>EXW / FOB / CIF 등 운송비 및 책임 범위 확인</td></tr>
+              <tr><td>5</td><td>HS CODE</td><td>제품 HS CODE 확인</td></tr>
+              <tr><td>6</td><td>원산지</td><td>제품 원산지 확인</td></tr>
+              <tr><td>7</td><td>수출서류</td><td>Commercial Invoice / Packing List 작성</td></tr>
+              <tr><td>8</td><td>물류 일정</td><td>포워더 및 출고 일정 확인</td></tr>
+              <tr><td>9</td><td>수출신고</td><td>수출신고 여부 및 신고 주체 확인</td></tr>
+              <tr><td>10</td><td>수출신고필증</td><td>수출 완료 후 수출신고필증 수취 및 보관</td></tr>
+              <tr><td>11</td><td>입금 확인</td><td>Invoice 금액과 실제 입금금액 확인</td></tr>
+              <tr><td>12</td><td>회계 증빙 전달</td><td>관련 수출 증빙을 회계팀에 전달</td></tr>
+              <tr><td>13</td><td>구매확인서</td><td>간접수출 시 구매확인서 발급 여부 확인</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </main>
 
@@ -2603,7 +2713,6 @@
     if (view === 'sample-sync') { loadSampleRequests(); setupSampleProductSelect(); loadSampleProductList(); }
     if (view === 'codenit-products') loadCodenitProducts();
     if (view === 'review-alerts') loadReviewAlerts();
-    if (view === 'team-process') loadTeamProcess();
     if (view === 'team-tasks') {
       currentTaskAssignee = brandChannel || null;
       loadTeamTasks();
@@ -3898,6 +4007,12 @@
   let plSearchQuery = '';
   let plFiltersInitDone = false;
   let plCostOptions = []; // 원가 대시보드(product_cost) 항목 중 수동 연결용 원가가 있는 것만
+  let plCostLabelToId = {};
+
+  function costOptionLabel(c) {
+    const optionLabel = [c.option_size, c.option_color].filter(Boolean).join('/');
+    return `${c.product_name}${optionLabel ? ' (' + optionLabel + ')' : ''} - ${Number(c.unit_cost_krw).toLocaleString('ko-KR')}원`;
+  }
 
   function normalizeProductName(name) {
     return String(name || '').replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase().trim();
@@ -3917,6 +4032,11 @@
 
     const costRows = costRes.data || [];
     plCostOptions = costRows.filter(r => r.unit_cost_krw != null);
+
+    plCostLabelToId = {};
+    plCostOptions.forEach(c => { plCostLabelToId[costOptionLabel(c)] = c.id; });
+    document.getElementById('plCostOptionsDatalist').innerHTML =
+      plCostOptions.map(c => `<option value="${escapeAttr(costOptionLabel(c))}">`).join('');
 
     const costById = {};
     costRows.forEach(r => { if (r.unit_cost_krw != null) costById[r.id] = Number(r.unit_cost_krw); });
@@ -3951,6 +4071,16 @@
       .eq('id', codenitId);
     if (error) { alert('연결하지 못했습니다: ' + error.message); return; }
     loadPlData();
+  }
+
+  function linkProductCostByLabel(codenitId, label, inputEl) {
+    const costId = plCostLabelToId[label];
+    if (!costId) {
+      if (label) alert('목록에 있는 원가상품을 선택해주세요.');
+      if (inputEl) inputEl.value = '';
+      return;
+    }
+    linkProductCost(codenitId, costId);
   }
 
   function setupPlFilters() {
@@ -4003,13 +4133,14 @@
       const costCellHtml = r.cost != null
         ? Number(r.cost).toLocaleString('ko-KR')
         : `
-          <select onchange="linkProductCost(${r.id}, this.value)" style="max-width:220px; font-size:12px;">
-            <option value="">미매칭 - 원가상품 연결</option>
-            ${plCostOptions.map(c => {
-              const optionLabel = [c.option_size, c.option_color].filter(Boolean).join('/');
-              return `<option value="${c.id}">${escapeAttr(c.product_name)}${optionLabel ? ' (' + escapeAttr(optionLabel) + ')' : ''} - ${Number(c.unit_cost_krw).toLocaleString('ko-KR')}원</option>`;
-            }).join('')}
-          </select>
+          <input
+            type="text"
+            list="plCostOptionsDatalist"
+            placeholder="미매칭 - 원가상품 검색"
+            autocomplete="off"
+            onchange="linkProductCostByLabel(${r.id}, this.value, this)"
+            style="max-width:220px; font-size:12px;"
+          >
         `;
       return `
         <tr>
@@ -5158,92 +5289,6 @@
       document.getElementById('brandSub').textContent = 'SALES TEAM';
       switchView('team-overview');
     }
-  }
-
-  // ==================== 영업팀 - 업무 프로세스 ====================
-  let currentProcessSteps = [];
-
-  async function loadTeamProcess() {
-    const note = document.getElementById('processListNote');
-    const { data, error } = await client
-      .from('team_process_steps')
-      .select('*')
-      .order('step_order', { ascending: true });
-    if (error) {
-      note.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
-      return;
-    }
-    currentProcessSteps = data || [];
-    note.textContent = currentProcessSteps.length + '개 단계';
-    renderProcessSteps();
-  }
-
-  function renderProcessSteps() {
-    const list = document.getElementById('processStepList');
-    if (!currentProcessSteps.length) {
-      list.innerHTML = '<div class="mkt-empty">등록된 업무 단계가 없습니다. 위에서 첫 단계를 추가해보세요.</div>';
-      return;
-    }
-    list.innerHTML = currentProcessSteps.map((s, i) => `
-      <div class="process-step">
-        <div class="process-step-num">${i + 1}</div>
-        <div class="process-step-body">
-          <div class="process-step-title-row">
-            <input type="text" class="inline-edit" style="flex:1; font-weight:700;" value="${escapeAttr(s.title || '')}"
-              onchange="updateProcessField(${s.id}, 'title', this.value)">
-            <div class="process-step-order-btns">
-              <button type="button" onclick="moveProcessStep(${s.id}, -1)" ${i === 0 ? 'disabled' : ''}>▲</button>
-              <button type="button" onclick="moveProcessStep(${s.id}, 1)" ${i === currentProcessSteps.length - 1 ? 'disabled' : ''}>▼</button>
-            </div>
-            <button class="btn-danger" onclick="deleteProcessStep(${s.id})">삭제</button>
-          </div>
-          <input type="text" class="inline-edit" style="width:100%;" placeholder="설명(선택)" value="${escapeAttr(s.description || '')}"
-            onchange="updateProcessField(${s.id}, 'description', this.value)">
-        </div>
-      </div>
-    `).join('');
-  }
-
-  document.getElementById('processForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const title = form.title.value.trim();
-    const description = form.description.value.trim() || null;
-    if (!title) return;
-    const nextOrder = currentProcessSteps.length
-      ? Math.max(...currentProcessSteps.map(s => s.step_order || 0)) + 1
-      : 1;
-    const { error } = await client.from('team_process_steps').insert([{ title, description, step_order: nextOrder }]);
-    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
-    form.reset();
-    loadTeamProcess();
-  });
-
-  async function updateProcessField(id, field, rawValue) {
-    const value = rawValue.trim() || null;
-    const { error } = await client.from('team_process_steps').update({ [field]: value }).eq('id', id);
-    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
-    loadTeamProcess();
-  }
-
-  async function moveProcessStep(id, direction) {
-    const idx = currentProcessSteps.findIndex(s => s.id === id);
-    const swapIdx = idx + direction;
-    if (idx < 0 || swapIdx < 0 || swapIdx >= currentProcessSteps.length) return;
-    const a = currentProcessSteps[idx];
-    const b = currentProcessSteps[swapIdx];
-    const { error: err1 } = await client.from('team_process_steps').update({ step_order: b.step_order }).eq('id', a.id);
-    if (err1) { alert('순서를 변경하지 못했습니다: ' + err1.message); return; }
-    const { error: err2 } = await client.from('team_process_steps').update({ step_order: a.step_order }).eq('id', b.id);
-    if (err2) { alert('순서를 변경하지 못했습니다: ' + err2.message); return; }
-    loadTeamProcess();
-  }
-
-  async function deleteProcessStep(id) {
-    if (!confirm('이 단계를 삭제할까요?')) return;
-    const { error } = await client.from('team_process_steps').delete().eq('id', id);
-    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
-    loadTeamProcess();
   }
 
   // ==================== 영업팀 - 할일 관리 ====================
