@@ -683,10 +683,10 @@
         <div class="nav-group">
           <div class="nav-label">영업팀</div>
           <div class="nav-item" id="navTeamOverview" onclick="switchView('team-overview')"><span class="dot dot-team"></span>Overall Operations</div>
-          <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process', 'export')"><span class="dot dot-team"></span>B2B 파이프라인</div>
+          <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process', 'export')"><span class="dot dot-team"></span>거래처 운영현황</div>
           <div id="navProcessSub">
-            <div class="nav-subitem" data-processsub="export" onclick="switchView('team-process', 'export')">수출</div>
-            <div class="nav-subitem" data-processsub="b2b" onclick="switchView('team-process', 'b2b')">B2B 일반</div>
+            <div class="nav-subitem" data-processsub="export" onclick="switchView('team-process', 'export')">수출가이드</div>
+            <div class="nav-subitem" data-processsub="b2b" onclick="switchView('team-process', 'b2b')">직납가이드</div>
           </div>
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
             <span class="dot dot-team"></span>할일 관리
@@ -1482,8 +1482,8 @@
     <main class="main" id="teamProcessView" style="display:none">
       <div class="topbar">
         <div>
-          <h1>B2B 파이프라인</h1>
-          <div class="subtitle">B2B 영업 파이프라인 관리</div>
+          <h1>거래처 운영현황</h1>
+          <div class="subtitle">수출가이드 · 직납가이드</div>
         </div>
       </div>
 
@@ -1619,7 +1619,7 @@
 
       <div id="processSubB2B" style="display:none">
         <section class="panel">
-          <div class="gs-empty">아직 등록된 B2B 일반 프로세스 자료가 없습니다. 자료를 주시면 채워드릴게요.</div>
+          <div class="gs-empty">아직 등록된 직납가이드 자료가 없습니다. 자료를 주시면 채워드릴게요.</div>
         </section>
       </div>
     </main>
