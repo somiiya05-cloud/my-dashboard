@@ -683,7 +683,7 @@
         <div class="nav-group">
           <div class="nav-label">영업팀</div>
           <div class="nav-item" id="navTeamOverview" onclick="switchView('team-overview')"><span class="dot dot-team"></span>Overall Operations</div>
-          <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process', 'export')"><span class="dot dot-team"></span>거래처 운영현황</div>
+          <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process', 'overview')"><span class="dot dot-team"></span>거래처 운영현황</div>
           <div id="navProcessSub">
             <div class="nav-subitem" data-processsub="export" onclick="switchView('team-process', 'export')">수출가이드</div>
             <div class="nav-subitem" data-processsub="b2b" onclick="switchView('team-process', 'b2b')">직납가이드</div>
@@ -1487,7 +1487,13 @@
         </div>
       </div>
 
-      <div id="processSubExport">
+      <div id="processSubOverview">
+        <section class="panel">
+          <div class="gs-empty">아직 등록된 내용이 없습니다. 자료를 주시면 채워드릴게요.</div>
+        </section>
+      </div>
+
+      <div id="processSubExport" style="display:none">
       <section class="panel">
         <div class="panel-head"><h2>직접수출 / 간접수출 비교</h2></div>
         <div class="scroll-box">
@@ -2666,7 +2672,7 @@
   }
 
   // ==================== 파이프라인 (B2B / 수출) ====================
-  let currentProcessSub = 'export';
+  let currentProcessSub = 'overview';
   function switchView(view, brandChannel) {
     document.getElementById('dashboardView').style.display = view === 'dashboard' ? '' : 'none';
     document.getElementById('monthlyTrendView').style.display = view === 'monthly-trend' ? '' : 'none';
@@ -2715,6 +2721,7 @@
     });
     if (view === 'team-process') {
       currentProcessSub = brandChannel || currentProcessSub;
+      document.getElementById('processSubOverview').style.display = currentProcessSub === 'overview' ? '' : 'none';
       document.getElementById('processSubExport').style.display = currentProcessSub === 'export' ? '' : 'none';
       document.getElementById('processSubB2B').style.display = currentProcessSub === 'b2b' ? '' : 'none';
     }
