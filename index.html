@@ -2124,9 +2124,11 @@
       byVendor[r.vendor].quantity += Number(r.quantity);
 
       if (!isAggregatePlaceholderProduct(r.product_name)) {
-        if (!byProduct[r.product_name]) byProduct[r.product_name] = { amount: 0, quantity: 0 };
-        byProduct[r.product_name].amount += Number(r.amount);
-        byProduct[r.product_name].quantity += Number(r.quantity);
+        const productKey = productMatchKey(r.product_name);
+        if (!byProduct[productKey]) byProduct[productKey] = { amount: 0, quantity: 0, nameAmounts: {} };
+        byProduct[productKey].amount += Number(r.amount);
+        byProduct[productKey].quantity += Number(r.quantity);
+        byProduct[productKey].nameAmounts[r.product_name] = (byProduct[productKey].nameAmounts[r.product_name] || 0) + Number(r.amount);
       }
 
       if (!byVendorProduct[r.vendor]) byVendorProduct[r.vendor] = {};
@@ -2150,7 +2152,9 @@
       '실시간 집계 · 거래 ' + rows.length.toLocaleString('ko-KR') + '건';
 
     const vendorEntries = Object.entries(byVendor).sort((a, b) => b[1].amount - a[1].amount);
-    const productEntries = Object.entries(byProduct).sort((a, b) => b[1].amount - a[1].amount);
+    const productEntries = Object.entries(byProduct)
+      .map(([, v]) => [pickDisplayName(v.nameAmounts), v])
+      .sort((a, b) => b[1].amount - a[1].amount);
     const topVendor = vendorEntries[0];
     const topProduct = productEntries[0];
 
@@ -2794,11 +2798,15 @@
     const byProd = {};
     rows.forEach(r => {
       if (isAggregatePlaceholderProduct(r.product_name)) return;
-      if (!byProd[r.product_name]) byProd[r.product_name] = { amount: 0, quantity: 0 };
-      byProd[r.product_name].amount += Number(r.amount);
-      byProd[r.product_name].quantity += Number(r.quantity);
+      const key = productMatchKey(r.product_name);
+      if (!byProd[key]) byProd[key] = { amount: 0, quantity: 0, nameAmounts: {} };
+      byProd[key].amount += Number(r.amount);
+      byProd[key].quantity += Number(r.quantity);
+      byProd[key].nameAmounts[r.product_name] = (byProd[key].nameAmounts[r.product_name] || 0) + Number(r.amount);
     });
-    const entries = Object.entries(byProd).sort((a, b) => b[1].quantity - a[1].quantity);
+    const entries = Object.entries(byProd)
+      .map(([, v]) => [pickDisplayName(v.nameAmounts), v])
+      .sort((a, b) => b[1].quantity - a[1].quantity);
     const total = entries.reduce((s, [, v]) => s + v.amount, 0);
 
     document.getElementById('productDayTotal').textContent = labelText
