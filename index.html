@@ -712,11 +712,6 @@
         <div class="nav-group">
           <div class="nav-label">영업팀</div>
           <div class="nav-item" id="navTeamOverview" onclick="switchView('team-overview')"><span class="dot dot-team"></span>Overall Operations</div>
-          <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process', 'overview')"><span class="dot dot-team"></span>거래처 운영현황</div>
-          <div id="navProcessSub">
-            <div class="nav-subitem" data-processsub="export" onclick="switchView('team-process', 'export')">수출가이드</div>
-            <div class="nav-subitem" data-processsub="b2b" onclick="switchView('team-process', 'b2b')">직납가이드</div>
-          </div>
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
             <span class="dot dot-team"></span>할일 관리
             <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
@@ -726,6 +721,11 @@
           <div id="navScheduleSub">
             <div class="nav-subitem" data-schedulesub="main" onclick="switchView('team-schedule', 'main')">일정</div>
             <div class="nav-subitem" data-schedulesub="settlement" onclick="switchView('team-schedule', 'settlement')">정산</div>
+          </div>
+          <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process', 'overview')"><span class="dot dot-team"></span>거래처 운영현황</div>
+          <div id="navProcessSub">
+            <div class="nav-subitem" data-processsub="export" onclick="switchView('team-process', 'export')">수출가이드</div>
+            <div class="nav-subitem" data-processsub="b2b" onclick="switchView('team-process', 'b2b')">직납가이드</div>
           </div>
           <div class="nav-item" id="navTeamAccounting" onclick="switchView('team-accounting')"><span class="dot dot-team"></span>사업자·회계</div>
         </div>
