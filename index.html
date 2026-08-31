@@ -5970,7 +5970,11 @@
         <div class="gs-modal-title">${escapeAttr(r.brand_product || r.brand_name || '공구 일정')}</div>
         ${infoRows.map(([label, val]) => `<div class="gs-modal-row"><span class="gs-modal-label">${escapeAttr(label)}</span><span>${escapeAttr(val)}</span></div>`).join('')}
         <div class="gs-modal-tags">${tags.map((t) => `<span class="gs-tag gs-tag-blue">${escapeAttr(t)}</span>`).join('')}</div>
-        <div class="gs-empty" style="padding:12px 0 0; text-align:left;">이 일정은 인플루언서 매니저에서 자동 동기화됩니다. 수정은 인플루언서 매니저에서 해주세요.</div>
+        <div class="gs-empty" style="padding:8px 0 0; text-align:left;">이 일정은 인플루언서 매니저에서 자동 동기화됩니다. 위 항목 수정은 인플루언서 매니저에서 해주세요.</div>
+        <div class="gs-modal-field"><label>팀 메모 (여기서만 보임, 동기화로 안 지워짐)</label><input type="text" id="gsModalGroupbuyMemo" value="${escapeAttr(r.memo || '')}"></div>
+        <div class="gs-modal-actions">
+          <button type="button" class="btn-primary" onclick="gsSaveGroupbuyMemo('${escapeAttr(String(r.id))}')">메모 저장</button>
+        </div>
       `;
     } else {
       body.innerHTML = `
@@ -5991,6 +5995,14 @@
 
   function gsCloseCardModal() {
     document.getElementById('gsCardModalOverlay').style.display = 'none';
+  }
+
+  async function gsSaveGroupbuyMemo(id) {
+    const memo = document.getElementById('gsModalGroupbuyMemo').value.trim() || null;
+    const { error } = await client.from('groupbuy_schedule').update({ memo }).eq('id', id);
+    if (error) { alert('메모를 저장하지 못했습니다: ' + error.message); return; }
+    gsCloseCardModal();
+    loadTeamSchedule();
   }
 
   async function gsSaveMallModal(id) {
