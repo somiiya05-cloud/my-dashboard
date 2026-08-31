@@ -693,7 +693,11 @@
             <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
           </div>
           <div id="navTeamAssignees"></div>
-          <div class="nav-item" id="navTeamSchedule" onclick="switchView('team-schedule')"><span class="dot dot-team"></span>프로모션</div>
+          <div class="nav-item" id="navTeamSchedule" onclick="switchView('team-schedule', 'main')"><span class="dot dot-team"></span>프로모션</div>
+          <div id="navScheduleSub">
+            <div class="nav-subitem" data-schedulesub="main" onclick="switchView('team-schedule', 'main')">일정</div>
+            <div class="nav-subitem" data-schedulesub="settlement" onclick="switchView('team-schedule', 'settlement')">정산</div>
+          </div>
           <div class="nav-item" id="navTeamAccounting" onclick="switchView('team-accounting')"><span class="dot dot-team"></span>사업자·회계</div>
         </div>
       </div>
@@ -1694,6 +1698,7 @@
         </div>
       </div>
 
+      <div id="scheduleSubMain">
       <section class="panel">
         <div class="gs-toggle-row">
           <label class="gs-toggle"><input type="checkbox" id="gsFilterGroupbuy" checked onchange="gsToggleFilter('groupbuy', this.checked)"><span class="gs-toggle-dot gs-accent-blue"></span>공구 일정</label>
@@ -1728,7 +1733,9 @@
           </table>
         </div>
       </section>
+      </div>
 
+      <div id="scheduleSubSettlement" style="display:none">
       <section class="panel">
         <div class="panel-head"><h2>정산 등록</h2></div>
         <form class="deal-form" id="settlementForm">
@@ -1764,6 +1771,7 @@
           </table>
         </div>
       </section>
+      </div>
     </main>
 
     <main class="main" id="teamAccountingView" style="display:none">
@@ -2713,6 +2721,7 @@
 
   // ==================== 파이프라인 (B2B / 수출) ====================
   let currentProcessSub = 'overview';
+  let currentScheduleSub = 'main';
   function switchView(view, brandChannel) {
     document.getElementById('dashboardView').style.display = view === 'dashboard' ? '' : 'none';
     document.getElementById('monthlyTrendView').style.display = view === 'monthly-trend' ? '' : 'none';
@@ -2764,6 +2773,14 @@
       document.getElementById('processSubOverview').style.display = currentProcessSub === 'overview' ? '' : 'none';
       document.getElementById('processSubExport').style.display = currentProcessSub === 'export' ? '' : 'none';
       document.getElementById('processSubB2B').style.display = currentProcessSub === 'b2b' ? '' : 'none';
+    }
+    document.querySelectorAll('#navScheduleSub .nav-subitem').forEach((el) => {
+      el.classList.toggle('active', view === 'team-schedule' && el.dataset.schedulesub === (brandChannel || currentScheduleSub));
+    });
+    if (view === 'team-schedule') {
+      currentScheduleSub = brandChannel || currentScheduleSub;
+      document.getElementById('scheduleSubMain').style.display = currentScheduleSub === 'main' ? '' : 'none';
+      document.getElementById('scheduleSubSettlement').style.display = currentScheduleSub === 'settlement' ? '' : 'none';
     }
     if (view === 'monthly-trend') renderMonthlyTrendView();
     if (view === 'pipeline') loadPipeline();
