@@ -6102,7 +6102,7 @@
     const meta = `<div class="gs-ev-card-meta">${r.pctText ? `${escapeAttr(r.pctText)} · ` : ''}${gsShortDate(r.start)}→${gsShortDate(r.end)}</div>`;
     const tags = r.tags.map((t) => `<span class="gs-tag gs-tag-${escapeAttr(t.color)}">${escapeAttr(t.text)}</span>`).join('');
     const cls = `gs-ev-card gs-accent-${escapeAttr(r.accent)}${r.filled ? ' gs-ev-card-filled' : ''}`;
-    return `<div class="${cls}" style="${style}" title="${escapeAttr(r.title)}" onclick="gsOpenCardModal('${r.kind}', ${JSON.stringify(String(r.rawId))})">
+    return `<div class="${cls}" style="${style}" title="${escapeAttr(r.title)}" onclick="gsOpenCardModal('${r.kind}', '${escapeAttr(String(r.rawId))}')">
       <div class="gs-ev-card-title">${escapeAttr(r.title)}</div>${meta}
       <div class="gs-ev-card-tags">${tags}</div></div>`;
   }
