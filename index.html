@@ -1728,6 +1728,42 @@
           </table>
         </div>
       </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>정산 등록</h2></div>
+        <form class="deal-form" id="settlementForm">
+          <select name="category" style="width:120px;">
+            <option value="공동구매">공동구매</option>
+            <option value="수출">수출</option>
+          </select>
+          <input type="text" name="partner" placeholder="인플루언서/거래처명" style="flex:1; min-width:160px;">
+          <input type="number" name="amount" placeholder="정산액(원)" style="width:140px;">
+          <input type="date" name="settlementDate">
+          <select name="status" style="width:100px;">
+            <option value="대기">대기</option>
+            <option value="완료">완료</option>
+          </select>
+          <input type="text" name="memo" placeholder="메모(선택)" style="flex:1; min-width:140px;">
+          <button type="submit" class="btn-primary">추가</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>정산 목록</h2>
+          <div class="gs-toggle-row" style="margin:0;">
+            <label class="gs-toggle"><input type="checkbox" id="settlementFilterGroupbuy" checked onchange="renderSettlementTable()">공동구매</label>
+            <label class="gs-toggle"><input type="checkbox" id="settlementFilterExport" checked onchange="renderSettlementTable()">수출</label>
+          </div>
+          <span class="panel-note" id="settlementListNote"></span>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead><tr><th>구분</th><th>인플루언서/거래처</th><th class="num">정산액</th><th>정산일</th><th>상태</th><th>메모</th><th></th></tr></thead>
+            <tbody id="settlementTable"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
 
     <main class="main" id="teamAccountingView" style="display:none">
@@ -5859,12 +5895,15 @@
     renderTeamSchedule();
   }
 
+  let gsSettlementRows = [];
+
   async function loadTeamSchedule() {
     const root = document.getElementById('scheduleCalendar');
     root.innerHTML = '<div class="gs-empty">불러오는 중...</div>';
-    const [groupbuyRes, mallRes] = await Promise.all([
+    const [groupbuyRes, mallRes, settlementRes] = await Promise.all([
       client.from('groupbuy_schedule').select('*').order('start_date', { ascending: true }),
-      client.from('mall_events').select('*').order('start_date', { ascending: true })
+      client.from('mall_events').select('*').order('start_date', { ascending: true }),
+      client.from('settlements').select('*').order('created_at', { ascending: false })
     ]);
     if (groupbuyRes.error) {
       root.innerHTML = `<div class="gs-empty error">일정을 불러오지 못했습니다: ${escapeAttr(groupbuyRes.error.message)}</div>`;
@@ -5872,8 +5911,10 @@
     }
     gsRows = groupbuyRes.data || [];
     gsMallRows = mallRes.error ? [] : (mallRes.data || []);
+    gsSettlementRows = settlementRes.error ? [] : (settlementRes.data || []);
     renderTeamSchedule();
     renderMallEventTable();
+    renderSettlementTable();
   }
 
   function gsDiffDays(a, b) {
@@ -6094,6 +6135,79 @@
   async function deleteMallEvent(id) {
     if (!confirm('이 행사를 삭제할까요?')) return;
     const { error } = await client.from('mall_events').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadTeamSchedule();
+  }
+
+  // ---- 정산 (공동구매 · 수출) ----
+  function renderSettlementTable() {
+    const note = document.getElementById('settlementListNote');
+    const table = document.getElementById('settlementTable');
+    if (!note || !table) return;
+    const showGroupbuy = document.getElementById('settlementFilterGroupbuy').checked;
+    const showExport = document.getElementById('settlementFilterExport').checked;
+    const rows = gsSettlementRows.filter((r) =>
+      (r.category === '공동구매' && showGroupbuy) || (r.category === '수출' && showExport));
+    note.textContent = rows.length + '건';
+    if (!rows.length) {
+      table.innerHTML = '<tr><td colspan="7" class="gs-empty">등록된 정산 내역이 없습니다. 위에서 추가해보세요.</td></tr>';
+      return;
+    }
+    table.innerHTML = rows.map((r) => `
+      <tr>
+        <td>
+          <select class="inline-edit" onchange="updateSettlementField(${r.id}, 'category', this.value)">
+            <option value="공동구매"${r.category === '공동구매' ? ' selected' : ''}>공동구매</option>
+            <option value="수출"${r.category === '수출' ? ' selected' : ''}>수출</option>
+          </select>
+        </td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(r.partner || '')}"
+          onchange="updateSettlementField(${r.id}, 'partner', this.value)"></td>
+        <td class="num"><input type="number" class="inline-edit num" value="${r.amount ?? ''}"
+          onchange="updateSettlementField(${r.id}, 'amount', this.value)"></td>
+        <td><input type="date" class="inline-edit" value="${escapeAttr(r.settlement_date || '')}"
+          onchange="updateSettlementField(${r.id}, 'settlement_date', this.value)"></td>
+        <td>
+          <select class="inline-edit" onchange="updateSettlementField(${r.id}, 'status', this.value)">
+            <option value="대기"${r.status === '대기' ? ' selected' : ''}>대기</option>
+            <option value="완료"${r.status === '완료' ? ' selected' : ''}>완료</option>
+          </select>
+        </td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(r.memo || '')}"
+          onchange="updateSettlementField(${r.id}, 'memo', this.value)"></td>
+        <td><button class="btn-danger" onclick="deleteSettlement(${r.id})">삭제</button></td>
+      </tr>
+    `).join('');
+  }
+
+  document.getElementById('settlementForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const category = form.category.value;
+    const partner = form.partner.value.trim() || null;
+    const amount = form.amount.value === '' ? null : Number(form.amount.value);
+    const settlementDate = form.settlementDate.value || null;
+    const status = form.status.value;
+    const memo = form.memo.value.trim() || null;
+    const { error } = await client.from('settlements')
+      .insert([{ category, partner, amount, settlement_date: settlementDate, status, memo }]);
+    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+    form.reset();
+    loadTeamSchedule();
+  });
+
+  async function updateSettlementField(id, field, rawValue) {
+    let value = rawValue;
+    if (field === 'amount') value = rawValue === '' ? null : Number(rawValue);
+    else if (typeof rawValue === 'string') value = rawValue.trim() || null;
+    const { error } = await client.from('settlements').update({ [field]: value }).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadTeamSchedule();
+  }
+
+  async function deleteSettlement(id) {
+    if (!confirm('이 정산 내역을 삭제할까요?')) return;
+    const { error } = await client.from('settlements').delete().eq('id', id);
     if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
     loadTeamSchedule();
   }
