@@ -4757,43 +4757,66 @@
         return;
       }
 
-      const existingKeys = new Set(
-        allProductCostRows.map(r => `${r.product_code || ''}|${r.option_size || ''}|${r.option_color || ''}`)
+      const existingByKey = new Map(
+        allProductCostRows.map(r => [`${r.product_code || ''}|${r.option_size || ''}|${r.option_color || ''}`, r])
       );
 
       const newRows = [];
+      const statusUpdates = []; // 이미 등록된 상품인데 시트의 "상태"가 바뀐 경우
+      const seenKeys = new Set();
       (json.rows || []).forEach(r => {
         const productCode = (r[0] || '').trim();
         if (!productCode) return;
         const optionSize = (r[4] || '').trim() || null;
         const optionColor = (r[5] || '').trim() || null;
         const key = `${productCode}|${optionSize || ''}|${optionColor || ''}`;
-        if (existingKeys.has(key)) return;
-        existingKeys.add(key);
+        if (seenKeys.has(key)) return;
+        seenKeys.add(key);
+        const sheetStatus = (r[8] || '').trim() || null;
+        const existing = existingByKey.get(key);
+        if (existing) {
+          if (sheetStatus && sheetStatus !== existing.status) {
+            statusUpdates.push({ id: existing.id, status: sheetStatus });
+          }
+          return;
+        }
         newRows.push({
           product_code: productCode,
           brand: (r[2] || '').trim() || null,
           product_name: (r[3] || '').trim() || null,
           option_size: optionSize,
           option_color: optionColor,
-          status: (r[8] || '').trim() || null,
+          status: sheetStatus,
           unit_cost_krw: parseWon(r[13]),
           selling_price: parseWon(r[15]),
         });
       });
 
-      if (newRows.length === 0) {
-        status.textContent = '새로 추가할 상품이 없습니다 (이미 모두 동기화됨).';
+      if (newRows.length === 0 && statusUpdates.length === 0) {
+        status.textContent = '새로 추가하거나 갱신할 상품이 없습니다 (이미 모두 동기화됨).';
         return;
       }
 
-      const { error } = await client.from('product_cost').insert(newRows);
-      if (error) {
-        status.innerHTML = '<span class="error">추가하지 못했습니다: ' + error.message + '</span>';
-        return;
+      if (newRows.length > 0) {
+        const { error } = await client.from('product_cost').insert(newRows);
+        if (error) {
+          status.innerHTML = '<span class="error">추가하지 못했습니다: ' + error.message + '</span>';
+          return;
+        }
       }
 
-      status.textContent = `신규 상품 ${newRows.length.toLocaleString('ko-KR')}개를 구글시트에서 동기화했습니다.`;
+      for (const u of statusUpdates) {
+        const { error } = await client.from('product_cost').update({ status: u.status }).eq('id', u.id);
+        if (error) {
+          status.innerHTML = '<span class="error">상태 갱신 중 오류: ' + error.message + '</span>';
+          return;
+        }
+      }
+
+      const parts = [];
+      if (newRows.length) parts.push(`신규 상품 ${newRows.length.toLocaleString('ko-KR')}개`);
+      if (statusUpdates.length) parts.push(`상태 변경 ${statusUpdates.length.toLocaleString('ko-KR')}개`);
+      status.textContent = `${parts.join(', ')} 동기화했습니다.`;
       loadProductCostData();
     } catch (err) {
       status.innerHTML = '<span class="error">' + err.message + '</span>';
