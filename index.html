@@ -404,6 +404,11 @@
   .gs-ev-card-filled .gs-ev-card-meta { color: #0d9488; }
   .gs-ev-card-filled .gs-ev-card-tags .gs-tag { background: rgba(13,148,136,.18); color: #0f766e; }
 
+  .gs-ev-card-filled.gs-accent-pink { background: rgba(190,24,93,.1); border-color: rgba(190,24,93,.28); }
+  .gs-ev-card-filled.gs-accent-pink .gs-ev-card-title { color: #9d174d; }
+  .gs-ev-card-filled.gs-accent-pink .gs-ev-card-meta { color: #be185d; }
+  .gs-ev-card-filled.gs-accent-pink .gs-ev-card-tags .gs-tag { background: rgba(190,24,93,.16); color: #9d174d; }
+
   .gs-tag-default, .gs-tag-gray { background: rgba(100,116,139,.12); color: #475569; }
   .gs-tag-brown { background: rgba(146,100,63,.14); color: #92643f; }
   .gs-tag-orange { background: rgba(234,140,26,.14); color: #b3620a; }
@@ -6093,7 +6098,7 @@
       title: r.mall ? `${r.mall} · ${r.title}` : r.title,
       pctText: null,
       tags: r.memo ? [{ text: r.memo, color: 'mall' }] : [],
-      accent: 'mall',
+      accent: (r.mall || '').includes('자사몰') ? 'pink' : 'mall',
       filled: true
     }));
   }
