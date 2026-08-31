@@ -1522,7 +1522,63 @@
 
       <div id="processSubOverview">
         <section class="panel">
-          <div class="gs-empty">아직 등록된 내용이 없습니다. 자료를 주시면 채워드릴게요.</div>
+          <div class="panel-head"><h2>거래처 운영현황 요약</h2></div>
+          <div id="partnerKpiRow" style="display:grid; grid-template-columns:repeat(3,1fr); gap:14px;"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>거래처 목록</h2>
+            <input type="text" id="partnerSearchInput" class="gs-search-input" style="margin-left:auto;" placeholder="거래처명·담당자·연락처·사업자번호 검색" oninput="renderPartnerTable()">
+          </div>
+          <form class="deal-form" id="partnerForm">
+            <select name="type" style="width:120px;">
+              <option value="공급업체">공급업체</option>
+              <option value="바이어">바이어</option>
+            </select>
+            <input type="text" name="name" placeholder="거래처명" required style="flex:1; min-width:140px;">
+            <input type="text" name="contactName" placeholder="담당자" style="width:110px;">
+            <input type="text" name="contactPhone" placeholder="연락처" style="width:140px;">
+            <input type="text" name="bizRegNo" placeholder="사업자등록번호" style="width:150px;">
+            <input type="text" name="memo" placeholder="메모(선택)" style="flex:1; min-width:120px;">
+            <button type="submit" class="btn-primary">추가</button>
+          </form>
+          <div class="scroll-box">
+            <table>
+              <thead><tr><th>유형</th><th>거래처명</th><th>담당자</th><th>연락처</th><th>사업자등록번호</th><th>메모</th><th></th></tr></thead>
+              <tbody id="partnerTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>수금 · 지급 관리</h2>
+            <select id="partnerPaymentFilter" style="margin-left:auto;" onchange="renderPartnerPaymentTable()">
+              <option value="">전체 거래처</option>
+            </select>
+          </div>
+          <form class="deal-form" id="partnerPaymentForm">
+            <select name="partnerId" id="partnerPaymentFormPartner" required style="flex:1; min-width:140px;"></select>
+            <select name="direction" style="width:100px;">
+              <option value="수금">수금</option>
+              <option value="지급">지급</option>
+            </select>
+            <input type="text" name="title" placeholder="항목명" style="flex:1; min-width:120px;">
+            <input type="number" name="amount" placeholder="금액(원)" style="width:130px;">
+            <input type="date" name="dueDate">
+            <select name="status" style="width:90px;">
+              <option value="예정">예정</option>
+              <option value="완료">완료</option>
+            </select>
+            <button type="submit" class="btn-primary">추가</button>
+          </form>
+          <div class="scroll-box">
+            <table>
+              <thead><tr><th>거래처</th><th>구분</th><th>항목명</th><th class="num">금액</th><th>예정일</th><th>D-day</th><th>상태</th><th></th></tr></thead>
+              <tbody id="partnerPaymentTable"></tbody>
+            </table>
+          </div>
         </section>
       </div>
 
@@ -2755,6 +2811,175 @@
     }
   }
 
+  // ==================== 거래처 운영현황 (B2B 거래처 + 수금/지급) ====================
+  let partnerRows = [];
+  let partnerPaymentRows = [];
+  let partnerOverviewLoaded = false;
+
+  function ddayText(dueDate) {
+    if (!dueDate) return '-';
+    const [y, m, d] = dueDate.split('-').map(Number);
+    const due = Date.UTC(y, m - 1, d);
+    const today = new Date();
+    const todayUTC = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+    const diff = Math.round((due - todayUTC) / 86400000);
+    if (diff === 0) return 'D-DAY';
+    return diff > 0 ? `D-${diff}` : `D+${-diff}`;
+  }
+
+  async function loadPartnerOverview() {
+    const [partnerRes, paymentRes] = await Promise.all([
+      client.from('partners').select('*').order('created_at', { ascending: false }),
+      client.from('partner_payments').select('*').order('due_date', { ascending: true })
+    ]);
+    partnerRows = partnerRes.error ? [] : (partnerRes.data || []);
+    partnerPaymentRows = paymentRes.error ? [] : (paymentRes.data || []);
+    partnerOverviewLoaded = true;
+    renderPartnerKpis();
+    renderPartnerTable();
+    renderPartnerPaymentFormOptions();
+    renderPartnerPaymentTable();
+  }
+
+  function renderPartnerKpis() {
+    const receivable = partnerPaymentRows.filter((p) => p.direction === '수금' && p.status === '예정')
+      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const payable = partnerPaymentRows.filter((p) => p.direction === '지급' && p.status === '예정')
+      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const monthPrefix = new Date().toISOString().slice(0, 7);
+    const monthCount = partnerPaymentRows.filter((p) => p.status === '예정' && (p.due_date || '').slice(0, 7) === monthPrefix).length;
+    document.getElementById('partnerKpiRow').innerHTML = `
+      <div class="kpi-card"><div class="kpi-label">총 미수금(수금 예정)</div><div class="kpi-value">${won(receivable)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">총 미지급금(지급 예정)</div><div class="kpi-value">${won(payable)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">이번 달 예정 건수</div><div class="kpi-value">${monthCount.toLocaleString('ko-KR')}건</div></div>
+    `;
+  }
+
+  function renderPartnerTable() {
+    const q = (document.getElementById('partnerSearchInput').value || '').trim().toLowerCase();
+    const rows = partnerRows.filter((p) => !q || [p.name, p.contact_name, p.contact_phone, p.business_reg_no]
+      .some((v) => (v || '').toLowerCase().includes(q)));
+    document.getElementById('partnerTable').innerHTML = rows.length ? rows.map((p) => `
+      <tr>
+        <td>
+          <select class="inline-edit" onchange="updatePartnerField(${p.id}, 'type', this.value)">
+            <option value="공급업체"${p.type === '공급업체' ? ' selected' : ''}>공급업체</option>
+            <option value="바이어"${p.type === '바이어' ? ' selected' : ''}>바이어</option>
+          </select>
+        </td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(p.name || '')}" onchange="updatePartnerField(${p.id}, 'name', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(p.contact_name || '')}" onchange="updatePartnerField(${p.id}, 'contact_name', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(p.contact_phone || '')}" onchange="updatePartnerField(${p.id}, 'contact_phone', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(p.business_reg_no || '')}" onchange="updatePartnerField(${p.id}, 'business_reg_no', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(p.memo || '')}" onchange="updatePartnerField(${p.id}, 'memo', this.value)"></td>
+        <td><button class="btn-danger" onclick="deletePartner(${p.id})">삭제</button></td>
+      </tr>
+    `).join('') : '<tr><td colspan="7" class="gs-empty">등록된 거래처가 없습니다. 위에서 추가해보세요.</td></tr>';
+  }
+
+  document.getElementById('partnerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const name = form.name.value.trim();
+    if (!name) return;
+    const { error } = await client.from('partners').insert([{
+      type: form.type.value,
+      name,
+      contact_name: form.contactName.value.trim() || null,
+      contact_phone: form.contactPhone.value.trim() || null,
+      business_reg_no: form.bizRegNo.value.trim() || null,
+      memo: form.memo.value.trim() || null
+    }]);
+    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+    form.reset();
+    loadPartnerOverview();
+  });
+
+  async function updatePartnerField(id, field, rawValue) {
+    const value = rawValue.trim() || null;
+    const { error } = await client.from('partners').update({ [field]: value }).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadPartnerOverview();
+  }
+
+  async function deletePartner(id) {
+    if (!confirm('이 거래처를 삭제할까요? 관련 수금/지급 내역도 함께 삭제됩니다.')) return;
+    const { error } = await client.from('partners').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadPartnerOverview();
+  }
+
+  function renderPartnerPaymentFormOptions() {
+    const opts = partnerRows.map((p) => `<option value="${p.id}">${escapeAttr(p.name)}</option>`).join('');
+    document.getElementById('partnerPaymentFormPartner').innerHTML = opts || '<option value="">거래처를 먼저 추가하세요</option>';
+    const filterSelect = document.getElementById('partnerPaymentFilter');
+    const prevFilter = filterSelect.value;
+    filterSelect.innerHTML = '<option value="">전체 거래처</option>' + opts;
+    if (partnerRows.some((p) => String(p.id) === prevFilter)) filterSelect.value = prevFilter;
+  }
+
+  function renderPartnerPaymentTable() {
+    const filterId = document.getElementById('partnerPaymentFilter').value;
+    const partnerName = (id) => (partnerRows.find((p) => String(p.id) === String(id)) || {}).name || '(삭제된 거래처)';
+    const rows = partnerPaymentRows.filter((p) => !filterId || String(p.partner_id) === filterId);
+    document.getElementById('partnerPaymentTable').innerHTML = rows.length ? rows.map((p) => `
+      <tr>
+        <td>${escapeAttr(partnerName(p.partner_id))}</td>
+        <td>
+          <select class="inline-edit" onchange="updatePartnerPaymentField(${p.id}, 'direction', this.value)">
+            <option value="수금"${p.direction === '수금' ? ' selected' : ''}>수금</option>
+            <option value="지급"${p.direction === '지급' ? ' selected' : ''}>지급</option>
+          </select>
+        </td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(p.title || '')}" onchange="updatePartnerPaymentField(${p.id}, 'title', this.value)"></td>
+        <td class="num"><input type="number" class="inline-edit num" value="${p.amount ?? ''}" onchange="updatePartnerPaymentField(${p.id}, 'amount', this.value)"></td>
+        <td><input type="date" class="inline-edit" value="${escapeAttr(p.due_date || '')}" onchange="updatePartnerPaymentField(${p.id}, 'due_date', this.value)"></td>
+        <td>${p.status === '완료' ? '완료' : escapeAttr(ddayText(p.due_date))}</td>
+        <td>
+          <select class="inline-edit" onchange="updatePartnerPaymentField(${p.id}, 'status', this.value)">
+            <option value="예정"${p.status === '예정' ? ' selected' : ''}>예정</option>
+            <option value="완료"${p.status === '완료' ? ' selected' : ''}>완료</option>
+          </select>
+        </td>
+        <td><button class="btn-danger" onclick="deletePartnerPayment(${p.id})">삭제</button></td>
+      </tr>
+    `).join('') : '<tr><td colspan="8" class="gs-empty">등록된 수금/지급 내역이 없습니다.</td></tr>';
+  }
+
+  document.getElementById('partnerPaymentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const partnerId = form.partnerId.value;
+    if (!partnerId) { alert('거래처를 먼저 추가해주세요.'); return; }
+    const { error } = await client.from('partner_payments').insert([{
+      partner_id: Number(partnerId),
+      direction: form.direction.value,
+      title: form.title.value.trim() || null,
+      amount: form.amount.value === '' ? null : Number(form.amount.value),
+      due_date: form.dueDate.value || null,
+      status: form.status.value
+    }]);
+    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+    form.reset();
+    loadPartnerOverview();
+  });
+
+  async function updatePartnerPaymentField(id, field, rawValue) {
+    let value = rawValue;
+    if (field === 'amount') value = rawValue === '' ? null : Number(rawValue);
+    else if (typeof rawValue === 'string' && field !== 'due_date') value = rawValue.trim() || null;
+    const { error } = await client.from('partner_payments').update({ [field]: value }).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadPartnerOverview();
+  }
+
+  async function deletePartnerPayment(id) {
+    if (!confirm('이 내역을 삭제할까요?')) return;
+    const { error } = await client.from('partner_payments').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadPartnerOverview();
+  }
+
   // ==================== 파이프라인 (B2B / 수출) ====================
   let currentProcessSub = 'overview';
   let currentScheduleSub = 'main';
@@ -2809,6 +3034,7 @@
       document.getElementById('processSubOverview').style.display = currentProcessSub === 'overview' ? '' : 'none';
       document.getElementById('processSubExport').style.display = currentProcessSub === 'export' ? '' : 'none';
       document.getElementById('processSubB2B').style.display = currentProcessSub === 'b2b' ? '' : 'none';
+      if (currentProcessSub === 'overview') loadPartnerOverview();
     }
     document.querySelectorAll('#navScheduleSub .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'team-schedule' && el.dataset.schedulesub === (brandChannel || currentScheduleSub));
