@@ -6086,6 +6086,7 @@
       if (r.status) tags.push({ text: r.status, color: r.status_color || 'default' });
       if (r.settlement_method) tags.push({ text: r.settlement_method, color: r.settlement_method_color || 'default' });
       if (r.department) tags.push({ text: r.department, color: r.department_color || 'default' });
+      if (r.memo) tags.push({ text: '📝 메모', color: 'yellow' });
       return {
         id: r.id,
         kind: 'groupbuy',
