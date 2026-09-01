@@ -1837,7 +1837,9 @@
           </select>
           <input type="text" name="partner" placeholder="인플루언서/거래처명" style="flex:1; min-width:160px;">
           <input type="number" name="amount" placeholder="정산액(원)" style="width:140px;">
-          <input type="date" name="settlementDate">
+          <input type="date" name="periodStart" title="공동구매 시작일">
+          <input type="date" name="periodEnd" title="공동구매 종료일 (정산일이 종료일+14일로 자동 계산됩니다)" onchange="settlementFormAutoDate(this)">
+          <input type="date" name="settlementDate" title="정산일 (종료일 입력 시 자동 계산, 직접 수정 가능)">
           <select name="status" style="width:100px;">
             <option value="대기">대기</option>
             <option value="완료">완료</option>
@@ -1858,7 +1860,7 @@
         </div>
         <div class="scroll-box">
           <table>
-            <thead><tr><th>구분</th><th>인플루언서/거래처</th><th class="num">정산액</th><th>정산일</th><th>상태</th><th>메모</th><th></th></tr></thead>
+            <thead><tr><th>구분</th><th>인플루언서/거래처</th><th class="num">정산액</th><th>공동구매 기간</th><th>정산일</th><th>상태</th><th>메모</th><th></th></tr></thead>
             <tbody id="settlementTable"></tbody>
           </table>
         </div>
@@ -6542,7 +6544,7 @@
       (r.category === '공동구매' && showGroupbuy) || (r.category === '수출' && showExport));
     note.textContent = rows.length + '건';
     if (!rows.length) {
-      table.innerHTML = '<tr><td colspan="7" class="gs-empty">등록된 정산 내역이 없습니다. 위에서 추가해보세요.</td></tr>';
+      table.innerHTML = '<tr><td colspan="8" class="gs-empty">등록된 정산 내역이 없습니다. 위에서 추가해보세요.</td></tr>';
       return;
     }
     table.innerHTML = rows.map((r) => `
@@ -6557,6 +6559,13 @@
           onchange="updateSettlementField(${r.id}, 'partner', this.value)"></td>
         <td class="num"><input type="number" class="inline-edit num" value="${r.amount ?? ''}"
           onchange="updateSettlementField(${r.id}, 'amount', this.value)"></td>
+        <td style="white-space:nowrap;">
+          <input type="date" class="inline-edit" style="width:120px;" value="${escapeAttr(r.period_start || '')}"
+            onchange="updateSettlementField(${r.id}, 'period_start', this.value)">
+          ~
+          <input type="date" class="inline-edit" style="width:120px;" value="${escapeAttr(r.period_end || '')}"
+            onchange="updateSettlementPeriodEnd(${r.id}, this.value)">
+        </td>
         <td><input type="date" class="inline-edit" value="${escapeAttr(r.settlement_date || '')}"
           onchange="updateSettlementField(${r.id}, 'settlement_date', this.value)"></td>
         <td>
@@ -6572,17 +6581,40 @@
     `).join('');
   }
 
+  // 공동구매 종료일 + 14일 = 정산일 (요청된 정산 규칙)
+  function settlementDueFromEnd(endDateStr) {
+    const [y, m, d] = endDateStr.split('-').map(Number);
+    const due = new Date(Date.UTC(y, m - 1, d) + 14 * 86400000);
+    return due.toISOString().slice(0, 10);
+  }
+
+  function settlementFormAutoDate(endInput) {
+    if (!endInput.value) return;
+    const form = document.getElementById('settlementForm');
+    form.settlementDate.value = settlementDueFromEnd(endInput.value);
+  }
+
+  async function updateSettlementPeriodEnd(id, endDate) {
+    const patch = { period_end: endDate || null };
+    if (endDate) patch.settlement_date = settlementDueFromEnd(endDate);
+    const { error } = await client.from('settlements').update(patch).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadTeamSchedule();
+  }
+
   document.getElementById('settlementForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
     const category = form.category.value;
     const partner = form.partner.value.trim() || null;
     const amount = form.amount.value === '' ? null : Number(form.amount.value);
-    const settlementDate = form.settlementDate.value || null;
+    const periodStart = form.periodStart.value || null;
+    const periodEnd = form.periodEnd.value || null;
+    const settlementDate = form.settlementDate.value || (periodEnd ? settlementDueFromEnd(periodEnd) : null);
     const status = form.status.value;
     const memo = form.memo.value.trim() || null;
     const { error } = await client.from('settlements')
-      .insert([{ category, partner, amount, settlement_date: settlementDate, status, memo }]);
+      .insert([{ category, partner, amount, period_start: periodStart, period_end: periodEnd, settlement_date: settlementDate, status, memo }]);
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
     form.reset();
     loadTeamSchedule();
