@@ -5747,13 +5747,17 @@
   }
 
   function renderTeamSalesKpi() {
+    // "오늘"은 실제 달력 날짜가 아니라, 매출 데이터가 실제로 들어와 있는 가장 최근 날짜 기준으로
+    // 잡습니다(메인 대시보드와 동일한 방식). 그래야 오늘 매출을 아직 안 올린 날에도 마지막으로
+    // 업로드된 날짜(예: 8/31) 기준으로 정상 표시됩니다.
+    const teamAllRows = allRows.filter(r => !EXCLUDED_FROM_TEAM.includes(r.vendor));
+    const allDates = teamAllRows.map(r => r.sale_date).sort();
+    const todayDate = allDates[allDates.length - 1];
     const now = new Date();
-    const currentMonthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-    const teamRows = allRows.filter(r => r.sale_date.slice(0, 7) === currentMonthStr && !EXCLUDED_FROM_TEAM.includes(r.vendor));
+    const currentMonthStr = todayDate ? todayDate.slice(0, 7) : (now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
+    const teamRows = teamAllRows.filter(r => r.sale_date.slice(0, 7) === currentMonthStr);
     const teamMonthlyActual = teamRows.reduce((s, r) => s + Number(r.amount), 0);
-    const dates = teamRows.map(r => r.sale_date).sort();
-    const todayDate = dates[dates.length - 1];
-    const teamTodayAmount = teamRows.filter(r => r.sale_date === todayDate).reduce((s, r) => s + Number(r.amount), 0);
+    const teamTodayAmount = todayDate ? teamAllRows.filter(r => r.sale_date === todayDate).reduce((s, r) => s + Number(r.amount), 0) : 0;
 
     const teamDailyPct = teamTodayAmount / TEAM_DAILY_TARGET * 100;
     const teamMonthlyPct = teamMonthlyActual / TEAM_MONTHLY_TARGET * 100;
