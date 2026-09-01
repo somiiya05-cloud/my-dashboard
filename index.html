@@ -5892,15 +5892,21 @@
     `;
   }
 
+  const TASK_PRIORITY_RANK = { '높음': 0, '보통': 1, '낮음': 2 };
+  function taskPriorityRank(p) {
+    return TASK_PRIORITY_RANK[p || '보통'] ?? 1;
+  }
+
   function renderTaskTable() {
     const note = document.getElementById('taskListNote');
     const scoped = getAssigneeScopedTasks();
     document.getElementById('taskTableHead').style.display = currentTaskAssignee ? '' : 'none';
 
     if (currentTaskAssignee) {
-      const visibleTasks = taskStatusFilter
+      const visibleTasks = (taskStatusFilter
         ? scoped.filter(t => t.status === taskStatusFilter)
-        : scoped.filter(t => t.status !== '완료');
+        : scoped.filter(t => t.status !== '완료')
+      ).slice().sort((a, b) => taskPriorityRank(a.priority) - taskPriorityRank(b.priority));
       note.textContent = taskStatusFilter
         ? visibleTasks.length + '건 (' + taskStatusFilter + ')'
         : visibleTasks.length + '건 (완료 제외)';
