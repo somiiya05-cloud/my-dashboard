@@ -89,6 +89,37 @@ function buildRows(data) {
     });
 }
 
+function addDays(dateStr, days) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const t = Date.UTC(y, m - 1, d) + days * 86400000;
+  return new Date(t).toISOString().slice(0, 10);
+}
+
+// 영업팀이 진행하는 공구 건은 캘린더뿐 아니라 "정산" 목록에도 자동으로 올려준다.
+// 이미 같은 인플루언서·기간으로 등록된 정산 건은 건드리지 않는다(수기로 채운 정산액 보존).
+function buildSettlementRows(groupbuyRows, existingSettlements) {
+  const existingKeys = new Set(
+    existingSettlements.map((s) => `${s.partner || ''}|${s.period_start || ''}|${s.period_end || ''}`)
+  );
+  return groupbuyRows
+    .filter((r) => r.department === '영업팀')
+    .filter((r) => !existingKeys.has(`${r.influencer_name || ''}|${r.start_date || ''}|${r.end_date || ''}`))
+    .map((r) => {
+      const pct = typeof r.commission_rate === 'number' ? `${Math.round(r.commission_rate * 100)}%` : '미정';
+      const settleMethod = r.settlement_method || '정산방식 미정';
+      return {
+        category: '공동구매',
+        partner: r.influencer_name,
+        amount: null,
+        period_start: r.start_date,
+        period_end: r.end_date,
+        settlement_date: r.end_date ? addDays(r.end_date, 14) : null,
+        status: '대기',
+        memo: `${r.brand_product || ''} · 수수료 ${pct} · ${settleMethod} · ${r.start_date}~${r.end_date}`
+      };
+    });
+}
+
 async function supabaseRest(path, options, serviceKey) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
@@ -146,7 +177,15 @@ module.exports = async function handler(req, res) {
       await supabaseRest(`groupbuy_schedule?id=in.(${filter})`, { method: 'DELETE' }, supabaseServiceKey);
     }
 
-    return res.status(200).json({ ok: true, updated: rows.length, deleted: toDelete.length });
+    // 영업팀 공구 건을 정산 목록에도 자동으로 추가 (이미 있는 건은 건드리지 않음)
+    const settlementsRes = await supabaseRest('settlements?select=partner,period_start,period_end', { method: 'GET' }, supabaseServiceKey);
+    const existingSettlements = await settlementsRes.json();
+    const newSettlements = buildSettlementRows(rows, existingSettlements);
+    if (newSettlements.length) {
+      await supabaseRest('settlements', { method: 'POST', body: JSON.stringify(newSettlements) }, supabaseServiceKey);
+    }
+
+    return res.status(200).json({ ok: true, updated: rows.length, deleted: toDelete.length, settlementsAdded: newSettlements.length });
   } catch (err) {
     return res.status(500).json({ error: 'sync_failed', detail: String(err && err.message || err) });
   }

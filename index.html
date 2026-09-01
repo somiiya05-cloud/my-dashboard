@@ -6292,7 +6292,7 @@
     const [groupbuyRes, mallRes, settlementRes] = await Promise.all([
       client.from('groupbuy_schedule').select('*').order('start_date', { ascending: true }),
       client.from('mall_events').select('*').order('start_date', { ascending: true }),
-      client.from('settlements').select('*').order('created_at', { ascending: false })
+      client.from('settlements').select('*').order('period_start', { ascending: true })
     ]);
     if (groupbuyRes.error) {
       root.innerHTML = `<div class="gs-empty error">일정을 불러오지 못했습니다: ${escapeAttr(groupbuyRes.error.message)}</div>`;
