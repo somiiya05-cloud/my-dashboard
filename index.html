@@ -629,6 +629,48 @@
   .ops-routine-link { color: #2f5ce4; text-decoration: underline; }
   .ops-routine-link:hover { color: #1d4ed8; }
 
+  /* ---- 영업팀 Overall Operations: 업무 SOP 카드 ---- */
+  .sop-group { margin-bottom: 20px; }
+  .sop-group:last-child { margin-bottom: 0; }
+  .sop-group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .sop-group-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sop-dot, #4d7cfe); flex-shrink: 0; }
+  .sop-group-head h3 { font-size: 12.5px; font-weight: 800; margin: 0; color: #0f172a; }
+  .sop-group-count { font-size: 10.5px; color: #94a3b8; background: #f4f5f8; padding: 1px 7px; border-radius: 999px; }
+  .sop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+  .sop-card {
+    background: #ffffff; border: 1px solid rgba(15,23,42,.07); border-left: 3px solid var(--sop-dot, #4d7cfe);
+    border-radius: 12px; padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 8px;
+    text-decoration: none; color: inherit; transition: box-shadow .15s ease, transform .15s ease;
+  }
+  .sop-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15,23,42,.1); }
+  .sop-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .sop-card-head h4 { font-size: 13px; font-weight: 800; margin: 0; line-height: 1.4; }
+  .sop-badge-row { display: flex; gap: 5px; flex-shrink: 0; }
+  .sop-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: #f4f5f8; color: #64748b; white-space: nowrap; }
+  .sop-badge-priority { background: rgba(220,38,38,.12); color: #b91c1c; }
+  .sop-meta { font-size: 11.5px; color: #64748b; }
+  .sop-field { font-size: 12px; color: #334155; line-height: 1.5; }
+  .sop-field b { color: #64748b; font-weight: 700; margin-right: 4px; }
+  .sop-field-risk, .sop-field-risk b { color: #b91c1c; }
+  .sop-link {
+    margin-top: 2px; display: flex; align-items: center; justify-content: center;
+    background: rgba(77,124,254,.1); color: #2f5ce4; font-size: 11.5px; font-weight: 700;
+    padding: 6px 8px; border-radius: 8px;
+  }
+  .sop-card:hover .sop-link { background: #4d7cfe; color: #fff; }
+  a.sop-link:hover { background: #4d7cfe; color: #fff; }
+  .sop-card-pending { cursor: default; opacity: .65; }
+  .sop-card-pending:hover { transform: none; box-shadow: none; }
+  .sop-link-pending { background: #f4f5f8; color: #94a3b8; }
+  .sop-sublinks { display: flex; flex-direction: column; gap: 5px; }
+  .sop-sublink {
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    background: #f4f5f8; border: 1px solid rgba(15,23,42,.07); color: #64748b;
+    font-size: 11px; font-weight: 600; padding: 5px 8px; border-radius: 7px; text-decoration: none;
+  }
+  .sop-sublink:hover { border-color: #4d7cfe; color: #2f5ce4; }
+  .sop-empty { grid-column: 1 / -1; text-align: center; color: #94a3b8; font-size: 12px; padding: 18px; border: 1px dashed rgba(15,23,42,.12); border-radius: 12px; }
+
   /* ---- 마케팅 대시보드 (오렌지 테마) ---- */
   .mkt-value { color: #ea580c; }
   .mkt-swatch { background: #fb923c; }
@@ -1476,37 +1518,212 @@
 
       <section class="panel">
         <div class="panel-head">
-          <h2>영업팀 루틴 업무</h2>
-          <span class="panel-note">데일리 · 주차별 · 월마감</span>
+          <h2>영업팀 업무 SOP</h2>
+          <span class="panel-note">카드를 클릭하면 담당자·목적·완료 기준을 담은 Notion 페이지가 새 창으로 열립니다</span>
         </div>
-        <div class="ops-routine-board">
-          <div class="ops-routine-col ops-routine-daily">
-            <div class="ops-routine-head">데일리 업무</div>
-            <ol class="ops-routine-list">
-              <li><a class="ops-routine-link" href="https://app.notion.com/p/selfdiylab/10-35dcd5ac1fb3800dbff2fa91de9ef0da?source=copy_link" target="_blank" rel="noopener">카카오 선물하기 명퉤 일자 변경</a></li>
-              <li><a class="ops-routine-link" href="https://app.notion.com/p/selfdiylab/183cd5ac1fb381bbb78ae317463dab5b?source=copy_link" target="_blank" rel="noopener">자사몰 광고보고</a></li>
-              <li><a class="ops-routine-link" href="https://app.notion.com/p/selfdiylab/183cd5ac1fb3816ebb99ff4c0b863649?source=copy_link" target="_blank" rel="noopener">전일자 매출마감</a></li>
-              <li><a class="ops-routine-link" href="https://app.notion.com/p/selfdiylab/183cd5ac1fb38179aa20fb1c48fa44b4?source=copy_link" target="_blank" rel="noopener">판매처 품절 처리</a></li>
-            </ol>
+
+        <div class="sop-group" style="--sop-dot:#4d7cfe">
+          <div class="sop-group-head"><span class="sop-group-dot"></span><h3>데일리 업무</h3><span class="sop-group-count">매일 · 10건</span></div>
+          <div class="sop-grid">
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/183cd5ac1fb3816ebb99ff4c0b863649" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>매출마감</h4><div class="sop-badge-row"><span class="sop-badge">매일</span><span class="sop-badge sop-badge-priority">중요</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>전일 채널별 매출을 누락 없이 마감</div>
+              <div class="sop-field"><b>완료기준</b>일매출 파일 업데이트 및 특이사항 공유 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>매출 누락, 보고 오류 발생 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/183cd5ac1fb381bbb78ae317463dab5b" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>광고보고</h4><div class="sop-badge-row"><span class="sop-badge">매일</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>전일 광고비 집행 및 성과를 팀에 공유</div>
+              <div class="sop-field"><b>완료기준</b>채널별 광고비·매출·ROAS 리포트 발송 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>광고 성과 파악 지연, 예산 비효율 초래 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/183cd5ac1fb38179aa20fb1c48fa44b4" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>판매처 품절 처리</h4><div class="sop-badge-row"><span class="sop-badge">매일</span><span class="sop-badge sop-badge-priority">중요</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>품절 상품으로 인한 매출 손실과 CS를 최소화</div>
+              <div class="sop-field"><b>완료기준</b>품절 상품 노출 중지 및 입고 일정 공지 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>매출 손실 및 고객 불만(CS) 증가 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+            <div class="sop-card sop-card-pending">
+              <div class="sop-card-head"><h4>쿠팡 상품등록</h4><div class="sop-badge-row"><span class="sop-badge">매일</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>신규·개편 상품을 쿠팡에 정확히 노출</div>
+              <div class="sop-field"><b>완료기준</b>상세페이지·옵션·가격 등록 및 노출 확인 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>노출 누락 또는 상품 정보 오류로 매출 손실 가능</div>
+              <span class="sop-link sop-link-pending">Notion 카드 준비 중</span>
+            </div>
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/35acd5ac1fb38086899adb7cfa948182" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>쿠팡 재고관리</h4><div class="sop-badge-row"><span class="sop-badge">매일</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>쿠팡 채널의 품절·과잉재고를 사전에 방지</div>
+              <div class="sop-field"><b>완료기준</b>실재고와 시스템 재고 수량 일치 확인 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>품절 또는 과잉재고로 인한 기회비용 발생 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+            <div class="sop-card sop-card-pending">
+              <div class="sop-card-head"><h4>쿠팡 광고관리</h4><div class="sop-badge-row"><span class="sop-badge">매일</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>쿠팡 광고 효율 유지 및 예산 소진 관리</div>
+              <div class="sop-field"><b>완료기준</b>입찰가·소재·예산 점검 및 조정 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>광고 예산 낭비 또는 노출 순위 하락 가능</div>
+              <span class="sop-link sop-link-pending">Notion 카드 준비 중</span>
+            </div>
+            <div class="sop-card sop-card-pending">
+              <div class="sop-card-head"><h4>쿠팡 리뷰관리</h4><div class="sop-badge-row"><span class="sop-badge">매일</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>부정 리뷰에 신속히 대응하고 평점 관리</div>
+              <div class="sop-field"><b>완료기준</b>신규 리뷰 확인 및 필요 시 답변·신고 조치 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>부정 리뷰 방치로 평점·신뢰도 하락 가능</div>
+              <span class="sop-link sop-link-pending">Notion 카드 준비 중</span>
+            </div>
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/183cd5ac1fb381caa62dd1fa0876d8d3" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>올리브영 입고/매출마감/재고관리</h4><div class="sop-badge-row"><span class="sop-badge">매일</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>올리브영 채널의 입고·매출·재고를 정확히 관리</div>
+              <div class="sop-field"><b>완료기준</b>입고 확인, 매출 마감, 재고 수량 정리 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>입고 지연 또는 재고 불일치로 매출 손실 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/34acd5ac1fb38080a04ac4a44c6e88cc" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>SNS 백바이럴 소재 집행 및 인사이트 보고</h4><div class="sop-badge-row"><span class="sop-badge">매일</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>SNS 바이럴 소재 집행 결과 파악 및 개선점 도출</div>
+              <div class="sop-field"><b>완료기준</b>소재 집행 확인 및 인사이트 요약 공유 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>소재 효과 파악 지연으로 개선 기회 상실 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/24-359cd5ac1fb3809dbe2efb1de04fd693" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>배송비/도선료 관리</h4><div class="sop-badge-row"><span class="sop-badge">매일</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>채널별 배송비·도선료 정책을 정확히 반영</div>
+              <div class="sop-field"><b>완료기준</b>배송비 변동 확인 및 정책 반영 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>배송비 정책 오적용으로 손실 또는 CS 발생 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
           </div>
-          <div class="ops-routine-col ops-routine-weekly">
-            <div class="ops-routine-head">주차별 업무</div>
-            <ol class="ops-routine-list">
-              <li><a class="ops-routine-link" href="https://app.notion.com/p/selfdiylab/35acd5ac1fb380b88c87ca16bbed3a59?source=copy_link" target="_blank" rel="noopener">광고비 정산 (W. 회계팀) — 메타 · GFA · SA · 인스타그램 바이럴 · 쿠팡</a></li>
-              <li>목요일마다 광고비 충전</li>
-              <li>수 or 목요일 올리브영 마감</li>
-              <li>인스타그램 바이럴 신청</li>
-            </ol>
+        </div>
+
+        <div class="sop-group" style="--sop-dot:#fb923c">
+          <div class="sop-group-head"><span class="sop-group-dot"></span><h3>주차별 업무</h3><span class="sop-group-count">매주 · 4건</span></div>
+          <div class="sop-grid">
+            <div class="sop-card sop-card-pending" style="cursor:default">
+              <div class="sop-card-head"><h4>광고비 충전 및 관리</h4><div class="sop-badge-row"><span class="sop-badge">매주</span><span class="sop-badge sop-badge-priority">중요</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>광고 집행 중단 없이 예산을 안정적으로 운영</div>
+              <div class="sop-field"><b>완료기준</b>채널별 광고 잔액 확인 및 충전 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>잔액 부족으로 인한 광고 노출 중단 가능</div>
+              <a class="sop-link" href="https://app.notion.com/p/selfdiylab/35acd5ac1fb380249241e91d7b0a4867" target="_blank" rel="noopener">Notion 바로가기 ↗</a>
+              <div class="sop-sublinks"><a class="sop-sublink" href="https://app.notion.com/p/selfdiylab/35acd5ac1fb380b88c87ca16bbed3a59" target="_blank" rel="noopener">광고비 인사팀 공유 ↗</a></div>
+            </div>
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/183cd5ac1fb381f2847ef336d16e73f8" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>올리브영 주간 매출보고</h4><div class="sop-badge-row"><span class="sop-badge">매주</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>올리브영 채널의 주간 실적을 팀 내 공유</div>
+              <div class="sop-field"><b>완료기준</b>주간 매출·순위 데이터 정리 및 보고 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>실적 파악 지연으로 대응 타이밍 상실 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+            <div class="sop-card sop-card-pending">
+              <div class="sop-card-head"><h4>인스타그램 바이럴 신청</h4><div class="sop-badge-row"><span class="sop-badge">매주</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>인스타그램 바이럴을 통한 신규 유입 확보</div>
+              <div class="sop-field"><b>완료기준</b>신청 채널 선정 및 신청 절차 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>신청 지연으로 유입 확보 기회 상실 가능</div>
+              <span class="sop-link sop-link-pending">Notion 카드 준비 중</span>
+            </div>
+            <div class="sop-card sop-card-pending">
+              <div class="sop-card-head"><h4>거래처 진행 현황 체크</h4><div class="sop-badge-row"><span class="sop-badge">매주</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>거래처별 발주·정산 진행 상황 파악</div>
+              <div class="sop-field"><b>완료기준</b>거래처별 진행 상태 업데이트 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>거래처 이슈 조기 발견 실패 가능</div>
+              <span class="sop-link sop-link-pending">Notion 카드 준비 중</span>
+            </div>
           </div>
-          <div class="ops-routine-col ops-routine-monthly">
-            <div class="ops-routine-head">월마감 업무</div>
-            <ol class="ops-routine-list">
-              <li><a class="ops-routine-link" href="https://app.notion.com/p/selfdiylab/35dcd5ac1fb380179c20ed02da0ecfe9?source=copy_link" target="_blank" rel="noopener">자사몰 광고보고서</a></li>
-              <li><a class="ops-routine-link" href="https://app.notion.com/p/selfdiylab/35dcd5ac1fb3806ea1c7c364e103b9fb?source=copy_link" target="_blank" rel="noopener">쿠팡 월마감</a></li>
-              <li><a class="ops-routine-link" href="https://app.notion.com/p/selfdiylab/35acd5ac1fb380da82b8d0d2647d2479?source=copy_link" target="_blank" rel="noopener">파스토 월마감</a></li>
-              <li><a class="ops-routine-link" href="https://app.notion.com/p/selfdiylab/35dcd5ac1fb380e18d46f72a0b2c00fc?source=copy_link" target="_blank" rel="noopener">오프하우스 월마감</a></li>
-              <li><a class="ops-routine-link" href="https://app.notion.com/p/selfdiylab/35acd5ac1fb38030af20fd9c649c8d91?source=copy_link" target="_blank" rel="noopener">올리브영 월마감</a></li>
-            </ol>
+        </div>
+
+        <div class="sop-group" style="--sop-dot:#7c3aed">
+          <div class="sop-group-head"><span class="sop-group-dot"></span><h3>월마감 업무</h3><span class="sop-group-count">매월 · 6건</span></div>
+          <div class="sop-grid">
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/35dcd5ac1fb380179c20ed02da0ecfe9" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>자사몰 광고보고서</h4><div class="sop-badge-row"><span class="sop-badge">매월</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>자사몰 광고 성과를 월 단위로 정리해 의사결정에 활용</div>
+              <div class="sop-field"><b>완료기준</b>월간 광고비·매출·ROAS 보고서 작성 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>월간 성과 파악 지연으로 예산 계획 차질 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/35dcd5ac1fb3806ea1c7c364e103b9fb" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>쿠팡 월마감</h4><div class="sop-badge-row"><span class="sop-badge">매월</span><span class="sop-badge sop-badge-priority">중요</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>쿠팡 채널의 월 매출과 정산 내역 확정</div>
+              <div class="sop-field"><b>완료기준</b>월 매출 집계 및 정산 내역 대사 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>정산 오류 및 매출 집계 누락 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/198cd5ac1fb3804dbdffdc293c732630" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>파스토 월마감</h4><div class="sop-badge-row"><span class="sop-badge">매월</span><span class="sop-badge sop-badge-priority">중요</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>파스토 물류 채널의 월 출고·비용 내역 확정</div>
+              <div class="sop-field"><b>완료기준</b>월 출고 수량 및 물류비 대사 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>물류비 대사 오류로 인한 비용 손실 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/361cd5ac1fb3804ea3d9f7a41920e42f" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>오프하우스 월마감</h4><div class="sop-badge-row"><span class="sop-badge">매월</span><span class="sop-badge sop-badge-priority">중요</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>오프하우스 채널의 월 매출과 정산 내역 확정</div>
+              <div class="sop-field"><b>완료기준</b>월 매출 집계 및 정산 내역 대사 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>정산 오류 및 매출 집계 누락 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/35acd5ac1fb38030af20fd9c649c8d91" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>올리브영 월마감</h4><div class="sop-badge-row"><span class="sop-badge">매월</span><span class="sop-badge sop-badge-priority">중요</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>올리브영 채널의 월 매출과 정산 내역 확정</div>
+              <div class="sop-field"><b>완료기준</b>월 매출 집계 및 정산 내역 대사 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>정산 오류 및 매출 집계 누락 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/35dcd5ac1fb3802ba7dcd5ae8d76b6ac" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>메타 광고비/매출 인사이트 공유</h4><div class="sop-badge-row"><span class="sop-badge">매월</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>메타 광고 성과와 매출 기여도를 팀에 공유</div>
+              <div class="sop-field"><b>완료기준</b>월간 광고비·매출 인사이트 정리 및 공유 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>채널 기여도 파악 지연으로 예산 배분 오류 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="sop-group" style="--sop-dot:#0891b2">
+          <div class="sop-group-head"><span class="sop-group-dot"></span><h3>채널별 운영</h3><span class="sop-group-count">상시 · 8건</span></div>
+          <div class="sop-grid">
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>쿠팡</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>쿠팡 채널의 상품·재고·광고·리뷰 통합 운영</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>올리브영</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>올리브영 채널의 입고·매출·재고 통합 운영</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>스마트스토어</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>스마트스토어 채널의 상품과 주문을 안정적으로 운영</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>자사몰</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>자사몰 채널의 매출과 광고 효율 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>카카오 선물하기</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>카카오 선물하기 채널의 노출과 매출 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>외부몰</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>외부몰 채널별 입점 조건과 매출 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>입점 조건 변경 대응 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>오프라인</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>오프라인 거래처의 입점·재고·정산 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>재고·정산 불일치 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>수출</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>수출 거래처의 발주와 선적 일정 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>선적 일정 차질로 인한 납기 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+          </div>
+        </div>
+
+        <div class="sop-group" style="--sop-dot:#dc2626">
+          <div class="sop-group-head"><span class="sop-group-dot"></span><h3>이슈 대응 매뉴얼</h3><span class="sop-group-count">발생 시 · 6건</span></div>
+          <div class="sop-grid">
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>품절 발생 시</h4><div class="sop-badge-row"><span class="sop-badge">발생 시</span><span class="sop-badge sop-badge-priority">중요</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>품절로 인한 매출 손실과 고객 불만 최소화</div><div class="sop-field"><b>완료기준</b>노출 중지, 입고 일정 공지, 유관부서 공유 완료</div><div class="sop-field sop-field-risk"><b>리스크</b>대응 지연 시 매출 손실 및 CS 확대 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>광고비 과소진 시</h4><div class="sop-badge-row"><span class="sop-badge">발생 시</span><span class="sop-badge sop-badge-priority">중요</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>광고 예산 소진으로 인한 노출 중단 방지</div><div class="sop-field"><b>완료기준</b>원인 파악 및 예산·입찰 조정 완료</div><div class="sop-field sop-field-risk"><b>리스크</b>대응 지연 시 노출 중단으로 매출 급감 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>상품 비노출 발생 시</h4><div class="sop-badge-row"><span class="sop-badge">발생 시</span><span class="sop-badge sop-badge-priority">중요</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>비노출로 인한 매출 손실 신속 복구</div><div class="sop-field"><b>완료기준</b>원인 확인 및 노출 정상화 완료</div><div class="sop-field sop-field-risk"><b>리스크</b>대응 지연 시 매출 손실 장기화 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>리뷰 이슈 발생 시</h4><div class="sop-badge-row"><span class="sop-badge">발생 시</span><span class="sop-badge sop-badge-priority">중요</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>부정적 리뷰로 인한 신뢰도 하락 방지</div><div class="sop-field"><b>완료기준</b>리뷰 확인, 답변·신고, 유관부서 공유 완료</div><div class="sop-field sop-field-risk"><b>리스크</b>대응 지연 시 브랜드 신뢰도 하락 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>정산 오류 발생 시</h4><div class="sop-badge-row"><span class="sop-badge">발생 시</span><span class="sop-badge sop-badge-priority">중요</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>정산 오류로 인한 매출 손실과 신뢰 문제 방지</div><div class="sop-field"><b>완료기준</b>오류 원인 확인 및 정정 요청 완료</div><div class="sop-field sop-field-risk"><b>리스크</b>대응 지연 시 매출 손실 및 정산 신뢰 문제 확대 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>유관부서 요청 지연 시</h4><div class="sop-badge-row"><span class="sop-badge">발생 시</span><span class="sop-badge sop-badge-priority">중요</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>요청 지연으로 인한 업무 병목 최소화</div><div class="sop-field"><b>완료기준</b>지연 사유 확인 및 재요청·에스컬레이션 완료</div><div class="sop-field sop-field-risk"><b>리스크</b>대응 지연 시 업무 병목 심화 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
           </div>
         </div>
       </section>
