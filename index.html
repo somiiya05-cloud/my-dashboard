@@ -669,6 +669,26 @@
     font-size: 11px; font-weight: 600; padding: 5px 8px; border-radius: 7px; text-decoration: none;
   }
   .sop-sublink:hover { border-color: #4d7cfe; color: #2f5ce4; }
+
+  /* ---- 영업팀 Overall Operations: 헤더 아이브로우 + 루틴 통계 타일 ---- */
+  .ops-eyebrow {
+    display: block; font-size: 11px; font-weight: 800; letter-spacing: .08em;
+    color: #4d7cfe; margin-bottom: 6px; text-transform: uppercase;
+  }
+  .ops-stat-row { display: flex; gap: 12px; }
+  .ops-stat-tile { flex: 1; background: #f4f5f8; border-radius: 10px; padding: 12px 14px; }
+  .ops-stat-tile .stat-cadence {
+    display: block; font-size: 10px; font-weight: 800; letter-spacing: .06em;
+    color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;
+  }
+  .ops-stat-tile .stat-count { font-size: 20px; font-weight: 800; color: #0f172a; }
+  .ops-stat-tile .stat-unit { font-size: 11.5px; color: #64748b; margin-left: 3px; }
+
+  /* ---- 영업팀 Overall Operations: 카테고리별 패널 헤더 ---- */
+  .ops-panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .ops-panel-head .sop-group-dot { width: 9px; height: 9px; }
+  .ops-panel-head h2 { font-size: 14px; font-weight: 700; margin: 0; }
+  .ops-panel-head .sop-group-count { font-size: 11px; }
   .sop-empty { grid-column: 1 / -1; text-align: center; color: #94a3b8; font-size: 12px; padding: 18px; border: 1px dashed rgba(15,23,42,.12); border-radius: 12px; }
 
   /* ---- 마케팅 대시보드 (오렌지 테마) ---- */
@@ -753,7 +773,16 @@
       <div id="teamNavGroups" style="display:none;">
         <div class="nav-group">
           <div class="nav-label">영업팀</div>
-          <div class="nav-item" id="navTeamOverview" onclick="switchView('team-overview')"><span class="dot dot-team"></span>Overall Operations</div>
+          <div class="nav-item" id="navTeamOverview" onclick="opsNavClick('overview')"><span class="dot" style="background:#4d7cfe;"></span>Overall Operations</div>
+          <div class="nav-item" id="navOpsDaily" onclick="opsNavClick('daily')"><span class="dot" style="background:#4d7cfe;"></span>데일리 업무</div>
+          <div class="nav-item" id="navOpsWeekly" onclick="opsNavClick('weekly')"><span class="dot" style="background:#7c3aed;"></span>주차별 업무</div>
+          <div class="nav-item" id="navOpsMonthly" onclick="opsNavClick('monthly')"><span class="dot" style="background:#d97706;"></span>월마감 업무</div>
+          <div class="nav-item" id="navOpsChannel" onclick="opsNavClick('channel')"><span class="dot" style="background:#0d9488;"></span>채널별 운영</div>
+          <div class="nav-item" id="navOpsIssue" onclick="opsNavClick('issue')"><span class="dot" style="background:#dc2626;"></span>이슈 대응 매뉴얼</div>
+          <div class="nav-item" id="navTeamAccounting" onclick="switchView('team-accounting')"><span class="dot" style="background:#6b7280;"></span>사업자/회계</div>
+
+          <div style="height:1px; background:rgba(255,255,255,.08); margin:10px 4px;"></div>
+
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
             <span class="dot dot-team"></span>할일 관리
             <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
@@ -769,7 +798,6 @@
             <div class="nav-subitem" data-processsub="export" onclick="switchView('team-process', 'export')">수출가이드</div>
             <div class="nav-subitem" data-processsub="b2b" onclick="switchView('team-process', 'b2b')">직납가이드</div>
           </div>
-          <div class="nav-item" id="navTeamAccounting" onclick="switchView('team-accounting')"><span class="dot dot-team"></span>사업자·회계</div>
         </div>
       </div>
 
@@ -1473,12 +1501,13 @@
     <main class="main" id="teamOverviewView" style="display:none">
       <div class="topbar">
         <div>
-          <h1>Overall Operations</h1>
-          <div class="subtitle">영업팀이 다루는 채널 구조와 루틴 업무, 프로세스·할일 현황을 한눈에 확인합니다.</div>
+          <span class="ops-eyebrow">Sales Operations Guide</span>
+          <h1>영업팀 업무 가이드</h1>
+          <div class="subtitle">영업팀 업무 구조를 한눈에 파악하고, 각 업무 카드의 담당자·목적·완료 기준을 확인한 뒤 Notion 상세 SOP로 이동하세요.</div>
         </div>
       </div>
 
-      <section class="panel">
+      <section class="panel" id="opsSectionTop">
         <div class="panel-head">
           <h2>영업 구조 &amp; 채널</h2>
           <span class="panel-note">메타 광고 → 자사몰 랜딩 기준 전체 채널 흐름</span>
@@ -1518,12 +1547,25 @@
 
       <section class="panel">
         <div class="panel-head">
-          <h2>영업팀 업무 SOP</h2>
-          <span class="panel-note">카드를 클릭하면 담당자·목적·완료 기준을 담은 Notion 페이지가 새 창으로 열립니다</span>
+          <h2>영업팀 루틴 업무</h2>
+          <span class="panel-note">데일리 · 주차별 · 월마감</span>
         </div>
+        <div class="ops-stat-row">
+          <div class="ops-stat-tile"><span class="stat-cadence">Daily</span><span class="stat-count">11</span><span class="stat-unit">건 · 데일리</span></div>
+          <div class="ops-stat-tile"><span class="stat-cadence">Weekly</span><span class="stat-count">4</span><span class="stat-unit">건 · 주차별</span></div>
+          <div class="ops-stat-tile"><span class="stat-cadence">Monthly</span><span class="stat-count">6</span><span class="stat-unit">건 · 월마감</span></div>
+        </div>
+      </section>
 
-        <div class="sop-group" style="--sop-dot:#4d7cfe">
-          <div class="sop-group-head"><span class="sop-group-dot"></span><h3>데일리 업무</h3><span class="sop-group-count">매일 · 11건</span></div>
+      <div class="topbar" style="margin-bottom:14px;">
+        <div>
+          <h1 style="font-size:17px;">업무 카드 리스트</h1>
+          <div class="subtitle">카테고리별 업무 카드입니다. 카드를 클릭하면 담당자·목적·완료 기준을 확인한 Notion 페이지가 새 창으로 열립니다.</div>
+        </div>
+      </div>
+
+      <section class="panel" id="opsGroupDaily">
+        <div class="ops-panel-head"><span class="sop-group-dot" style="background:#4d7cfe"></span><h2>데일리 업무</h2><span class="sop-group-count">11</span></div>
           <div class="sop-grid">
             <a class="sop-card" href="https://app.notion.com/p/selfdiylab/10-35dcd5ac1fb3800dbff2fa91de9ef0da" target="_blank" rel="noopener">
               <div class="sop-card-head"><h4>카카오 선물하기 명퉤 일자 변경</h4><div class="sop-badge-row"><span class="sop-badge">매일</span></div></div>
@@ -1614,10 +1656,10 @@
               <span class="sop-link">Notion 바로가기 ↗</span>
             </a>
           </div>
-        </div>
+      </section>
 
-        <div class="sop-group" style="--sop-dot:#fb923c">
-          <div class="sop-group-head"><span class="sop-group-dot"></span><h3>주차별 업무</h3><span class="sop-group-count">매주 · 4건</span></div>
+      <section class="panel" id="opsGroupWeekly">
+        <div class="ops-panel-head"><span class="sop-group-dot" style="background:#7c3aed"></span><h2>주차별 업무</h2><span class="sop-group-count">4</span></div>
           <div class="sop-grid">
             <div class="sop-card sop-card-pending" style="cursor:default">
               <div class="sop-card-head"><h4>광고비 충전 및 관리</h4><div class="sop-badge-row"><span class="sop-badge">매주</span><span class="sop-badge sop-badge-priority">중요</span></div></div>
@@ -1653,10 +1695,10 @@
               <span class="sop-link sop-link-pending">Notion 카드 준비 중</span>
             </div>
           </div>
-        </div>
+      </section>
 
-        <div class="sop-group" style="--sop-dot:#7c3aed">
-          <div class="sop-group-head"><span class="sop-group-dot"></span><h3>월마감 업무</h3><span class="sop-group-count">매월 · 6건</span></div>
+      <section class="panel" id="opsGroupMonthly">
+        <div class="ops-panel-head"><span class="sop-group-dot" style="background:#d97706"></span><h2>월마감 업무</h2><span class="sop-group-count">6</span></div>
           <div class="sop-grid">
             <a class="sop-card" href="https://app.notion.com/p/selfdiylab/35dcd5ac1fb380179c20ed02da0ecfe9" target="_blank" rel="noopener">
               <div class="sop-card-head"><h4>자사몰 광고보고서</h4><div class="sop-badge-row"><span class="sop-badge">매월</span></div></div>
@@ -1707,10 +1749,10 @@
               <span class="sop-link">Notion 바로가기 ↗</span>
             </a>
           </div>
-        </div>
+      </section>
 
-        <div class="sop-group" style="--sop-dot:#0891b2">
-          <div class="sop-group-head"><span class="sop-group-dot"></span><h3>채널별 운영</h3><span class="sop-group-count">상시 · 8건</span></div>
+      <section class="panel" id="opsGroupChannel">
+        <div class="ops-panel-head"><span class="sop-group-dot" style="background:#0d9488"></span><h2>채널별 운영</h2><span class="sop-group-count">8</span></div>
           <div class="sop-grid">
             <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>쿠팡</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>쿠팡 채널의 상품·재고·광고·리뷰 통합 운영</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
             <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>올리브영</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>올리브영 채널의 입고·매출·재고 통합 운영</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
@@ -1721,10 +1763,10 @@
             <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>오프라인</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>오프라인 거래처의 입점·재고·정산 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>재고·정산 불일치 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
             <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>수출</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>수출 거래처의 발주와 선적 일정 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>선적 일정 차질로 인한 납기 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
           </div>
-        </div>
+      </section>
 
-        <div class="sop-group" style="--sop-dot:#dc2626">
-          <div class="sop-group-head"><span class="sop-group-dot"></span><h3>이슈 대응 매뉴얼</h3><span class="sop-group-count">발생 시 · 6건</span></div>
+      <section class="panel" id="opsGroupIssue">
+        <div class="ops-panel-head"><span class="sop-group-dot" style="background:#dc2626"></span><h2>이슈 대응 매뉴얼</h2><span class="sop-group-count">6</span></div>
           <div class="sop-grid">
             <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>품절 발생 시</h4><div class="sop-badge-row"><span class="sop-badge">발생 시</span><span class="sop-badge sop-badge-priority">중요</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>품절로 인한 매출 손실과 고객 불만 최소화</div><div class="sop-field"><b>완료기준</b>노출 중지, 입고 일정 공지, 유관부서 공유 완료</div><div class="sop-field sop-field-risk"><b>리스크</b>대응 지연 시 매출 손실 및 CS 확대 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
             <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>광고비 과소진 시</h4><div class="sop-badge-row"><span class="sop-badge">발생 시</span><span class="sop-badge sop-badge-priority">중요</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>광고 예산 소진으로 인한 노출 중단 방지</div><div class="sop-field"><b>완료기준</b>원인 파악 및 예산·입찰 조정 완료</div><div class="sop-field sop-field-risk"><b>리스크</b>대응 지연 시 노출 중단으로 매출 급감 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
@@ -1733,7 +1775,6 @@
             <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>정산 오류 발생 시</h4><div class="sop-badge-row"><span class="sop-badge">발생 시</span><span class="sop-badge sop-badge-priority">중요</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>정산 오류로 인한 매출 손실과 신뢰 문제 방지</div><div class="sop-field"><b>완료기준</b>오류 원인 확인 및 정정 요청 완료</div><div class="sop-field sop-field-risk"><b>리스크</b>대응 지연 시 매출 손실 및 정산 신뢰 문제 확대 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
             <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>유관부서 요청 지연 시</h4><div class="sop-badge-row"><span class="sop-badge">발생 시</span><span class="sop-badge sop-badge-priority">중요</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>요청 지연으로 인한 업무 병목 최소화</div><div class="sop-field"><b>완료기준</b>지연 사유 확인 및 재요청·에스컬레이션 완료</div><div class="sop-field sop-field-risk"><b>리스크</b>대응 지연 시 업무 병목 심화 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
           </div>
-        </div>
       </section>
     </main>
 
@@ -3210,6 +3251,42 @@
   // ==================== 파이프라인 (B2B / 수출) ====================
   let currentProcessSub = 'overview';
   let currentScheduleSub = 'main';
+  // ==================== 영업팀 Overall Operations: 카테고리 사이드바 이동 ====================
+  const OPS_NAV_IDS = { overview: 'navTeamOverview', daily: 'navOpsDaily', weekly: 'navOpsWeekly', monthly: 'navOpsMonthly', channel: 'navOpsChannel', issue: 'navOpsIssue' };
+  const OPS_SECTION_IDS = { overview: 'opsSectionTop', daily: 'opsGroupDaily', weekly: 'opsGroupWeekly', monthly: 'opsGroupMonthly', channel: 'opsGroupChannel', issue: 'opsGroupIssue' };
+
+  function setOpsNavActive(section) {
+    Object.values(OPS_NAV_IDS).forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('active');
+    });
+    const activeEl = document.getElementById(OPS_NAV_IDS[section]);
+    if (activeEl) activeEl.classList.add('active');
+  }
+
+  function opsNavClick(section) {
+    switchView('team-overview');
+    const target = document.getElementById(OPS_SECTION_IDS[section]);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setOpsNavActive(section);
+  }
+
+  let opsScrollObserver = null;
+  function setupOpsScrollSpy() {
+    if (opsScrollObserver || !('IntersectionObserver' in window)) return;
+    const targets = Object.entries(OPS_SECTION_IDS)
+      .map(([section, id]) => ({ section, el: document.getElementById(id) }))
+      .filter((t) => t.el);
+    opsScrollObserver = new IntersectionObserver((entries) => {
+      const visible = entries.filter((e) => e.isIntersecting);
+      if (visible.length === 0) return;
+      visible.sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+      const match = targets.find((t) => t.el === visible[0].target);
+      if (match) setOpsNavActive(match.section);
+    }, { rootMargin: '-15% 0px -70% 0px', threshold: [0, 0.25, 0.5, 1] });
+    targets.forEach((t) => opsScrollObserver.observe(t.el));
+  }
+
   function switchView(view, brandChannel) {
     document.getElementById('dashboardView').style.display = view === 'dashboard' ? '' : 'none';
     document.getElementById('monthlyTrendView').style.display = view === 'monthly-trend' ? '' : 'none';
@@ -6964,6 +7041,7 @@
   }
 
   refreshReviewAlertBadge();
+  setupOpsScrollSpy();
 </script>
 </body>
 </html>
