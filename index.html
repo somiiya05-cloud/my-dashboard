@@ -684,6 +684,25 @@
   .ops-stat-tile .stat-count { font-size: 20px; font-weight: 800; color: #0f172a; }
   .ops-stat-tile .stat-unit { font-size: 11.5px; color: #64748b; margin-left: 3px; }
 
+  /* ---- 영업팀 Overall Operations: 채널 칩 바로가기 ---- */
+  .ops-quicklink-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-top: 16px; }
+  .ops-quicklink-card { background: #f4f5f8; border: 1px solid rgba(15,23,42,.06); border-radius: 12px; padding: 16px 16px 14px; }
+  .ops-quicklink-head h3 { font-size: 14px; font-weight: 800; margin: 0 0 10px; color: #0f172a; }
+  .ops-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ops-chip {
+    font: inherit; cursor: pointer; background: rgba(77,124,254,.1); color: #2f5ce4; border: none;
+    font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px; transition: background .15s ease, color .15s ease;
+  }
+  .ops-chip:hover { background: #4d7cfe; color: #fff; }
+  .ops-flow-chip-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: #64748b; }
+  .ops-flow-seg { background: #ffffff; border: 1px solid rgba(15,23,42,.08); padding: 6px 12px; border-radius: 8px; font-weight: 600; color: #0f172a; }
+  .ops-flow-arrow { color: #94a3b8; }
+  @keyframes opsChannelPulse {
+    0% { box-shadow: 0 0 0 0 rgba(13,148,136,.45); }
+    100% { box-shadow: 0 0 0 10px rgba(13,148,136,0); }
+  }
+  .ops-channel-highlight { animation: opsChannelPulse 1s ease-out 2; border-color: #0d9488 !important; }
+
   /* ---- 영업팀 Overall Operations: 카테고리별 패널 헤더 ---- */
   .ops-panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
   .ops-panel-head .sop-group-dot { width: 9px; height: 9px; }
@@ -1543,6 +1562,29 @@
             </div>
           </div>
         </div>
+
+        <div class="ops-quicklink-grid">
+          <div class="ops-quicklink-card">
+            <div class="ops-quicklink-head"><h3>영업 구조 및 채널</h3></div>
+            <div class="ops-chip-row">
+              <button type="button" class="ops-chip" onclick="jumpToChannel('쿠팡')">쿠팡</button>
+              <button type="button" class="ops-chip" onclick="jumpToChannel('올리브영')">올리브영</button>
+              <button type="button" class="ops-chip" onclick="jumpToChannel('스마트스토어')">스마트스토어</button>
+              <button type="button" class="ops-chip" onclick="jumpToChannel('자사몰')">자사몰</button>
+              <button type="button" class="ops-chip" onclick="jumpToChannel('카카오 선물하기')">카카오 선물하기</button>
+              <button type="button" class="ops-chip" onclick="jumpToChannel('외부몰')">외부몰</button>
+              <button type="button" class="ops-chip" onclick="jumpToChannel('오프라인')">오프라인</button>
+              <button type="button" class="ops-chip" onclick="jumpToChannel('수출')">수출</button>
+            </div>
+          </div>
+          <div class="ops-quicklink-card">
+            <div class="ops-quicklink-head"><h3>주요 채널 흐름</h3></div>
+            <div class="ops-flow-chip-row">
+              <span class="ops-flow-seg">유입</span><span class="ops-flow-arrow">→</span><span class="ops-flow-seg">주문/정산</span><span class="ops-flow-arrow">→</span>
+              <span class="ops-flow-seg">사후관리</span>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="panel">
@@ -1754,14 +1796,14 @@
       <section class="panel" id="opsGroupChannel">
         <div class="ops-panel-head"><span class="sop-group-dot" style="background:#0d9488"></span><h2>채널별 운영</h2><span class="sop-group-count">8</span></div>
           <div class="sop-grid">
-            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>쿠팡</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>쿠팡 채널의 상품·재고·광고·리뷰 통합 운영</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
-            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>올리브영</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>올리브영 채널의 입고·매출·재고 통합 운영</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
-            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>스마트스토어</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>스마트스토어 채널의 상품과 주문을 안정적으로 운영</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
-            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>자사몰</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>자사몰 채널의 매출과 광고 효율 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
-            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>카카오 선물하기</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>카카오 선물하기 채널의 노출과 매출 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
-            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>외부몰</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>외부몰 채널별 입점 조건과 매출 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>입점 조건 변경 대응 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
-            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>오프라인</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>오프라인 거래처의 입점·재고·정산 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>재고·정산 불일치 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
-            <div class="sop-card sop-card-pending"><div class="sop-card-head"><h4>수출</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>수출 거래처의 발주와 선적 일정 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>선적 일정 차질로 인한 납기 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending" data-channel="쿠팡"><div class="sop-card-head"><h4>쿠팡</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>쿠팡 채널의 상품·재고·광고·리뷰 통합 운영</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending" data-channel="올리브영"><div class="sop-card-head"><h4>올리브영</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>올리브영 채널의 입고·매출·재고 통합 운영</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending" data-channel="스마트스토어"><div class="sop-card-head"><h4>스마트스토어</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>스마트스토어 채널의 상품과 주문을 안정적으로 운영</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending" data-channel="자사몰"><div class="sop-card-head"><h4>자사몰</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>자사몰 채널의 매출과 광고 효율 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending" data-channel="카카오 선물하기"><div class="sop-card-head"><h4>카카오 선물하기</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>카카오 선물하기 채널의 노출과 매출 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>운영 지표 이상 징후 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending" data-channel="외부몰"><div class="sop-card-head"><h4>외부몰</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>외부몰 채널별 입점 조건과 매출 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>입점 조건 변경 대응 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending" data-channel="오프라인"><div class="sop-card-head"><h4>오프라인</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>오프라인 거래처의 입점·재고·정산 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>재고·정산 불일치 발견 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
+            <div class="sop-card sop-card-pending" data-channel="수출"><div class="sop-card-head"><h4>수출</h4><div class="sop-badge-row"><span class="sop-badge">상시</span></div></div><div class="sop-meta">담당자 · 영업팀 담당자</div><div class="sop-field"><b>목적</b>수출 거래처의 발주와 선적 일정 관리</div><div class="sop-field"><b>완료기준</b>채널 운영 지표 정상 범위 유지 확인</div><div class="sop-field sop-field-risk"><b>리스크</b>선적 일정 차질로 인한 납기 지연 가능</div><span class="sop-link sop-link-pending">Notion 카드 준비 중</span></div>
           </div>
       </section>
 
@@ -3262,6 +3304,18 @@
     });
     const activeEl = document.getElementById(OPS_NAV_IDS[section]);
     if (activeEl) activeEl.classList.add('active');
+  }
+
+  function jumpToChannel(channelName) {
+    switchView('team-overview');
+    const card = document.querySelector('#opsGroupChannel .sop-card[data-channel="' + channelName + '"]');
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setOpsNavActive('channel');
+    card.classList.remove('ops-channel-highlight');
+    void card.offsetWidth;
+    card.classList.add('ops-channel-highlight');
+    setTimeout(() => card.classList.remove('ops-channel-highlight'), 2000);
   }
 
   function opsNavClick(section) {
