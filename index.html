@@ -430,7 +430,13 @@
   .gs-ev-card-filled.gs-accent-purple .gs-ev-card-meta { color: #9333ea; }
   .gs-ev-card-filled.gs-accent-purple .gs-ev-card-tags .gs-tag { background: rgba(147,51,234,.16); color: #7e22ce; }
 
+  .gs-ev-card-filled.gs-accent-lightblue { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.3); }
+  .gs-ev-card-filled.gs-accent-lightblue .gs-ev-card-title { color: #1d4ed8; }
+  .gs-ev-card-filled.gs-accent-lightblue .gs-ev-card-meta { color: #2563eb; }
+  .gs-ev-card-filled.gs-accent-lightblue .gs-ev-card-tags .gs-tag { background: rgba(59,130,246,.18); color: #1d4ed8; }
+
   .gs-accent-sky { border-left-color: #0284c7; }
+  .gs-accent-lightblue { border-left-color: #2563eb; }
 
   .gs-tag-default, .gs-tag-gray { background: rgba(100,116,139,.12); color: #475569; }
   .gs-tag-brown { background: rgba(146,100,63,.14); color: #92643f; }
@@ -6692,6 +6698,7 @@
     { match: '오늘의집', accent: 'sky' },
     { match: '쿠팡', accent: 'yellow' },
     { match: '톡딜', accent: 'purple' },
+    { match: '원룸만들기', accent: 'lightblue' },
   ];
   function gsMallAccent(mallName) {
     const name = mallName || '';
