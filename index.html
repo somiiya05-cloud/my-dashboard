@@ -409,6 +409,29 @@
   .gs-ev-card-filled.gs-accent-pink .gs-ev-card-meta { color: #be185d; }
   .gs-ev-card-filled.gs-accent-pink .gs-ev-card-tags .gs-tag { background: rgba(190,24,93,.16); color: #9d174d; }
 
+  /* 외부몰 행사: 몰마다 다른 색상 (스마트스토어=연두, 오늘의집=하늘, 쿠팡=호박, 톡딜=보라) */
+  .gs-ev-card-filled.gs-accent-green { background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.3); }
+  .gs-ev-card-filled.gs-accent-green .gs-ev-card-title { color: #15803d; }
+  .gs-ev-card-filled.gs-accent-green .gs-ev-card-meta { color: #16a34a; }
+  .gs-ev-card-filled.gs-accent-green .gs-ev-card-tags .gs-tag { background: rgba(34,197,94,.18); color: #15803d; }
+
+  .gs-ev-card-filled.gs-accent-sky { background: rgba(14,165,233,.12); border-color: rgba(14,165,233,.3); }
+  .gs-ev-card-filled.gs-accent-sky .gs-ev-card-title { color: #0369a1; }
+  .gs-ev-card-filled.gs-accent-sky .gs-ev-card-meta { color: #0284c7; }
+  .gs-ev-card-filled.gs-accent-sky .gs-ev-card-tags .gs-tag { background: rgba(14,165,233,.18); color: #0369a1; }
+
+  .gs-ev-card-filled.gs-accent-yellow { background: rgba(217,119,6,.12); border-color: rgba(217,119,6,.3); }
+  .gs-ev-card-filled.gs-accent-yellow .gs-ev-card-title { color: #92400e; }
+  .gs-ev-card-filled.gs-accent-yellow .gs-ev-card-meta { color: #b45309; }
+  .gs-ev-card-filled.gs-accent-yellow .gs-ev-card-tags .gs-tag { background: rgba(217,119,6,.18); color: #92400e; }
+
+  .gs-ev-card-filled.gs-accent-purple { background: rgba(147,51,234,.1); border-color: rgba(147,51,234,.28); }
+  .gs-ev-card-filled.gs-accent-purple .gs-ev-card-title { color: #7e22ce; }
+  .gs-ev-card-filled.gs-accent-purple .gs-ev-card-meta { color: #9333ea; }
+  .gs-ev-card-filled.gs-accent-purple .gs-ev-card-tags .gs-tag { background: rgba(147,51,234,.16); color: #7e22ce; }
+
+  .gs-accent-sky { border-left-color: #0284c7; }
+
   .gs-tag-default, .gs-tag-gray { background: rgba(100,116,139,.12); color: #475569; }
   .gs-tag-brown { background: rgba(146,100,63,.14); color: #92643f; }
   .gs-tag-orange { background: rgba(234,140,26,.14); color: #b3620a; }
@@ -6662,6 +6685,20 @@
     });
   }
 
+  // 외부몰 행사는 몰 이름별로 다른 색을 써서 한눈에 구분되게 함. 목록에 없는 몰은 기본 청록색(mall)으로 표시.
+  const GS_MALL_ACCENTS = [
+    { match: '자사몰', accent: 'pink' },
+    { match: '스마트스토어', accent: 'green' },
+    { match: '오늘의집', accent: 'sky' },
+    { match: '쿠팡', accent: 'yellow' },
+    { match: '톡딜', accent: 'purple' },
+  ];
+  function gsMallAccent(mallName) {
+    const name = mallName || '';
+    const found = GS_MALL_ACCENTS.find((m) => name.includes(m.match));
+    return found ? found.accent : 'mall';
+  }
+
   function gsMallToRecords(rows) {
     return rows.map((r) => ({
       id: `mall-${r.id}`,
@@ -6672,7 +6709,7 @@
       title: r.mall ? `${r.mall} · ${r.title}` : r.title,
       pctText: null,
       tags: r.memo ? [{ text: r.memo, color: 'mall' }] : [],
-      accent: (r.mall || '').includes('자사몰') ? 'pink' : 'mall',
+      accent: gsMallAccent(r.mall),
       filled: true
     }));
   }
