@@ -6686,6 +6686,7 @@
         title: `${r.brand_name || '브랜드미정'} · ${r.influencer_name || '(이름없음)'}`,
         pctText: typeof r.commission_rate === 'number' ? `${Math.round(r.commission_rate * 100)}%` : null,
         tags,
+        department: r.department || '',
         accent: r.department_color || 'default'
       };
     });
@@ -6730,6 +6731,13 @@
       <div class="gs-ev-card-tags">${tags}</div></div>`;
   }
 
+  // 같은 날짜에 겹칠 때 표시 우선순위: 외부몰 행사 → 영업팀 공동구매 → 콘텐츠기획팀 공동구매
+  function gsRecordPriority(r) {
+    if (r.kind === 'mall') return 0;
+    if ((r.department || '').includes('콘텐츠')) return 2;
+    return 1;
+  }
+
   // 한 주(週) 한 줄 — 그 주에 걸치는 카드를 겹치지 않는 레인에 배정하고,
   // 실제 겹치는 기간만큼 grid-column을 이어붙여 넓게 그립니다.
   function gsBuildWeekHtml(days, records, today) {
@@ -6739,9 +6747,9 @@
       if (r.end < weekStart || r.start > weekEnd) return;
       const startCol = Math.max(0, gsDiffDays(r.start, weekStart));
       const endCol = Math.min(6, gsDiffDays(r.end, weekStart));
-      occ.push({ r, startCol, endCol, order: r.start });
+      occ.push({ r, startCol, endCol, order: r.start, priority: gsRecordPriority(r) });
     });
-    occ.sort((a, b) => (a.startCol - b.startCol) || a.order.localeCompare(b.order));
+    occ.sort((a, b) => (a.startCol - b.startCol) || (a.priority - b.priority) || a.order.localeCompare(b.order));
     const laneEnds = [];
     occ.forEach((o) => {
       let lane = laneEnds.findIndex((end) => end < o.startCol);
