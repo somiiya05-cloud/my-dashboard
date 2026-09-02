@@ -1868,10 +1868,7 @@
             <input type="text" id="partnerSearchInput" class="gs-search-input" style="margin-left:auto;" placeholder="거래처명·담당자·연락처·사업자번호 검색" oninput="renderPartnerTable()">
           </div>
           <form class="deal-form" id="partnerForm">
-            <select name="type" style="width:120px;">
-              <option value="공급업체">공급업체</option>
-              <option value="바이어">바이어</option>
-            </select>
+            <input type="hidden" name="type" value="바이어">
             <input type="text" name="name" placeholder="거래처명" required style="flex:1; min-width:140px;">
             <input type="text" name="contactName" placeholder="담당자" style="width:110px;">
             <input type="text" name="contactPhone" placeholder="연락처" style="width:140px;">
@@ -3309,12 +3306,7 @@
       .some((v) => (v || '').toLowerCase().includes(q)));
     document.getElementById('partnerTable').innerHTML = rows.length ? rows.map((p) => `
       <tr>
-        <td>
-          <select class="inline-edit" onchange="updatePartnerField(${p.id}, 'type', this.value)">
-            <option value="공급업체"${p.type === '공급업체' ? ' selected' : ''}>공급업체</option>
-            <option value="바이어"${p.type === '바이어' ? ' selected' : ''}>바이어</option>
-          </select>
-        </td>
+        <td>바이어</td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(p.name || '')}" onchange="updatePartnerField(${p.id}, 'name', this.value)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(p.contact_name || '')}" onchange="updatePartnerField(${p.id}, 'contact_name', this.value)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(p.contact_phone || '')}" onchange="updatePartnerField(${p.id}, 'contact_phone', this.value)"></td>
