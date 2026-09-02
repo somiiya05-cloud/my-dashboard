@@ -1869,6 +1869,10 @@
           </div>
           <form class="deal-form" id="partnerForm">
             <input type="hidden" name="type" value="바이어">
+            <select name="tradeType" style="width:90px;">
+              <option value="수출">수출</option>
+              <option value="B2B">B2B</option>
+            </select>
             <input type="text" name="name" placeholder="거래처명" required style="flex:1; min-width:140px;">
             <input type="text" name="contactName" placeholder="담당자" style="width:110px;">
             <input type="text" name="contactPhone" placeholder="연락처" style="width:140px;">
@@ -1884,7 +1888,7 @@
           </form>
           <div class="scroll-box">
             <table>
-              <thead><tr><th>유형</th><th>거래처명</th><th>담당자</th><th>연락처</th><th>사업자등록번호</th><th>국가</th><th>거래 상태</th><th>메모</th><th></th></tr></thead>
+              <thead><tr><th>유형</th><th>구분</th><th>거래처명</th><th>담당자</th><th>연락처</th><th>사업자등록번호</th><th>국가</th><th>거래 상태</th><th>메모</th><th></th></tr></thead>
               <tbody id="partnerTable"></tbody>
             </table>
           </div>
@@ -3308,6 +3312,11 @@
     document.getElementById('partnerTable').innerHTML = rows.length ? rows.map((p) => `
       <tr>
         <td>바이어</td>
+        <td>
+          <select class="inline-edit" onchange="updatePartnerField(${p.id}, 'trade_type', this.value)">
+            ${optionsHtml(['수출', 'B2B'], p.trade_type || '수출')}
+          </select>
+        </td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(p.name || '')}" onchange="updatePartnerField(${p.id}, 'name', this.value)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(p.contact_name || '')}" onchange="updatePartnerField(${p.id}, 'contact_name', this.value)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(p.contact_phone || '')}" onchange="updatePartnerField(${p.id}, 'contact_phone', this.value)"></td>
@@ -3321,7 +3330,7 @@
         <td><input type="text" class="inline-edit" value="${escapeAttr(p.memo || '')}" onchange="updatePartnerField(${p.id}, 'memo', this.value)"></td>
         <td><button class="btn-danger" onclick="deletePartner(${p.id})">삭제</button></td>
       </tr>
-    `).join('') : '<tr><td colspan="9" class="gs-empty">등록된 거래처가 없습니다. 위에서 추가해보세요.</td></tr>';
+    `).join('') : '<tr><td colspan="10" class="gs-empty">등록된 거래처가 없습니다. 위에서 추가해보세요.</td></tr>';
   }
 
   document.getElementById('partnerForm').addEventListener('submit', async (e) => {
@@ -3331,6 +3340,7 @@
     if (!name) return;
     const { error } = await client.from('partners').insert([{
       type: form.type.value,
+      trade_type: form.tradeType.value,
       name,
       contact_name: form.contactName.value.trim() || null,
       contact_phone: form.contactPhone.value.trim() || null,
