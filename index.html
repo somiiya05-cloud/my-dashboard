@@ -2085,6 +2085,7 @@
             <option value="높음">높음</option>
             <option value="낮음">낮음</option>
           </select>
+          <input type="number" name="seqNo" placeholder="번호" style="width:70px;">
           <input type="text" name="category" placeholder="구분 (예: 매출/채널)" style="width:130px;">
           <input type="text" name="title" placeholder="업무 내용" required style="flex:1; min-width:140px;">
           <input type="text" name="detail" placeholder="세부 내용/진행사항" style="flex:1; min-width:160px;">
@@ -2106,7 +2107,7 @@
           <table>
             <thead id="taskTableHead">
               <tr>
-                <th>우선순위</th><th>완료</th><th>구분</th><th>업무 내용</th><th>세부 내용 / 진행사항</th>
+                <th>우선순위</th><th>번호</th><th>구분</th><th>업무 내용</th><th>완료</th><th>세부 내용 / 진행사항</th>
                 <th>진행상태</th><th>결과 / 특이사항</th><th>후속 업무</th><th>담당자</th><th>시작일</th><th>마감일</th><th></th>
               </tr>
             </thead>
@@ -6373,11 +6374,13 @@
             ${TASK_PRIORITIES.map(p => `<option value="${p}" ${p === priority ? 'selected' : ''}>${p}</option>`).join('')}
           </select>
         </td>
-        <td><input type="checkbox" ${t.status === '완료' ? 'checked' : ''} onchange="toggleTaskDone(${t.id}, this.checked)"></td>
+        <td><input type="number" class="inline-edit" style="width:56px;" value="${t.seq_no ?? ''}"
+          onchange="updateTaskField(${t.id}, 'seq_no', this.value === '' ? null : Number(this.value))"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(t.category || '')}"
           onchange="updateTaskField(${t.id}, 'category', this.value)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(t.title || '')}"
           onchange="updateTaskField(${t.id}, 'title', this.value)"></td>
+        <td><input type="checkbox" ${t.status === '완료' ? 'checked' : ''} onchange="toggleTaskDone(${t.id}, this.checked)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(t.detail || '')}"
           onchange="updateTaskField(${t.id}, 'detail', this.value)"></td>
         <td>
@@ -6407,7 +6410,7 @@
     const clickable = name !== '담당자 미지정';
     return `
       <tr class="task-group-header-row${clickable ? ' clickable' : ''}" ${clickable ? `onclick="switchView('team-tasks', '${escapeAttr(name)}')"` : ''}>
-        <td colspan="12">
+        <td colspan="13">
           <div class="task-group-header">
             <span class="task-group-name">${escapeAttr(name)}</span>
             <span class="task-group-progress">완료 ${done} · 진행중 ${doing} · 할일 ${todo} (전체 ${total}건)</span>
@@ -6433,7 +6436,15 @@
       const visibleTasks = (taskStatusFilter
         ? scoped.filter(t => t.status === taskStatusFilter)
         : scoped.filter(t => t.status !== '완료')
-      ).slice().sort((a, b) => taskPriorityRank(a.priority) - taskPriorityRank(b.priority));
+      ).slice().sort((a, b) => {
+        const pr = taskPriorityRank(a.priority) - taskPriorityRank(b.priority);
+        if (pr !== 0) return pr;
+        const an = a.seq_no, bn = b.seq_no;
+        if (an == null && bn == null) return 0;
+        if (an == null) return 1;
+        if (bn == null) return -1;
+        return an - bn;
+      });
       note.textContent = taskStatusFilter
         ? visibleTasks.length + '건 (' + taskStatusFilter + ')'
         : visibleTasks.length + '건 (완료 제외)';
@@ -6461,7 +6472,7 @@
     document.getElementById('taskTableBody').innerHTML = names.map(name => {
       const groupAllTasks = currentTasks.filter(t => (t.assignee || '담당자 미지정') === name);
       return taskGroupHeaderHtml(name, groupAllTasks);
-    }).join('') || '<tr><td colspan="12" style="text-align:center; color:#94a3b8; padding:16px;">등록된 할일이 없습니다.</td></tr>';
+    }).join('') || '<tr><td colspan="13" style="text-align:center; color:#94a3b8; padding:16px;">등록된 할일이 없습니다.</td></tr>';
   }
 
   // 주차별 업무 보고 표의 컬럼 너비. 엑셀처럼 헤더 경계를 드래그해서 조절할 수 있고,
@@ -6658,6 +6669,7 @@
     e.preventDefault();
     const form = e.target;
     const priority = form.priority.value || '보통';
+    const seqNo = form.seqNo.value === '' ? null : Number(form.seqNo.value);
     const category = form.category.value.trim() || null;
     const title = form.title.value.trim();
     const detail = form.detail.value.trim() || null;
@@ -6668,7 +6680,7 @@
     const dueDate = form.dueDate.value || null;
     if (!title) return;
     const { error } = await client.from('team_tasks').insert([{
-      priority, category, title, detail, result_note: resultNote, followup, assignee, start_date: startDate, due_date: dueDate, status: '할일',
+      priority, seq_no: seqNo, category, title, detail, result_note: resultNote, followup, assignee, start_date: startDate, due_date: dueDate, status: '할일',
     }]);
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
     form.reset();
@@ -6676,7 +6688,7 @@
   });
 
   async function updateTaskField(id, field, rawValue) {
-    const value = rawValue.trim() || null;
+    const value = typeof rawValue === 'string' ? (rawValue.trim() || null) : rawValue;
     const { error } = await client.from('team_tasks').update({ [field]: value }).eq('id', id);
     if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
     loadTeamTasks();
