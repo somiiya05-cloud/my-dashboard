@@ -23,9 +23,11 @@ const crypto = require('crypto');
 
 const NAVER_BASE = 'https://api.searchad.naver.com';
 const SUPABASE_URL = 'https://fwsszzjfjktliredmjcn.supabase.co';
-const CONCURRENCY = 4;
+// 네이버 API 요청 제한이 예상보다 엄격해서(동시 4개도 429가 남) 순차 호출 + 고정 지연으로 낮춥니다.
+const CONCURRENCY = 1;
+const REQUEST_GAP_MS = 250;
 const UPSERT_CHUNK_SIZE = 200;
-const MAX_RETRIES = 5;
+const MAX_RETRIES = 4;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -65,7 +67,7 @@ async function naverRequest(method, uri, params, attempt = 0) {
     }
   });
   if (res.status === 429 && attempt < MAX_RETRIES) {
-    await sleep(500 * Math.pow(2, attempt));
+    await sleep(300 * Math.pow(2, attempt));
     return naverRequest(method, uri, params, attempt + 1);
   }
   if (!res.ok) {
@@ -111,7 +113,7 @@ async function mapWithConcurrency(items, limit, fn) {
     while (next < items.length) {
       const cur = next++;
       results[cur] = await fn(items[cur], cur);
-      await sleep(80);
+      await sleep(REQUEST_GAP_MS);
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) || 0 }, worker));
@@ -163,8 +165,12 @@ module.exports = async function handler(req, res) {
   const lastDay = new Date(year, mon, 0).getDate();
   const until = `${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
+  const t0 = Date.now();
+  const elapsed = () => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
+
   try {
     const allCampaigns = await naverRequest('GET', '/ncc/campaigns');
+    console.log(`[naver-keywords] 캠페인 ${allCampaigns.length}개 조회 완료 (${elapsed()})`);
 
     // 이번 달에 노출·클릭·광고비가 전혀 없었던 캠페인은 광고그룹/키워드까지 내려가 봐야
     // 어차피 낭비 키워드가 나올 수 없으므로, 먼저 캠페인 단위로 걸러서 API 호출량을 줄입니다.
@@ -173,6 +179,7 @@ module.exports = async function handler(req, res) {
       return { campaign, active: totals.spend > 0 || totals.impressions > 0 || totals.clicks > 0 };
     });
     const campaigns = campaignActivity.filter((c) => c.active).map((c) => c.campaign);
+    console.log(`[naver-keywords] 활동 캠페인 ${campaigns.length}/${allCampaigns.length}개 (${elapsed()})`);
 
     // 캠페인 → 광고그룹
     const campaignAdgroups = await mapWithConcurrency(campaigns, CONCURRENCY, async (campaign) => {
@@ -186,6 +193,7 @@ module.exports = async function handler(req, res) {
         adgroupTargets.push({ channel, campaignName, adgroupId: ag.nccAdgroupId, adgroupName: ag.name });
       }
     }
+    console.log(`[naver-keywords] 광고그룹 ${adgroupTargets.length}개 조회 완료 (${elapsed()})`);
 
     // 광고그룹 → 키워드
     const adgroupKeywords = await mapWithConcurrency(adgroupTargets, CONCURRENCY, async (t) => {
@@ -205,6 +213,7 @@ module.exports = async function handler(req, res) {
         });
       }
     }
+    console.log(`[naver-keywords] 키워드 ${keywordTargets.length}개 조회 완료 (${elapsed()})`);
 
     // 키워드별 성과
     const rows = await mapWithConcurrency(keywordTargets, CONCURRENCY, async (t) => {
@@ -219,10 +228,12 @@ module.exports = async function handler(req, res) {
         ...totals
       };
     });
+    console.log(`[naver-keywords] 키워드별 성과 수집 완료 (${elapsed()})`);
 
     // 노출도 클릭도 전혀 없었던 키워드는 저장하지 않아 표를 깔끔하게 유지합니다.
     const meaningfulRows = rows.filter((r) => r.spend > 0 || r.impressions > 0 || r.clicks > 0);
     await upsertInChunks('naver_keyword_performance', 'month,keyword_id', meaningfulRows);
+    console.log(`[naver-keywords] Supabase 저장 완료 — ${meaningfulRows.length}건 (${elapsed()})`);
 
     return res.status(200).json({
       month: monthStr,
