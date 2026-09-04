@@ -1185,17 +1185,6 @@
           </div>
         </section>
 
-        <section class="panel">
-          <div class="panel-head">
-            <h2>광고비 · ROAS 추이</h2>
-            <span class="panel-note">최근 6개월 · 단위: 원 / %</span>
-          </div>
-          <div class="chart-legend">
-            <span class="legend-item"><span class="legend-swatch mkt-swatch"></span>광고비</span>
-            <span class="legend-item"><span class="legend-swatch target"></span>ROAS</span>
-          </div>
-          <div class="bar-chart" id="mktBrandTrendChart"></div>
-        </section>
       </div>
     </main>
 
@@ -4309,33 +4298,6 @@
           `;
         }).join('')
       : '<tr><td colspan="9" class="mkt-empty-row">이 채널·기간에 캠페인별 데이터가 아직 없어요.</td></tr>';
-
-    // ---- 6개월 추이 ----
-    const byMonth = {};
-    brandRows.forEach((r) => {
-      if (!byMonth[r.month]) byMonth[r.month] = { spend: 0, revenue: 0 };
-      byMonth[r.month].spend += Number(r.spend);
-      byMonth[r.month].revenue += Number(r.revenue);
-    });
-    const monthsSorted = Object.keys(byMonth).sort();
-    const last6 = monthsSorted.slice(-6);
-    const maxSpendTrend = Math.max(...last6.map((m) => byMonth[m].spend), 1);
-
-    document.getElementById('mktBrandTrendChart').innerHTML = last6.map((m, i) => {
-      const spend = byMonth[m].spend;
-      const roasM = spend > 0 ? (byMonth[m].revenue / spend * 100) : 0;
-      const mm = Number(m.split('-')[1]);
-      const isLast = i === last6.length - 1;
-      return `
-        <div class="bar-col">
-          <div class="bar-value-label">${won(Math.round(spend))}</div>
-          <div class="bar-value-label" style="color:#ea580c;">ROAS ${roasM.toFixed(0)}%</div>
-          <div class="bar ${isLast ? 'last' : ''}" style="height:${(spend / maxSpendTrend * 100).toFixed(1)}%; background: linear-gradient(180deg,#fb923c,#f97316);"></div>
-          <div class="bar-label">${mm}월</div>
-        </div>
-      `;
-    }).join('');
-
   }
 
   // ==================== 상품별 광고비ROI ====================
