@@ -1188,6 +1188,21 @@
           </div>
         </section>
 
+        <section class="panel">
+          <div class="panel-head">
+            <h2>낭비 키워드</h2>
+            <span class="panel-note">클릭 10건 이상인데 전환이 0건인 키워드 · 광고비 많은 순</span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>키워드</th><th>캠페인</th><th>광고그룹</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th></tr>
+              </thead>
+              <tbody id="mktBrandWasteKeywordTable"></tbody>
+            </table>
+          </div>
+        </section>
+
       </div>
     </main>
 
@@ -3616,7 +3631,7 @@
     if (view === 'marketing') loadMarketingData();
     if (view === 'marketing-brand') {
       currentMarketingBrand = brandChannel;
-      Promise.all([loadMarketingData(), loadMarketingCampaignData()]).then(() => renderMarketingBrandView());
+      Promise.all([loadMarketingData(), loadMarketingCampaignData(), loadMarketingKeywordData()]).then(() => renderMarketingBrandView());
     }
     if (view === 'product-ad-ratio') initProductAdRatioView();
     if (view === 'pl') loadPlData();
@@ -3897,6 +3912,21 @@
       allMarketingCampaignRows = [];
     }
   }
+
+  // 브랜드별 페이지의 "낭비 키워드" 표용. 마찬가지로 테이블이 아직 없어도 조용히 빈 배열 처리.
+  let allMarketingKeywordRows = [];
+  async function loadMarketingKeywordData() {
+    try {
+      const { data, error } = await client.from('naver_keyword_performance').select('*');
+      allMarketingKeywordRows = error ? [] : (data || []);
+    } catch (e) {
+      allMarketingKeywordRows = [];
+    }
+  }
+
+  // '낭비 키워드' 기준: 클릭이 일정 건수 이상인데 전환이 0건인 경우.
+  // 필요하면 이 값만 바꿔서 기준을 조정할 수 있습니다.
+  const WASTE_KEYWORD_MIN_CLICKS = 10;
 
   function setupMarketingMonthSelector() {
     const monthSelect = document.getElementById('mktMonthSelect');
@@ -4320,6 +4350,34 @@
           `;
         }).join('')
       : '<tr><td colspan="9" class="mkt-empty-row">이 채널·기간에 캠페인별 데이터가 아직 없어요.</td></tr>';
+
+    // ---- 낭비 키워드 (클릭은 있는데 전환이 없는 키워드) ----
+    const wasteRows = allMarketingKeywordRows
+      .filter((r) => r.channel === channel && r.month === monthStr)
+      .filter((r) => Number(r.clicks) >= WASTE_KEYWORD_MIN_CLICKS && Number(r.conversions) === 0)
+      .sort((a, b) => Number(b.spend) - Number(a.spend));
+
+    document.getElementById('mktBrandWasteKeywordTable').innerHTML = wasteRows.length
+      ? wasteRows.map((r) => {
+          const spend = Number(r.spend);
+          const impressions = Number(r.impressions);
+          const clicks = Number(r.clicks);
+          const wCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
+          const wCpc = clicks > 0 ? (spend / clicks) : 0;
+          return `
+            <tr>
+              <td>${escapeAttr(r.keyword)}</td>
+              <td>${escapeAttr(r.campaign)}</td>
+              <td>${escapeAttr(r.adgroup)}</td>
+              <td class="num">${won(spend)}</td>
+              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
+              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
+              <td class="num">${wCtr.toFixed(2)}%</td>
+              <td class="num">${won(Math.round(wCpc))}</td>
+            </tr>
+          `;
+        }).join('')
+      : `<tr><td colspan="8" class="mkt-empty-row">클릭 ${WASTE_KEYWORD_MIN_CLICKS}건 이상인데 전환이 없는 키워드가 없어요.</td></tr>`;
   }
 
   // ==================== 상품별 광고비ROI ====================

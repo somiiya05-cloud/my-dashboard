@@ -1,0 +1,28 @@
+name: 네이버 키워드 동기화 호출
+
+# api/sync-naver-keywords.js(Vercel 서버리스 함수)를 주기적으로 깨웁니다.
+# sync-naver-ads와 마찬가지로 Vercel Cron 2개 한도를 이미 다 쓰고 있어서
+# GitHub Actions가 대신 호출합니다. 키워드 단위라 시간이 더 걸릴 수 있어
+# 광고비 동기화보다 늦은 시각에 실행합니다.
+
+on:
+  schedule:
+    # 매일 UTC 05:00 (KST 14:00)
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+    inputs:
+      month:
+        description: '지난 달 데이터를 채우고 싶을 때 등, 특정 월을 지정 (예: 2026-08). 비워두면 이번 달.'
+        required: false
+        default: ''
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vercel sync 엔드포인트 호출
+        run: |
+          MONTH="${{ github.event.inputs.month }}"
+          URL="${{ secrets.VERCEL_APP_URL }}/api/sync-naver-keywords"
+          if [ -n "$MONTH" ]; then URL="${URL}?month=${MONTH}"; fi
+          curl -sf --max-time 90 -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "$URL"
