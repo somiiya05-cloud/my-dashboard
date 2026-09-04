@@ -532,6 +532,7 @@
   th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(15,23,42,.07); }
   th { font-size: 11px; color: #64748b; font-weight: 600; position: sticky; top: 0; background: #ffffff; }
   td.num, th.num { text-align: right; }
+  .table-center-head th { text-align: center; }
   .error { color: #dc2626; }
 
   /* ---- Pipeline ---- */
@@ -2234,7 +2235,7 @@
           <span class="panel-note" id="settlementListNote"></span>
         </div>
         <div class="scroll-box">
-          <table>
+          <table class="table-center-head">
             <thead><tr><th>구분</th><th>인플루언서/거래처</th><th class="num">매출</th><th class="num">수수료(%)</th><th>공동구매 기간</th><th>정산일</th><th>상태</th><th>메모</th><th></th></tr></thead>
             <tbody id="settlementTable"></tbody>
           </table>
