@@ -2212,7 +2212,7 @@
           </select>
           <input type="text" name="partner" placeholder="인플루언서/거래처명" style="flex:1; min-width:160px;">
           <input type="text" inputmode="numeric" name="revenue" placeholder="매출(원)" style="width:130px;" oninput="gsFormatMoneyInput(this)">
-          <input type="number" name="commissionRate" placeholder="수수료(%)" style="width:110px;">
+          <input type="text" inputmode="numeric" name="commissionAmount" placeholder="수수료(원)" style="width:120px;" oninput="gsFormatMoneyInput(this)">
           <input type="date" name="periodStart" title="공동구매 시작일">
           <input type="date" name="periodEnd" title="공동구매 종료일 (정산일이 종료일+14일로 자동 계산됩니다)" onchange="settlementFormAutoDate(this)">
           <input type="date" name="settlementDate" title="정산일 (종료일 입력 시 자동 계산, 직접 수정 가능)">
@@ -2238,7 +2238,7 @@
         </div>
         <div class="scroll-box">
           <table class="table-center-head">
-            <thead><tr><th>구분</th><th>인플루언서/거래처</th><th class="num">매출</th><th class="num">수수료(%)</th><th>공동구매 기간</th><th>정산일</th><th>상태</th><th>메모</th><th></th></tr></thead>
+            <thead><tr><th>구분</th><th>인플루언서/거래처</th><th class="num">매출</th><th class="num">수수료(원)</th><th>공동구매 기간</th><th>정산일</th><th>상태</th><th>메모</th><th></th></tr></thead>
             <tbody id="settlementTable"></tbody>
           </table>
         </div>
@@ -6898,11 +6898,7 @@
     if (!root) return;
     const rows = gsSettlementRows.filter((r) => r.category === '공동구매');
     const totalRevenue = rows.reduce((s, r) => s + (Number(r.revenue) || 0), 0);
-    const totalCommission = rows.reduce((s, r) => {
-      const revenue = Number(r.revenue) || 0;
-      const rate = Number(r.commission_rate) || 0;
-      return s + Math.round(revenue * rate / 100);
-    }, 0);
+    const totalCommission = rows.reduce((s, r) => s + (Number(r.commission_amount) || 0), 0);
     root.innerHTML = `
       <div class="kpi-card"><div class="kpi-label">공동구매 건수</div><div class="kpi-value">${rows.length.toLocaleString('ko-KR')}건</div></div>
       <div class="kpi-card"><div class="kpi-label">공동구매 매출 합계</div><div class="kpi-value">${won(totalRevenue)}</div></div>
@@ -7210,8 +7206,8 @@
           onchange="updateSettlementField(${r.id}, 'partner', this.value)"></td>
         <td class="num"><input type="text" inputmode="numeric" class="inline-edit num" value="${r.revenue != null ? Number(r.revenue).toLocaleString('ko-KR') : ''}"
           oninput="gsFormatMoneyInput(this)" onchange="updateSettlementField(${r.id}, 'revenue', this.value)"></td>
-        <td class="num"><input type="number" class="inline-edit num" value="${r.commission_rate ?? ''}"
-          onchange="updateSettlementField(${r.id}, 'commission_rate', this.value)"></td>
+        <td class="num"><input type="text" inputmode="numeric" class="inline-edit num" value="${r.commission_amount != null ? Number(r.commission_amount).toLocaleString('ko-KR') : ''}"
+          oninput="gsFormatMoneyInput(this)" onchange="updateSettlementField(${r.id}, 'commission_amount', this.value)"></td>
         <td style="white-space:nowrap;">
           <input type="date" class="inline-edit" style="width:120px;" value="${escapeAttr(r.period_start || '')}"
             onchange="updateSettlementField(${r.id}, 'period_start', this.value)">
@@ -7272,14 +7268,15 @@
     const partner = form.partner.value.trim() || null;
     const revenueRaw = gsMoneyValue(form.revenue.value);
     const revenue = revenueRaw === '' ? null : Number(revenueRaw);
-    const commissionRate = form.commissionRate.value === '' ? null : Number(form.commissionRate.value);
+    const commissionRaw = gsMoneyValue(form.commissionAmount.value);
+    const commissionAmount = commissionRaw === '' ? null : Number(commissionRaw);
     const periodStart = form.periodStart.value || null;
     const periodEnd = form.periodEnd.value || null;
     const settlementDate = form.settlementDate.value || (periodEnd ? settlementDueFromEnd(periodEnd) : null);
     const status = form.status.value;
     const memo = form.memo.value.trim() || null;
     const { error } = await client.from('settlements')
-      .insert([{ category, partner, revenue, commission_rate: commissionRate, period_start: periodStart, period_end: periodEnd, settlement_date: settlementDate, status, memo }]);
+      .insert([{ category, partner, revenue, commission_amount: commissionAmount, period_start: periodStart, period_end: periodEnd, settlement_date: settlementDate, status, memo }]);
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
     form.reset();
     loadTeamSchedule();
@@ -7287,8 +7284,7 @@
 
   async function updateSettlementField(id, field, rawValue) {
     let value = rawValue;
-    if (field === 'revenue') { const raw = gsMoneyValue(rawValue); value = raw === '' ? null : Number(raw); }
-    else if (field === 'commission_rate') value = rawValue === '' ? null : Number(rawValue);
+    if (field === 'revenue' || field === 'commission_amount') { const raw = gsMoneyValue(rawValue); value = raw === '' ? null : Number(raw); }
     else if (typeof rawValue === 'string') value = rawValue.trim() || null;
     const { error } = await client.from('settlements').update({ [field]: value }).eq('id', id);
     if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
