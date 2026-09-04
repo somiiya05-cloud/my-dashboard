@@ -444,6 +444,13 @@
   .gs-accent-lightblue { border-left-color: #2563eb; }
   .gs-accent-lavender { border-left-color: #7c3aed; }
 
+  /* 색상표에 없는 외부몰: 이름 해시로 만든 파스텔 색(--auto-*)을 그대로 사용 */
+  .gs-ev-card-filled.gs-accent-auto { background: var(--auto-bg, rgba(13,148,136,.14)); border-color: var(--auto-border, rgba(13,148,136,.3)); }
+  .gs-ev-card-filled.gs-accent-auto .gs-ev-card-title { color: var(--auto-title, #0f766e); }
+  .gs-ev-card-filled.gs-accent-auto .gs-ev-card-meta { color: var(--auto-meta, #0d9488); }
+  .gs-ev-card-filled.gs-accent-auto .gs-ev-card-tags .gs-tag { background: var(--auto-tagbg, rgba(13,148,136,.18)); color: var(--auto-title, #0f766e); }
+  .gs-accent-auto { border-left-color: var(--auto-dot, #0d9488); }
+
   .gs-tag-default, .gs-tag-gray { background: rgba(100,116,139,.12); color: #475569; }
   .gs-tag-brown { background: rgba(146,100,63,.14); color: #92643f; }
   .gs-tag-orange { background: rgba(234,140,26,.14); color: #b3620a; }
@@ -6902,7 +6909,9 @@
     });
   }
 
-  // 외부몰 행사는 몰 이름별로 다른 색을 써서 한눈에 구분되게 함. 목록에 없는 몰은 기본 청록색(mall)으로 표시.
+  // 외부몰 행사는 몰 이름별로 다른 색을 써서 한눈에 구분되게 함.
+  // 아래 목록에 없는 새 몰은 이름을 해시해 연한 파스텔 색을 자동으로 만들어 쓰므로,
+  // 몰이 새로 추가될 때마다 색상표를 직접 늘리지 않아도 항상 서로 다른 색으로 표시됨.
   const GS_MALL_ACCENTS = [
     { match: '자사몰', accent: 'pink' },
     { match: '스마트스토어', accent: 'green' },
@@ -6915,29 +6924,44 @@
   function gsMallAccent(mallName) {
     const name = mallName || '';
     const found = GS_MALL_ACCENTS.find((m) => name.includes(m.match));
-    return found ? found.accent : 'mall';
+    return found ? found.accent : null;
+  }
+
+  // 이름을 숫자로 해시해 색상(hue)을 뽑아내므로, 같은 몰 이름은 항상 같은 파스텔 색을 받음.
+  function gsAutoMallColorVars(name) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) { hash = (hash * 31 + name.charCodeAt(i)) >>> 0; }
+    const hue = hash % 360;
+    return `--auto-bg:hsla(${hue},72%,60%,.16);--auto-border:hsla(${hue},60%,45%,.35);`
+      + `--auto-title:hsl(${hue},55%,30%);--auto-meta:hsl(${hue},50%,38%);--auto-tagbg:hsla(${hue},72%,60%,.22);--auto-dot:hsl(${hue},60%,52%);`;
   }
 
   function gsMallToRecords(rows) {
-    return rows.map((r) => ({
-      id: `mall-${r.id}`,
-      kind: 'mall',
-      rawId: r.id,
-      start: r.start_date,
-      end: r.end_date || r.start_date,
-      title: r.mall ? `${r.mall} · ${r.title}` : r.title,
-      pctText: null,
-      tags: r.memo ? [{ text: r.memo, color: 'mall' }] : [],
-      accent: gsMallAccent(r.mall),
-      filled: true
-    }));
+    return rows.map((r) => {
+      const mallName = r.mall || '';
+      const namedAccent = gsMallAccent(mallName);
+      return {
+        id: `mall-${r.id}`,
+        kind: 'mall',
+        rawId: r.id,
+        start: r.start_date,
+        end: r.end_date || r.start_date,
+        title: r.mall ? `${r.mall} · ${r.title}` : r.title,
+        pctText: null,
+        tags: r.memo ? [{ text: r.memo, color: 'mall' }] : [],
+        accent: namedAccent || 'auto',
+        styleVars: namedAccent ? '' : gsAutoMallColorVars(mallName || String(r.id)),
+        filled: true
+      };
+    });
   }
 
   function gsEvCardHtml(r, style) {
     const meta = `<div class="gs-ev-card-meta">${r.pctText ? `${escapeAttr(r.pctText)} · ` : ''}${gsShortDate(r.start)}→${gsShortDate(r.end)}</div>`;
     const tags = r.tags.map((t) => `<span class="gs-tag gs-tag-${escapeAttr(t.color)}">${escapeAttr(t.text)}</span>`).join('');
     const cls = `gs-ev-card gs-accent-${escapeAttr(r.accent)}${r.filled ? ' gs-ev-card-filled' : ''}`;
-    return `<div class="${cls}" style="${style}" title="${escapeAttr(r.title)}" onclick="gsOpenCardModal('${r.kind}', '${escapeAttr(String(r.rawId))}')">
+    const fullStyle = style + (r.styleVars || '');
+    return `<div class="${cls}" style="${fullStyle}" title="${escapeAttr(r.title)}" onclick="gsOpenCardModal('${r.kind}', '${escapeAttr(String(r.rawId))}')">
       <div class="gs-ev-card-title">${escapeAttr(r.title)}</div>${meta}
       <div class="gs-ev-card-tags">${tags}</div></div>`;
   }
