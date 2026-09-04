@@ -1170,6 +1170,21 @@
 
         <section class="panel">
           <div class="panel-head">
+            <h2>캠페인별 성과</h2>
+            <span class="panel-note">광고비 단위: 원 · 기간 내 누적</span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>캠페인</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">CPA</th><th class="num">ROAS</th></tr>
+              </thead>
+              <tbody id="mktBrandCampaignTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
             <h2>광고비 · ROAS 추이</h2>
             <span class="panel-note">최근 6개월 · 단위: 원 / %</span>
           </div>
@@ -3607,7 +3622,7 @@
     if (view === 'marketing') loadMarketingData();
     if (view === 'marketing-brand') {
       currentMarketingBrand = brandChannel;
-      loadMarketingData().then(() => renderMarketingBrandView());
+      Promise.all([loadMarketingData(), loadMarketingCampaignData()]).then(() => renderMarketingBrandView());
     }
     if (view === 'product-ad-ratio') initProductAdRatioView();
     if (view === 'pl') loadPlData();
@@ -3861,6 +3876,7 @@
   const MARKETING_ROAS_TARGET = 400;         // 목표 ROAS (%)
 
   let allMarketingRows = [];
+  let allMarketingCampaignRows = [];
 
   async function loadMarketingData() {
     const { data, error } = await client
@@ -3875,6 +3891,17 @@
     }
     allMarketingRows = data || [];
     setupMarketingMonthSelector();
+  }
+
+  // 브랜드별 페이지의 "캠페인별 성과" 표용. 테이블이 아직 없는 초기 상태(마이그레이션 전)에도
+  // 화면이 깨지지 않도록 에러는 조용히 빈 배열로 처리합니다.
+  async function loadMarketingCampaignData() {
+    try {
+      const { data, error } = await client.from('ad_performance_campaigns').select('*');
+      allMarketingCampaignRows = error ? [] : (data || []);
+    } catch (e) {
+      allMarketingCampaignRows = [];
+    }
   }
 
   function setupMarketingMonthSelector() {
@@ -4225,6 +4252,38 @@
         <td class="num">${roas.toFixed(0)}%</td>
       </tr>
     `;
+
+    // ---- 캠페인별 성과 ----
+    const campaignRows = allMarketingCampaignRows
+      .filter((r) => r.channel === channel && r.month === monthStr)
+      .sort((a, b) => Number(b.spend) - Number(a.spend));
+
+    document.getElementById('mktBrandCampaignTable').innerHTML = campaignRows.length
+      ? campaignRows.map((r) => {
+          const spend = Number(r.spend);
+          const impressions = Number(r.impressions);
+          const clicks = Number(r.clicks);
+          const conversions = Number(r.conversions);
+          const revenue = Number(r.revenue);
+          const rCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
+          const rCpc = clicks > 0 ? (spend / clicks) : 0;
+          const rCpa = conversions > 0 ? (spend / conversions) : 0;
+          const rRoas = spend > 0 ? (revenue / spend * 100) : 0;
+          return `
+            <tr>
+              <td>${escapeAttr(r.campaign)}</td>
+              <td class="num">${won(spend)}</td>
+              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
+              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
+              <td class="num">${rCtr.toFixed(2)}%</td>
+              <td class="num">${won(Math.round(rCpc))}</td>
+              <td class="num">${conversions.toLocaleString('ko-KR')}</td>
+              <td class="num">${won(Math.round(rCpa))}</td>
+              <td class="num">${rRoas.toFixed(0)}%</td>
+            </tr>
+          `;
+        }).join('')
+      : '<tr><td colspan="9" class="mkt-empty-row">이 채널·기간에 캠페인별 데이터가 아직 없어요.</td></tr>';
 
     // ---- 6개월 추이 ----
     const byMonth = {};

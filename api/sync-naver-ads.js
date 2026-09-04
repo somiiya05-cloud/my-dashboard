@@ -2,6 +2,9 @@
 // 브랜드별로 나눠 Supabase의 ad_performance 테이블에 저장하는 Vercel 서버리스 함수입니다.
 // api/sync-meta-ads.js와 동일한 방식(월별 채널 집계)으로 동작하며, 같은 표/사이드바에
 // '네이버 OOO' 채널로 나란히 보이게 됩니다.
+// 채널 합계와 별도로, 캠페인 단위 행은 ad_performance_campaigns 테이블에 저장되어
+// 마케팅대시보드 브랜드별 페이지의 "캠페인별 성과" 표에 쓰입니다.
+// (ad_performance_campaigns.sql을 Supabase SQL Editor에서 먼저 실행해야 합니다.)
 //
 // ⚠️ 배치 위치: GitHub 저장소 최상위의 "api" 폴더 안에 "sync-naver-ads.js" 로 저장하세요.
 //    최종 경로: api/sync-naver-ads.js
@@ -128,6 +131,7 @@ module.exports = async function handler(req, res) {
 
     const perCampaign = await Promise.all(
       campaigns.map(async (campaign) => ({
+        name: campaign.name,
         channel: matchChannel(campaign.name),
         totals: await fetchCampaignTotals(campaign.nccCampaignId, since, until)
       }))
@@ -163,6 +167,31 @@ module.exports = async function handler(req, res) {
         continue;
       }
       results.push({ channel, ok: true, ...totals });
+    }
+
+    // 브랜드별 페이지의 "캠페인별 성과" 표용 — 채널 합계와 별도로 캠페인 단위 행도 저장합니다.
+    const campaignRows = perCampaign
+      .filter(({ totals }) => totals.spend > 0 || totals.impressions > 0)
+      .map(({ name, channel, totals }) => ({ month: monthStr, channel, campaign: name, ...totals }));
+
+    if (campaignRows.length) {
+      const campaignUpsertRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/ad_performance_campaigns?on_conflict=month,channel,campaign`,
+        {
+          method: 'POST',
+          headers: {
+            apikey: supabaseServiceKey,
+            Authorization: `Bearer ${supabaseServiceKey}`,
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify(campaignRows)
+        }
+      );
+      if (!campaignUpsertRes.ok) {
+        const errText = await campaignUpsertRes.text();
+        results.push({ error: 'supabase_campaign_upsert_error', detail: errText });
+      }
     }
 
     return res.status(200).json({ month: monthStr, campaignCount: campaigns.length, results });
