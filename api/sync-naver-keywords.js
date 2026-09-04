@@ -26,7 +26,9 @@ const NAVER_BASE = 'https://api.searchad.naver.com';
 const SUPABASE_URL = 'https://fwsszzjfjktliredmjcn.supabase.co';
 const LIST_CONCURRENCY = 3; // /ncc/adgroups, /ncc/keywords 같은 목록 조회용
 const LIST_REQUEST_GAP_MS = 200;
-const BULK_BATCH_SIZE = 50; // 벌크 통계 조회 시 한 번에 묶을 id 개수
+const BULK_BATCH_SIZE = 100; // 벌크 통계 조회 시 한 번에 묶을 id 개수
+const BULK_CONCURRENCY = 4; // 위 배치를 동시에 몇 개씩 조회할지 (쇼핑검색 등 키워드가 수천 개인 계정 대응)
+const BULK_REQUEST_GAP_MS = 120;
 const UPSERT_CHUNK_SIZE = 200;
 const MAX_RETRIES = 4;
 
@@ -91,11 +93,15 @@ function matchChannel(campaignName) {
 }
 
 // 여러 id의 기간 합계 통계를 한 번에 조회합니다 (id 1개당 1회 호출하는 대신
-// BULK_BATCH_SIZE개씩 묶어서 호출 횟수를 줄임). 반환값은 id -> 합계 Map.
+// BULK_BATCH_SIZE개씩 묶고, 그 배치들을 BULK_CONCURRENCY만큼 동시에 조회해서
+// 키워드가 수천 개인 계정(쇼핑검색은 상품마다 키워드가 자동 생성돼 아주 많아짐)도
+// 시간 안에 끝낼 수 있게 합니다. 반환값은 id -> 합계 Map.
 async function fetchBulkTotals(ids, since, until, debugSample) {
   const totalsById = new Map();
-  for (let i = 0; i < ids.length; i += BULK_BATCH_SIZE) {
-    const batch = ids.slice(i, i + BULK_BATCH_SIZE);
+  const batches = [];
+  for (let i = 0; i < ids.length; i += BULK_BATCH_SIZE) batches.push(ids.slice(i, i + BULK_BATCH_SIZE));
+
+  await mapWithConcurrency(batches, BULK_CONCURRENCY, async (batch, i) => {
     const data = await naverRequest('GET', '/stats', {
       ids: batch,
       fields: JSON.stringify(['salesAmt', 'impCnt', 'clkCnt', 'ccnt', 'convAmt']),
@@ -115,20 +121,20 @@ async function fetchBulkTotals(ids, since, until, debugSample) {
         revenue: Number(r.convAmt) || 0
       });
     }
-    await sleep(LIST_REQUEST_GAP_MS);
-  }
+  }, BULK_REQUEST_GAP_MS);
+
   return totalsById;
 }
 
-// 동시 실행 개수를 제한하면서 배열의 각 항목을 처리합니다 (목록 조회용).
-async function mapWithConcurrency(items, limit, fn) {
+// 동시 실행 개수를 제한하면서 배열의 각 항목을 처리합니다.
+async function mapWithConcurrency(items, limit, fn, gapMs = LIST_REQUEST_GAP_MS) {
   const results = new Array(items.length);
   let next = 0;
   async function worker() {
     while (next < items.length) {
       const cur = next++;
       results[cur] = await fn(items[cur], cur);
-      await sleep(LIST_REQUEST_GAP_MS);
+      await sleep(gapMs);
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) || 0 }, worker));
@@ -136,8 +142,10 @@ async function mapWithConcurrency(items, limit, fn) {
 }
 
 async function upsertInChunks(table, conflictCols, rows) {
-  for (let i = 0; i < rows.length; i += UPSERT_CHUNK_SIZE) {
-    const chunk = rows.slice(i, i + UPSERT_CHUNK_SIZE);
+  const chunks = [];
+  for (let i = 0; i < rows.length; i += UPSERT_CHUNK_SIZE) chunks.push(rows.slice(i, i + UPSERT_CHUNK_SIZE));
+
+  await mapWithConcurrency(chunks, 3, async (chunk) => {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=${conflictCols}`, {
       method: 'POST',
       headers: {
@@ -152,7 +160,7 @@ async function upsertInChunks(table, conflictCols, rows) {
       const text = await res.text().catch(() => '');
       throw new Error(`Supabase upsert 실패 (${res.status}): ${text}`);
     }
-  }
+  }, 0);
 }
 
 module.exports = async function handler(req, res) {
