@@ -1190,6 +1190,21 @@
 
         <section class="panel">
           <div class="panel-head">
+            <h2>키워드별 성과</h2>
+            <span class="panel-note">광고비 단위: 원 · 기간 내 누적 · 광고비 많은 순</span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>키워드</th><th>캠페인</th><th>광고그룹</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th></tr>
+              </thead>
+              <tbody id="mktBrandKeywordTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
             <h2>낭비 키워드</h2>
             <span class="panel-note">클릭 10건 이상인데 전환이 0건인 키워드 · 광고비 많은 순</span>
           </div>
@@ -4351,11 +4366,38 @@
         }).join('')
       : '<tr><td colspan="9" class="mkt-empty-row">이 채널·기간에 캠페인별 데이터가 아직 없어요.</td></tr>';
 
-    // ---- 낭비 키워드 (클릭은 있는데 전환이 없는 키워드) ----
-    const wasteRows = allMarketingKeywordRows
+    // ---- 키워드별 성과 (이 채널·월에 데이터가 있는 모든 키워드) ----
+    const channelKeywordRows = allMarketingKeywordRows
       .filter((r) => r.channel === channel && r.month === monthStr)
-      .filter((r) => Number(r.clicks) >= WASTE_KEYWORD_MIN_CLICKS && Number(r.conversions) === 0)
       .sort((a, b) => Number(b.spend) - Number(a.spend));
+
+    document.getElementById('mktBrandKeywordTable').innerHTML = channelKeywordRows.length
+      ? channelKeywordRows.map((r) => {
+          const spend = Number(r.spend);
+          const impressions = Number(r.impressions);
+          const clicks = Number(r.clicks);
+          const conversions = Number(r.conversions);
+          const kCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
+          const kCpc = clicks > 0 ? (spend / clicks) : 0;
+          return `
+            <tr>
+              <td>${escapeAttr(r.keyword)}</td>
+              <td>${escapeAttr(r.campaign)}</td>
+              <td>${escapeAttr(r.adgroup)}</td>
+              <td class="num">${won(spend)}</td>
+              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
+              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
+              <td class="num">${kCtr.toFixed(2)}%</td>
+              <td class="num">${won(Math.round(kCpc))}</td>
+              <td class="num">${conversions.toLocaleString('ko-KR')}</td>
+            </tr>
+          `;
+        }).join('')
+      : '<tr><td colspan="9" class="mkt-empty-row">이 채널·기간에 키워드 데이터가 아직 없어요. (아직 동기화 안 된 달일 수 있어요)</td></tr>';
+
+    // ---- 낭비 키워드 (클릭은 있는데 전환이 없는 키워드) ----
+    const wasteRows = channelKeywordRows
+      .filter((r) => Number(r.clicks) >= WASTE_KEYWORD_MIN_CLICKS && Number(r.conversions) === 0);
 
     document.getElementById('mktBrandWasteKeywordTable').innerHTML = wasteRows.length
       ? wasteRows.map((r) => {
