@@ -4115,6 +4115,9 @@
   let currentMarketingBrand = null;
 
   renderMarketingBrandNav();
+  // 페이지를 처음 열었을 때도(마케팅대시보드에 들어가기 전에) 데이터가 있는
+  // 채널만 보이도록, 한 번 미리 불러와서 사이드바를 갱신합니다.
+  loadMarketingData().then(renderMarketingBrandNav);
 
   // 마케팅 브랜드 목록 접기/펴기 (선택 상태는 새로고침해도 유지)
   function toggleMarketingBrands() {
@@ -4133,10 +4136,15 @@
     }
   })();
 
+  // 실제로 광고비 데이터가 한 번이라도 들어온 채널만 사이드바에 보여줍니다.
+  // 나중에 그 브랜드에 캠페인이 생겨 ad_performance에 데이터가 쌓이면
+  // (다음 로그인/새로고침 때) 자동으로 목록에 나타납니다.
   function renderMarketingBrandNav() {
     const container = document.getElementById('navMarketingBrands');
     if (!container) return;
-    container.innerHTML = MARKETING_BRANDS.map((b) => `
+    const channelsWithData = new Set(allMarketingRows.map((r) => r.channel));
+    const visibleBrands = MARKETING_BRANDS.filter((b) => channelsWithData.has(b.channel));
+    container.innerHTML = visibleBrands.map((b) => `
       <div class="nav-subitem" data-channel="${escapeAttr(b.channel)}" onclick="switchView('marketing-brand', '${escapeAttr(b.channel)}')">
         <span class="sub-dot"></span>${b.label}
       </div>
