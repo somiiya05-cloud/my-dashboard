@@ -23,8 +23,11 @@ const crypto = require('crypto');
 
 const NAVER_BASE = 'https://api.searchad.naver.com';
 const SUPABASE_URL = 'https://fwsszzjfjktliredmjcn.supabase.co';
-const CONCURRENCY = 12;
+const CONCURRENCY = 4;
 const UPSERT_CHUNK_SIZE = 200;
+const MAX_RETRIES = 5;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // sync-naver-ads.js와 동일한 브랜드 매칭표
 const BRANDS = [
@@ -45,7 +48,8 @@ function sign(timestamp, method, uri, secretKey) {
   return crypto.createHmac('sha256', secretKey).update(`${timestamp}.${method}.${uri}`).digest('base64');
 }
 
-async function naverRequest(method, uri, params) {
+// 네이버 API가 429(Too Many Requests)를 주면 점점 더 오래 기다렸다가 재시도합니다.
+async function naverRequest(method, uri, params, attempt = 0) {
   const timestamp = String(Date.now());
   const url = new URL(NAVER_BASE + uri);
   if (params) for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
@@ -60,6 +64,10 @@ async function naverRequest(method, uri, params) {
       'X-Signature': sign(timestamp, method, uri, process.env.NAVER_SECRET_KEY)
     }
   });
+  if (res.status === 429 && attempt < MAX_RETRIES) {
+    await sleep(500 * Math.pow(2, attempt));
+    return naverRequest(method, uri, params, attempt + 1);
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`네이버 API 요청 실패 ${method} ${uri} (${res.status}): ${text}`);
@@ -94,6 +102,7 @@ async function fetchKeywordTotals(keywordId, since, until) {
 }
 
 // 동시 실행 개수를 CONCURRENCY로 제한하면서 배열의 각 항목을 처리합니다.
+// 요청 사이에 짧은 간격을 둬서 순간적으로 몰리는 것도 막습니다.
 async function mapWithConcurrency(items, limit, fn) {
   const results = new Array(items.length);
   let next = 0;
@@ -101,6 +110,7 @@ async function mapWithConcurrency(items, limit, fn) {
     while (next < items.length) {
       const cur = next++;
       results[cur] = await fn(items[cur], cur);
+      await sleep(80);
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) || 0 }, worker));
