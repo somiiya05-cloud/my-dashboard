@@ -219,6 +219,13 @@
   }
 
   /* ---- 코드니처 자사몰 상품 카드 ---- */
+  .cp-toggle-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .cp-toggle-dot.normal { background: #94a3b8; }
+  .cp-toggle-dot.secret { background: #7c3aed; }
+  .cp-toggle-dot.groupbuy { background: #ea580c; }
+  .cp-tag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; display: inline-block; margin-top: 4px; }
+  .cp-tag.secret { background: rgba(124,58,237,.12); color: #7c3aed; }
+  .cp-tag.groupbuy { background: rgba(234,88,12,.12); color: #c2410c; }
   .product-card-grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 16px;
@@ -1529,8 +1536,11 @@
           <h2>상품 목록</h2>
           <span class="panel-note" id="cpListNote"></span>
         </div>
-        <div class="filter-group" style="margin-bottom: 12px;">
+        <div class="filter-group" style="margin-bottom: 12px; gap: 18px; flex-wrap: wrap;">
           <input type="text" id="cpSearchInput" class="vendor-select" placeholder="상품명 검색" autocomplete="off">
+          <label class="gs-toggle"><input type="checkbox" id="cpFilterNormal" checked onchange="cpToggleFilter('normal', this.checked)"><span class="cp-toggle-dot normal"></span>일반</label>
+          <label class="gs-toggle"><input type="checkbox" id="cpFilterSecret" checked onchange="cpToggleFilter('secret', this.checked)"><span class="cp-toggle-dot secret"></span>★비밀링크</label>
+          <label class="gs-toggle"><input type="checkbox" id="cpFilterGroupbuy" checked onchange="cpToggleFilter('groupbuy', this.checked)"><span class="cp-toggle-dot groupbuy"></span>공동구매</label>
         </div>
         <div class="product-card-grid" id="cpGrid"></div>
       </section>
@@ -5967,6 +5977,20 @@
   let allCodenitProducts = [];
   let cpSearchQuery = '';
   let cpFiltersInitDone = false;
+  const cpCategoryFilters = { normal: true, secret: true, groupbuy: true };
+
+  // 상품명에 포함된 문구로 일반/★비밀링크/공동구매 상품을 구분함
+  function cpProductCategory(name) {
+    const n = name || '';
+    if (n.includes('★비밀링크')) return 'secret';
+    if (n.includes('공동구매')) return 'groupbuy';
+    return 'normal';
+  }
+
+  function cpToggleFilter(key, checked) {
+    cpCategoryFilters[key] = checked;
+    renderCpGrid();
+  }
 
   async function loadCodenitProducts() {
     const note = document.getElementById('cpListNote');
@@ -6019,6 +6043,7 @@
   function renderCpGrid() {
     const q = cpSearchQuery;
     const rows = allCodenitProducts.filter(r => {
+      if (!cpCategoryFilters[cpProductCategory(r.product_name)]) return false;
       if (q) return (r.product_name || '').toLowerCase().includes(q);
       return true;
     });
@@ -6037,6 +6062,9 @@
       const imgWrap = r.product_url
         ? `<a href="${escapeAttr(r.product_url)}" target="_blank" rel="noopener" class="product-card-img-wrap" style="display:block;">${imgTag}</a>`
         : `<div class="product-card-img-wrap">${imgTag}</div>`;
+      const category = cpProductCategory(r.product_name);
+      const categoryTag = category === 'secret' ? '<span class="cp-tag secret">★비밀링크</span>'
+        : category === 'groupbuy' ? '<span class="cp-tag groupbuy">공동구매</span>' : '';
       return `
         <div class="product-card">
           ${imgWrap}
@@ -6044,6 +6072,7 @@
             <div class="product-card-name">${nameHtml}</div>
             <div class="product-card-price">${priceText}</div>
             <div class="product-card-shipping">${shipText}</div>
+            ${categoryTag}
             <div class="product-card-actions">
               <button class="btn-danger" onclick="deleteCodenitProduct(${r.id})">삭제</button>
             </div>
