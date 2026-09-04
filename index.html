@@ -533,6 +533,7 @@
   th { font-size: 11px; color: #64748b; font-weight: 600; position: sticky; top: 0; background: #ffffff; }
   td.num, th.num { text-align: right; }
   .table-center-head th { text-align: center; }
+  #plTableEl.pl-cost-collapsed .pl-detail-col { display: none; }
   .error { color: #dc2626; }
 
   /* ---- Pipeline ---- */
@@ -1272,17 +1273,18 @@
       <section class="panel">
         <div class="panel-head">
           <h2>상품별 SKU손익</h2>
+          <button type="button" class="gs-btn-icon" id="plCostToggleBtn" style="width:auto; padding:0 10px; font-size:12px;" onclick="togglePlCostDetail()">원가 상세 접기</button>
           <span class="panel-note" id="plListNote"></span>
         </div>
         <div class="filter-group" style="margin-bottom: 12px;">
           <input type="text" id="plSearchInput" class="vendor-select" placeholder="상품명 검색" autocomplete="off">
         </div>
         <div class="scroll-box">
-          <table>
+          <table id="plTableEl">
             <thead>
               <tr>
-                <th>상품명</th><th class="num">판매가</th><th class="num">원가</th><th class="num">배송비</th>
-                <th class="num">수수료</th><th class="num">경비</th><th class="num">부가세</th>
+                <th>상품명</th><th class="num">판매가</th><th class="num pl-detail-col">원가</th><th class="num pl-detail-col">배송비</th>
+                <th class="num pl-detail-col">수수료</th><th class="num pl-detail-col">경비</th><th class="num pl-detail-col">부가세</th>
                 <th class="num">SKU손익</th><th class="num">손익률</th>
               </tr>
             </thead>
@@ -5032,6 +5034,14 @@
     `;
   }
 
+  // 원가/배송비/수수료/경비/부가세 상세 컬럼을 접었다 폈다 하는 토글 (셀 자체는 그대로 유지, CSS로만 숨김)
+  function togglePlCostDetail() {
+    const table = document.getElementById('plTableEl');
+    const btn = document.getElementById('plCostToggleBtn');
+    const collapsed = table.classList.toggle('pl-cost-collapsed');
+    btn.textContent = collapsed ? '원가 상세 펼치기' : '원가 상세 접기';
+  }
+
   function renderPlTable() {
     const note = document.getElementById('plListNote');
     const q = plSearchQuery;
@@ -5080,11 +5090,11 @@
         <tr>
           <td>${nameHtml}</td>
           <td class="num">${r.price ? Number(r.price).toLocaleString('ko-KR') : '-'}</td>
-          <td class="num">${costCellHtml}</td>
-          <td class="num">${r.shipping_fee != null ? Number(r.shipping_fee).toLocaleString('ko-KR') : '-'}</td>
-          <td class="num">${Math.round(r.fee).toLocaleString('ko-KR')}</td>
-          <td class="num">${Math.round(r.expense).toLocaleString('ko-KR')}</td>
-          <td class="num">${Math.round(r.vat).toLocaleString('ko-KR')}</td>
+          <td class="num pl-detail-col">${costCellHtml}</td>
+          <td class="num pl-detail-col">${r.shipping_fee != null ? Number(r.shipping_fee).toLocaleString('ko-KR') : '-'}</td>
+          <td class="num pl-detail-col">${Math.round(r.fee).toLocaleString('ko-KR')}</td>
+          <td class="num pl-detail-col">${Math.round(r.expense).toLocaleString('ko-KR')}</td>
+          <td class="num pl-detail-col">${Math.round(r.vat).toLocaleString('ko-KR')}</td>
           <td class="num" style="font-weight:700; color:${r.profit == null ? '#94a3b8' : (r.profit >= 0 ? '#0f172a' : '#dc2626')}">${r.profit != null ? Math.round(r.profit).toLocaleString('ko-KR') : '-'}</td>
           <td class="num" style="color:${marginRate == null ? '#94a3b8' : (marginRate >= 0 ? '#0f172a' : '#dc2626')}">${marginRate != null ? marginRate.toFixed(1) + '%' : '-'}</td>
         </tr>
