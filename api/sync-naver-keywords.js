@@ -10,22 +10,23 @@
 // 필요한 Vercel 환경변수: sync-naver-ads.js와 동일
 //   NAVER_API_KEY, NAVER_SECRET_KEY, NAVER_CUSTOMER_ID, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET
 //
-// ⚠️ 캠페인 수 × 광고그룹 수 × 키워드 수만큼 네이버 API를 호출하기 때문에
-// sync-naver-ads.js보다 훨씬 오래 걸립니다. 동시 요청 수를 제한(CONCURRENCY)해서
-// 네이버 쪽 요청 제한에 안 걸리게 하고, vercel.json에서 이 함수의 실행 시간 제한을
-// 늘려뒀습니다(maxDuration).
+// ⚠️ 캠페인·키워드 수가 많으면 1건씩 호출하는 방식은 60초 실행 제한을 넘기기 쉬워서,
+// 네이버 API의 "여러 id를 한 번에 조회"하는 벌크 통계 엔드포인트(GET /stats?ids=...)를
+// 써서 호출 횟수를 크게 줄였습니다. (캠페인 목록 조회, 광고그룹/키워드 목록 조회는
+// 부모 id 하나씩만 지정할 수 있어 여전히 개별 호출입니다.)
 //
 // 수동 테스트 방법 (터미널에서):
 //   curl -H "Authorization: Bearer <CRON_SECRET 값>" \
 //        "https://내주소.vercel.app/api/sync-naver-keywords?month=2026-09"
+//   디버그(벌크 통계 원본 응답 1건을 로그로 출력): 뒤에 &debug=1 추가
 
 const crypto = require('crypto');
 
 const NAVER_BASE = 'https://api.searchad.naver.com';
 const SUPABASE_URL = 'https://fwsszzjfjktliredmjcn.supabase.co';
-// 네이버 API 요청 제한이 예상보다 엄격해서(동시 4개도 429가 남) 순차 호출 + 고정 지연으로 낮춥니다.
-const CONCURRENCY = 1;
-const REQUEST_GAP_MS = 250;
+const LIST_CONCURRENCY = 3; // /ncc/adgroups, /ncc/keywords 같은 목록 조회용
+const LIST_REQUEST_GAP_MS = 200;
+const BULK_BATCH_SIZE = 50; // 벌크 통계 조회 시 한 번에 묶을 id 개수
 const UPSERT_CHUNK_SIZE = 200;
 const MAX_RETRIES = 4;
 
@@ -51,10 +52,16 @@ function sign(timestamp, method, uri, secretKey) {
 }
 
 // 네이버 API가 429(Too Many Requests)를 주면 점점 더 오래 기다렸다가 재시도합니다.
+// params의 값이 배열이면 같은 키를 반복해서 붙입니다(예: ids=a&ids=b), 벌크 조회용.
 async function naverRequest(method, uri, params, attempt = 0) {
   const timestamp = String(Date.now());
   const url = new URL(NAVER_BASE + uri);
-  if (params) for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (Array.isArray(v)) v.forEach((item) => url.searchParams.append(k, item));
+      else url.searchParams.set(k, v);
+    }
+  }
 
   const res = await fetch(url, {
     method,
@@ -83,29 +90,37 @@ function matchChannel(campaignName) {
   return hit ? hit.channel : FALLBACK_CHANNEL;
 }
 
-// 캠페인/키워드 등 모든 개체에 공통으로 쓰는 통계 조회 (id 하나에 대한 기간 합계)
-async function fetchEntityTotals(entityId, since, until) {
-  const data = await naverRequest('GET', '/stats', {
-    id: entityId,
-    fields: JSON.stringify(['salesAmt', 'impCnt', 'clkCnt', 'ccnt', 'convAmt']),
-    timeRange: JSON.stringify({ since, until }),
-    timeIncrement: '1'
-  });
-  const days = data.data || [];
-  return days.reduce(
-    (acc, d) => ({
-      spend: acc.spend + (Number(d.salesAmt) || 0),
-      impressions: acc.impressions + (Number(d.impCnt) || 0),
-      clicks: acc.clicks + (Number(d.clkCnt) || 0),
-      conversions: acc.conversions + (Number(d.ccnt) || 0),
-      revenue: acc.revenue + (Number(d.convAmt) || 0)
-    }),
-    { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 }
-  );
+// 여러 id의 기간 합계 통계를 한 번에 조회합니다 (id 1개당 1회 호출하는 대신
+// BULK_BATCH_SIZE개씩 묶어서 호출 횟수를 줄임). 반환값은 id -> 합계 Map.
+async function fetchBulkTotals(ids, since, until, debugSample) {
+  const totalsById = new Map();
+  for (let i = 0; i < ids.length; i += BULK_BATCH_SIZE) {
+    const batch = ids.slice(i, i + BULK_BATCH_SIZE);
+    const data = await naverRequest('GET', '/stats', {
+      ids: batch,
+      fields: JSON.stringify(['salesAmt', 'impCnt', 'clkCnt', 'ccnt', 'convAmt']),
+      timeRange: JSON.stringify({ since, until })
+    });
+    if (debugSample && i === 0) {
+      debugSample.raw = data;
+      console.log(`[naver-keywords][DEBUG] 벌크 통계 원본 응답: ${JSON.stringify(data).slice(0, 1500)}`);
+    }
+    const rows = data.data || [];
+    for (const r of rows) {
+      totalsById.set(r.id, {
+        spend: Number(r.salesAmt) || 0,
+        impressions: Number(r.impCnt) || 0,
+        clicks: Number(r.clkCnt) || 0,
+        conversions: Number(r.ccnt) || 0,
+        revenue: Number(r.convAmt) || 0
+      });
+    }
+    await sleep(LIST_REQUEST_GAP_MS);
+  }
+  return totalsById;
 }
 
-// 동시 실행 개수를 CONCURRENCY로 제한하면서 배열의 각 항목을 처리합니다.
-// 요청 사이에 짧은 간격을 둬서 순간적으로 몰리는 것도 막습니다.
+// 동시 실행 개수를 제한하면서 배열의 각 항목을 처리합니다 (목록 조회용).
 async function mapWithConcurrency(items, limit, fn) {
   const results = new Array(items.length);
   let next = 0;
@@ -113,7 +128,7 @@ async function mapWithConcurrency(items, limit, fn) {
     while (next < items.length) {
       const cur = next++;
       results[cur] = await fn(items[cur], cur);
-      await sleep(REQUEST_GAP_MS);
+      await sleep(LIST_REQUEST_GAP_MS);
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) || 0 }, worker));
@@ -157,6 +172,7 @@ module.exports = async function handler(req, res) {
   }
 
   const monthParam = req.query && req.query.month;
+  const debug = req.query && req.query.debug === '1';
   const now = new Date();
   const year = monthParam ? Number(monthParam.split('-')[0]) : now.getUTCFullYear();
   const mon = monthParam ? Number(monthParam.split('-')[1]) : now.getUTCMonth() + 1;
@@ -173,16 +189,23 @@ module.exports = async function handler(req, res) {
     console.log(`[naver-keywords] 캠페인 ${allCampaigns.length}개 조회 완료 (${elapsed()})`);
 
     // 이번 달에 노출·클릭·광고비가 전혀 없었던 캠페인은 광고그룹/키워드까지 내려가 봐야
-    // 어차피 낭비 키워드가 나올 수 없으므로, 먼저 캠페인 단위로 걸러서 API 호출량을 줄입니다.
-    const campaignActivity = await mapWithConcurrency(allCampaigns, CONCURRENCY, async (campaign) => {
-      const totals = await fetchEntityTotals(campaign.nccCampaignId, since, until);
-      return { campaign, active: totals.spend > 0 || totals.impressions > 0 || totals.clicks > 0 };
+    // 어차피 낭비 키워드가 나올 수 없으므로, 먼저 캠페인 단위로 걸러서 이후 API 호출량을 줄입니다.
+    // (벌크 통계 조회라 캠페인이 몇백 개라도 몇 번의 호출로 끝납니다.)
+    const campaignBulkDebug = {};
+    const campaignTotals = await fetchBulkTotals(
+      allCampaigns.map((c) => c.nccCampaignId),
+      since,
+      until,
+      debug ? campaignBulkDebug : null
+    );
+    const campaigns = allCampaigns.filter((c) => {
+      const t = campaignTotals.get(c.nccCampaignId);
+      return t && (t.spend > 0 || t.impressions > 0 || t.clicks > 0);
     });
-    const campaigns = campaignActivity.filter((c) => c.active).map((c) => c.campaign);
     console.log(`[naver-keywords] 활동 캠페인 ${campaigns.length}/${allCampaigns.length}개 (${elapsed()})`);
 
-    // 캠페인 → 광고그룹
-    const campaignAdgroups = await mapWithConcurrency(campaigns, CONCURRENCY, async (campaign) => {
+    // 캠페인 → 광고그룹 (부모 id 하나씩만 조회 가능해서 개별 호출이지만, 활동 캠페인만 대상이라 수가 적음)
+    const campaignAdgroups = await mapWithConcurrency(campaigns, LIST_CONCURRENCY, async (campaign) => {
       const adgroups = await naverRequest('GET', '/ncc/adgroups', { nccCampaignId: campaign.nccCampaignId });
       return { channel: matchChannel(campaign.name), campaignName: campaign.name, adgroups: adgroups || [] };
     });
@@ -195,8 +218,8 @@ module.exports = async function handler(req, res) {
     }
     console.log(`[naver-keywords] 광고그룹 ${adgroupTargets.length}개 조회 완료 (${elapsed()})`);
 
-    // 광고그룹 → 키워드
-    const adgroupKeywords = await mapWithConcurrency(adgroupTargets, CONCURRENCY, async (t) => {
+    // 광고그룹 → 키워드 (마찬가지로 개별 호출)
+    const adgroupKeywords = await mapWithConcurrency(adgroupTargets, LIST_CONCURRENCY, async (t) => {
       const keywords = await naverRequest('GET', '/ncc/keywords', { nccAdgroupId: t.adgroupId });
       return { ...t, keywords: keywords || [] };
     });
@@ -215,19 +238,23 @@ module.exports = async function handler(req, res) {
     }
     console.log(`[naver-keywords] 키워드 ${keywordTargets.length}개 조회 완료 (${elapsed()})`);
 
-    // 키워드별 성과
-    const rows = await mapWithConcurrency(keywordTargets, CONCURRENCY, async (t) => {
-      const totals = await fetchEntityTotals(t.keywordId, since, until);
-      return {
-        month: monthStr,
-        channel: t.channel,
-        campaign: t.campaign,
-        adgroup: t.adgroup,
-        keyword: t.keyword,
-        keyword_id: t.keywordId,
-        ...totals
-      };
-    });
+    // 키워드별 성과 — 벌크 통계 조회로 몇백 개라도 몇 번의 호출로 끝냅니다.
+    const keywordBulkDebug = {};
+    const keywordTotals = await fetchBulkTotals(
+      keywordTargets.map((t) => t.keywordId),
+      since,
+      until,
+      debug ? keywordBulkDebug : null
+    );
+    const rows = keywordTargets.map((t) => ({
+      month: monthStr,
+      channel: t.channel,
+      campaign: t.campaign,
+      adgroup: t.adgroup,
+      keyword: t.keyword,
+      keyword_id: t.keywordId,
+      ...(keywordTotals.get(t.keywordId) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 })
+    }));
     console.log(`[naver-keywords] 키워드별 성과 수집 완료 (${elapsed()})`);
 
     // 노출도 클릭도 전혀 없었던 키워드는 저장하지 않아 표를 깔끔하게 유지합니다.
@@ -241,9 +268,11 @@ module.exports = async function handler(req, res) {
       activeCampaignCount: campaigns.length,
       adgroupCount: adgroupTargets.length,
       keywordCount: keywordTargets.length,
-      savedCount: meaningfulRows.length
+      savedCount: meaningfulRows.length,
+      elapsed: elapsed(),
+      ...(debug ? { debugCampaignBulkSample: campaignBulkDebug.raw, debugKeywordBulkSample: keywordBulkDebug.raw } : {})
     });
   } catch (err) {
-    return res.status(500).json({ error: 'unexpected_error', detail: String(err) });
+    return res.status(500).json({ error: 'unexpected_error', detail: String(err), elapsed: elapsed() });
   }
 };
