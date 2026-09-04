@@ -10,7 +10,12 @@ on:
   schedule:
     # 매일 UTC 04:00 (KST 13:00) — 전날 광고비 집계가 대체로 확정된 이후 실행
     - cron: '0 4 * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      month:
+        description: '지난 달 데이터를 채우고 싶을 때 등, 특정 월을 지정 (예: 2026-08). 비워두면 이번 달.'
+        required: false
+        default: ''
 
 jobs:
   ping:
@@ -18,5 +23,7 @@ jobs:
     steps:
       - name: Vercel sync 엔드포인트 호출
         run: |
-          curl -sf -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.VERCEL_APP_URL }}/api/sync-naver-ads"
+          MONTH="${{ github.event.inputs.month }}"
+          URL="${{ secrets.VERCEL_APP_URL }}/api/sync-naver-ads"
+          if [ -n "$MONTH" ]; then URL="${URL}?month=${MONTH}"; fi
+          curl -sf -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "$URL"
