@@ -88,6 +88,8 @@
   .nav-collapse-toggle.collapsed { transform: rotate(-90deg); }
   #navMarketingBrands.collapsed { display: none; }
   #navTeamAssignees.collapsed { display: none; }
+  .nav-subgroup-label { font-size: 10.5px; color: #565d70; margin: 10px 0 4px 20px; padding: 0 8px; }
+  .nav-subgroup-label:first-child { margin-top: 0; }
   .mkt-empty { padding: 60px 20px; text-align: center; color: #6d7488; font-size: 13px; }
   .mkt-empty b { color: #c7cbe0; }
   .sidebar-footer {
@@ -4145,10 +4147,24 @@
     if (!container) return;
     const channelsWithData = new Set(allMarketingRows.map((r) => r.channel));
     const visibleBrands = MARKETING_BRANDS.filter((b) => b.channel.startsWith('메타') || channelsWithData.has(b.channel));
-    container.innerHTML = visibleBrands.map((b) => `
-      <div class="nav-subitem" data-channel="${escapeAttr(b.channel)}" onclick="switchView('marketing-brand', '${escapeAttr(b.channel)}')">
-        <span class="sub-dot"></span>${b.label}
-      </div>
+
+    // '메타'/'네이버' 등 매체별로 묶어서, 그룹 이름표 아래에 브랜드명만(매체명 뺀 것) 보여줍니다.
+    const groups = [];
+    visibleBrands.forEach((b) => {
+      const [media, ...rest] = b.label.split(' ');
+      const brandName = rest.join(' ') || b.label;
+      let group = groups.find((g) => g.media === media);
+      if (!group) { group = { media, items: [] }; groups.push(group); }
+      group.items.push({ channel: b.channel, brandName });
+    });
+
+    container.innerHTML = groups.map((g) => `
+      <div class="nav-subgroup-label">${escapeAttr(g.media)}</div>
+      ${g.items.map((item) => `
+        <div class="nav-subitem" data-channel="${escapeAttr(item.channel)}" onclick="switchView('marketing-brand', '${escapeAttr(item.channel)}')">
+          <span class="sub-dot"></span>${escapeAttr(item.brandName)}
+        </div>
+      `).join('')}
     `).join('');
   }
 
