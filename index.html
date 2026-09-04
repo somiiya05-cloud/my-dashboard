@@ -88,8 +88,11 @@
   .nav-collapse-toggle.collapsed { transform: rotate(-90deg); }
   #navMarketingBrands.collapsed { display: none; }
   #navTeamAssignees.collapsed { display: none; }
-  .nav-subgroup-label { font-size: 11px; font-weight: 700; color: #7d859c; margin: 10px 0 4px 20px; padding: 0 8px; }
+  .nav-subgroup-label { font-size: 11px; font-weight: 700; color: #7d859c; margin: 10px 0 4px 20px; padding: 0 8px; cursor: pointer; display: flex; align-items: center; }
   .nav-subgroup-label:first-child { margin-top: 0; }
+  .nav-subgroup-label:hover { color: #f5f6fa; }
+  .nav-collapse-toggle.mini { font-size: 13px; padding: 2px 6px; }
+  .nav-subgroup-items.collapsed { display: none; }
   .mkt-empty { padding: 60px 20px; text-align: center; color: #6d7488; font-size: 13px; }
   .mkt-empty b { color: #c7cbe0; }
   .sidebar-footer {
@@ -4147,14 +4150,33 @@
       group.items.push({ channel: b.channel, brandName });
     });
 
-    container.innerHTML = groups.map((g) => `
-      <div class="nav-subgroup-label">${escapeAttr(g.media)}</div>
-      ${g.items.map((item) => `
-        <div class="nav-subitem" data-channel="${escapeAttr(item.channel)}" onclick="switchView('marketing-brand', '${escapeAttr(item.channel)}')">
-          <span class="sub-dot"></span>${escapeAttr(item.brandName)}
+    container.innerHTML = groups.map((g) => {
+      const collapsed = localStorage.getItem('mktSubgroupCollapsed_' + g.media) === '1';
+      return `
+        <div class="nav-subgroup-label" onclick="toggleMarketingSubgroup('${escapeAttr(g.media)}')">
+          ${escapeAttr(g.media)}
+          <span class="nav-collapse-toggle mini${collapsed ? ' collapsed' : ''}" data-subgroup-toggle="${escapeAttr(g.media)}">▾</span>
         </div>
-      `).join('')}
-    `).join('');
+        <div class="nav-subgroup-items${collapsed ? ' collapsed' : ''}" data-subgroup="${escapeAttr(g.media)}">
+          ${g.items.map((item) => `
+            <div class="nav-subitem" data-channel="${escapeAttr(item.channel)}" onclick="switchView('marketing-brand', '${escapeAttr(item.channel)}')">
+              <span class="sub-dot"></span>${escapeAttr(item.brandName)}
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 마케팅 브랜드 목록 안의 매체별(메타/네이버) 그룹 접기·펴기 (선택 상태는 새로고침해도 유지)
+  function toggleMarketingSubgroup(media) {
+    const itemsEl = document.querySelector('#navMarketingBrands .nav-subgroup-items[data-subgroup="' + CSS.escape(media) + '"]');
+    const toggleEl = document.querySelector('#navMarketingBrands .nav-collapse-toggle[data-subgroup-toggle="' + CSS.escape(media) + '"]');
+    if (!itemsEl) return;
+    const collapsed = itemsEl.classList.toggle('collapsed');
+    if (toggleEl) toggleEl.classList.toggle('collapsed', collapsed);
+    const key = 'mktSubgroupCollapsed_' + media;
+    if (collapsed) localStorage.setItem(key, '1'); else localStorage.removeItem(key);
   }
 
   function renderMarketingBrandView() {
