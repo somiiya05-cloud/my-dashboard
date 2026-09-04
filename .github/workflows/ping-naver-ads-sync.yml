@@ -1,0 +1,22 @@
+name: 네이버 광고 동기화 호출
+
+# 이 저장소는 Vercel Hobby 플랜의 cron 2개 한도를 이미 다 쓰고 있어서(sync-meta-ads,
+# sync-ezadmin-inventory), 네이버 광고 동기화(api/sync-naver-ads)도 공구 일정 동기화와
+# 같은 방식으로 GitHub Actions가 주기적으로 그 엔드포인트를 호출해 실행합니다.
+# 실제 동기화 로직은 전부 api/sync-naver-ads.js(Vercel 서버리스 함수) 안에 있고,
+# 여기서는 그 함수를 깨우기만 합니다.
+
+on:
+  schedule:
+    # 매일 UTC 04:00 (KST 13:00) — 전날 광고비 집계가 대체로 확정된 이후 실행
+    - cron: '0 4 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vercel sync 엔드포인트 호출
+        run: |
+          curl -sf -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.VERCEL_APP_URL }}/api/sync-naver-ads"
