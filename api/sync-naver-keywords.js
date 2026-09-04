@@ -81,9 +81,10 @@ function matchChannel(campaignName) {
   return hit ? hit.channel : FALLBACK_CHANNEL;
 }
 
-async function fetchKeywordTotals(keywordId, since, until) {
+// 캠페인/키워드 등 모든 개체에 공통으로 쓰는 통계 조회 (id 하나에 대한 기간 합계)
+async function fetchEntityTotals(entityId, since, until) {
   const data = await naverRequest('GET', '/stats', {
-    id: keywordId,
+    id: entityId,
     fields: JSON.stringify(['salesAmt', 'impCnt', 'clkCnt', 'ccnt', 'convAmt']),
     timeRange: JSON.stringify({ since, until }),
     timeIncrement: '1'
@@ -163,7 +164,15 @@ module.exports = async function handler(req, res) {
   const until = `${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
   try {
-    const campaigns = await naverRequest('GET', '/ncc/campaigns');
+    const allCampaigns = await naverRequest('GET', '/ncc/campaigns');
+
+    // 이번 달에 노출·클릭·광고비가 전혀 없었던 캠페인은 광고그룹/키워드까지 내려가 봐야
+    // 어차피 낭비 키워드가 나올 수 없으므로, 먼저 캠페인 단위로 걸러서 API 호출량을 줄입니다.
+    const campaignActivity = await mapWithConcurrency(allCampaigns, CONCURRENCY, async (campaign) => {
+      const totals = await fetchEntityTotals(campaign.nccCampaignId, since, until);
+      return { campaign, active: totals.spend > 0 || totals.impressions > 0 || totals.clicks > 0 };
+    });
+    const campaigns = campaignActivity.filter((c) => c.active).map((c) => c.campaign);
 
     // 캠페인 → 광고그룹
     const campaignAdgroups = await mapWithConcurrency(campaigns, CONCURRENCY, async (campaign) => {
@@ -199,7 +208,7 @@ module.exports = async function handler(req, res) {
 
     // 키워드별 성과
     const rows = await mapWithConcurrency(keywordTargets, CONCURRENCY, async (t) => {
-      const totals = await fetchKeywordTotals(t.keywordId, since, until);
+      const totals = await fetchEntityTotals(t.keywordId, since, until);
       return {
         month: monthStr,
         channel: t.channel,
@@ -217,7 +226,8 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       month: monthStr,
-      campaignCount: campaigns.length,
+      totalCampaignCount: allCampaigns.length,
+      activeCampaignCount: campaigns.length,
       adgroupCount: adgroupTargets.length,
       keywordCount: keywordTargets.length,
       savedCount: meaningfulRows.length
