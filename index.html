@@ -2210,7 +2210,8 @@
             <option value="수출">수출</option>
           </select>
           <input type="text" name="partner" placeholder="인플루언서/거래처명" style="flex:1; min-width:160px;">
-          <input type="number" name="amount" placeholder="정산액(원)" style="width:140px;">
+          <input type="number" name="revenue" placeholder="매출(원)" style="width:130px;">
+          <input type="number" name="commissionRate" placeholder="수수료(%)" style="width:110px;">
           <input type="date" name="periodStart" title="공동구매 시작일">
           <input type="date" name="periodEnd" title="공동구매 종료일 (정산일이 종료일+14일로 자동 계산됩니다)" onchange="settlementFormAutoDate(this)">
           <input type="date" name="settlementDate" title="정산일 (종료일 입력 시 자동 계산, 직접 수정 가능)">
@@ -2234,7 +2235,7 @@
         </div>
         <div class="scroll-box">
           <table>
-            <thead><tr><th>구분</th><th>인플루언서/거래처</th><th class="num">정산액</th><th>공동구매 기간</th><th>정산일</th><th>상태</th><th>메모</th><th></th></tr></thead>
+            <thead><tr><th>구분</th><th>인플루언서/거래처</th><th class="num">매출</th><th class="num">수수료(%)</th><th>공동구매 기간</th><th>정산일</th><th>상태</th><th>메모</th><th></th></tr></thead>
             <tbody id="settlementTable"></tbody>
           </table>
         </div>
@@ -7172,7 +7173,7 @@
       (r.category === '공동구매' && showGroupbuy) || (r.category === '수출' && showExport));
     note.textContent = rows.length + '건';
     if (!rows.length) {
-      table.innerHTML = '<tr><td colspan="8" class="gs-empty">등록된 정산 내역이 없습니다. 위에서 추가해보세요.</td></tr>';
+      table.innerHTML = '<tr><td colspan="9" class="gs-empty">등록된 정산 내역이 없습니다. 위에서 추가해보세요.</td></tr>';
       return;
     }
     table.innerHTML = rows.map((r) => `
@@ -7185,8 +7186,10 @@
         </td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(r.partner || '')}"
           onchange="updateSettlementField(${r.id}, 'partner', this.value)"></td>
-        <td class="num"><input type="number" class="inline-edit num" value="${r.amount ?? ''}"
-          onchange="updateSettlementField(${r.id}, 'amount', this.value)"></td>
+        <td class="num"><input type="number" class="inline-edit num" value="${r.revenue ?? ''}"
+          onchange="updateSettlementField(${r.id}, 'revenue', this.value)"></td>
+        <td class="num"><input type="number" class="inline-edit num" value="${r.commission_rate ?? ''}"
+          onchange="updateSettlementField(${r.id}, 'commission_rate', this.value)"></td>
         <td style="white-space:nowrap;">
           <input type="date" class="inline-edit" style="width:120px;" value="${escapeAttr(r.period_start || '')}"
             onchange="updateSettlementField(${r.id}, 'period_start', this.value)">
@@ -7235,14 +7238,15 @@
     const form = e.target;
     const category = form.category.value;
     const partner = form.partner.value.trim() || null;
-    const amount = form.amount.value === '' ? null : Number(form.amount.value);
+    const revenue = form.revenue.value === '' ? null : Number(form.revenue.value);
+    const commissionRate = form.commissionRate.value === '' ? null : Number(form.commissionRate.value);
     const periodStart = form.periodStart.value || null;
     const periodEnd = form.periodEnd.value || null;
     const settlementDate = form.settlementDate.value || (periodEnd ? settlementDueFromEnd(periodEnd) : null);
     const status = form.status.value;
     const memo = form.memo.value.trim() || null;
     const { error } = await client.from('settlements')
-      .insert([{ category, partner, amount, period_start: periodStart, period_end: periodEnd, settlement_date: settlementDate, status, memo }]);
+      .insert([{ category, partner, revenue, commission_rate: commissionRate, period_start: periodStart, period_end: periodEnd, settlement_date: settlementDate, status, memo }]);
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
     form.reset();
     loadTeamSchedule();
@@ -7250,7 +7254,7 @@
 
   async function updateSettlementField(id, field, rawValue) {
     let value = rawValue;
-    if (field === 'amount') value = rawValue === '' ? null : Number(rawValue);
+    if (field === 'revenue' || field === 'commission_rate') value = rawValue === '' ? null : Number(rawValue);
     else if (typeof rawValue === 'string') value = rawValue.trim() || null;
     const { error } = await client.from('settlements').update({ [field]: value }).eq('id', id);
     if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
