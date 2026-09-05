@@ -4311,10 +4311,6 @@
         <div class="kpi-sub">매출 ${won(Math.round(brandRevenue))} 중 광고비 비중</div>
         <div class="mkt-bar"><div class="mkt-bar-fill" style="width:${Math.min(100, adSpendRatio).toFixed(1)}%"></div></div>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-label">ROAS</div>
-        <div class="kpi-value mkt-value">${roas.toFixed(0)}%</div>
-      </div>
     `;
 
     const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions * 100) : 0;
