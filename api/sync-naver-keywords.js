@@ -265,6 +265,33 @@ module.exports = async function handler(req, res) {
     }));
     console.log(`[naver-keywords] 키워드별 성과 수집 완료 (${elapsed()})`);
 
+    // 캠페인 레벨 통계(campaignTotals) vs 그 캠페인에 속한 키워드들의 통계 합
+    // — 쇼핑검색처럼 캠페인 스펜드가 키워드 단위로 안 잡히는 경우를 확인하기 위한 진단 로그.
+    const adgroupCountByCampaign = new Map();
+    const keywordCountByCampaign = new Map();
+    for (const t of adgroupTargets) {
+      adgroupCountByCampaign.set(t.campaignName, (adgroupCountByCampaign.get(t.campaignName) || 0) + 1);
+    }
+    const keywordSumByCampaign = new Map();
+    for (const r of rows) {
+      const cur = keywordSumByCampaign.get(r.campaign) || { spend: 0, clicks: 0, count: 0 };
+      cur.spend += r.spend;
+      cur.clicks += r.clicks;
+      cur.count += 1;
+      keywordSumByCampaign.set(r.campaign, cur);
+      keywordCountByCampaign.set(r.campaign, (keywordCountByCampaign.get(r.campaign) || 0) + 1);
+    }
+    console.log('[naver-keywords] 캠페인별 진단 (캠페인 레벨 통계 vs 키워드 합):');
+    for (const campaign of campaigns) {
+      const campaignLevel = campaignTotals.get(campaign.nccCampaignId) || { spend: 0, clicks: 0 };
+      const kwSum = keywordSumByCampaign.get(campaign.name) || { spend: 0, clicks: 0, count: 0 };
+      console.log(
+        `  - ${campaign.name} (${campaign.campaignTp}): 캠페인레벨 광고비=${campaignLevel.spend}/클릭=${campaignLevel.clicks}` +
+          ` | 광고그룹=${adgroupCountByCampaign.get(campaign.name) || 0}개, 키워드=${keywordCountByCampaign.get(campaign.name) || 0}개` +
+          ` | 키워드합계 광고비=${kwSum.spend}/클릭=${kwSum.clicks}`
+      );
+    }
+
     // 노출도 클릭도 전혀 없었던 키워드는 저장하지 않아 표를 깔끔하게 유지합니다.
     const meaningfulRows = rows.filter((r) => r.spend > 0 || r.impressions > 0 || r.clicks > 0);
     await upsertInChunks('naver_keyword_performance', 'month,keyword_id', meaningfulRows);
