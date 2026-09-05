@@ -1172,6 +1172,21 @@
 
         <section class="panel">
           <div class="panel-head">
+            <h2>일별 성과</h2>
+            <span class="panel-note">광고비 단위: 원 · 최근 날짜 순</span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>날짜</th><th class="num">광고비</th><th class="num">노출</th><th class="num">클릭</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">전환</th><th class="num">전환매출</th><th class="num">ROAS</th></tr>
+              </thead>
+              <tbody id="mktBrandDailyTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
             <h2>캠페인별 성과</h2>
             <span class="panel-note">광고비 단위: 원 · 기간 내 누적</span>
           </div>
@@ -3637,7 +3652,7 @@
     if (view === 'marketing') loadMarketingData();
     if (view === 'marketing-brand') {
       currentMarketingBrand = brandChannel;
-      Promise.all([loadMarketingData(), loadMarketingCampaignData(), loadMarketingKeywordData()]).then(() => renderMarketingBrandView());
+      Promise.all([loadMarketingData(), loadMarketingCampaignData(), loadMarketingKeywordData(), loadMarketingDailyData()]).then(() => renderMarketingBrandView());
     }
     if (view === 'product-ad-ratio') initProductAdRatioView();
     if (view === 'pl') loadPlData();
@@ -3933,6 +3948,17 @@
   // '낭비 키워드' 기준: 클릭이 일정 건수 이상인데 전환이 0건인 경우.
   // 필요하면 이 값만 바꿔서 기준을 조정할 수 있습니다.
   const WASTE_KEYWORD_MIN_CLICKS = 10;
+
+  // 브랜드별 페이지의 "일별 성과" 표용.
+  let allMarketingDailyRows = [];
+  async function loadMarketingDailyData() {
+    try {
+      const { data, error } = await client.from('ad_performance_daily').select('*').order('date', { ascending: false });
+      allMarketingDailyRows = error ? [] : (data || []);
+    } catch (e) {
+      allMarketingDailyRows = [];
+    }
+  }
 
   function setupMarketingMonthSelector() {
     const monthSelect = document.getElementById('mktMonthSelect');
@@ -4320,6 +4346,35 @@
         <td class="num">${roas.toFixed(0)}%</td>
       </tr>
     `;
+
+    // ---- 일별 성과 (해당 월에 속하는 날짜만, 최근 날짜 순) ----
+    const dailyRows = allMarketingDailyRows.filter((r) => r.channel === channel && r.date.slice(0, 7) === monthStr);
+
+    document.getElementById('mktBrandDailyTable').innerHTML = dailyRows.length
+      ? dailyRows.map((r) => {
+          const spend = Number(r.spend);
+          const impressions = Number(r.impressions);
+          const clicks = Number(r.clicks);
+          const conversions = Number(r.conversions);
+          const revenue = Number(r.revenue);
+          const dCtr = impressions > 0 ? (clicks / impressions * 100) : 0;
+          const dCpc = clicks > 0 ? (spend / clicks) : 0;
+          const dRoas = spend > 0 ? (revenue / spend * 100) : 0;
+          return `
+            <tr>
+              <td>${r.date}</td>
+              <td class="num">${won(spend)}</td>
+              <td class="num">${impressions.toLocaleString('ko-KR')}</td>
+              <td class="num">${clicks.toLocaleString('ko-KR')}</td>
+              <td class="num">${dCtr.toFixed(2)}%</td>
+              <td class="num">${won(Math.round(dCpc))}</td>
+              <td class="num">${conversions.toLocaleString('ko-KR')}</td>
+              <td class="num">${won(revenue)}</td>
+              <td class="num">${dRoas.toFixed(0)}%</td>
+            </tr>
+          `;
+        }).join('')
+      : '<tr><td colspan="9" class="mkt-empty-row">이 채널·기간에 일별 데이터가 아직 없어요.</td></tr>';
 
     // ---- 캠페인별 성과 ----
     const campaignRows = allMarketingCampaignRows

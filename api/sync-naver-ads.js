@@ -2,9 +2,11 @@
 // 브랜드별로 나눠 Supabase의 ad_performance 테이블에 저장하는 Vercel 서버리스 함수입니다.
 // api/sync-meta-ads.js와 동일한 방식(월별 채널 집계)으로 동작하며, 같은 표/사이드바에
 // '네이버 OOO' 채널로 나란히 보이게 됩니다.
-// 채널 합계와 별도로, 캠페인 단위 행은 ad_performance_campaigns 테이블에 저장되어
-// 마케팅대시보드 브랜드별 페이지의 "캠페인별 성과" 표에 쓰입니다.
-// (ad_performance_campaigns.sql을 Supabase SQL Editor에서 먼저 실행해야 합니다.)
+// 채널 합계와 별도로, 캠페인 단위 행은 ad_performance_campaigns 테이블에, 날짜별 채널
+// 합계는 ad_performance_daily 테이블에 저장되어 마케팅대시보드 브랜드별 페이지의
+// "캠페인별 성과" / "일별 성과" 표에 각각 쓰입니다.
+// (ad_performance_campaigns.sql, ad_performance_daily.sql을 Supabase SQL Editor에서
+//  먼저 실행해야 합니다.)
 //
 // ⚠️ 배치 위치: GitHub 저장소 최상위의 "api" 폴더 안에 "sync-naver-ads.js" 로 저장하세요.
 //    최종 경로: api/sync-naver-ads.js
@@ -78,6 +80,7 @@ function matchChannel(campaignName) {
 }
 
 // 실제 API 응답은 문서(dailyStatResponse.data)와 달리 최상위에 data 배열을 바로 내려줍니다.
+// days(일별 원본 배열)도 같이 반환해서 호출하는 쪽에서 "일별 성과" 집계에 재사용합니다.
 async function fetchCampaignTotals(campaignId, since, until) {
   const data = await naverRequest('GET', '/stats', {
     id: campaignId,
@@ -86,7 +89,7 @@ async function fetchCampaignTotals(campaignId, since, until) {
     timeIncrement: '1'
   });
   const days = data.data || [];
-  return days.reduce(
+  const totals = days.reduce(
     (acc, d) => ({
       spend: acc.spend + (Number(d.salesAmt) || 0),
       impressions: acc.impressions + (Number(d.impCnt) || 0),
@@ -96,6 +99,7 @@ async function fetchCampaignTotals(campaignId, since, until) {
     }),
     { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 }
   );
+  return { totals, days };
 }
 
 module.exports = async function handler(req, res) {
@@ -130,11 +134,10 @@ module.exports = async function handler(req, res) {
     const campaigns = await naverRequest('GET', '/ncc/campaigns');
 
     const perCampaign = await Promise.all(
-      campaigns.map(async (campaign) => ({
-        name: campaign.name,
-        channel: matchChannel(campaign.name),
-        totals: await fetchCampaignTotals(campaign.nccCampaignId, since, until)
-      }))
+      campaigns.map(async (campaign) => {
+        const { totals, days } = await fetchCampaignTotals(campaign.nccCampaignId, since, until);
+        return { name: campaign.name, channel: matchChannel(campaign.name), totals, days };
+      })
     );
 
     const totalsByChannel = new Map();
@@ -194,7 +197,51 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ month: monthStr, campaignCount: campaigns.length, results });
+    // 브랜드별 페이지의 "일별 성과" 표용 — 캠페인별 일별 데이터를 채널 단위로 합산해서 저장합니다.
+    const dailyByKey = new Map();
+    for (const { channel, days } of perCampaign) {
+      for (const d of days) {
+        if (!d.dateStart) continue;
+        const key = `${d.dateStart}|${channel}`;
+        const cur = dailyByKey.get(key) || {
+          date: d.dateStart,
+          channel,
+          spend: 0,
+          impressions: 0,
+          clicks: 0,
+          conversions: 0,
+          revenue: 0
+        };
+        cur.spend += Number(d.salesAmt) || 0;
+        cur.impressions += Number(d.impCnt) || 0;
+        cur.clicks += Number(d.clkCnt) || 0;
+        cur.conversions += Number(d.ccnt) || 0;
+        cur.revenue += Number(d.convAmt) || 0;
+        dailyByKey.set(key, cur);
+      }
+    }
+    const dailyRows = Array.from(dailyByKey.values()).filter(
+      (r) => r.spend > 0 || r.impressions > 0 || r.clicks > 0
+    );
+
+    if (dailyRows.length) {
+      const dailyUpsertRes = await fetch(`${SUPABASE_URL}/rest/v1/ad_performance_daily?on_conflict=date,channel`, {
+        method: 'POST',
+        headers: {
+          apikey: supabaseServiceKey,
+          Authorization: `Bearer ${supabaseServiceKey}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify(dailyRows)
+      });
+      if (!dailyUpsertRes.ok) {
+        const errText = await dailyUpsertRes.text();
+        results.push({ error: 'supabase_daily_upsert_error', detail: errText });
+      }
+    }
+
+    return res.status(200).json({ month: monthStr, campaignCount: campaigns.length, dailyRowCount: dailyRows.length, results });
   } catch (err) {
     return res.status(500).json({ error: 'unexpected_error', detail: String(err) });
   }
