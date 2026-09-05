@@ -718,7 +718,7 @@
   .ops-stat-tile .stat-unit { font-size: 11.5px; color: #64748b; margin-left: 3px; }
 
   /* ---- 영업팀 Overall Operations: 채널 칩 바로가기 ---- */
-  .ops-quicklink-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-top: 16px; }
+  .ops-quicklink-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 16px; }
   .ops-quicklink-card { background: #f4f5f8; border: 1px solid rgba(15,23,42,.06); border-radius: 12px; padding: 16px 16px 14px; }
   .ops-quicklink-head h3 { font-size: 14px; font-weight: 800; margin: 0 0 10px; color: #0f172a; }
   .ops-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -727,9 +727,6 @@
     font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px; transition: background .15s ease, color .15s ease;
   }
   .ops-chip:hover { background: #4d7cfe; color: #fff; }
-  .ops-flow-chip-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: #64748b; }
-  .ops-flow-seg { background: #ffffff; border: 1px solid rgba(15,23,42,.08); padding: 6px 12px; border-radius: 8px; font-weight: 600; color: #0f172a; }
-  .ops-flow-arrow { color: #94a3b8; }
   @keyframes opsChannelPulse {
     0% { box-shadow: 0 0 0 0 rgba(13,148,136,.45); }
     100% { box-shadow: 0 0 0 10px rgba(13,148,136,0); }
@@ -1614,13 +1611,6 @@
               <button type="button" class="ops-chip" onclick="jumpToChannel('외부몰')">외부몰</button>
               <button type="button" class="ops-chip" onclick="jumpToChannel('오프라인')">오프라인</button>
               <button type="button" class="ops-chip" onclick="jumpToChannel('수출')">수출</button>
-            </div>
-          </div>
-          <div class="ops-quicklink-card">
-            <div class="ops-quicklink-head"><h3>주요 채널 흐름</h3></div>
-            <div class="ops-flow-chip-row">
-              <span class="ops-flow-seg">유입</span><span class="ops-flow-arrow">→</span><span class="ops-flow-seg">주문/정산</span><span class="ops-flow-arrow">→</span>
-              <span class="ops-flow-seg">사후관리</span>
             </div>
           </div>
         </div>
