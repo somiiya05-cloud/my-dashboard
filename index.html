@@ -717,6 +717,18 @@
   .ops-stat-tile .stat-count { font-size: 20px; font-weight: 800; color: #0f172a; }
   .ops-stat-tile .stat-unit { font-size: 11.5px; color: #64748b; margin-left: 3px; }
 
+  /* ---- 영업팀 Overall Operations: 업무 카드 내 오전/오후 소그룹 ---- */
+  .sop-subgroup { margin-top: 6px; }
+  .sop-subgroup + .sop-subgroup { margin-top: 22px; }
+  .sop-subgroup-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .sop-subgroup-head h3 {
+    font-size: 11.5px; font-weight: 800; color: #64748b; margin: 0;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .sop-subgroup-head .cnt {
+    font-size: 10.5px; color: #94a3b8; background: #f4f5f8; padding: 1px 7px; border-radius: 999px;
+  }
+
   /* ---- 영업팀 Overall Operations: 채널 칩 바로가기 ---- */
   .ops-quicklink-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 16px; }
   .ops-quicklink-card { background: #f4f5f8; border: 1px solid rgba(15,23,42,.06); border-radius: 12px; padding: 16px 16px 14px; }
@@ -1637,7 +1649,7 @@
           <span class="panel-note">데일리 · 주차별 · 월마감</span>
         </div>
         <div class="ops-stat-row">
-          <div class="ops-stat-tile"><span class="stat-cadence">Daily</span><span class="stat-count">12</span><span class="stat-unit">건 · 데일리</span></div>
+          <div class="ops-stat-tile"><span class="stat-cadence">Daily</span><span class="stat-count">13</span><span class="stat-unit">건 · 데일리</span></div>
           <div class="ops-stat-tile"><span class="stat-cadence">Weekly</span><span class="stat-count">2</span><span class="stat-unit">건 · 주차별</span></div>
           <div class="ops-stat-tile"><span class="stat-cadence">Monthly</span><span class="stat-count">6</span><span class="stat-unit">건 · 월마감</span></div>
         </div>
@@ -1651,22 +1663,25 @@
       </div>
 
       <section class="panel" id="opsGroupDaily">
-        <div class="ops-panel-head"><span class="sop-group-dot" style="background:#4d7cfe"></span><h2>데일리 업무</h2><span class="sop-group-count">12</span></div>
+        <div class="ops-panel-head"><span class="sop-group-dot" style="background:#4d7cfe"></span><h2>데일리 업무</h2><span class="sop-group-count">13</span></div>
+
+        <div class="sop-subgroup">
+          <div class="sop-subgroup-head"><h3>오전</h3><span class="cnt">4</span></div>
           <div class="sop-grid">
+            <div class="sop-card sop-card-pending">
+              <div class="sop-card-head"><h4>공동구매 발주서 전달</h4><div class="sop-badge-row"><span class="sop-badge">매일</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>공동구매 확정 후 발주서를 벤더사에 정확히 전달</div>
+              <div class="sop-field"><b>완료기준</b>발주 수량·일정 확인 및 발주서 전달 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>발주 지연 또는 오류 시 공동구매 물량 확보 차질 가능</div>
+              <span class="sop-link sop-link-pending">Notion 카드 준비 중</span>
+            </div>
             <a class="sop-card" href="https://app.notion.com/p/selfdiylab/10-35dcd5ac1fb3800dbff2fa91de9ef0da" target="_blank" rel="noopener">
               <div class="sop-card-head"><h4>카카오 선물하기 명퉤 일자 변경</h4><div class="sop-badge-row"><span class="sop-badge">매일</span></div></div>
               <div class="sop-meta">담당자 · 영업팀 담당자</div>
               <div class="sop-field"><b>목적</b>카카오 선물하기 명퉤 상품의 배송·이벤트 일자를 최신 상태로 유지</div>
               <div class="sop-field"><b>완료기준</b>일자 변경 필요 여부 확인 및 반영 완료</div>
               <div class="sop-field sop-field-risk"><b>리스크</b>일자 미반영 시 배송 안내 오류 또는 CS 발생 가능</div>
-              <span class="sop-link">Notion 바로가기 ↗</span>
-            </a>
-            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/183cd5ac1fb3816ebb99ff4c0b863649" target="_blank" rel="noopener">
-              <div class="sop-card-head"><h4>매출마감</h4><div class="sop-badge-row"><span class="sop-badge">매일</span><span class="sop-badge sop-badge-priority">중요</span></div></div>
-              <div class="sop-meta">담당자 · 영업팀 담당자</div>
-              <div class="sop-field"><b>목적</b>전일 채널별 매출을 누락 없이 마감</div>
-              <div class="sop-field"><b>완료기준</b>일매출 파일 업데이트 및 특이사항 공유 완료</div>
-              <div class="sop-field sop-field-risk"><b>리스크</b>매출 누락, 보고 오류 발생 가능</div>
               <span class="sop-link">Notion 바로가기 ↗</span>
             </a>
             <a class="sop-card" href="https://app.notion.com/p/selfdiylab/183cd5ac1fb381bbb78ae317463dab5b" target="_blank" rel="noopener">
@@ -1677,6 +1692,20 @@
               <div class="sop-field sop-field-risk"><b>리스크</b>광고 성과 파악 지연, 예산 비효율 초래 가능</div>
               <span class="sop-link">Notion 바로가기 ↗</span>
             </a>
+            <a class="sop-card" href="https://app.notion.com/p/selfdiylab/183cd5ac1fb3816ebb99ff4c0b863649" target="_blank" rel="noopener">
+              <div class="sop-card-head"><h4>매출마감</h4><div class="sop-badge-row"><span class="sop-badge">매일</span><span class="sop-badge sop-badge-priority">중요</span></div></div>
+              <div class="sop-meta">담당자 · 영업팀 담당자</div>
+              <div class="sop-field"><b>목적</b>전일 채널별 매출을 누락 없이 마감</div>
+              <div class="sop-field"><b>완료기준</b>일매출 파일 업데이트 및 특이사항 공유 완료</div>
+              <div class="sop-field sop-field-risk"><b>리스크</b>매출 누락, 보고 오류 발생 가능</div>
+              <span class="sop-link">Notion 바로가기 ↗</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="sop-subgroup">
+          <div class="sop-subgroup-head"><h3>오후</h3><span class="cnt">9</span></div>
+          <div class="sop-grid">
             <a class="sop-card" href="https://app.notion.com/p/selfdiylab/183cd5ac1fb38179aa20fb1c48fa44b4" target="_blank" rel="noopener">
               <div class="sop-card-head"><h4>판매처 품절 처리</h4><div class="sop-badge-row"><span class="sop-badge">매일</span><span class="sop-badge sop-badge-priority">중요</span></div></div>
               <div class="sop-meta">담당자 · 영업팀 담당자</div>
@@ -1750,6 +1779,7 @@
               <span class="sop-link">Notion 바로가기 ↗</span>
             </a>
           </div>
+        </div>
       </section>
 
       <section class="panel" id="opsGroupWeekly">
