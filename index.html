@@ -2185,6 +2185,7 @@
       <section class="panel" id="taskWeeklyPanel" style="display:none">
         <div class="panel-head">
           <h2>주차별 진행 업무</h2>
+          <button type="button" class="btn-primary" style="margin-left:auto; padding:6px 14px; font-size:12px;" onclick="exportTaskWeeklyExcel()">엑셀로 다운로드</button>
         </div>
         <div id="taskWeeklyBody"></div>
       </section>
@@ -6878,9 +6879,9 @@
     `;
   }
 
-  function renderTaskWeeklyTable() {
-    document.getElementById('taskWeeklyPanel').style.display = '';
-
+  // 주차별 진행 업무 화면과 엑셀 다운로드가 같은 그룹핑 로직을 쓰도록 데이터 준비 부분만 분리.
+  // 반환값: [{ range, assignee, tasks }, ...] — 최신 주차부터, 각 주차 안에서는 담당자별로 나눠서.
+  function getTaskWeeklyBlocks() {
     const scoped = getAssigneeScopedTasks();
     const groups = {};
     scoped.forEach(t => {
@@ -6891,25 +6892,94 @@
     });
 
     const keys = Object.keys(groups).sort().reverse();
-    document.getElementById('taskWeeklyBody').innerHTML = keys.length
-      ? keys.map(key => {
-          const g = groups[key];
-          if (currentTaskAssignee) {
-            return taskReportBlockHtml(g.range, currentTaskAssignee, g.tasks);
-          }
-          const byAssignee = {};
-          g.tasks.forEach(t => {
-            const name = t.assignee || '담당자 미지정';
-            (byAssignee[name] = byAssignee[name] || []).push(t);
-          });
-          const assigneeNames = Object.keys(byAssignee).sort((a, b) => {
-            if (a === '담당자 미지정') return 1;
-            if (b === '담당자 미지정') return -1;
-            return a.localeCompare(b);
-          });
-          return assigneeNames.map(name => taskReportBlockHtml(g.range, name, byAssignee[name])).join('');
-        }).join('')
+    const blocks = [];
+    keys.forEach(key => {
+      const g = groups[key];
+      if (currentTaskAssignee) {
+        blocks.push({ range: g.range, assignee: currentTaskAssignee, tasks: g.tasks });
+        return;
+      }
+      const byAssignee = {};
+      g.tasks.forEach(t => {
+        const name = t.assignee || '담당자 미지정';
+        (byAssignee[name] = byAssignee[name] || []).push(t);
+      });
+      const assigneeNames = Object.keys(byAssignee).sort((a, b) => {
+        if (a === '담당자 미지정') return 1;
+        if (b === '담당자 미지정') return -1;
+        return a.localeCompare(b);
+      });
+      assigneeNames.forEach(name => blocks.push({ range: g.range, assignee: name, tasks: byAssignee[name] }));
+    });
+    return blocks;
+  }
+
+  function renderTaskWeeklyTable() {
+    document.getElementById('taskWeeklyPanel').style.display = '';
+    const blocks = getTaskWeeklyBlocks();
+    document.getElementById('taskWeeklyBody').innerHTML = blocks.length
+      ? blocks.map(b => taskReportBlockHtml(b.range, b.assignee, b.tasks)).join('')
       : '<p style="text-align:center; color:#94a3b8; padding:16px;">시작일/마감일이 등록된 업무가 없습니다.</p>';
+  }
+
+  // 업무분류 기준 정렬 (taskReportRowsHtml과 동일한 정렬 규칙)
+  function taskReportSorted(rawTasks) {
+    return rawTasks.slice().sort((a, b) => {
+      const ca = a.category || '', cb = b.category || '';
+      if (!ca && cb) return 1;
+      if (ca && !cb) return -1;
+      return ca.localeCompare(cb, 'ko');
+    });
+  }
+
+  // 주차별 진행 업무를 화면에 보이는 그대로(주차 × 담당자별 시트) 엑셀 파일로 내보냄.
+  function exportTaskWeeklyExcel() {
+    const blocks = getTaskWeeklyBlocks();
+    if (!blocks.length) { alert('내보낼 주차별 업무가 없습니다.'); return; }
+
+    const wb = XLSX.utils.book_new();
+    const usedNames = new Set();
+
+    blocks.forEach((b) => {
+      const tasks = taskReportSorted(b.tasks);
+      const aoa = [];
+      aoa.push(['작성일자', b.range, '', '소속', '영업팀', '', '보고자', b.assignee]);
+      aoa.push([]);
+      aoa.push(['이번주 업무 진행사항']);
+      aoa.push(TASK_REPORT_COL_LABELS.slice());
+      if (tasks.length) {
+        tasks.forEach((t, i) => {
+          aoa.push([
+            i + 1,
+            t.category || '',
+            t.title || '',
+            t.detail || '',
+            t.due_date ? String(t.due_date).slice(0, 10) : '',
+            taskProgressPct(t.status),
+            t.result_note || ''
+          ]);
+        });
+      } else {
+        aoa.push(['해당 주차에 등록된 업무가 없습니다.']);
+      }
+      aoa.push([]);
+      const nextPlans = b.tasks.map(t => t.followup).filter(Boolean);
+      aoa.push(['차주 예정사항', nextPlans.join(' / ')]);
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = [{ wch: 5 }, { wch: 14 }, { wch: 22 }, { wch: 32 }, { wch: 12 }, { wch: 10 }, { wch: 26 }];
+
+      const startPart = (b.range.split(' ~ ')[0] || '').slice(5).replace('-', '.');
+      let base = `${startPart}_${b.assignee}`.replace(/[:\\/?*\[\]]/g, '').slice(0, 28) || 'Sheet';
+      let sheetName = base, n = 2;
+      while (usedNames.has(sheetName)) { sheetName = `${base}_${n}`; n++; }
+      usedNames.add(sheetName);
+
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `주차별_진행업무_${todayStr}.xlsx`);
   }
 
   document.getElementById('taskForm').addEventListener('submit', async (e) => {
