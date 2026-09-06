@@ -6755,7 +6755,7 @@
     if (currentTaskAssignee) {
       const visibleTasks = (taskStatusFilter
         ? scoped.filter(t => t.status === taskStatusFilter)
-        : scoped.filter(t => t.status !== '완료')
+        : scoped
       ).slice().sort((a, b) => {
         const pr = taskPriorityRank(a.priority) - taskPriorityRank(b.priority);
         if (pr !== 0) return pr;
@@ -6767,7 +6767,7 @@
       });
       note.textContent = taskStatusFilter
         ? visibleTasks.length + '건 (' + taskStatusFilter + ')'
-        : visibleTasks.length + '건 (완료 제외)';
+        : visibleTasks.length + '건 (완료 포함 전체)';
       document.getElementById('taskTableBody').innerHTML = visibleTasks.map(taskRowHtml).join('');
       return;
     }
