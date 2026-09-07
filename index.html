@@ -140,6 +140,22 @@
   .kpi-card-clickable { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
   .kpi-card-clickable:hover { border-color: rgba(77,124,254,.35); }
   .kpi-card-clickable.active { border-color: #4d7cfe; box-shadow: 0 0 0 2px rgba(77,124,254,.15); }
+  /* 할일/진행중/완료 KPI 카드: 상태별 색상으로 구분 */
+  .kpi-status-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: currentColor; margin-right: 7px; vertical-align: middle; }
+  .kpi-card.status-todo { border-left: 4px solid #94a3b8; }
+  .kpi-card.status-todo .kpi-label { color: #64748b; }
+  .kpi-card.status-todo .kpi-value { color: #475569; }
+  .kpi-card.status-mid { border-left: 4px solid #2563eb; }
+  .kpi-card.status-mid .kpi-label { color: #1d4ed8; }
+  .kpi-card.status-mid .kpi-value { color: #1d4ed8; }
+  .kpi-card.status-done { border-left: 4px solid #16a34a; }
+  .kpi-card.status-done .kpi-label { color: #15803d; }
+  .kpi-card.status-done .kpi-value { color: #15803d; }
+  .kpi-card.status-todo.active { box-shadow: 0 0 0 2px rgba(100,116,139,.2); border-color: rgba(100,116,139,.35); }
+  .kpi-card.status-mid.active { box-shadow: 0 0 0 2px rgba(37,99,235,.2); border-color: rgba(37,99,235,.35); }
+  .kpi-card.status-done.active { box-shadow: 0 0 0 2px rgba(22,163,74,.2); border-color: rgba(22,163,74,.35); }
+  /* 할일 목록 표의 진행상태 배지: 자동 표 레이아웃에서 폭이 눌려 글자가 잘리지 않도록 */
+  #taskTableBody .task-progress-select { width: auto; min-width: 64px; }
   #taskAssigneeInput:read-only { background: #f4f5f8; color: #64748b; }
   .task-priority-select { font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid transparent; padding: 3px 6px; }
   .task-priority-select.high { background: rgba(220,38,38,.12); color: #b91c1c; }
@@ -194,6 +210,9 @@
   .task-group-header { display: flex; align-items: center; gap: 14px; }
   .task-group-name { font-size: 13px; font-weight: 800; color: #0f172a; flex-shrink: 0; }
   .task-group-progress { font-size: 12px; color: #64748b; flex-shrink: 0; }
+  .task-group-progress .status-done { color: #15803d; font-weight: 700; }
+  .task-group-progress .status-mid { color: #1d4ed8; font-weight: 700; }
+  .task-group-progress .status-todo { color: #64748b; font-weight: 700; }
   .task-group-bar { flex: 1; max-width: 200px; height: 8px; background: rgba(15,23,42,.07); border-radius: 4px; overflow: hidden; }
   .task-group-bar-fill { height: 100%; background: linear-gradient(90deg,#4d7cfe,#2f5ce4); border-radius: 4px; }
   .task-group-pct { font-size: 12px; font-weight: 700; color: #1d4ed8; flex-shrink: 0; width: 36px; text-align: right; }
@@ -833,16 +852,6 @@
       <div id="teamNavGroups" style="display:none;">
         <div class="nav-group">
           <div class="nav-label">영업팀</div>
-          <div class="nav-item" id="navTeamOverview" onclick="opsNavClick('overview')"><span class="dot" style="background:#4d7cfe;"></span>Overall Operations</div>
-          <div class="nav-item" id="navOpsDaily" onclick="opsNavClick('daily')"><span class="dot" style="background:#4d7cfe;"></span>데일리 업무</div>
-          <div class="nav-item" id="navOpsWeekly" onclick="opsNavClick('weekly')"><span class="dot" style="background:#7c3aed;"></span>주차별 업무</div>
-          <div class="nav-item" id="navOpsMonthly" onclick="opsNavClick('monthly')"><span class="dot" style="background:#d97706;"></span>월마감 업무</div>
-          <div class="nav-item" id="navOpsChannel" onclick="opsNavClick('channel')"><span class="dot" style="background:#0d9488;"></span>채널별 운영</div>
-          <div class="nav-item" id="navOpsIssue" onclick="opsNavClick('issue')"><span class="dot" style="background:#dc2626;"></span>이슈 대응 매뉴얼</div>
-          <div class="nav-item" id="navTeamAccounting" onclick="switchView('team-accounting')"><span class="dot" style="background:#6b7280;"></span>사업자/회계</div>
-
-          <div style="height:1px; background:rgba(255,255,255,.08); margin:10px 4px;"></div>
-
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
             <span class="dot dot-team"></span>할일 관리
             <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
@@ -3448,11 +3457,9 @@
     document.getElementById('navSampleSync').classList.toggle('active', view === 'sample-sync');
     document.getElementById('navCodenitProducts').classList.toggle('active', view === 'codenit-products');
     document.getElementById('navReviewAlerts').classList.toggle('active', view === 'review-alerts');
-    document.getElementById('navTeamOverview').classList.toggle('active', view === 'team-overview');
     document.getElementById('navTeamProcess').classList.toggle('active', view === 'team-process');
     document.getElementById('navTeamTasks').classList.toggle('active', view === 'team-tasks');
     document.getElementById('navTeamSchedule').classList.toggle('active', view === 'team-schedule');
-    document.getElementById('navTeamAccounting').classList.toggle('active', view === 'team-accounting');
     document.querySelectorAll('#navTeamAssignees .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'team-tasks' && el.dataset.assignee === brandChannel);
     });
@@ -5138,9 +5145,10 @@
     document.getElementById('taskCards').innerHTML = TASK_STATUSES.map(status => {
       const count = scoped.filter(t => t.status === status).length;
       const active = taskStatusFilter === status;
+      const cls = taskProgressClass(status);
       return `
-        <div class="kpi-card kpi-card-clickable${active ? ' active' : ''}" onclick="filterTaskStatus('${status}')">
-          <div class="kpi-label">${status}</div>
+        <div class="kpi-card kpi-card-clickable status-${cls}${active ? ' active' : ''}" onclick="filterTaskStatus('${status}')">
+          <div class="kpi-label"><span class="kpi-status-dot"></span>${status}</div>
           <div class="kpi-value">${count}건</div>
         </div>
       `;
@@ -5263,7 +5271,7 @@
         <td><input type="text" class="inline-edit" value="${escapeAttr(t.detail || '')}"
           onchange="updateTaskField(${t.id}, 'detail', this.value)"></td>
         <td>
-          <select onchange="updateTaskStatus(${t.id}, this.value)">
+          <select class="task-progress-select ${taskProgressClass(t.status)}" onchange="updateTaskStatus(${t.id}, this.value); this.className = 'task-progress-select ' + taskProgressClass(this.value);">
             ${TASK_STATUSES.map(s => `<option value="${s}" ${s === t.status ? 'selected' : ''}>${s}</option>`).join('')}
           </select>
         </td>
@@ -5294,7 +5302,7 @@
         <td colspan="15">
           <div class="task-group-header">
             <span class="task-group-name">${escapeAttr(name)}</span>
-            <span class="task-group-progress">완료 ${done} · 진행중 ${doing} · 할일 ${todo} (전체 ${total}건)</span>
+            <span class="task-group-progress"><span class="status-done">완료 ${done}</span> · <span class="status-mid">진행중 ${doing}</span> · <span class="status-todo">할일 ${todo}</span> (전체 ${total}건)</span>
             <div class="task-group-bar"><div class="task-group-bar-fill" style="width:${pct}%"></div></div>
             <span class="task-group-pct">${pct}%</span>
           </div>
