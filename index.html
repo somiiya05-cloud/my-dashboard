@@ -161,8 +161,14 @@
   .kpi-card.status-late { border-left: 4px solid #dc2626; }
   .kpi-card.status-late .kpi-label { color: #dc2626; }
   .kpi-card.status-late .kpi-value { color: #dc2626; }
-  .team-summary-name { color: #1d4ed8; font-weight: 700; text-decoration: none; }
-  .team-summary-name:hover { text-decoration: underline; }
+  /* 검수대기·지연이 1건 이상이면 파트장이 바로 알아채도록 은은하게 강조 (과한 색/애니메이션 없이) */
+  .kpi-card.status-review.needs-attention { border-color: rgba(217,119,6,.35); background: #fffaf3; }
+  .kpi-card.status-late.needs-attention { border-color: rgba(220,38,38,.3); background: #fef8f8; }
+  .kpi-sub-note { font-size: 11.5px; font-weight: 700; color: #b45309; margin-top: 4px; }
+  .team-summary-name { color: #1d4ed8; font-weight: 700; }
+  .team-summary-row { cursor: pointer; }
+  .team-summary-row:hover { background: #f8fafc; }
+  .team-summary-row:hover .team-summary-name { text-decoration: underline; }
 
   /* ---- 할일 관리: 진행상태 / 우선순위 / 마감일 / 파트장확인 배지 ---- */
   .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
@@ -2073,10 +2079,8 @@
         </section>
 
         <section class="panel">
-          <div class="panel-head">
-            <h2>주의가 필요한 업무</h2>
-            <span class="panel-note" id="teamAttentionNote"></span>
-          </div>
+          <div class="panel-head"><h2>주의가 필요한 업무</h2></div>
+          <div class="task-tabs" id="teamAttentionTabs"></div>
           <div class="scroll-box">
             <table>
               <thead>
@@ -3606,6 +3610,7 @@
     if (view === 'team-tasks') {
       taskFilterAssignee = brandChannel || '';
       taskStatusFilter = null;
+      teamAttentionFilter = 'ALL';
       loadTeamTasks();
     }
     if (view === 'team-schedule') loadTeamSchedule();
@@ -5242,6 +5247,7 @@
   let taskFilterSearch = '';
   let taskPanelMode = null;      // 'create' | 'detail'
   let taskPanelEditingId = null;
+  let teamAttentionFilter = 'ALL'; // 'ALL' | 'late' | 'today' | '검수대기' — 팀 서머리의 "주의가 필요한 업무" 탭
 
   async function loadTeamTasks() {
     const note = document.getElementById('taskListNote');
@@ -5402,12 +5408,16 @@
     const reviewCount = active.filter(t => t.status === '검수대기').length;
     const overdueCount = active.filter(isTaskOverdue).length;
 
+    // 검수대기는 지연과 함께 파트장이 매일 반드시 확인해야 하는 지표라, 1건 이상이면
+    // 카드에 "확인 필요" 보조 문구를 붙여 눈에 띄게 합니다(색상/애니메이션은 추가하지 않음).
+    const reviewSub = reviewCount > 0 ? '<div class="kpi-sub-note">파트장 확인 필요</div>' : '';
+
     document.getElementById('taskCards').innerHTML = `
-      <div class="kpi-card"><div class="kpi-label">전체 진행 업무</div><div class="kpi-value">${active.length}건</div></div>
+      <div class="kpi-card"><div class="kpi-label">현재 미완료 업무</div><div class="kpi-value">${active.length}건</div></div>
       <div class="kpi-card status-todo"><div class="kpi-label"><span class="kpi-status-dot"></span>할 일</div><div class="kpi-value">${todoCount}건</div></div>
       <div class="kpi-card status-mid"><div class="kpi-label"><span class="kpi-status-dot"></span>진행중</div><div class="kpi-value">${midCount}건</div></div>
-      <div class="kpi-card status-review"><div class="kpi-label"><span class="kpi-status-dot"></span>검수대기</div><div class="kpi-value">${reviewCount}건</div></div>
-      <div class="kpi-card status-late"><div class="kpi-label"><span class="kpi-status-dot"></span>지연 업무</div><div class="kpi-value">${overdueCount}건</div></div>
+      <div class="kpi-card status-review${reviewCount > 0 ? ' needs-attention' : ''}"><div class="kpi-label"><span class="kpi-status-dot"></span>검수대기</div><div class="kpi-value">${reviewCount}건</div>${reviewSub}</div>
+      <div class="kpi-card status-late${overdueCount > 0 ? ' needs-attention' : ''}"><div class="kpi-label"><span class="kpi-status-dot"></span>지연 업무</div><div class="kpi-value">${overdueCount}건</div></div>
     `;
 
     // 담당자별 업무 현황 — 업무량(할일+진행중+검수대기) 많은 순
@@ -5426,8 +5436,8 @@
     }).sort((a, b) => b.total - a.total);
 
     document.getElementById('teamSummaryByAssignee').innerHTML = rows.length ? rows.map(r => `
-      <tr>
-        <td><a href="#" class="team-summary-name" onclick="event.preventDefault(); switchView('team-tasks', '${escapeAttr(r.name)}')">${escapeAttr(r.name)}</a></td>
+      <tr class="team-summary-row" onclick="switchView('team-tasks', '${escapeAttr(r.name)}')">
+        <td><span class="team-summary-name">${escapeAttr(r.name)}</span></td>
         <td>${r.todo}건</td>
         <td>${r.mid}건</td>
         <td>${r.review ? `<span class="review-badge waiting">${r.review}건</span>` : '0건'}</td>
@@ -5436,19 +5446,37 @@
       </tr>
     `).join('') : '<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:20px;">등록된 담당자가 없습니다.</td></tr>';
 
-    // 주의가 필요한 업무 — 지연 > 오늘마감 > 검수대기 순으로, 중복 없이 모음
-    const attentionMap = new Map();
-    active.forEach(t => {
-      if (isTaskOverdue(t) || isTaskDueToday(t) || t.status === '검수대기') attentionMap.set(t.id, t);
-    });
-    const attention = Array.from(attentionMap.values()).sort((a, b) => {
+    renderTeamAttention(active);
+  }
+
+  // 주의가 필요한 업무 — 전체/지연/오늘마감/검수대기 탭으로 필터링해서 보여줌.
+  // 세 조건은 서로 겹칠 수 있어(예: 검수대기이면서 오늘마감) 탭마다 독립적으로 다시 계산합니다.
+  function renderTeamAttention(active) {
+    const lateList = active.filter(isTaskOverdue);
+    const todayList = active.filter(isTaskDueToday);
+    const reviewList = active.filter(t => t.status === '검수대기');
+    const allMap = new Map();
+    [...lateList, ...todayList, ...reviewList].forEach(t => allMap.set(t.id, t));
+
+    const tabs = [
+      { key: 'ALL', label: '전체', list: Array.from(allMap.values()) },
+      { key: 'late', label: '지연', list: lateList },
+      { key: 'today', label: '오늘 마감', list: todayList },
+      { key: '검수대기', label: '검수대기', list: reviewList },
+    ];
+
+    document.getElementById('teamAttentionTabs').innerHTML = tabs.map(tab => `
+      <button type="button" class="task-tab${teamAttentionFilter === tab.key ? ' active' : ''}" onclick="filterTeamAttention('${tab.key}')">${tab.label} ${tab.list.length}</button>
+    `).join('');
+
+    const current = tabs.find(t => t.key === teamAttentionFilter) || tabs[0];
+    const attention = current.list.slice().sort((a, b) => {
       const rank = (t) => isTaskOverdue(t) ? 0 : isTaskDueToday(t) ? 1 : 2;
       const rd = rank(a) - rank(b);
       if (rd !== 0) return rd;
       const ad = a.due_date || '9999-99-99', bd = b.due_date || '9999-99-99';
       return ad < bd ? -1 : ad > bd ? 1 : 0;
     });
-    document.getElementById('teamAttentionNote').textContent = attention.length + '건';
     document.getElementById('teamAttentionBody').innerHTML = attention.length ? attention.map(t => `
       <tr class="task-row" onclick="jumpFromSummaryToTask(${t.id})">
         <td>${escapeAttr(t.assignee || '-')}</td>
@@ -5458,6 +5486,11 @@
         <td>${formatDday(t.due_date)}</td>
       </tr>
     `).join('') : '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">지금 바로 확인할 업무가 없습니다.</td></tr>';
+  }
+
+  function filterTeamAttention(key) {
+    teamAttentionFilter = key;
+    renderTeamAttention(currentTasks.filter(t => !t.archived_at && t.status !== '확인완료'));
   }
 
   async function jumpFromSummaryToTask(id) {
