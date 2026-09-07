@@ -51,6 +51,8 @@
   .workspace-menu-item .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
   .nav-group { margin-bottom: 22px; }
   .nav-label { font-size: 11px; color: #565d70; margin-bottom: 8px; padding: 0 8px; }
+  .nav-label-clickable { cursor: pointer; }
+  .nav-label-clickable:hover { color: #f5f6fa; }
   .nav-item {
     display: flex; align-items: center; gap: 10px; cursor: pointer;
     font-size: 15px; font-weight: 700; color: #a7adc1; padding: 8px; border-radius: 8px; margin-bottom: 2px;
@@ -918,7 +920,7 @@
 
       <div id="teamNavGroups" style="display:none;">
         <div class="nav-group">
-          <div class="nav-label">영업팀</div>
+          <div class="nav-label nav-label-clickable" onclick="opsNavClick('overview')" title="영업팀 업무 가이드 보기">영업팀</div>
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
             <span class="dot dot-team"></span>할일 관리
             <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
