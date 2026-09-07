@@ -5645,19 +5645,7 @@
   }
 
   async function updateTaskStatus(id, status) {
-    const { error } = await client.from('team_tasks').update({ status }).eq('id', id);
-    if (error) { alert('변경하지 못했습니다: ' + error.message); return; }
-    loadTeamTasks();
-  }
-
-  async function updateTaskConfirm(id, field, checked) {
-    const { error } = await client.from('team_tasks').update({ [field]: checked }).eq('id', id);
-    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
-    loadTeamTasks();
-  }
-
-  async function toggleTaskDone(id, checked) {
-    if (checked) {
+    if (status === '완료') {
       const t = currentTasks.find(x => x.id === id);
       if (!(t && t.confirm_1 && t.confirm_2)) {
         alert('1차, 2차 확인이 모두 체크되어야 완료 처리할 수 있습니다.');
@@ -5665,6 +5653,29 @@
         return;
       }
     }
+    const { error } = await client.from('team_tasks').update({ status }).eq('id', id);
+    if (error) { alert('변경하지 못했습니다: ' + error.message); return; }
+    loadTeamTasks();
+  }
+
+  // 1차/2차가 모두 체크되면 자동으로 완료 처리하고, 완료 상태에서 둘 중 하나라도
+  // 체크가 풀리면 진행중으로 되돌린다.
+  async function updateTaskConfirm(id, field, checked) {
+    const t = currentTasks.find(x => x.id === id);
+    const confirm1 = field === 'confirm_1' ? checked : !!(t && t.confirm_1);
+    const confirm2 = field === 'confirm_2' ? checked : !!(t && t.confirm_2);
+    const updates = { [field]: checked };
+    if (confirm1 && confirm2) {
+      updates.status = '완료';
+    } else if (t && t.status === '완료') {
+      updates.status = '진행중';
+    }
+    const { error } = await client.from('team_tasks').update(updates).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadTeamTasks();
+  }
+
+  async function toggleTaskDone(id, checked) {
     await updateTaskStatus(id, checked ? '완료' : '할일');
   }
 
