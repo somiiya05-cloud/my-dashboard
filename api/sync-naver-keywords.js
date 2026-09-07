@@ -9,6 +9,9 @@
 //
 // 필요한 Vercel 환경변수: sync-naver-ads.js와 동일
 //   NAVER_API_KEY, NAVER_SECRET_KEY, NAVER_CUSTOMER_ID, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET
+// 계정2(추가 네이버 광고 계정)를 붙이는 방법도 sync-naver-ads.js와 동일합니다:
+//   NAVER_API_KEY_2/NAVER_SECRET_KEY_2/NAVER_CUSTOMER_ID_2를 등록하고, 아래 ACCOUNTS의
+//   두 번째 항목 brands를 채우세요. (두 파일의 ACCOUNTS는 반드시 같은 내용으로 유지하세요.)
 //
 // ⚠️ 캠페인·키워드 수가 많으면 1건씩 호출하는 방식은 60초 실행 제한을 넘기기 쉬워서,
 // 네이버 API의 "여러 id를 한 번에 조회"하는 벌크 통계 엔드포인트(GET /stats?ids=...)를
@@ -34,18 +37,34 @@ const MAX_RETRIES = 4;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// sync-naver-ads.js와 동일한 브랜드 매칭표
-const BRANDS = [
-  { name: '코드니처', channel: '네이버 코드니처' },
-  { name: '미니멀룸', channel: '네이버 미니멀룸' },
-  { name: '빠이러스', channel: '네이버 빠이러스' },
-  { name: '그로우뮤즈', channel: '네이버 그로우유즈' },
-  { name: '라스마', channel: '네이버 라스마' },
-  { name: '잠비에', channel: '네이버 잠비에' },
-  { name: '글로리핏', channel: '네이버 글로리핏' },
-  { name: '명퉤', channel: '네이버 명퉤' },
-  { name: '멜루션', channel: '네이버 멜루션' },
-  { name: '폴크', channel: '네이버 폴크' }
+// sync-naver-ads.js와 동일한 계정별 브랜드 매칭표 (두 파일의 ACCOUNTS는 항상 같게 유지)
+const ACCOUNTS = [
+  {
+    label: '계정1',
+    apiKeyEnv: 'NAVER_API_KEY',
+    secretKeyEnv: 'NAVER_SECRET_KEY',
+    customerIdEnv: 'NAVER_CUSTOMER_ID',
+    brands: [
+      { name: '코드니처', channel: '네이버 코드니처' },
+      { name: '미니멀룸', channel: '네이버 미니멀룸' },
+      { name: '빠이러스', channel: '네이버 빠이러스' },
+      { name: '그로우뮤즈', channel: '네이버 그로우유즈' },
+      { name: '라스마', channel: '네이버 라스마' },
+      { name: '잠비에', channel: '네이버 잠비에' },
+      { name: '글로리핏', channel: '네이버 글로리핏' },
+      { name: '명퉤', channel: '네이버 명퉤' },
+      { name: '멜루션', channel: '네이버 멜루션' },
+      { name: '폴크', channel: '네이버 폴크' }
+    ]
+  },
+  {
+    label: '계정2',
+    apiKeyEnv: 'NAVER_API_KEY_2',
+    secretKeyEnv: 'NAVER_SECRET_KEY_2',
+    customerIdEnv: 'NAVER_CUSTOMER_ID_2',
+    // TODO: 계정2에 속한 브랜드를 여기에 채우세요 (sync-naver-ads.js의 ACCOUNTS와 동일하게).
+    brands: []
+  }
 ];
 const FALLBACK_CHANNEL = '네이버 기타';
 
@@ -55,7 +74,7 @@ function sign(timestamp, method, uri, secretKey) {
 
 // 네이버 API가 429(Too Many Requests)를 주면 점점 더 오래 기다렸다가 재시도합니다.
 // params의 값이 배열이면 같은 키를 반복해서 붙입니다(예: ids=a&ids=b), 벌크 조회용.
-async function naverRequest(method, uri, params, attempt = 0) {
+async function naverRequest(account, method, uri, params, attempt = 0) {
   const timestamp = String(Date.now());
   const url = new URL(NAVER_BASE + uri);
   if (params) {
@@ -70,24 +89,24 @@ async function naverRequest(method, uri, params, attempt = 0) {
     headers: {
       'Content-Type': 'application/json; charset=UTF-8',
       'X-Timestamp': timestamp,
-      'X-API-KEY': process.env.NAVER_API_KEY,
-      'X-Customer': process.env.NAVER_CUSTOMER_ID,
-      'X-Signature': sign(timestamp, method, uri, process.env.NAVER_SECRET_KEY)
+      'X-API-KEY': process.env[account.apiKeyEnv],
+      'X-Customer': process.env[account.customerIdEnv],
+      'X-Signature': sign(timestamp, method, uri, process.env[account.secretKeyEnv])
     }
   });
   if (res.status === 429 && attempt < MAX_RETRIES) {
     await sleep(300 * Math.pow(2, attempt));
-    return naverRequest(method, uri, params, attempt + 1);
+    return naverRequest(account, method, uri, params, attempt + 1);
   }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`네이버 API 요청 실패 ${method} ${uri} (${res.status}): ${text}`);
+    throw new Error(`네이버 API 요청 실패 [${account.label}] ${method} ${uri} (${res.status}): ${text}`);
   }
   return res.json();
 }
 
-function matchChannel(campaignName) {
-  const sorted = [...BRANDS].sort((a, b) => b.name.length - a.name.length);
+function matchChannel(brands, campaignName) {
+  const sorted = [...brands].sort((a, b) => b.name.length - a.name.length);
   const hit = sorted.find((b) => campaignName.startsWith(b.name));
   return hit ? hit.channel : FALLBACK_CHANNEL;
 }
@@ -96,13 +115,13 @@ function matchChannel(campaignName) {
 // BULK_BATCH_SIZE개씩 묶고, 그 배치들을 BULK_CONCURRENCY만큼 동시에 조회해서
 // 키워드가 수천 개인 계정(쇼핑검색은 상품마다 키워드가 자동 생성돼 아주 많아짐)도
 // 시간 안에 끝낼 수 있게 합니다. 반환값은 id -> 합계 Map.
-async function fetchBulkTotals(ids, since, until, debugSample) {
+async function fetchBulkTotals(account, ids, since, until, debugSample) {
   const totalsById = new Map();
   const batches = [];
   for (let i = 0; i < ids.length; i += BULK_BATCH_SIZE) batches.push(ids.slice(i, i + BULK_BATCH_SIZE));
 
   await mapWithConcurrency(batches, BULK_CONCURRENCY, async (batch, i) => {
-    const data = await naverRequest('GET', '/stats', {
+    const data = await naverRequest(account, 'GET', '/stats', {
       ids: batch,
       fields: JSON.stringify(['salesAmt', 'impCnt', 'clkCnt', 'ccnt', 'convAmt']),
       timeRange: JSON.stringify({ since, until })
@@ -163,12 +182,130 @@ async function upsertInChunks(table, conflictCols, rows) {
   }, 0);
 }
 
+// 계정 하나에 대해 캠페인 → 광고그룹 → 키워드까지 내려가며 성과를 모읍니다.
+// 여러 계정을 순회할 때 계정마다 이 함수를 한 번씩 호출합니다.
+async function syncNaverKeywordsForAccount(account, since, until, monthStr, debug, elapsed) {
+  const allCampaigns = await naverRequest(account, 'GET', '/ncc/campaigns');
+  console.log(`[naver-keywords][${account.label}] 캠페인 ${allCampaigns.length}개 조회 완료 (${elapsed()})`);
+
+  // 이번 달에 노출·클릭·광고비가 전혀 없었던 캠페인은 광고그룹/키워드까지 내려가 봐야
+  // 어차피 낭비 키워드가 나올 수 없으므로, 먼저 캠페인 단위로 걸러서 이후 API 호출량을 줄입니다.
+  // (벌크 통계 조회라 캠페인이 몇백 개라도 몇 번의 호출로 끝납니다.)
+  const campaignBulkDebug = {};
+  const campaignTotals = await fetchBulkTotals(
+    account,
+    allCampaigns.map((c) => c.nccCampaignId),
+    since,
+    until,
+    debug ? campaignBulkDebug : null
+  );
+  const campaigns = allCampaigns.filter((c) => {
+    const t = campaignTotals.get(c.nccCampaignId);
+    return t && (t.spend > 0 || t.impressions > 0 || t.clicks > 0);
+  });
+  console.log(`[naver-keywords][${account.label}] 활동 캠페인 ${campaigns.length}/${allCampaigns.length}개 (${elapsed()})`);
+
+  // 캠페인 → 광고그룹 (부모 id 하나씩만 조회 가능해서 개별 호출이지만, 활동 캠페인만 대상이라 수가 적음)
+  const campaignAdgroups = await mapWithConcurrency(campaigns, LIST_CONCURRENCY, async (campaign) => {
+    const adgroups = await naverRequest(account, 'GET', '/ncc/adgroups', { nccCampaignId: campaign.nccCampaignId });
+    return { channel: matchChannel(account.brands, campaign.name), campaignName: campaign.name, adgroups: adgroups || [] };
+  });
+
+  const adgroupTargets = [];
+  for (const { channel, campaignName, adgroups } of campaignAdgroups) {
+    for (const ag of adgroups) {
+      adgroupTargets.push({ channel, campaignName, adgroupId: ag.nccAdgroupId, adgroupName: ag.name });
+    }
+  }
+  console.log(`[naver-keywords][${account.label}] 광고그룹 ${adgroupTargets.length}개 조회 완료 (${elapsed()})`);
+
+  // 광고그룹 → 키워드 (마찬가지로 개별 호출)
+  const adgroupKeywords = await mapWithConcurrency(adgroupTargets, LIST_CONCURRENCY, async (t) => {
+    const keywords = await naverRequest(account, 'GET', '/ncc/keywords', { nccAdgroupId: t.adgroupId });
+    return { ...t, keywords: keywords || [] };
+  });
+
+  const keywordTargets = [];
+  for (const t of adgroupKeywords) {
+    for (const kw of t.keywords) {
+      keywordTargets.push({
+        channel: t.channel,
+        campaign: t.campaignName,
+        adgroup: t.adgroupName,
+        keyword: kw.keyword,
+        keywordId: kw.nccKeywordId
+      });
+    }
+  }
+  console.log(`[naver-keywords][${account.label}] 키워드 ${keywordTargets.length}개 조회 완료 (${elapsed()})`);
+
+  // 키워드별 성과 — 벌크 통계 조회로 몇백 개라도 몇 번의 호출로 끝냅니다.
+  const keywordBulkDebug = {};
+  const keywordTotals = await fetchBulkTotals(
+    account,
+    keywordTargets.map((t) => t.keywordId),
+    since,
+    until,
+    debug ? keywordBulkDebug : null
+  );
+  const rows = keywordTargets.map((t) => ({
+    month: monthStr,
+    channel: t.channel,
+    campaign: t.campaign,
+    adgroup: t.adgroup,
+    keyword: t.keyword,
+    keyword_id: t.keywordId,
+    ...(keywordTotals.get(t.keywordId) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 })
+  }));
+  console.log(`[naver-keywords][${account.label}] 키워드별 성과 수집 완료 (${elapsed()})`);
+
+  // 캠페인 레벨 통계(campaignTotals) vs 그 캠페인에 속한 키워드들의 통계 합
+  // — 쇼핑검색처럼 캠페인 스펜드가 키워드 단위로 안 잡히는 경우를 확인하기 위한 진단 로그.
+  const adgroupCountByCampaign = new Map();
+  const keywordCountByCampaign = new Map();
+  for (const t of adgroupTargets) {
+    adgroupCountByCampaign.set(t.campaignName, (adgroupCountByCampaign.get(t.campaignName) || 0) + 1);
+  }
+  const keywordSumByCampaign = new Map();
+  for (const r of rows) {
+    const cur = keywordSumByCampaign.get(r.campaign) || { spend: 0, clicks: 0, count: 0 };
+    cur.spend += r.spend;
+    cur.clicks += r.clicks;
+    cur.count += 1;
+    keywordSumByCampaign.set(r.campaign, cur);
+    keywordCountByCampaign.set(r.campaign, (keywordCountByCampaign.get(r.campaign) || 0) + 1);
+  }
+  console.log(`[naver-keywords][${account.label}] 캠페인별 진단 (캠페인 레벨 통계 vs 키워드 합):`);
+  for (const campaign of campaigns) {
+    const campaignLevel = campaignTotals.get(campaign.nccCampaignId) || { spend: 0, clicks: 0 };
+    const kwSum = keywordSumByCampaign.get(campaign.name) || { spend: 0, clicks: 0, count: 0 };
+    console.log(
+      `  - ${campaign.name} (${campaign.campaignTp}): 캠페인레벨 광고비=${campaignLevel.spend}/클릭=${campaignLevel.clicks}` +
+        ` | 광고그룹=${adgroupCountByCampaign.get(campaign.name) || 0}개, 키워드=${keywordCountByCampaign.get(campaign.name) || 0}개` +
+        ` | 키워드합계 광고비=${kwSum.spend}/클릭=${kwSum.clicks}`
+    );
+  }
+
+  return {
+    label: account.label,
+    rows,
+    totalCampaignCount: allCampaigns.length,
+    activeCampaignCount: campaigns.length,
+    adgroupCount: adgroupTargets.length,
+    keywordCount: keywordTargets.length,
+    campaignBulkDebug,
+    keywordBulkDebug
+  };
+}
+
 module.exports = async function handler(req, res) {
   const authHeader = req.headers['authorization'];
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'unauthorized' });
   }
 
+  // 계정1(기존 계정)은 필수, 계정2 이후는 환경변수 3종이 다 있을 때만 사용합니다
+  // (sync-naver-ads.js와 동일한 규칙).
   const missing = ['NAVER_API_KEY', 'NAVER_SECRET_KEY', 'NAVER_CUSTOMER_ID', 'SUPABASE_SERVICE_ROLE_KEY'].filter(
     (k) => !process.env[k]
   );
@@ -178,6 +315,11 @@ module.exports = async function handler(req, res) {
       detail: `${missing.join(', ')} 가 설정돼 있는지 확인하세요.`
     });
   }
+
+  const activeAccounts = ACCOUNTS.filter(
+    (a) => process.env[a.apiKeyEnv] && process.env[a.secretKeyEnv] && process.env[a.customerIdEnv]
+  );
+  const skippedAccounts = ACCOUNTS.filter((a) => !activeAccounts.includes(a)).map((a) => a.label);
 
   const monthParam = req.query && req.query.month;
   const debug = req.query && req.query.debug === '1';
@@ -193,105 +335,12 @@ module.exports = async function handler(req, res) {
   const elapsed = () => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
 
   try {
-    const allCampaigns = await naverRequest('GET', '/ncc/campaigns');
-    console.log(`[naver-keywords] 캠페인 ${allCampaigns.length}개 조회 완료 (${elapsed()})`);
-
-    // 이번 달에 노출·클릭·광고비가 전혀 없었던 캠페인은 광고그룹/키워드까지 내려가 봐야
-    // 어차피 낭비 키워드가 나올 수 없으므로, 먼저 캠페인 단위로 걸러서 이후 API 호출량을 줄입니다.
-    // (벌크 통계 조회라 캠페인이 몇백 개라도 몇 번의 호출로 끝납니다.)
-    const campaignBulkDebug = {};
-    const campaignTotals = await fetchBulkTotals(
-      allCampaigns.map((c) => c.nccCampaignId),
-      since,
-      until,
-      debug ? campaignBulkDebug : null
-    );
-    const campaigns = allCampaigns.filter((c) => {
-      const t = campaignTotals.get(c.nccCampaignId);
-      return t && (t.spend > 0 || t.impressions > 0 || t.clicks > 0);
-    });
-    console.log(`[naver-keywords] 활동 캠페인 ${campaigns.length}/${allCampaigns.length}개 (${elapsed()})`);
-
-    // 캠페인 → 광고그룹 (부모 id 하나씩만 조회 가능해서 개별 호출이지만, 활동 캠페인만 대상이라 수가 적음)
-    const campaignAdgroups = await mapWithConcurrency(campaigns, LIST_CONCURRENCY, async (campaign) => {
-      const adgroups = await naverRequest('GET', '/ncc/adgroups', { nccCampaignId: campaign.nccCampaignId });
-      return { channel: matchChannel(campaign.name), campaignName: campaign.name, adgroups: adgroups || [] };
-    });
-
-    const adgroupTargets = [];
-    for (const { channel, campaignName, adgroups } of campaignAdgroups) {
-      for (const ag of adgroups) {
-        adgroupTargets.push({ channel, campaignName, adgroupId: ag.nccAdgroupId, adgroupName: ag.name });
-      }
-    }
-    console.log(`[naver-keywords] 광고그룹 ${adgroupTargets.length}개 조회 완료 (${elapsed()})`);
-
-    // 광고그룹 → 키워드 (마찬가지로 개별 호출)
-    const adgroupKeywords = await mapWithConcurrency(adgroupTargets, LIST_CONCURRENCY, async (t) => {
-      const keywords = await naverRequest('GET', '/ncc/keywords', { nccAdgroupId: t.adgroupId });
-      return { ...t, keywords: keywords || [] };
-    });
-
-    const keywordTargets = [];
-    for (const t of adgroupKeywords) {
-      for (const kw of t.keywords) {
-        keywordTargets.push({
-          channel: t.channel,
-          campaign: t.campaignName,
-          adgroup: t.adgroupName,
-          keyword: kw.keyword,
-          keywordId: kw.nccKeywordId
-        });
-      }
-    }
-    console.log(`[naver-keywords] 키워드 ${keywordTargets.length}개 조회 완료 (${elapsed()})`);
-
-    // 키워드별 성과 — 벌크 통계 조회로 몇백 개라도 몇 번의 호출로 끝냅니다.
-    const keywordBulkDebug = {};
-    const keywordTotals = await fetchBulkTotals(
-      keywordTargets.map((t) => t.keywordId),
-      since,
-      until,
-      debug ? keywordBulkDebug : null
-    );
-    const rows = keywordTargets.map((t) => ({
-      month: monthStr,
-      channel: t.channel,
-      campaign: t.campaign,
-      adgroup: t.adgroup,
-      keyword: t.keyword,
-      keyword_id: t.keywordId,
-      ...(keywordTotals.get(t.keywordId) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 })
-    }));
-    console.log(`[naver-keywords] 키워드별 성과 수집 완료 (${elapsed()})`);
-
-    // 캠페인 레벨 통계(campaignTotals) vs 그 캠페인에 속한 키워드들의 통계 합
-    // — 쇼핑검색처럼 캠페인 스펜드가 키워드 단위로 안 잡히는 경우를 확인하기 위한 진단 로그.
-    const adgroupCountByCampaign = new Map();
-    const keywordCountByCampaign = new Map();
-    for (const t of adgroupTargets) {
-      adgroupCountByCampaign.set(t.campaignName, (adgroupCountByCampaign.get(t.campaignName) || 0) + 1);
-    }
-    const keywordSumByCampaign = new Map();
-    for (const r of rows) {
-      const cur = keywordSumByCampaign.get(r.campaign) || { spend: 0, clicks: 0, count: 0 };
-      cur.spend += r.spend;
-      cur.clicks += r.clicks;
-      cur.count += 1;
-      keywordSumByCampaign.set(r.campaign, cur);
-      keywordCountByCampaign.set(r.campaign, (keywordCountByCampaign.get(r.campaign) || 0) + 1);
-    }
-    console.log('[naver-keywords] 캠페인별 진단 (캠페인 레벨 통계 vs 키워드 합):');
-    for (const campaign of campaigns) {
-      const campaignLevel = campaignTotals.get(campaign.nccCampaignId) || { spend: 0, clicks: 0 };
-      const kwSum = keywordSumByCampaign.get(campaign.name) || { spend: 0, clicks: 0, count: 0 };
-      console.log(
-        `  - ${campaign.name} (${campaign.campaignTp}): 캠페인레벨 광고비=${campaignLevel.spend}/클릭=${campaignLevel.clicks}` +
-          ` | 광고그룹=${adgroupCountByCampaign.get(campaign.name) || 0}개, 키워드=${keywordCountByCampaign.get(campaign.name) || 0}개` +
-          ` | 키워드합계 광고비=${kwSum.spend}/클릭=${kwSum.clicks}`
-      );
+    const perAccountResults = [];
+    for (const account of activeAccounts) {
+      perAccountResults.push(await syncNaverKeywordsForAccount(account, since, until, monthStr, debug, elapsed));
     }
 
+    const rows = perAccountResults.flatMap((r) => r.rows);
     // 노출도 클릭도 전혀 없었던 키워드는 저장하지 않아 표를 깔끔하게 유지합니다.
     const meaningfulRows = rows.filter((r) => r.spend > 0 || r.impressions > 0 || r.clicks > 0);
     await upsertInChunks('naver_keyword_performance', 'month,keyword_id', meaningfulRows);
@@ -299,13 +348,23 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       month: monthStr,
-      totalCampaignCount: allCampaigns.length,
-      activeCampaignCount: campaigns.length,
-      adgroupCount: adgroupTargets.length,
-      keywordCount: keywordTargets.length,
+      accountsUsed: activeAccounts.map((a) => a.label),
+      accountsSkipped: skippedAccounts,
+      totalCampaignCount: perAccountResults.reduce((s, r) => s + r.totalCampaignCount, 0),
+      activeCampaignCount: perAccountResults.reduce((s, r) => s + r.activeCampaignCount, 0),
+      adgroupCount: perAccountResults.reduce((s, r) => s + r.adgroupCount, 0),
+      keywordCount: perAccountResults.reduce((s, r) => s + r.keywordCount, 0),
       savedCount: meaningfulRows.length,
       elapsed: elapsed(),
-      ...(debug ? { debugCampaignBulkSample: campaignBulkDebug.raw, debugKeywordBulkSample: keywordBulkDebug.raw } : {})
+      ...(debug
+        ? {
+            debugSamples: perAccountResults.map((r) => ({
+              label: r.label,
+              campaignBulkSample: r.campaignBulkDebug.raw,
+              keywordBulkSample: r.keywordBulkDebug.raw
+            }))
+          }
+        : {})
     });
   } catch (err) {
     return res.status(500).json({ error: 'unexpected_error', detail: String(err), elapsed: elapsed() });

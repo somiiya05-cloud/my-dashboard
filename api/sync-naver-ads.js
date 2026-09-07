@@ -11,12 +11,20 @@
 // ⚠️ 배치 위치: GitHub 저장소 최상위의 "api" 폴더 안에 "sync-naver-ads.js" 로 저장하세요.
 //    최종 경로: api/sync-naver-ads.js
 //
-// 필요한 Vercel 환경변수:
+// 필요한 Vercel 환경변수 (계정 1 — 기존 계정):
 //   NAVER_API_KEY, NAVER_SECRET_KEY, NAVER_CUSTOMER_ID  - 네이버 검색광고 API 키
 //   SUPABASE_SERVICE_ROLE_KEY - Supabase 프로젝트 설정 → API → service_role 키
 //   CRON_SECRET               - sync-meta-ads.js와 같은 값을 그대로 재사용하면 됩니다.
 //
-// 네이버 광고 계정 하나에 여러 브랜드 캠페인이 섞여 있어서, 캠페인명이 아래 BRANDS의
+// 계정 2(추가 네이버 광고 계정)를 붙이려면:
+//   1) 네이버 검색광고 관리자센터에서 API 라이선스를 발급받아 Vercel에 NAVER_API_KEY_2,
+//      NAVER_SECRET_KEY_2, NAVER_CUSTOMER_ID_2 세 개를 환경변수로 등록하세요.
+//   2) 아래 ACCOUNTS 배열의 두 번째 항목 brands에 그 계정에 속한 브랜드를 채우세요.
+//      (name은 캠페인명 접두어, channel은 마케팅대시보드 index.html의 MARKETING_BRANDS에
+//       있는 채널명과 정확히 같아야 합니다. 새 브랜드라면 거기도 같이 추가해야 합니다.)
+//   계정 2의 환경변수가 아직 없으면 이 함수는 계정 2를 건너뛰고 계정 1만 그대로 동기화합니다.
+//
+// 네이버 광고 계정 하나에 여러 브랜드 캠페인이 섞여 있어서, 캠페인명이 그 계정의 brands
 // 이름으로 시작하면 그 브랜드 채널로, 아니면 '네이버 기타' 채널로 집계합니다.
 // (매출(revenue)은 전환추적이 연결돼 있어야 값이 나오며, 없으면 0으로 기록됩니다.)
 //
@@ -29,19 +37,36 @@ const crypto = require('crypto');
 const NAVER_BASE = 'https://api.searchad.naver.com';
 const SUPABASE_URL = 'https://fwsszzjfjktliredmjcn.supabase.co';
 
-// name은 캠페인명 매칭에 쓰이고, channel은 ad_performance 테이블 및 마케팅 대시보드
-// 사이드바(index.html의 MARKETING_BRANDS)에 있는 채널명과 정확히 같아야 매칭됩니다.
-const BRANDS = [
-  { name: '코드니처', channel: '네이버 코드니처' },
-  { name: '미니멀룸', channel: '네이버 미니멀룸' },
-  { name: '빠이러스', channel: '네이버 빠이러스' },
-  { name: '그로우뮤즈', channel: '네이버 그로우유즈' },
-  { name: '라스마', channel: '네이버 라스마' },
-  { name: '잠비에', channel: '네이버 잠비에' },
-  { name: '글로리핏', channel: '네이버 글로리핏' },
-  { name: '명퉤', channel: '네이버 명퉤' },
-  { name: '멜루션', channel: '네이버 멜루션' },
-  { name: '폴크', channel: '네이버 폴크' }
+// 계정이 여러 개면 이 배열에 하나씩 추가합니다. 각 계정은 자기 자신의 API 키/브랜드
+// 매칭표를 갖고, 서로 다른 네이버 검색광고 계정이라 브랜드명이 겹쳐도 문제없습니다.
+const ACCOUNTS = [
+  {
+    label: '계정1',
+    apiKeyEnv: 'NAVER_API_KEY',
+    secretKeyEnv: 'NAVER_SECRET_KEY',
+    customerIdEnv: 'NAVER_CUSTOMER_ID',
+    brands: [
+      { name: '코드니처', channel: '네이버 코드니처' },
+      { name: '미니멀룸', channel: '네이버 미니멀룸' },
+      { name: '빠이러스', channel: '네이버 빠이러스' },
+      { name: '그로우뮤즈', channel: '네이버 그로우유즈' },
+      { name: '라스마', channel: '네이버 라스마' },
+      { name: '잠비에', channel: '네이버 잠비에' },
+      { name: '글로리핏', channel: '네이버 글로리핏' },
+      { name: '명퉤', channel: '네이버 명퉤' },
+      { name: '멜루션', channel: '네이버 멜루션' },
+      { name: '폴크', channel: '네이버 폴크' }
+    ]
+  },
+  {
+    label: '계정2',
+    apiKeyEnv: 'NAVER_API_KEY_2',
+    secretKeyEnv: 'NAVER_SECRET_KEY_2',
+    customerIdEnv: 'NAVER_CUSTOMER_ID_2',
+    // TODO: 계정2에 속한 브랜드를 여기에 채우세요. 예:
+    // { name: '브랜드명', channel: '네이버 브랜드명' },
+    brands: []
+  }
 ];
 const FALLBACK_CHANNEL = '네이버 기타';
 
@@ -49,7 +74,7 @@ function sign(timestamp, method, uri, secretKey) {
   return crypto.createHmac('sha256', secretKey).update(`${timestamp}.${method}.${uri}`).digest('base64');
 }
 
-async function naverRequest(method, uri, params) {
+async function naverRequest(account, method, uri, params) {
   const timestamp = String(Date.now());
   const url = new URL(NAVER_BASE + uri);
   if (params) for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
@@ -59,22 +84,22 @@ async function naverRequest(method, uri, params) {
     headers: {
       'Content-Type': 'application/json; charset=UTF-8',
       'X-Timestamp': timestamp,
-      'X-API-KEY': process.env.NAVER_API_KEY,
-      'X-Customer': process.env.NAVER_CUSTOMER_ID,
-      'X-Signature': sign(timestamp, method, uri, process.env.NAVER_SECRET_KEY)
+      'X-API-KEY': process.env[account.apiKeyEnv],
+      'X-Customer': process.env[account.customerIdEnv],
+      'X-Signature': sign(timestamp, method, uri, process.env[account.secretKeyEnv])
     }
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`네이버 API 요청 실패 ${method} ${uri} (${res.status}): ${text}`);
+    throw new Error(`네이버 API 요청 실패 [${account.label}] ${method} ${uri} (${res.status}): ${text}`);
   }
   return res.json();
 }
 
 // 캠페인명이 브랜드명으로 시작하는지 확인합니다. 이름이 겹치는 경우
 // (예: '미니멀' vs '미니멀룸') 더 긴 이름을 우선 매칭합니다.
-function matchChannel(campaignName) {
-  const sorted = [...BRANDS].sort((a, b) => b.name.length - a.name.length);
+function matchChannel(brands, campaignName) {
+  const sorted = [...brands].sort((a, b) => b.name.length - a.name.length);
   const hit = sorted.find((b) => campaignName.startsWith(b.name));
   return hit ? hit.channel : FALLBACK_CHANNEL;
 }
@@ -87,8 +112,8 @@ function matchAdType(campaignName) {
 
 // 실제 API 응답은 문서(dailyStatResponse.data)와 달리 최상위에 data 배열을 바로 내려줍니다.
 // days(일별 원본 배열)도 같이 반환해서 호출하는 쪽에서 "일별 성과" 집계에 재사용합니다.
-async function fetchCampaignTotals(campaignId, since, until) {
-  const data = await naverRequest('GET', '/stats', {
+async function fetchCampaignTotals(account, campaignId, since, until) {
+  const data = await naverRequest(account, 'GET', '/stats', {
     id: campaignId,
     fields: JSON.stringify(['salesAmt', 'impCnt', 'clkCnt', 'ccnt', 'convAmt']),
     timeRange: JSON.stringify({ since, until }),
@@ -115,6 +140,8 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'unauthorized' });
   }
 
+  // 계정1(기존 계정)은 필수, 계정2 이후는 환경변수 3종이 다 있을 때만 사용합니다
+  // (아직 API 키를 발급받기 전이라 계정2 환경변수가 없어도 계정1만으로 정상 동작합니다).
   const missing = ['NAVER_API_KEY', 'NAVER_SECRET_KEY', 'NAVER_CUSTOMER_ID', 'SUPABASE_SERVICE_ROLE_KEY'].filter(
     (k) => !process.env[k]
   );
@@ -125,6 +152,11 @@ module.exports = async function handler(req, res) {
     });
   }
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  const activeAccounts = ACCOUNTS.filter(
+    (a) => process.env[a.apiKeyEnv] && process.env[a.secretKeyEnv] && process.env[a.customerIdEnv]
+  );
+  const skippedAccounts = ACCOUNTS.filter((a) => !activeAccounts.includes(a)).map((a) => a.label);
 
   // 조회할 월 (?month=2026-09 로 지정 가능, 없으면 이번 달)
   const monthParam = req.query && req.query.month;
@@ -137,14 +169,19 @@ module.exports = async function handler(req, res) {
   const until = `${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
   try {
-    const campaigns = await naverRequest('GET', '/ncc/campaigns');
-
-    const perCampaign = await Promise.all(
-      campaigns.map(async (campaign) => {
-        const { totals, days } = await fetchCampaignTotals(campaign.nccCampaignId, since, until);
-        return { name: campaign.name, channel: matchChannel(campaign.name), totals, days };
-      })
-    );
+    let campaignCount = 0;
+    const perCampaign = [];
+    for (const account of activeAccounts) {
+      const campaigns = await naverRequest(account, 'GET', '/ncc/campaigns');
+      campaignCount += campaigns.length;
+      const accountPerCampaign = await Promise.all(
+        campaigns.map(async (campaign) => {
+          const { totals, days } = await fetchCampaignTotals(account, campaign.nccCampaignId, since, until);
+          return { name: campaign.name, channel: matchChannel(account.brands, campaign.name), totals, days };
+        })
+      );
+      perCampaign.push(...accountPerCampaign);
+    }
 
     const totalsByChannel = new Map();
     for (const { channel, totals } of perCampaign) {
@@ -251,7 +288,14 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ month: monthStr, campaignCount: campaigns.length, dailyRowCount: dailyRows.length, results });
+    return res.status(200).json({
+      month: monthStr,
+      accountsUsed: activeAccounts.map((a) => a.label),
+      accountsSkipped: skippedAccounts,
+      campaignCount,
+      dailyRowCount: dailyRows.length,
+      results
+    });
   } catch (err) {
     return res.status(500).json({ error: 'unexpected_error', detail: String(err) });
   }
