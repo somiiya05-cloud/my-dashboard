@@ -3486,6 +3486,7 @@
     if (view === 'review-alerts') loadReviewAlerts();
     if (view === 'team-tasks') {
       currentTaskAssignee = brandChannel || null;
+      taskStatusFilter = null;
       loadTeamTasks();
     }
     if (view === 'team-schedule') loadTeamSchedule();
@@ -5106,7 +5107,6 @@
 
   async function loadTeamTasks() {
     const note = document.getElementById('taskListNote');
-    taskStatusFilter = null;
     const { data, error } = await client
       .from('team_tasks')
       .select('*')
