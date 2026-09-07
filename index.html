@@ -926,6 +926,7 @@
             <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
           </div>
           <div id="navTeamAssignees"></div>
+          <div class="nav-item" id="navTeamWeekly" onclick="switchView('team-weekly')"><span class="dot dot-team"></span>주차별 진행 업무</div>
           <div class="nav-item" id="navTeamSchedule" onclick="switchView('team-schedule', 'main')"><span class="dot dot-team"></span>프로모션</div>
           <div id="navScheduleSub">
             <div class="nav-subitem" data-schedulesub="main" onclick="switchView('team-schedule', 'main')">일정</div>
@@ -2141,15 +2142,22 @@
             </div>
           </div>
         </section>
-
-        <section class="panel" id="taskWeeklyPanel" style="display:none">
-          <div class="panel-head">
-            <h2>주차별 진행 업무</h2>
-            <button type="button" class="btn-primary" style="margin-left:auto; padding:6px 14px; font-size:12px;" onclick="exportTaskWeeklyExcel()">엑셀로 다운로드</button>
-          </div>
-          <div id="taskWeeklyBody"></div>
-        </section>
       </div>
+    </main>
+
+    <main class="main" id="teamWeeklyView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>주차별 진행 업무</h1>
+          <div class="subtitle">영업팀 전체의 주차별 업무 보고를 확인합니다.</div>
+        </div>
+        <div class="topbar-right">
+          <button type="button" class="btn-primary" onclick="exportTaskWeeklyExcel()">엑셀로 다운로드</button>
+        </div>
+      </div>
+      <section class="panel">
+        <div id="taskWeeklyBody"></div>
+      </section>
     </main>
 
     <div class="task-panel-overlay" id="taskPanelOverlay" style="display:none" onclick="if(event.target===this) closeTaskPanel()">
@@ -3563,6 +3571,7 @@
     document.getElementById('teamOverviewView').style.display = view === 'team-overview' ? '' : 'none';
     document.getElementById('teamProcessView').style.display = view === 'team-process' ? '' : 'none';
     document.getElementById('teamTasksView').style.display = view === 'team-tasks' ? '' : 'none';
+    document.getElementById('teamWeeklyView').style.display = view === 'team-weekly' ? '' : 'none';
     document.getElementById('teamScheduleView').style.display = view === 'team-schedule' ? '' : 'none';
     document.getElementById('teamAccountingView').style.display = view === 'team-accounting' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
@@ -3577,6 +3586,7 @@
     document.getElementById('navReviewAlerts').classList.toggle('active', view === 'review-alerts');
     document.getElementById('navTeamProcess').classList.toggle('active', view === 'team-process');
     document.getElementById('navTeamTasks').classList.toggle('active', view === 'team-tasks');
+    document.getElementById('navTeamWeekly').classList.toggle('active', view === 'team-weekly');
     document.getElementById('navTeamSchedule').classList.toggle('active', view === 'team-schedule');
     document.querySelectorAll('#navTeamAssignees .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'team-tasks' && el.dataset.assignee === brandChannel);
@@ -3615,6 +3625,7 @@
       teamAttentionFilter = 'ALL';
       loadTeamTasks();
     }
+    if (view === 'team-weekly') loadTeamTasks();
     if (view === 'team-schedule') loadTeamSchedule();
     if (view === 'team-accounting') loadTeamAccounting();
   }
@@ -5266,6 +5277,7 @@
     updateTaskViewHeader();
     populateTaskFilterOptions();
     renderTaskView();
+    renderTaskWeeklyTable();
   }
 
   // 담당자 미선택 = 팀 서머리, 담당자 선택 = 개인 업무관리. 두 모드의 표시 영역과 렌더 함수를 여기서 나눔.
@@ -5279,7 +5291,6 @@
       renderTaskStatusChips();
       renderTaskTable();
       renderTaskHistory();
-      renderTaskWeeklyTable();
     } else {
       renderTeamSummary();
     }
@@ -5942,12 +5953,11 @@
     `;
   }
 
-  // 주차별 진행 업무 화면과 엑셀 다운로드가 같은 그룹핑 로직을 쓰도록 데이터 준비 부분만 분리.
+  // 주차별 진행 업무는 이제 담당자 선택과 무관하게 별도 메뉴에서 팀 전체를 보여줍니다.
   // 반환값: [{ range, assignee, tasks }, ...] — 최신 주차부터, 각 주차 안에서는 담당자별로 나눠서.
   function getTaskWeeklyBlocks() {
-    const scoped = getAssigneeScopedTasks();
     const groups = {};
-    scoped.forEach(t => {
+    currentTasks.forEach(t => {
       const anchor = t.start_date || t.due_date || t.created_at;
       if (!anchor) return;
       const { key, range } = taskWeekBucket(anchor);
@@ -5958,10 +5968,6 @@
     const blocks = [];
     keys.forEach(key => {
       const g = groups[key];
-      if (taskFilterAssignee) {
-        blocks.push({ range: g.range, assignee: taskFilterAssignee, tasks: g.tasks });
-        return;
-      }
       const byAssignee = {};
       g.tasks.forEach(t => {
         const name = t.assignee || '담당자 미지정';
@@ -5978,7 +5984,6 @@
   }
 
   function renderTaskWeeklyTable() {
-    document.getElementById('taskWeeklyPanel').style.display = '';
     const blocks = getTaskWeeklyBlocks();
     document.getElementById('taskWeeklyBody').innerHTML = blocks.length
       ? blocks.map(b => taskReportBlockHtml(b.range, b.assignee, b.tasks)).join('')
