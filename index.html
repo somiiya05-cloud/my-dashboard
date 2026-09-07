@@ -158,6 +158,11 @@
   .kpi-card.status-review .kpi-label { color: #b45309; }
   .kpi-card.status-review .kpi-value { color: #b45309; }
   .kpi-card.status-review.active { box-shadow: 0 0 0 2px rgba(217,119,6,.35); border-color: rgba(217,119,6,.5); }
+  .kpi-card.status-late { border-left: 4px solid #dc2626; }
+  .kpi-card.status-late .kpi-label { color: #dc2626; }
+  .kpi-card.status-late .kpi-value { color: #dc2626; }
+  .team-summary-name { color: #1d4ed8; font-weight: 700; text-decoration: none; }
+  .team-summary-name:hover { text-decoration: underline; }
 
   /* ---- 할일 관리: 진행상태 / 우선순위 / 마감일 / 파트장확인 배지 ---- */
   .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
@@ -2046,7 +2051,7 @@
           <h1 id="taskViewTitle">업무 분배 · 할일 관리</h1>
           <div class="subtitle" id="taskViewSubtitle">팀원별 업무를 등록하고 진행 상태를 관리합니다.</div>
         </div>
-        <div class="topbar-right">
+        <div class="topbar-right" id="taskTopbarActions">
           <button type="button" class="btn-ghost" onclick="closeTodayTasks()">오늘 업무 확인 완료</button>
           <button type="button" class="btn-primary" onclick="openTaskPanel()">+ 새 업무 등록</button>
         </div>
@@ -2054,60 +2059,91 @@
 
       <section class="kpi-row" id="taskCards"></section>
 
-      <section class="panel">
-        <div class="task-tabs">
-          <button type="button" class="task-tab active" data-tab="current" onclick="switchTaskTab('current')">현재 업무</button>
-          <button type="button" class="task-tab" data-tab="history" onclick="switchTaskTab('history')">업무 히스토리</button>
-        </div>
+      <div id="teamSummaryArea" style="display:none">
+        <section class="panel">
+          <div class="panel-head"><h2>담당자별 업무 현황</h2></div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>담당자</th><th>할 일</th><th>진행중</th><th>검수대기</th><th>지연</th><th>오늘 마감</th></tr>
+              </thead>
+              <tbody id="teamSummaryByAssignee"></tbody>
+            </table>
+          </div>
+        </section>
 
-        <div id="taskCurrentPane">
-          <div class="task-filter-bar">
-            <div class="task-status-chips" id="taskStatusChips"></div>
-            <div class="task-filter-row">
-              <select id="taskFlAssignee" onchange="onTaskFilterChange()"><option value="">담당자 전체</option></select>
-              <select id="taskFlCategory" onchange="onTaskFilterChange()"><option value="">구분 전체</option></select>
-              <select id="taskFlPriority" onchange="onTaskFilterChange()">
-                <option value="">우선순위 전체</option>
-                <option value="높음">높음</option><option value="보통">보통</option><option value="낮음">낮음</option>
-              </select>
-              <input type="date" id="taskFlFrom" onchange="onTaskFilterChange()" title="마감일 시작">
-              <span class="task-filter-sep">~</span>
-              <input type="date" id="taskFlTo" onchange="onTaskFilterChange()" title="마감일 끝">
-              <input type="text" id="taskFlSearch" placeholder="업무 검색" oninput="onTaskFilterChange()">
-              <button type="button" class="btn-ghost" onclick="resetTaskFilters()">필터 초기화</button>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>주의가 필요한 업무</h2>
+            <span class="panel-note" id="teamAttentionNote"></span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead>
+                <tr><th>담당자</th><th>구분</th><th>업무 내용</th><th>상태</th><th>마감</th></tr>
+              </thead>
+              <tbody id="teamAttentionBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div id="personalTaskArea">
+        <section class="panel">
+          <div class="task-tabs">
+            <button type="button" class="task-tab active" data-tab="current" onclick="switchTaskTab('current')">현재 업무</button>
+            <button type="button" class="task-tab" data-tab="history" onclick="switchTaskTab('history')">업무 히스토리</button>
+          </div>
+
+          <div id="taskCurrentPane">
+            <div class="task-filter-bar">
+              <div class="task-status-chips" id="taskStatusChips"></div>
+              <div class="task-filter-row">
+                <select id="taskFlAssignee" onchange="onTaskFilterChange()"><option value="">담당자 전체</option></select>
+                <select id="taskFlCategory" onchange="onTaskFilterChange()"><option value="">구분 전체</option></select>
+                <select id="taskFlPriority" onchange="onTaskFilterChange()">
+                  <option value="">우선순위 전체</option>
+                  <option value="높음">높음</option><option value="보통">보통</option><option value="낮음">낮음</option>
+                </select>
+                <input type="date" id="taskFlFrom" onchange="onTaskFilterChange()" title="마감일 시작">
+                <span class="task-filter-sep">~</span>
+                <input type="date" id="taskFlTo" onchange="onTaskFilterChange()" title="마감일 끝">
+                <input type="text" id="taskFlSearch" placeholder="업무 검색" oninput="onTaskFilterChange()">
+                <button type="button" class="btn-ghost" onclick="resetTaskFilters()">필터 초기화</button>
+              </div>
+            </div>
+            <div class="panel-note" id="taskListNote" style="margin-bottom:8px;"></div>
+            <div class="scroll-box">
+              <table>
+                <thead>
+                  <tr><th>우선순위</th><th>구분</th><th>업무 내용</th><th>진행상태</th><th>담당자</th><th>마감일</th><th>파트장 확인</th></tr>
+                </thead>
+                <tbody id="taskTableBody"></tbody>
+              </table>
             </div>
           </div>
-          <div class="panel-note" id="taskListNote" style="margin-bottom:8px;"></div>
-          <div class="scroll-box">
-            <table>
-              <thead>
-                <tr><th>우선순위</th><th>구분</th><th>업무 내용</th><th>진행상태</th><th>담당자</th><th>마감일</th><th>파트장 확인</th></tr>
-              </thead>
-              <tbody id="taskTableBody"></tbody>
-            </table>
-          </div>
-        </div>
 
-        <div id="taskHistoryPane" style="display:none">
-          <div class="panel-note" id="taskHistoryNote" style="margin-bottom:8px;"></div>
-          <div class="scroll-box">
-            <table>
-              <thead>
-                <tr><th>이관일</th><th>구분</th><th>업무 내용</th><th>담당자</th><th>마감일</th></tr>
-              </thead>
-              <tbody id="taskHistoryBody"></tbody>
-            </table>
+          <div id="taskHistoryPane" style="display:none">
+            <div class="panel-note" id="taskHistoryNote" style="margin-bottom:8px;"></div>
+            <div class="scroll-box">
+              <table>
+                <thead>
+                  <tr><th>이관일</th><th>구분</th><th>업무 내용</th><th>담당자</th><th>마감일</th></tr>
+                </thead>
+                <tbody id="taskHistoryBody"></tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="panel" id="taskWeeklyPanel" style="display:none">
-        <div class="panel-head">
-          <h2>주차별 진행 업무</h2>
-          <button type="button" class="btn-primary" style="margin-left:auto; padding:6px 14px; font-size:12px;" onclick="exportTaskWeeklyExcel()">엑셀로 다운로드</button>
-        </div>
-        <div id="taskWeeklyBody"></div>
-      </section>
+        <section class="panel" id="taskWeeklyPanel" style="display:none">
+          <div class="panel-head">
+            <h2>주차별 진행 업무</h2>
+            <button type="button" class="btn-primary" style="margin-left:auto; padding:6px 14px; font-size:12px;" onclick="exportTaskWeeklyExcel()">엑셀로 다운로드</button>
+          </div>
+          <div id="taskWeeklyBody"></div>
+        </section>
+      </div>
     </main>
 
     <div class="task-panel-overlay" id="taskPanelOverlay" style="display:none" onclick="if(event.target===this) closeTaskPanel()">
@@ -5221,11 +5257,24 @@
     renderTaskAssigneeNav();
     updateTaskViewHeader();
     populateTaskFilterOptions();
-    renderTaskCards();
-    renderTaskStatusChips();
-    renderTaskTable();
-    renderTaskHistory();
-    renderTaskWeeklyTable();
+    renderTaskView();
+  }
+
+  // 담당자 미선택 = 팀 서머리, 담당자 선택 = 개인 업무관리. 두 모드의 표시 영역과 렌더 함수를 여기서 나눔.
+  function renderTaskView() {
+    const isPersonal = !!taskFilterAssignee;
+    document.getElementById('taskTopbarActions').style.display = isPersonal ? '' : 'none';
+    document.getElementById('personalTaskArea').style.display = isPersonal ? '' : 'none';
+    document.getElementById('teamSummaryArea').style.display = isPersonal ? 'none' : '';
+    if (isPersonal) {
+      renderTaskCards();
+      renderTaskStatusChips();
+      renderTaskTable();
+      renderTaskHistory();
+      renderTaskWeeklyTable();
+    } else {
+      renderTeamSummary();
+    }
   }
 
   function filterTaskStatus(status) {
@@ -5329,9 +5378,96 @@
       title.textContent = taskFilterAssignee + '의 할일 관리';
       subtitle.textContent = taskFilterAssignee + '님에게 배정된 업무를 관리합니다.';
     } else {
-      title.textContent = '업무 분배 · 할일 관리';
-      subtitle.textContent = '팀원별 업무를 등록하고 진행 상태를 관리합니다.';
+      title.textContent = '영업팀 업무 현황';
+      subtitle.textContent = '영업팀 전체 업무 진행 상황을 한눈에 확인합니다.';
     }
+  }
+
+  // ---- 팀 서머리 (담당자 미선택 시) ----
+  function taskTodayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function isTaskOverdue(t) {
+    return !!t.due_date && t.status !== '확인완료' && String(t.due_date).slice(0, 10) < taskTodayStr();
+  }
+  function isTaskDueToday(t) {
+    return !!t.due_date && t.status !== '확인완료' && String(t.due_date).slice(0, 10) === taskTodayStr();
+  }
+
+  function renderTeamSummary() {
+    const active = currentTasks.filter(t => !t.archived_at && t.status !== '확인완료');
+    const todoCount = active.filter(t => t.status === '할일').length;
+    const midCount = active.filter(t => t.status === '진행중').length;
+    const reviewCount = active.filter(t => t.status === '검수대기').length;
+    const overdueCount = active.filter(isTaskOverdue).length;
+
+    document.getElementById('taskCards').innerHTML = `
+      <div class="kpi-card"><div class="kpi-label">전체 진행 업무</div><div class="kpi-value">${active.length}건</div></div>
+      <div class="kpi-card status-todo"><div class="kpi-label"><span class="kpi-status-dot"></span>할 일</div><div class="kpi-value">${todoCount}건</div></div>
+      <div class="kpi-card status-mid"><div class="kpi-label"><span class="kpi-status-dot"></span>진행중</div><div class="kpi-value">${midCount}건</div></div>
+      <div class="kpi-card status-review"><div class="kpi-label"><span class="kpi-status-dot"></span>검수대기</div><div class="kpi-value">${reviewCount}건</div></div>
+      <div class="kpi-card status-late"><div class="kpi-label"><span class="kpi-status-dot"></span>지연 업무</div><div class="kpi-value">${overdueCount}건</div></div>
+    `;
+
+    // 담당자별 업무 현황 — 업무량(할일+진행중+검수대기) 많은 순
+    const names = Array.from(new Set(currentTasks.map(t => t.assignee).filter(Boolean)));
+    const rows = names.map(name => {
+      const mine = active.filter(t => t.assignee === name);
+      return {
+        name,
+        todo: mine.filter(t => t.status === '할일').length,
+        mid: mine.filter(t => t.status === '진행중').length,
+        review: mine.filter(t => t.status === '검수대기').length,
+        late: mine.filter(isTaskOverdue).length,
+        dueToday: mine.filter(isTaskDueToday).length,
+        total: mine.length,
+      };
+    }).sort((a, b) => b.total - a.total);
+
+    document.getElementById('teamSummaryByAssignee').innerHTML = rows.length ? rows.map(r => `
+      <tr>
+        <td><a href="#" class="team-summary-name" onclick="event.preventDefault(); switchView('team-tasks', '${escapeAttr(r.name)}')">${escapeAttr(r.name)}</a></td>
+        <td>${r.todo}건</td>
+        <td>${r.mid}건</td>
+        <td>${r.review ? `<span class="review-badge waiting">${r.review}건</span>` : '0건'}</td>
+        <td>${r.late ? `<span class="ddue late">${r.late}건</span>` : '0건'}</td>
+        <td>${r.dueToday}건</td>
+      </tr>
+    `).join('') : '<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:20px;">등록된 담당자가 없습니다.</td></tr>';
+
+    // 주의가 필요한 업무 — 지연 > 오늘마감 > 검수대기 순으로, 중복 없이 모음
+    const attentionMap = new Map();
+    active.forEach(t => {
+      if (isTaskOverdue(t) || isTaskDueToday(t) || t.status === '검수대기') attentionMap.set(t.id, t);
+    });
+    const attention = Array.from(attentionMap.values()).sort((a, b) => {
+      const rank = (t) => isTaskOverdue(t) ? 0 : isTaskDueToday(t) ? 1 : 2;
+      const rd = rank(a) - rank(b);
+      if (rd !== 0) return rd;
+      const ad = a.due_date || '9999-99-99', bd = b.due_date || '9999-99-99';
+      return ad < bd ? -1 : ad > bd ? 1 : 0;
+    });
+    document.getElementById('teamAttentionNote').textContent = attention.length + '건';
+    document.getElementById('teamAttentionBody').innerHTML = attention.length ? attention.map(t => `
+      <tr class="task-row" onclick="jumpFromSummaryToTask(${t.id})">
+        <td>${escapeAttr(t.assignee || '-')}</td>
+        <td>${escapeAttr(t.category || '-')}</td>
+        <td class="task-title-cell">${escapeAttr(t.title || '(제목 없음)')}</td>
+        <td>${statusBadgeHtml(t.status)}</td>
+        <td>${formatDday(t.due_date)}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">지금 바로 확인할 업무가 없습니다.</td></tr>';
+  }
+
+  async function jumpFromSummaryToTask(id) {
+    const t = currentTasks.find(x => x.id === id);
+    if (!t) return;
+    taskFilterAssignee = t.assignee || '';
+    taskStatusFilter = null;
+    switchView('team-tasks', taskFilterAssignee);
+    await loadTeamTasks();
+    openTaskPanel(id);
   }
 
   function toggleTeamAssignees() {
