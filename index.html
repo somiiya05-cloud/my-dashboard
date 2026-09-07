@@ -2016,7 +2016,7 @@
             <thead id="taskTableHead">
               <tr>
                 <th>우선순위</th><th>번호</th><th>구분</th><th>업무 내용</th><th>완료</th><th>세부 내용 / 진행사항</th>
-                <th>진행상태</th><th>결과 / 특이사항</th><th>후속 업무</th><th>담당자</th><th>시작일</th><th>마감일</th><th></th>
+                <th>진행상태</th><th>결과 / 특이사항</th><th>후속 업무</th><th>담당자</th><th>1차</th><th>2차</th><th>시작일</th><th>마감일</th><th></th>
               </tr>
             </thead>
             <tbody id="taskTableBody"></tbody>
@@ -5273,6 +5273,8 @@
           onchange="updateTaskField(${t.id}, 'followup', this.value)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(t.assignee || '')}"
           onchange="updateTaskField(${t.id}, 'assignee', this.value)"></td>
+        <td style="text-align:center;"><input type="checkbox" ${t.confirm_1 ? 'checked' : ''} onchange="updateTaskConfirm(${t.id}, 'confirm_1', this.checked)"></td>
+        <td style="text-align:center;"><input type="checkbox" ${t.confirm_2 ? 'checked' : ''} onchange="updateTaskConfirm(${t.id}, 'confirm_2', this.checked)"></td>
         <td>${t.start_date ? String(t.start_date).slice(0, 10) : ''}</td>
         <td>${t.due_date ? String(t.due_date).slice(0, 10) : ''}</td>
         <td><button class="btn-danger" onclick="deleteTask(${t.id})">삭제</button></td>
@@ -5289,7 +5291,7 @@
     const clickable = name !== '담당자 미지정';
     return `
       <tr class="task-group-header-row${clickable ? ' clickable' : ''}" ${clickable ? `onclick="switchView('team-tasks', '${escapeAttr(name)}')"` : ''}>
-        <td colspan="13">
+        <td colspan="15">
           <div class="task-group-header">
             <span class="task-group-name">${escapeAttr(name)}</span>
             <span class="task-group-progress">완료 ${done} · 진행중 ${doing} · 할일 ${todo} (전체 ${total}건)</span>
@@ -5351,7 +5353,7 @@
     document.getElementById('taskTableBody').innerHTML = names.map(name => {
       const groupAllTasks = currentTasks.filter(t => (t.assignee || '담당자 미지정') === name);
       return taskGroupHeaderHtml(name, groupAllTasks);
-    }).join('') || '<tr><td colspan="13" style="text-align:center; color:#94a3b8; padding:16px;">등록된 할일이 없습니다.</td></tr>';
+    }).join('') || '<tr><td colspan="15" style="text-align:center; color:#94a3b8; padding:16px;">등록된 할일이 없습니다.</td></tr>';
   }
 
   // 주차별 업무 보고 표의 컬럼 너비. 엑셀처럼 헤더 경계를 드래그해서 조절할 수 있고,
@@ -5648,7 +5650,21 @@
     loadTeamTasks();
   }
 
+  async function updateTaskConfirm(id, field, checked) {
+    const { error } = await client.from('team_tasks').update({ [field]: checked }).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadTeamTasks();
+  }
+
   async function toggleTaskDone(id, checked) {
+    if (checked) {
+      const t = currentTasks.find(x => x.id === id);
+      if (!(t && t.confirm_1 && t.confirm_2)) {
+        alert('1차, 2차 확인이 모두 체크되어야 완료 처리할 수 있습니다.');
+        renderTaskTable();
+        return;
+      }
+    }
     await updateTaskStatus(id, checked ? '완료' : '할일');
   }
 
