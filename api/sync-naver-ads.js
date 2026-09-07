@@ -79,6 +79,12 @@ function matchChannel(campaignName) {
   return hit ? hit.channel : FALLBACK_CHANNEL;
 }
 
+// 캠페인명에 'PPP'가 들어가면 파워링크 캠페인이라 '파워링크'로, 나머지는 'SA'로 태그합니다.
+// (마케팅대시보드의 "네이버 광고 구분" 패널에서 SA/GFA/파워링크를 나눠 보여주는 데 씁니다.)
+function matchAdType(campaignName) {
+  return campaignName.includes('PPP') ? '파워링크' : 'SA';
+}
+
 // 실제 API 응답은 문서(dailyStatResponse.data)와 달리 최상위에 data 배열을 바로 내려줍니다.
 // days(일별 원본 배열)도 같이 반환해서 호출하는 쪽에서 "일별 성과" 집계에 재사용합니다.
 async function fetchCampaignTotals(campaignId, since, until) {
@@ -173,11 +179,13 @@ module.exports = async function handler(req, res) {
     }
 
     // 브랜드별 페이지의 "캠페인별 성과" 표용 — 채널 합계와 별도로 캠페인 단위 행도 저장합니다.
-    // ad_type: 'SA' — 이 스크립트는 네이버 검색광고 API에서만 값을 가져오므로 항상 'SA'로
-    // 태그합니다. GFA·파워링크 원본은 대시보드에서 수동 업로드로 별도 태그가 붙습니다.
+    // ad_type은 matchAdType으로 SA/파워링크를 나눠서 태그합니다 (GFA 원본은 이 API에 안 잡혀서
+    // 대시보드에서 수동 업로드로 별도 태그가 붙습니다).
     const campaignRows = perCampaign
       .filter(({ totals }) => totals.spend > 0 || totals.impressions > 0)
-      .map(({ name, channel, totals }) => ({ month: monthStr, channel, campaign: name, ad_type: 'SA', ...totals }));
+      .map(({ name, channel, totals }) => ({
+        month: monthStr, channel, campaign: name, ad_type: matchAdType(name), ...totals
+      }));
 
     if (campaignRows.length) {
       const campaignUpsertRes = await fetch(
