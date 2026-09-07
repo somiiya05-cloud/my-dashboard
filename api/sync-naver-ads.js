@@ -173,13 +173,15 @@ module.exports = async function handler(req, res) {
     }
 
     // 브랜드별 페이지의 "캠페인별 성과" 표용 — 채널 합계와 별도로 캠페인 단위 행도 저장합니다.
+    // ad_type: 'SA' — 이 스크립트는 네이버 검색광고 API에서만 값을 가져오므로 항상 'SA'로
+    // 태그합니다. GFA·파워링크 원본은 대시보드에서 수동 업로드로 별도 태그가 붙습니다.
     const campaignRows = perCampaign
       .filter(({ totals }) => totals.spend > 0 || totals.impressions > 0)
-      .map(({ name, channel, totals }) => ({ month: monthStr, channel, campaign: name, ...totals }));
+      .map(({ name, channel, totals }) => ({ month: monthStr, channel, campaign: name, ad_type: 'SA', ...totals }));
 
     if (campaignRows.length) {
       const campaignUpsertRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/ad_performance_campaigns?on_conflict=month,channel,campaign`,
+        `${SUPABASE_URL}/rest/v1/ad_performance_campaigns?on_conflict=month,channel,ad_type,campaign`,
         {
           method: 'POST',
           headers: {
