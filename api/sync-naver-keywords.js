@@ -124,6 +124,34 @@ function matchChannel(brands, campaignName) {
   return hit ? hit.channel : FALLBACK_CHANNEL;
 }
 
+// /ncc/ads 응답에서 랜딩 URL을 뽑아냅니다. 네이버 API의 정확한 필드 위치가 소재 타입마다
+// 조금씩 다를 수 있어 여러 후보 경로를 순서대로 시도합니다(모바일 우선, 그다음 PC).
+// 광고그룹에 소재가 여럿이면 첫 번째로 URL이 확인되는 소재를 대표값으로 씁니다.
+function extractLandingUrl(ads) {
+  if (!Array.isArray(ads)) return null;
+  for (const item of ads) {
+    const ad = (item && item.ad) || item;
+    if (!ad) continue;
+    const candidates = [
+      ad.mobile && (ad.mobile.final || ad.mobile.url),
+      ad.pc && (ad.pc.final || ad.pc.url),
+      ad.mobileFinalUrl,
+      ad.pcFinalUrl
+    ];
+    const found = candidates.find((u) => typeof u === 'string' && /^https?:\/\//.test(u));
+    if (found) return found;
+  }
+  return null;
+}
+
+// 랜딩 URL 도메인으로 자사몰/스마트스토어를 구분합니다.
+function classifySalesChannel(url) {
+  if (!url) return null;
+  let host = '';
+  try { host = new URL(url).host; } catch (e) { host = url; }
+  return host.includes('smartstore.naver.com') || host.includes('shopping.naver.com') ? '스마트스토어' : '자사몰';
+}
+
 // 여러 id의 기간 합계 통계를 한 번에 조회합니다 (id 1개당 1회 호출하는 대신
 // BULK_BATCH_SIZE개씩 묶고, 그 배치들을 BULK_CONCURRENCY만큼 동시에 조회해서
 // 키워드가 수천 개인 계정(쇼핑검색은 상품마다 키워드가 자동 생성돼 아주 많아짐)도
@@ -241,11 +269,36 @@ async function syncNaverKeywordsForAccount(account, since, until, monthStr, debu
   }
   console.log(`[naver-keywords][${account.label}] 광고그룹 ${adgroupTargets.length}개 조회 완료 (${elapsed()})`);
 
-  // 광고그룹 → 키워드 (마찬가지로 개별 호출)
-  const adgroupKeywords = await mapWithConcurrency(adgroupTargets, LIST_CONCURRENCY, async (t) => {
-    const keywords = await naverRequest(account, 'GET', '/ncc/keywords', { nccAdgroupId: t.adgroupId });
-    return { ...t, keywords: keywords || [] };
-  });
+  // 광고그룹 → 키워드, 광고그룹 → 소재(랜딩 URL)를 동시에 조회합니다(순서대로 하면 시간이
+  // 두 배로 늘어 60초 제한에 걸리기 쉬움). 소재 조회가 실패해도 낭비 키워드 진단 자체는
+  // 계속 돼야 하므로 개별로 실패를 흡수합니다.
+  const adsDebug = {};
+  const [adgroupKeywords, adgroupAds] = await Promise.all([
+    mapWithConcurrency(adgroupTargets, LIST_CONCURRENCY, async (t) => {
+      const keywords = await naverRequest(account, 'GET', '/ncc/keywords', { nccAdgroupId: t.adgroupId });
+      return { ...t, keywords: keywords || [] };
+    }),
+    mapWithConcurrency(adgroupTargets, LIST_CONCURRENCY, async (t, i) => {
+      try {
+        const ads = await naverRequest(account, 'GET', '/ncc/ads', { nccAdgroupId: t.adgroupId, showDetail: '1' });
+        if (debug && i === 0 && !adsDebug.raw) {
+          adsDebug.raw = ads;
+          console.log(`[naver-keywords][DEBUG] 광고 소재 원본 응답: ${JSON.stringify(ads).slice(0, 1500)}`);
+        }
+        return { adgroupId: t.adgroupId, landingUrl: extractLandingUrl(ads) };
+      } catch (e) {
+        return { adgroupId: t.adgroupId, landingUrl: null };
+      }
+    }, LIST_REQUEST_GAP_MS)
+  ]);
+
+  const adgroupSalesChannel = new Map();
+  for (const { adgroupId, landingUrl } of adgroupAds) {
+    adgroupSalesChannel.set(adgroupId, { landingUrl, salesChannel: classifySalesChannel(landingUrl) });
+  }
+  console.log(
+    `[naver-keywords][${account.label}] 광고 소재(랜딩URL) ${adgroupAds.filter((a) => a.landingUrl).length}/${adgroupTargets.length}개 조회 완료 (${elapsed()})`
+  );
 
   const keywordTargets = [];
   for (const t of adgroupKeywords) {
@@ -254,6 +307,7 @@ async function syncNaverKeywordsForAccount(account, since, until, monthStr, debu
         channel: t.channel,
         campaign: t.campaignName,
         adgroup: t.adgroupName,
+        adgroupId: t.adgroupId,
         keyword: kw.keyword,
         keywordId: kw.nccKeywordId
       });
@@ -270,15 +324,20 @@ async function syncNaverKeywordsForAccount(account, since, until, monthStr, debu
     until,
     debug ? keywordBulkDebug : null
   );
-  const rows = keywordTargets.map((t) => ({
-    month: monthStr,
-    channel: t.channel,
-    campaign: t.campaign,
-    adgroup: t.adgroup,
-    keyword: t.keyword,
-    keyword_id: t.keywordId,
-    ...(keywordTotals.get(t.keywordId) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 })
-  }));
+  const rows = keywordTargets.map((t) => {
+    const channelInfo = adgroupSalesChannel.get(t.adgroupId) || { landingUrl: null, salesChannel: null };
+    return {
+      month: monthStr,
+      channel: t.channel,
+      campaign: t.campaign,
+      adgroup: t.adgroup,
+      keyword: t.keyword,
+      keyword_id: t.keywordId,
+      landing_url: channelInfo.landingUrl,
+      sales_channel: channelInfo.salesChannel,
+      ...(keywordTotals.get(t.keywordId) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 })
+    };
+  });
   console.log(`[naver-keywords][${account.label}] 키워드별 성과 수집 완료 (${elapsed()})`);
 
   // 캠페인 레벨 통계(campaignTotals) vs 그 캠페인에 속한 키워드들의 통계 합
@@ -315,8 +374,10 @@ async function syncNaverKeywordsForAccount(account, since, until, monthStr, debu
     activeCampaignCount: campaigns.length,
     adgroupCount: adgroupTargets.length,
     keywordCount: keywordTargets.length,
+    landingUrlResolvedCount: adgroupAds.filter((a) => a.landingUrl).length,
     campaignBulkDebug,
-    keywordBulkDebug
+    keywordBulkDebug,
+    adsDebug
   };
 }
 
@@ -392,6 +453,7 @@ module.exports = async function handler(req, res) {
       activeCampaignCount: perAccountResults.reduce((s, r) => s + r.activeCampaignCount, 0),
       adgroupCount: perAccountResults.reduce((s, r) => s + r.adgroupCount, 0),
       keywordCount: perAccountResults.reduce((s, r) => s + r.keywordCount, 0),
+      landingUrlResolvedCount: perAccountResults.reduce((s, r) => s + r.landingUrlResolvedCount, 0),
       savedCount: meaningfulRows.length,
       elapsed: elapsed(),
       ...(debug
@@ -399,7 +461,8 @@ module.exports = async function handler(req, res) {
             debugSamples: perAccountResults.map((r) => ({
               label: r.label,
               campaignBulkSample: r.campaignBulkDebug.raw,
-              keywordBulkSample: r.keywordBulkDebug.raw
+              keywordBulkSample: r.keywordBulkDebug.raw,
+              adsSample: r.adsDebug.raw
             }))
           }
         : {})
