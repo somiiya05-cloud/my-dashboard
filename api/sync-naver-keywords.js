@@ -149,7 +149,9 @@ function classifySalesChannel(url) {
   if (!url) return null;
   let host = '';
   try { host = new URL(url).host; } catch (e) { host = url; }
-  return host.includes('smartstore.naver.com') || host.includes('shopping.naver.com') ? '스마트스토어' : '자사몰';
+  if (host.includes('smartstore.naver.com') || host.includes('shopping.naver.com')) return '스마트스토어';
+  if (host.includes('brand.naver.com')) return '네이버브랜드스토어'; // 네이버 안의 공식 브랜드관, 자체 도메인 자사몰과는 구분
+  return '자사몰';
 }
 
 // 여러 id의 기간 합계 통계를 한 번에 조회합니다 (id 1개당 1회 호출하는 대신
