@@ -26,18 +26,35 @@ jobs:
     strategy:
       # 계정을 한 번의 호출에 다 처리하면 캠페인→광고그룹→키워드까지 내려가는 시간이
       # 계정 수만큼 늘어나 Vercel 함수 실행 제한(60초)을 넘기기 쉽다(계정2 추가 후 실제로
-      # FUNCTION_INVOCATION_TIMEOUT 발생). 계정별로 별도 호출(=별도 함수 실행)로 나눠서
-      # 각각 60초 제한 안에서 끝나게 한다.
+      # FUNCTION_INVOCATION_TIMEOUT 발생). 계정별로 별도 호출로 나눴는데도 계정2는 혼자서도
+      # 60초를 넘겨서(쇼핑검색 자동 생성 키워드 등으로 캠페인/키워드가 훨씬 많음), 계정2는
+      # 활동 캠페인을 4조각으로 더 쪼개 병렬로 처리한다(?shard=&shards=). 계정1은 35초 안에
+      # 끝나서 안 쪼갠다. 계속 타임아웃 나면 shards 숫자를 더 늘리면 된다.
       fail-fast: false
       matrix:
-        account: ['1', '2']
+        include:
+          - account: '1'
+            shard: 0
+            shards: 1
+          - account: '2'
+            shard: 0
+            shards: 4
+          - account: '2'
+            shard: 1
+            shards: 4
+          - account: '2'
+            shard: 2
+            shards: 4
+          - account: '2'
+            shard: 3
+            shards: 4
     steps:
-      - name: "Vercel sync 엔드포인트 호출 (계정${{ matrix.account }})"
+      - name: "Vercel sync 엔드포인트 호출 (계정${{ matrix.account }}, 조각 ${{ matrix.shard }}/${{ matrix.shards }})"
         run: |
           MONTH="${{ github.event.inputs.month }}"
           DEBUG="${{ github.event.inputs.debug }}"
           URL="${{ secrets.VERCEL_APP_URL }}/api/sync-naver-keywords"
-          QUERY="account=${{ matrix.account }}"
+          QUERY="account=${{ matrix.account }}&shard=${{ matrix.shard }}&shards=${{ matrix.shards }}"
           if [ -n "$MONTH" ]; then QUERY="${QUERY}&month=${MONTH}"; fi
           if [ "$DEBUG" = "true" ]; then QUERY="${QUERY}&debug=1"; fi
           URL="${URL}?${QUERY}"

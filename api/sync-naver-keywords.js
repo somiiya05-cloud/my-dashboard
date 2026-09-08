@@ -197,7 +197,11 @@ async function upsertInChunks(table, conflictCols, rows) {
 
 // 계정 하나에 대해 캠페인 → 광고그룹 → 키워드까지 내려가며 성과를 모읍니다.
 // 여러 계정을 순회할 때 계정마다 이 함수를 한 번씩 호출합니다.
-async function syncNaverKeywordsForAccount(account, since, until, monthStr, debug, elapsed) {
+// shard/shards: 활동 캠페인이 많은 계정(예: 쇼핑검색 키워드가 자동으로 많이 생기는 계정)은
+// 광고그룹/키워드까지 개별 호출로 내려가는 단계가 60초를 넘기기 쉬워서, 활동 캠페인을
+// shards개로 나눠 캠페인 인덱스 % shards === shard 인 것만 처리한다. 호출하는 쪽(워크플로)이
+// 같은 계정을 shard 0..shards-1로 여러 번(=여러 Vercel 함수 실행) 나눠 부르면 된다.
+async function syncNaverKeywordsForAccount(account, since, until, monthStr, debug, elapsed, shard = 0, shards = 1) {
   const allCampaigns = await naverRequest(account, 'GET', '/ncc/campaigns');
   console.log(`[naver-keywords][${account.label}] 캠페인 ${allCampaigns.length}개 조회 완료 (${elapsed()})`);
 
@@ -212,11 +216,16 @@ async function syncNaverKeywordsForAccount(account, since, until, monthStr, debu
     until,
     debug ? campaignBulkDebug : null
   );
-  const campaigns = allCampaigns.filter((c) => {
+  const activeCampaigns = allCampaigns.filter((c) => {
     const t = campaignTotals.get(c.nccCampaignId);
     return t && (t.spend > 0 || t.impressions > 0 || t.clicks > 0);
   });
-  console.log(`[naver-keywords][${account.label}] 활동 캠페인 ${campaigns.length}/${allCampaigns.length}개 (${elapsed()})`);
+  const campaigns = shards > 1 ? activeCampaigns.filter((_, i) => i % shards === shard) : activeCampaigns;
+  console.log(
+    `[naver-keywords][${account.label}] 활동 캠페인 ${activeCampaigns.length}/${allCampaigns.length}개` +
+      (shards > 1 ? `, 이 조각(${shard + 1}/${shards})이 처리할 캠페인 ${campaigns.length}개` : '') +
+      ` (${elapsed()})`
+  );
 
   // 캠페인 → 광고그룹 (부모 id 하나씩만 조회 가능해서 개별 호출이지만, 활동 캠페인만 대상이라 수가 적음)
   const campaignAdgroups = await mapWithConcurrency(campaigns, LIST_CONCURRENCY, async (campaign) => {
@@ -346,6 +355,11 @@ module.exports = async function handler(req, res) {
 
   const monthParam = req.query && req.query.month;
   const debug = req.query && req.query.debug === '1';
+  // ?shard=0&shards=3 처럼 지정하면 이 계정의 활동 캠페인을 shards개로 나눠 그중
+  // shard번째 조각만 처리합니다. 캠페인/키워드가 아주 많은 계정 하나를 여러 호출로
+  // 쪼개 각각 60초 안에 끝내려는 용도입니다 (?account=와 함께 씁니다).
+  const shard = Math.max(0, Number((req.query && req.query.shard) || 0) || 0);
+  const shards = Math.max(1, Number((req.query && req.query.shards) || 1) || 1);
   const now = new Date();
   const year = monthParam ? Number(monthParam.split('-')[0]) : now.getUTCFullYear();
   const mon = monthParam ? Number(monthParam.split('-')[1]) : now.getUTCMonth() + 1;
@@ -360,7 +374,7 @@ module.exports = async function handler(req, res) {
   try {
     const perAccountResults = [];
     for (const account of activeAccounts) {
-      perAccountResults.push(await syncNaverKeywordsForAccount(account, since, until, monthStr, debug, elapsed));
+      perAccountResults.push(await syncNaverKeywordsForAccount(account, since, until, monthStr, debug, elapsed, shard, shards));
     }
 
     const rows = perAccountResults.flatMap((r) => r.rows);
@@ -371,6 +385,7 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       month: monthStr,
+      shard, shards,
       accountsUsed: activeAccounts.map((a) => a.label),
       accountsSkipped: skippedAccounts,
       totalCampaignCount: perAccountResults.reduce((s, r) => s + r.totalCampaignCount, 0),
