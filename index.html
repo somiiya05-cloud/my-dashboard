@@ -5562,6 +5562,12 @@
   }
 
   const TASK_PRIORITIES = ['높음', '보통', '낮음'];
+  const TASK_CATEGORIES = ['채널 운영', '광고·마케팅', '프로모션·판매', '해외·B2B', '상품·콘텐츠', '계약·정산', '데이터·자동화', '내부·정기업무'];
+  function taskCategoryOptionsHtml(current) {
+    const cur = current || '';
+    const opts = cur && !TASK_CATEGORIES.includes(cur) ? [cur, ...TASK_CATEGORIES] : TASK_CATEGORIES;
+    return '<option value="">선택</option>' + opts.map(c => `<option value="${escapeAttr(c)}" ${c === cur ? 'selected' : ''}>${escapeAttr(c)}</option>`).join('');
+  }
   function taskPriorityClass(p) {
     if (p === '높음') return 'high';
     if (p === '낮음') return 'low';
@@ -5721,7 +5727,7 @@
     if (taskPanelMode === 'create') {
       titleEl.textContent = '새 업무 등록';
       body.innerHTML = `
-        <div class="task-panel-field"><label>구분</label><input id="tpCategory" type="text" placeholder="예: 매출/채널"></div>
+        <div class="task-panel-field"><label>구분</label><select id="tpCategory">${taskCategoryOptionsHtml('')}</select></div>
         <div class="task-panel-field"><label>업무 내용 *</label><input id="tpTitle" type="text" placeholder="업무 내용"></div>
         <div class="task-panel-row">
           <div class="task-panel-field"><label>우선순위</label><select id="tpPriority">
@@ -5743,7 +5749,7 @@
     if (!t) { closeTaskPanel(); return; }
     titleEl.textContent = '업무 상세';
     body.innerHTML = `
-      <div class="task-panel-field"><label>구분</label><input id="tpCategory" type="text" value="${escapeAttr(t.category || '')}"></div>
+      <div class="task-panel-field"><label>구분</label><select id="tpCategory">${taskCategoryOptionsHtml(t.category || '')}</select></div>
       <div class="task-panel-field"><label>업무 내용</label><input id="tpTitle" type="text" value="${escapeAttr(t.title || '')}"></div>
       <div class="task-panel-field"><label>세부내용 / 진행사항</label><textarea id="tpDetail" oninput="autoGrowTextarea(this)">${escapeAttr(t.detail || '')}</textarea></div>
       <details class="task-panel-more">
@@ -5906,8 +5912,7 @@
       for (let j = 0; j < span; j++) {
         const t = tasks[idx + j];
         const categoryCell = j === 0
-          ? `<td rowspan="${span}"><input type="text" class="inline-edit" value="${escapeAttr(cat)}"
-              onchange="updateTaskCategoryGroup([${groupIds}], this.value)"></td>`
+          ? `<td rowspan="${span}"><select class="inline-edit" onchange="updateTaskCategoryGroup([${groupIds}], this.value)">${taskCategoryOptionsHtml(cat)}</select></td>`
           : '';
         rows.push(`
           <tr>
