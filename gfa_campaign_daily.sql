@@ -22,4 +22,9 @@ create table if not exists gfa_campaign_daily (
 
 alter table gfa_campaign_daily enable row level security;
 
+-- 대시보드(ad-marketing-dashboard)의 GFA 리포트 업로드 화면이 브라우저에서 직접
+-- upsert하므로 select뿐 아니라 insert/update 권한도 열어야 한다
+-- (ad_performance_campaigns_ad_type.sql과 동일한 패턴).
 create policy "public read access" on gfa_campaign_daily for select using (true);
+create policy "public insert access" on gfa_campaign_daily for insert with check (true);
+create policy "public update access" on gfa_campaign_daily for update using (true);
