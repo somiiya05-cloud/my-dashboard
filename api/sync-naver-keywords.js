@@ -62,8 +62,19 @@ const ACCOUNTS = [
     apiKeyEnv: 'NAVER_API_KEY_2',
     secretKeyEnv: 'NAVER_SECRET_KEY_2',
     customerIdEnv: 'NAVER_CUSTOMER_ID_2',
-    // TODO: 계정2에 속한 브랜드를 여기에 채우세요 (sync-naver-ads.js의 ACCOUNTS와 동일하게).
-    brands: []
+    // 계정1과 같은 브랜드들이 계정2에도 캠페인을 따로 운영 중이라 브랜드 매칭표를 그대로 공유합니다.
+    brands: [
+      { name: '코드니처', channel: '네이버 코드니처' },
+      { name: '미니멀룸', channel: '네이버 미니멀룸' },
+      { name: '빠이러스', channel: '네이버 빠이러스' },
+      { name: '그로우뮤즈', channel: '네이버 그로우유즈' },
+      { name: '라스마', channel: '네이버 라스마' },
+      { name: '잠비에', channel: '네이버 잠비에' },
+      { name: '글로리핏', channel: '네이버 글로리핏' },
+      { name: '명퉤', channel: '네이버 명퉤' },
+      { name: '멜루션', channel: '네이버 멜루션' },
+      { name: '폴크', channel: '네이버 폴크' }
+    ]
   }
 ];
 const FALLBACK_CHANNEL = '네이버 기타';
