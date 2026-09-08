@@ -40,6 +40,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // sync-naver-ads.js와 동일한 계정별 브랜드 매칭표 (두 파일의 ACCOUNTS는 항상 같게 유지)
 const ACCOUNTS = [
   {
+    id: '1',
     label: '계정1',
     apiKeyEnv: 'NAVER_API_KEY',
     secretKeyEnv: 'NAVER_SECRET_KEY',
@@ -58,6 +59,7 @@ const ACCOUNTS = [
     ]
   },
   {
+    id: '2',
     label: '계정2',
     apiKeyEnv: 'NAVER_API_KEY_2',
     secretKeyEnv: 'NAVER_SECRET_KEY_2',
@@ -327,10 +329,20 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  const activeAccounts = ACCOUNTS.filter(
+  // ?account=1 처럼 계정 하나만 지정하면 그 계정만 처리합니다. 계정이 여러 개면 계정마다
+  // 캠페인→광고그룹→키워드까지 내려가야 해서 시간이 오래 걸리고, 한 번의 호출에서 계정을
+  // 다 처리하면 Vercel 함수 실행 제한(60초)을 넘기기 쉽습니다. 그래서 워크플로에서 계정별로
+  // 나눠서 호출합니다 (지정 안 하면 이전처럼 활성 계정 전부를 순서대로 처리합니다).
+  const accountParam = req.query && req.query.account;
+  const accountsToRun = accountParam ? ACCOUNTS.filter((a) => a.id === String(accountParam)) : ACCOUNTS;
+  if (accountParam && !accountsToRun.length) {
+    return res.status(400).json({ error: 'unknown_account', detail: `account=${accountParam} 에 해당하는 계정이 없습니다.` });
+  }
+
+  const activeAccounts = accountsToRun.filter(
     (a) => process.env[a.apiKeyEnv] && process.env[a.secretKeyEnv] && process.env[a.customerIdEnv]
   );
-  const skippedAccounts = ACCOUNTS.filter((a) => !activeAccounts.includes(a)).map((a) => a.label);
+  const skippedAccounts = accountsToRun.filter((a) => !activeAccounts.includes(a)).map((a) => a.label);
 
   const monthParam = req.query && req.query.month;
   const debug = req.query && req.query.debug === '1';

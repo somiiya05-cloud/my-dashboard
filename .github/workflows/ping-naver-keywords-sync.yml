@@ -23,16 +23,24 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
+    strategy:
+      # 계정을 한 번의 호출에 다 처리하면 캠페인→광고그룹→키워드까지 내려가는 시간이
+      # 계정 수만큼 늘어나 Vercel 함수 실행 제한(60초)을 넘기기 쉽다(계정2 추가 후 실제로
+      # FUNCTION_INVOCATION_TIMEOUT 발생). 계정별로 별도 호출(=별도 함수 실행)로 나눠서
+      # 각각 60초 제한 안에서 끝나게 한다.
+      fail-fast: false
+      matrix:
+        account: ['1', '2']
     steps:
-      - name: Vercel sync 엔드포인트 호출
+      - name: "Vercel sync 엔드포인트 호출 (계정${{ matrix.account }})"
         run: |
           MONTH="${{ github.event.inputs.month }}"
           DEBUG="${{ github.event.inputs.debug }}"
           URL="${{ secrets.VERCEL_APP_URL }}/api/sync-naver-keywords"
-          QUERY=""
-          if [ -n "$MONTH" ]; then QUERY="month=${MONTH}"; fi
-          if [ "$DEBUG" = "true" ]; then QUERY="${QUERY:+$QUERY&}debug=1"; fi
-          if [ -n "$QUERY" ]; then URL="${URL}?${QUERY}"; fi
+          QUERY="account=${{ matrix.account }}"
+          if [ -n "$MONTH" ]; then QUERY="${QUERY}&month=${MONTH}"; fi
+          if [ "$DEBUG" = "true" ]; then QUERY="${QUERY}&debug=1"; fi
+          URL="${URL}?${QUERY}"
           HTTP_CODE=$(curl -s --max-time 90 -o response.json -w "%{http_code}" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "$URL")
           echo "HTTP status: $HTTP_CODE"
