@@ -36,6 +36,26 @@ const crypto = require('crypto');
 
 const NAVER_BASE = 'https://api.searchad.naver.com';
 const SUPABASE_URL = 'https://fwsszzjfjktliredmjcn.supabase.co';
+const STATS_CONCURRENCY = 3; // 캠페인별 /stats 조회를 몇 개씩 동시에 호출할지 (계정2 추가 후 429 방지)
+const STATS_REQUEST_GAP_MS = 150;
+const MAX_RETRIES = 4;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// 동시 실행 개수를 제한하면서 배열의 각 항목을 처리합니다 (sync-naver-keywords.js와 동일한 패턴).
+async function mapWithConcurrency(items, limit, fn, gapMs) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const cur = next++;
+      results[cur] = await fn(items[cur], cur);
+      await sleep(gapMs);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) || 0 }, worker));
+  return results;
+}
 
 // 계정이 여러 개면 이 배열에 하나씩 추가합니다. 각 계정은 자기 자신의 API 키/브랜드
 // 매칭표를 갖고, 서로 다른 네이버 검색광고 계정이라 브랜드명이 겹쳐도 문제없습니다.
@@ -85,7 +105,9 @@ function sign(timestamp, method, uri, secretKey) {
   return crypto.createHmac('sha256', secretKey).update(`${timestamp}.${method}.${uri}`).digest('base64');
 }
 
-async function naverRequest(account, method, uri, params) {
+// 네이버 API가 429(Too Many Requests)를 주면 점점 더 오래 기다렸다가 재시도합니다
+// (sync-naver-keywords.js와 동일한 방식 — 계정2 추가로 계정당 호출량이 늘어난 뒤 필요해졌습니다).
+async function naverRequest(account, method, uri, params, attempt = 0) {
   const timestamp = String(Date.now());
   const url = new URL(NAVER_BASE + uri);
   if (params) for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
@@ -100,6 +122,10 @@ async function naverRequest(account, method, uri, params) {
       'X-Signature': sign(timestamp, method, uri, process.env[account.secretKeyEnv])
     }
   });
+  if (res.status === 429 && attempt < MAX_RETRIES) {
+    await sleep(300 * Math.pow(2, attempt));
+    return naverRequest(account, method, uri, params, attempt + 1);
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`네이버 API 요청 실패 [${account.label}] ${method} ${uri} (${res.status}): ${text}`);
@@ -185,11 +211,14 @@ module.exports = async function handler(req, res) {
     for (const account of activeAccounts) {
       const campaigns = await naverRequest(account, 'GET', '/ncc/campaigns');
       campaignCount += campaigns.length;
-      const accountPerCampaign = await Promise.all(
-        campaigns.map(async (campaign) => {
+      const accountPerCampaign = await mapWithConcurrency(
+        campaigns,
+        STATS_CONCURRENCY,
+        async (campaign) => {
           const { totals, days } = await fetchCampaignTotals(account, campaign.nccCampaignId, since, until);
           return { name: campaign.name, channel: matchChannel(account.brands, campaign.name), totals, days };
-        })
+        },
+        STATS_REQUEST_GAP_MS
       );
       perCampaign.push(...accountPerCampaign);
     }

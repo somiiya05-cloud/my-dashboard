@@ -4,6 +4,7 @@
     { "path": "/api/sync-ezadmin-inventory", "schedule": "0 23 * * *" }
   ],
   "functions": {
-    "api/sync-naver-keywords.js": { "maxDuration": 60 }
+    "api/sync-naver-keywords.js": { "maxDuration": 60 },
+    "api/sync-naver-ads.js": { "maxDuration": 60 }
   }
 }
