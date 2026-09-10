@@ -2248,6 +2248,7 @@
           <label class="gs-toggle"><input type="checkbox" id="gsFilterGroupbuyContent" checked onchange="gsToggleFilter('groupbuyContent', this.checked)"><span class="gs-toggle-dot gs-accent-purple"></span>공구 일정(콘텐츠팀)</label>
           <label class="gs-toggle"><input type="checkbox" id="gsFilterMall" checked onchange="gsToggleFilter('mall', this.checked)"><span class="gs-toggle-dot gs-accent-mall"></span>외부몰 행사</label>
           <input type="text" id="gsSearchInput" class="gs-search-input" placeholder="브랜드·인플루언서·행사명 검색" oninput="gsSearch(this.value)">
+          <button type="button" class="filter-reset-btn" id="gsExportBtn" onclick="gsExportExcel()">엑셀 다운로드</button>
         </div>
         <div id="scheduleSearchResults"></div>
         <div id="scheduleCalendar"><div class="gs-empty">불러오는 중...</div></div>
@@ -6295,6 +6296,52 @@
   function gsSearch(value) {
     gsSearchQuery = value.trim();
     renderTeamSchedule();
+  }
+
+  function gsExportExcel() {
+    const pct = (v) => (v == null ? '' : `${Math.round(v * 100)}%`);
+
+    const groupbuyData = gsRows.map((r) => ({
+      '브랜드_상품': r.brand_name,
+      '브랜드사': r.brand_company,
+      '제품': r.brand_product,
+      '인플루언서/파트너': r.influencer_name,
+      '시작일': r.start_date,
+      '종료일': r.end_date,
+      '수수료율': pct(r.commission_rate),
+      '상태': r.status,
+      '정산방식': r.settlement_method,
+      '담당팀': r.department,
+      '메모': r.memo,
+    }));
+
+    const mallData = gsMallRows.map((r) => ({
+      '몰': r.mall,
+      '행사명': r.title,
+      '시작일': r.start_date,
+      '종료일': r.end_date,
+      '메모': r.memo,
+    }));
+
+    const settlementData = (gsSettlementRows || []).map((r) => ({
+      '구분': r.category,
+      '파트너': r.partner,
+      '기간시작': r.period_start,
+      '기간종료': r.period_end,
+      '정산예정일': r.settlement_date,
+      '상태': r.status,
+      '매출': r.revenue,
+      '수수료': r.commission_amount,
+      '입금액': r.collected_amount,
+      '메모': r.memo,
+    }));
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(groupbuyData), '공구 일정');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mallData), '외부몰 행사');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(settlementData), '정산');
+    const stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `프로모션_일정_${stamp}.xlsx`);
   }
 
   function gsMatchesQuery(r, q) {
