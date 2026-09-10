@@ -904,6 +904,7 @@
           <div class="nav-item" id="navProduct" onclick="switchView('product')"><span class="dot"></span>품별</div>
           <div class="nav-item" id="navChannel" onclick="switchView('channel')"><span class="dot"></span>몰별</div>
           <div class="nav-item" id="navCodenitProducts" onclick="switchView('codenit-products')"><span class="dot"></span>코드니처 자사몰</div>
+          <div class="nav-item" id="navMallPrices" onclick="switchView('mall-prices')"><span class="dot"></span>외부몰 판매가</div>
         </div>
         <div class="nav-group">
           <div class="nav-label">광고마케팅</div>
@@ -1482,6 +1483,43 @@
           <label class="gs-toggle"><input type="checkbox" id="cpFilterGroupbuy" checked onchange="cpToggleFilter('groupbuy', this.checked)"><span class="cp-toggle-dot groupbuy"></span>공동구매</label>
         </div>
         <div class="product-card-grid" id="cpGrid"></div>
+      </section>
+    </main>
+
+    <main class="main" id="mallPricesView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>외부몰 판매가</h1>
+          <div class="subtitle">외부몰(SK MALL, 오늘의집 등)에 등록한 상품별 판매가를 관리합니다.</div>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head"><h2>판매가 등록</h2></div>
+        <form class="deal-form" id="mallPriceForm">
+          <input type="text" name="mall" placeholder="몰/채널명 (예: SK MALL, 오늘의집)" required style="flex:1; min-width:140px;">
+          <input type="text" name="productName" placeholder="상품명" required style="flex:2; min-width:180px;">
+          <input type="text" name="price" inputmode="numeric" placeholder="판매가(원)" style="width:130px;">
+          <input type="text" name="memo" placeholder="메모(선택)" style="flex:1; min-width:140px;">
+          <button type="submit" class="btn-primary">추가</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>판매가 목록</h2>
+          <span class="panel-note" id="mpListNote"></span>
+        </div>
+        <div class="filter-group" style="margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+          <select id="mpFilterMall" class="vendor-select"><option value="">전체 몰</option></select>
+          <input type="text" id="mpSearchInput" class="vendor-select" placeholder="상품명 검색" autocomplete="off">
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead><tr><th>몰/채널</th><th>상품명</th><th>판매가</th><th>메모</th><th></th></tr></thead>
+            <tbody id="mpTable"></tbody>
+          </table>
+        </div>
       </section>
     </main>
 
@@ -3577,6 +3615,7 @@
     document.getElementById('logisticsView').style.display = view === 'logistics' ? '' : 'none';
     document.getElementById('sampleSyncView').style.display = view === 'sample-sync' ? '' : 'none';
     document.getElementById('codenitProductsView').style.display = view === 'codenit-products' ? '' : 'none';
+    document.getElementById('mallPricesView').style.display = view === 'mall-prices' ? '' : 'none';
     document.getElementById('reviewAlertsView').style.display = view === 'review-alerts' ? '' : 'none';
     document.getElementById('teamOverviewView').style.display = view === 'team-overview' ? '' : 'none';
     document.getElementById('teamProcessView').style.display = view === 'team-process' ? '' : 'none';
@@ -3593,6 +3632,7 @@
     document.getElementById('navLogistics').classList.toggle('active', view === 'logistics');
     document.getElementById('navSampleSync').classList.toggle('active', view === 'sample-sync');
     document.getElementById('navCodenitProducts').classList.toggle('active', view === 'codenit-products');
+    document.getElementById('navMallPrices').classList.toggle('active', view === 'mall-prices');
     document.getElementById('navReviewAlerts').classList.toggle('active', view === 'review-alerts');
     document.getElementById('navTeamProcess').classList.toggle('active', view === 'team-process');
     document.getElementById('navTeamTasks').classList.toggle('active', view === 'team-tasks');
@@ -3628,6 +3668,7 @@
     if (view === 'logistics') { loadLogisticsData(); loadEzadminInventory(); }
     if (view === 'sample-sync') { loadSampleRequests(); setupSampleProductSelect(); loadSampleProductList(); }
     if (view === 'codenit-products') loadCodenitProducts();
+    if (view === 'mall-prices') loadMallPrices();
     if (view === 'review-alerts') loadReviewAlerts();
     if (view === 'team-tasks') {
       taskFilterAssignee = brandChannel || '';
@@ -5094,6 +5135,101 @@
     form.reset();
     loadCodenitProducts();
   });
+
+  // ==================== 외부몰 판매가 ====================
+  let mallPriceRows = [];
+  let mallPriceFilterMall = '';
+
+  async function loadMallPrices() {
+    const { data, error } = await client.from('mall_product_prices').select('*')
+      .order('mall', { ascending: true }).order('product_name', { ascending: true });
+    if (error) { console.error(error); return; }
+    mallPriceRows = data || [];
+    renderMallPriceFilter();
+    renderMallPriceTable();
+  }
+
+  function renderMallPriceFilter() {
+    const sel = document.getElementById('mpFilterMall');
+    if (!sel) return;
+    const malls = Array.from(new Set(mallPriceRows.map(r => r.mall).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'));
+    if (mallPriceFilterMall && !malls.includes(mallPriceFilterMall)) mallPriceFilterMall = '';
+    sel.innerHTML = '<option value="">전체 몰</option>' + malls.map(m => `<option value="${escapeAttr(m)}" ${m === mallPriceFilterMall ? 'selected' : ''}>${escapeAttr(m)}</option>`).join('');
+  }
+
+  function mallPriceFilteredRows() {
+    const q = (document.getElementById('mpSearchInput')?.value || '').trim().toLowerCase();
+    return mallPriceRows.filter((r) => {
+      if (mallPriceFilterMall && r.mall !== mallPriceFilterMall) return false;
+      if (q && !(r.product_name || '').toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }
+
+  function renderMallPriceTable() {
+    const note = document.getElementById('mpListNote');
+    const table = document.getElementById('mpTable');
+    if (!note || !table) return;
+    const rows = mallPriceFilteredRows();
+    note.textContent = rows.length + '개 (전체 ' + mallPriceRows.length + '개)';
+    if (!rows.length) {
+      table.innerHTML = '<tr><td colspan="5" class="gs-empty">등록된 외부몰 판매가가 없습니다. 위에서 추가해보세요.</td></tr>';
+      return;
+    }
+    table.innerHTML = rows.map((r) => `
+      <tr>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(r.mall || '')}"
+          onchange="updateMallPriceField(${r.id}, 'mall', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(r.product_name || '')}"
+          onchange="updateMallPriceField(${r.id}, 'product_name', this.value)"></td>
+        <td><input type="text" inputmode="numeric" class="inline-edit" value="${r.price != null ? r.price : ''}"
+          onchange="updateMallPriceField(${r.id}, 'price', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(r.memo || '')}"
+          onchange="updateMallPriceField(${r.id}, 'memo', this.value)"></td>
+        <td><button class="btn-danger" onclick="deleteMallPrice(${r.id})">삭제</button></td>
+      </tr>
+    `).join('');
+  }
+
+  document.getElementById('mallPriceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const mall = form.mall.value.trim();
+    const productName = form.productName.value.trim();
+    const priceRaw = form.price.value.trim();
+    const memo = form.memo.value.trim() || null;
+    if (!mall || !productName) return;
+    const price = priceRaw ? Number(priceRaw.replace(/,/g, '')) : null;
+    const { error } = await client.from('mall_product_prices').insert([{ mall, product_name: productName, price, memo }]);
+    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+    form.reset();
+    loadMallPrices();
+  });
+
+  async function updateMallPriceField(id, field, rawValue) {
+    let value = rawValue.trim();
+    if (field === 'price') {
+      value = value ? Number(value.replace(/,/g, '')) : null;
+    } else {
+      value = value || null;
+    }
+    const { error } = await client.from('mall_product_prices').update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadMallPrices();
+  }
+
+  async function deleteMallPrice(id) {
+    if (!confirm('이 판매가 정보를 삭제할까요?')) return;
+    const { error } = await client.from('mall_product_prices').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadMallPrices();
+  }
+
+  document.getElementById('mpFilterMall').addEventListener('change', (e) => {
+    mallPriceFilterMall = e.target.value;
+    renderMallPriceTable();
+  });
+  document.getElementById('mpSearchInput').addEventListener('input', () => renderMallPriceTable());
 
   // ==================== 리뷰 알림 (스마트스토어 자동 수집 + 쿠팡 수동 업로드) ====================
   let allReviewAlerts = [];
