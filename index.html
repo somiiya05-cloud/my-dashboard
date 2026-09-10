@@ -6,6 +6,7 @@
 <title>영업 대시보드</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -2249,6 +2250,7 @@
           <label class="gs-toggle"><input type="checkbox" id="gsFilterMall" checked onchange="gsToggleFilter('mall', this.checked)"><span class="gs-toggle-dot gs-accent-mall"></span>외부몰 행사</label>
           <input type="text" id="gsSearchInput" class="gs-search-input" placeholder="브랜드·인플루언서·행사명 검색" oninput="gsSearch(this.value)">
           <button type="button" class="filter-reset-btn" id="gsExportBtn" onclick="gsExportExcel()">엑셀 다운로드</button>
+          <button type="button" class="filter-reset-btn" id="gsImageExportBtn" onclick="gsExportImage()">이미지로 다운로드</button>
         </div>
         <div id="scheduleSearchResults"></div>
         <div id="scheduleCalendar"><div class="gs-empty">불러오는 중...</div></div>
@@ -6342,6 +6344,31 @@
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(settlementData), '정산');
     const stamp = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(wb, `프로모션_일정_${stamp}.xlsx`);
+  }
+
+  function gsExportImage() {
+    const target = document.getElementById('scheduleCalendar');
+    const btn = document.getElementById('gsImageExportBtn');
+    if (!target || typeof html2canvas !== 'function') return;
+    const label = btn.textContent;
+    btn.textContent = '이미지 생성 중...';
+    btn.disabled = true;
+    html2canvas(target, { backgroundColor: '#ffffff', scale: 2, useCORS: true })
+      .then((canvas) => {
+        const link = document.createElement('a');
+        const stamp = `${gsCursor.y}-${String(gsCursor.m).padStart(2, '0')}`;
+        link.download = `프로모션_캘린더_${stamp}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      })
+      .catch((err) => {
+        console.error('캘린더 이미지 생성 실패:', err);
+        alert('이미지 생성에 실패했습니다. 다시 시도해주세요.');
+      })
+      .finally(() => {
+        btn.textContent = label;
+        btn.disabled = false;
+      });
   }
 
   function gsMatchesQuery(r, q) {
