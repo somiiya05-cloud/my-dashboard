@@ -1,0 +1,71 @@
+name: 네이버 키워드/캠페인 일별 동기화 호출
+
+# api/sync-naver-keywords.js를 mode=daily로 호출해서, 캠페인·키워드 성과를 하루 단위로
+# naver_keyword_performance_daily / naver_campaign_performance_daily에 쌓는다.
+# 매일 스케줄로는 어제 하루만 처리하고, workflow_dispatch에 from/to를 채우면 그 기간을
+# (계정×조각 잡 안에서) 하루씩 순회하며 백필한다 — Vercel 함수는 여전히 하루짜리 호출
+# 하나씩만 처리하니 60초 제한과 무관하다.
+
+on:
+  schedule:
+    # 매일 UTC 05:30(한국 14:30) — 월간 동기화(05:00) 10분 뒤
+    - cron: '30 5 * * *'
+  workflow_dispatch:
+    inputs:
+      from:
+        description: '백필 시작일(YYYY-MM-DD). 비워두면 어제 하루만 실행.'
+        required: false
+        default: ''
+      to:
+        description: '백필 종료일(YYYY-MM-DD). from을 채웠는데 비워두면 어제까지.'
+        required: false
+        default: ''
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - account: '1'
+            shard: 0
+            shards: 1
+          - account: '2'
+            shard: 0
+            shards: 4
+          - account: '2'
+            shard: 1
+            shards: 4
+          - account: '2'
+            shard: 2
+            shards: 4
+          - account: '2'
+            shard: 3
+            shards: 4
+    steps:
+      - name: "날짜별 Vercel sync 엔드포인트 호출 (계정${{ matrix.account }}, 조각 ${{ matrix.shard }}/${{ matrix.shards }})"
+        run: |
+          FROM="${{ github.event.inputs.from }}"
+          TO="${{ github.event.inputs.to }}"
+          if [ -z "$FROM" ]; then
+            FROM=$(TZ=Asia/Seoul date -d 'yesterday' +%F)
+          fi
+          if [ -z "$TO" ]; then
+            TO="$FROM"
+          fi
+          echo "처리 범위: $FROM ~ $TO"
+          D="$FROM"
+          while :; do
+            URL="${{ secrets.VERCEL_APP_URL }}/api/sync-naver-keywords?mode=daily&date=${D}&account=${{ matrix.account }}&shard=${{ matrix.shard }}&shards=${{ matrix.shards }}"
+            echo "=== $D ==="
+            HTTP_CODE=$(curl -s --max-time 90 -o response.json -w "%{http_code}" \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "$URL")
+            echo "HTTP status: $HTTP_CODE"
+            cat response.json
+            echo
+            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then exit 1; fi
+            if [ "$D" = "$TO" ]; then break; fi
+            D=$(date -d "$D + 1 day" +%F)
+            sleep 2
+          done

@@ -1,7 +1,15 @@
-// 네이버 검색광고 키워드별 월간 성과를 캠페인 → 광고그룹 → 키워드 순으로 내려가며
-// 수집해서 Supabase의 naver_keyword_performance 테이블에 저장하는 Vercel 서버리스
-// 함수입니다. 마케팅대시보드 브랜드별 페이지의 "낭비 키워드"(클릭은 있는데 전환이
-// 없는 키워드 등) 표에 쓰입니다.
+// 네이버 검색광고 키워드별 성과를 캠페인 → 광고그룹 → 키워드 순으로 내려가며
+// 수집해서 Supabase에 저장하는 Vercel 서버리스 함수입니다. 마케팅대시보드
+// 브랜드별 페이지의 "낭비 키워드"(클릭은 있는데 전환이 없는 키워드 등) 표에 쓰입니다.
+//
+// 두 가지 모드가 있습니다(둘 다 캠페인→광고그룹→키워드 순회 로직은 동일하고,
+// 조회 기간(since/until)과 저장 테이블만 다릅니다):
+//   - mode=monthly(기본값): 이번 달 1일~오늘 합계를 naver_keyword_performance(월 단위)에 저장.
+//   - mode=daily: 특정 하루(기본 어제, KST)만 조회해서 naver_keyword_performance_daily +
+//     naver_campaign_performance_daily(일 단위)에 저장. 네이버 API 호출 비용은 "조회 기간
+//     길이"가 아니라 "id 개수"로 매겨져서, 월 전체를 조회하나 하루만 조회하나 호출량은
+//     같습니다 — 그래서 이 모드로 매일 실행하면 지금과 같은 호출량으로 일별 데이터가 쌓입니다.
+//     (naver_keyword_campaign_daily.sql을 Supabase SQL Editor에서 먼저 실행해야 합니다.)
 //
 // ⚠️ 배치 위치: GitHub 저장소 최상위의 "api" 폴더 안에 "sync-naver-keywords.js" 로 저장하세요.
 //    최종 경로: api/sync-naver-keywords.js
@@ -21,6 +29,9 @@
 // 수동 테스트 방법 (터미널에서):
 //   curl -H "Authorization: Bearer <CRON_SECRET 값>" \
 //        "https://내주소.vercel.app/api/sync-naver-keywords?month=2026-09"
+//   일 단위(예: 2026-09-08 하루)로 테스트:
+//   curl -H "Authorization: Bearer <CRON_SECRET 값>" \
+//        "https://내주소.vercel.app/api/sync-naver-keywords?mode=daily&date=2026-09-08"
 //   디버그(벌크 통계 원본 응답 1건을 로그로 출력): 뒤에 &debug=1 추가
 
 const crypto = require('crypto');
@@ -231,7 +242,7 @@ async function upsertInChunks(table, conflictCols, rows) {
 // 광고그룹/키워드까지 개별 호출로 내려가는 단계가 60초를 넘기기 쉬워서, 활동 캠페인을
 // shards개로 나눠 캠페인 인덱스 % shards === shard 인 것만 처리한다. 호출하는 쪽(워크플로)이
 // 같은 계정을 shard 0..shards-1로 여러 번(=여러 Vercel 함수 실행) 나눠 부르면 된다.
-async function syncNaverKeywordsForAccount(account, since, until, monthStr, debug, elapsed, shard = 0, shards = 1) {
+async function syncNaverKeywordsForAccount(account, since, until, rowMeta, debug, elapsed, shard = 0, shards = 1) {
   const allCampaigns = await naverRequest(account, 'GET', '/ncc/campaigns');
   console.log(`[naver-keywords][${account.label}] 캠페인 ${allCampaigns.length}개 조회 완료 (${elapsed()})`);
 
@@ -256,6 +267,17 @@ async function syncNaverKeywordsForAccount(account, since, until, monthStr, debu
       (shards > 1 ? `, 이 조각(${shard + 1}/${shards})이 처리할 캠페인 ${campaigns.length}개` : '') +
       ` (${elapsed()})`
   );
+
+  // 일 단위 모드에서는 캠페인 레벨 통계(이미 위에서 받아둔 campaignTotals)를 그대로
+  // naver_campaign_performance_daily에 저장한다 — 추가 API 호출 없이 공짜로 얻는 데이터.
+  const campaignDailyRows = 'date' in rowMeta
+    ? campaigns.map((c) => ({
+        ...rowMeta,
+        channel: matchChannel(account.brands, c.name),
+        campaign: c.name,
+        ...(campaignTotals.get(c.nccCampaignId) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 })
+      }))
+    : [];
 
   // 캠페인 → 광고그룹 (부모 id 하나씩만 조회 가능해서 개별 호출이지만, 활동 캠페인만 대상이라 수가 적음)
   const campaignAdgroups = await mapWithConcurrency(campaigns, LIST_CONCURRENCY, async (campaign) => {
@@ -329,7 +351,7 @@ async function syncNaverKeywordsForAccount(account, since, until, monthStr, debu
   const rows = keywordTargets.map((t) => {
     const channelInfo = adgroupSalesChannel.get(t.adgroupId) || { landingUrl: null, salesChannel: null };
     return {
-      month: monthStr,
+      ...rowMeta,
       channel: t.channel,
       campaign: t.campaign,
       adgroup: t.adgroup,
@@ -372,6 +394,7 @@ async function syncNaverKeywordsForAccount(account, since, until, monthStr, debu
   return {
     label: account.label,
     rows,
+    campaignDailyRows,
     totalCampaignCount: allCampaigns.length,
     activeCampaignCount: campaigns.length,
     adgroupCount: adgroupTargets.length,
@@ -416,20 +439,38 @@ module.exports = async function handler(req, res) {
   );
   const skippedAccounts = accountsToRun.filter((a) => !activeAccounts.includes(a)).map((a) => a.label);
 
+  const mode = (req.query && req.query.mode) === 'daily' ? 'daily' : 'monthly';
   const monthParam = req.query && req.query.month;
+  const dateParam = req.query && req.query.date;
   const debug = req.query && req.query.debug === '1';
   // ?shard=0&shards=3 처럼 지정하면 이 계정의 활동 캠페인을 shards개로 나눠 그중
   // shard번째 조각만 처리합니다. 캠페인/키워드가 아주 많은 계정 하나를 여러 호출로
   // 쪼개 각각 60초 안에 끝내려는 용도입니다 (?account=와 함께 씁니다).
   const shard = Math.max(0, Number((req.query && req.query.shard) || 0) || 0);
   const shards = Math.max(1, Number((req.query && req.query.shards) || 1) || 1);
-  const now = new Date();
-  const year = monthParam ? Number(monthParam.split('-')[0]) : now.getUTCFullYear();
-  const mon = monthParam ? Number(monthParam.split('-')[1]) : now.getUTCMonth() + 1;
-  const monthStr = `${year}-${String(mon).padStart(2, '0')}`;
-  const since = `${monthStr}-01`;
-  const lastDay = new Date(year, mon, 0).getDate();
-  const until = `${monthStr}-${String(lastDay).padStart(2, '0')}`;
+
+  let since, until, rowMeta, responseMeta;
+  if (mode === 'daily') {
+    // 기본은 "어제(KST)" — 오늘 데이터는 집계가 덜 끝났을 수 있어 sync-naver-ads.js와
+    // 같은 관례를 따른다. ?date=2026-09-08 로 특정 날짜(백필)를 지정할 수 있다.
+    const kstNow = new Date(Date.now() + 9 * 3600 * 1000);
+    kstNow.setUTCDate(kstNow.getUTCDate() - 1);
+    const targetDate = dateParam || kstNow.toISOString().slice(0, 10);
+    since = targetDate;
+    until = targetDate;
+    rowMeta = { date: targetDate };
+    responseMeta = { mode, date: targetDate };
+  } else {
+    const now = new Date();
+    const year = monthParam ? Number(monthParam.split('-')[0]) : now.getUTCFullYear();
+    const mon = monthParam ? Number(monthParam.split('-')[1]) : now.getUTCMonth() + 1;
+    const monthStr = `${year}-${String(mon).padStart(2, '0')}`;
+    since = `${monthStr}-01`;
+    const lastDay = new Date(year, mon, 0).getDate();
+    until = `${monthStr}-${String(lastDay).padStart(2, '0')}`;
+    rowMeta = { month: monthStr };
+    responseMeta = { mode, month: monthStr };
+  }
 
   const t0 = Date.now();
   const elapsed = () => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
@@ -437,17 +478,27 @@ module.exports = async function handler(req, res) {
   try {
     const perAccountResults = [];
     for (const account of activeAccounts) {
-      perAccountResults.push(await syncNaverKeywordsForAccount(account, since, until, monthStr, debug, elapsed, shard, shards));
+      perAccountResults.push(await syncNaverKeywordsForAccount(account, since, until, rowMeta, debug, elapsed, shard, shards));
     }
 
     const rows = perAccountResults.flatMap((r) => r.rows);
     // 노출도 클릭도 전혀 없었던 키워드는 저장하지 않아 표를 깔끔하게 유지합니다.
     const meaningfulRows = rows.filter((r) => r.spend > 0 || r.impressions > 0 || r.clicks > 0);
-    await upsertInChunks('naver_keyword_performance', 'month,keyword_id', meaningfulRows);
-    console.log(`[naver-keywords] Supabase 저장 완료 — ${meaningfulRows.length}건 (${elapsed()})`);
+
+    let savedCount = meaningfulRows.length;
+    if (mode === 'daily') {
+      await upsertInChunks('naver_keyword_performance_daily', 'date,keyword_id', meaningfulRows);
+      const campaignRows = perAccountResults.flatMap((r) => r.campaignDailyRows);
+      await upsertInChunks('naver_campaign_performance_daily', 'date,channel,campaign', campaignRows);
+      savedCount = meaningfulRows.length + campaignRows.length;
+      console.log(`[naver-keywords] Supabase 저장 완료(일별) — 키워드 ${meaningfulRows.length}건, 캠페인 ${campaignRows.length}건 (${elapsed()})`);
+    } else {
+      await upsertInChunks('naver_keyword_performance', 'month,keyword_id', meaningfulRows);
+      console.log(`[naver-keywords] Supabase 저장 완료 — ${meaningfulRows.length}건 (${elapsed()})`);
+    }
 
     return res.status(200).json({
-      month: monthStr,
+      ...responseMeta,
       shard, shards,
       accountsUsed: activeAccounts.map((a) => a.label),
       accountsSkipped: skippedAccounts,
@@ -456,7 +507,7 @@ module.exports = async function handler(req, res) {
       adgroupCount: perAccountResults.reduce((s, r) => s + r.adgroupCount, 0),
       keywordCount: perAccountResults.reduce((s, r) => s + r.keywordCount, 0),
       landingUrlResolvedCount: perAccountResults.reduce((s, r) => s + r.landingUrlResolvedCount, 0),
-      savedCount: meaningfulRows.length,
+      savedCount,
       elapsed: elapsed(),
       ...(debug
         ? {
