@@ -193,6 +193,15 @@
   .review-badge.done { background: rgba(22,163,74,.12); color: #15803d; }
   .review-dash { color: #cbd5e1; }
 
+  /* ---- 할일 관리: 데일리 업무 체크리스트 (매일 반복되는 루틴 업무를 상단에 고정 표시) ---- */
+  .daily-checklist-panel { border-color: rgba(77,124,254,.25); background: rgba(77,124,254,.04); }
+  .daily-checklist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 16px; }
+  .daily-checklist-item { display: flex; align-items: center; gap: 8px; padding: 6px 4px; font-size: 13px; color: #0f172a; }
+  .daily-checklist-item input[type="checkbox"] { width: 16px; height: 16px; flex-shrink: 0; accent-color: #4d7cfe; cursor: pointer; }
+  .daily-checklist-item label { cursor: pointer; }
+  .daily-checklist-item.done label { color: #94a3b8; text-decoration: line-through; }
+  .daily-checklist-empty { font-size: 12.5px; color: #94a3b8; padding: 4px; }
+
   /* ---- 할일 관리: 현재 업무 / 히스토리 탭 (스크롤해도 화면 상단에 고정) ---- */
   .task-tabs {
     display: flex; margin-bottom: 16px; border-bottom: 1px solid rgba(15,23,42,.07);
@@ -2116,6 +2125,11 @@
           <button type="button" class="btn-primary" onclick="openTaskPanel()">+ 새 업무 등록</button>
         </div>
       </div>
+
+      <section class="panel daily-checklist-panel" id="dailyChecklistPanel" style="display:none">
+        <div class="panel-head"><h2>데일리 업무 체크리스트</h2><span class="panel-note" id="dailyChecklistNote"></span></div>
+        <div id="dailyChecklistBody"></div>
+      </section>
 
       <section class="kpi-row" id="taskCards"></section>
 
@@ -5435,7 +5449,9 @@
     document.getElementById('taskTopbarActions').style.display = isPersonal ? '' : 'none';
     document.getElementById('personalTaskArea').style.display = isPersonal ? '' : 'none';
     document.getElementById('teamSummaryArea').style.display = isPersonal ? 'none' : '';
+    document.getElementById('dailyChecklistPanel').style.display = isPersonal ? '' : 'none';
     if (isPersonal) {
+      renderDailyChecklist();
       renderTaskCards();
       renderTaskStatusChips();
       renderTaskTable();
@@ -5443,6 +5459,30 @@
     } else {
       renderTeamSummary();
     }
+  }
+
+  // 매일 반복되는 루틴 업무(구분='데일리업무')를 상단에 체크리스트로 고정 표시.
+  // 체크하면 해당 업무 상태를 확인완료로, 체크 해제하면 할일로 되돌림.
+  function renderDailyChecklist() {
+    const items = currentTasks
+      .filter(t => !t.archived_at && t.assignee === taskFilterAssignee && t.category === '데일리업무')
+      .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
+    const note = document.getElementById('dailyChecklistNote');
+    const body = document.getElementById('dailyChecklistBody');
+    const doneCount = items.filter(t => t.status === '확인완료').length;
+    note.textContent = items.length ? `${doneCount}/${items.length}건 완료` : '';
+    body.innerHTML = items.length
+      ? `<div class="daily-checklist-grid">${items.map(t => {
+          const done = t.status === '확인완료';
+          return `
+            <div class="daily-checklist-item${done ? ' done' : ''}">
+              <input type="checkbox" id="dc-${t.id}" ${done ? 'checked' : ''}
+                onchange="updateTaskStatus(${t.id}, this.checked ? '확인완료' : '할일')">
+              <label for="dc-${t.id}">${escapeAttr(t.title || '(제목 없음)')}</label>
+            </div>
+          `;
+        }).join('')}</div>`
+      : '<div class="daily-checklist-empty">등록된 데일리 업무가 없습니다.</div>';
   }
 
   function filterTaskStatus(status) {
@@ -5498,6 +5538,7 @@
     taskFilterTo = document.getElementById('taskFlTo').value;
     taskFilterSearch = document.getElementById('taskFlSearch').value.trim();
     updateTaskViewHeader();
+    renderDailyChecklist();
     renderTaskCards();
     renderTaskTable();
     renderTaskHistory();
@@ -5509,6 +5550,7 @@
     taskStatusFilter = null;
     populateTaskFilterOptions();
     updateTaskViewHeader();
+    renderDailyChecklist();
     renderTaskCards();
     renderTaskStatusChips();
     renderTaskTable();
