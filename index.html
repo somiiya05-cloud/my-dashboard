@@ -5698,7 +5698,7 @@
   }
 
   const TASK_PRIORITIES = ['높음', '보통', '낮음'];
-  const TASK_CATEGORIES = ['채널 운영', '광고·마케팅', '프로모션·판매', '해외·B2B', '상품·콘텐츠', '계약·정산', '데이터·자동화', '내부·정기업무'];
+  const TASK_CATEGORIES = ['데일리업무', '채널 운영', '광고·마케팅', '프로모션·판매', '해외·B2B', '상품·콘텐츠', '계약·정산', '데이터·자동화', '내부·정기업무'];
   function taskCategoryOptionsHtml(current) {
     const cur = current || '';
     const opts = cur && !TASK_CATEGORIES.includes(cur) ? [cur, ...TASK_CATEGORIES] : TASK_CATEGORIES;
@@ -5763,6 +5763,10 @@
 
   function sortTasksForList(tasks) {
     return tasks.slice().sort((a, b) => {
+      // 데일리업무는 정렬 기준과 무관하게 항상 최상단 고정
+      const ap = a.category === '데일리업무' ? 0 : 1;
+      const bp = b.category === '데일리업무' ? 0 : 1;
+      if (ap !== bp) return ap - bp;
       const pr = taskPriorityRank(a.priority) - taskPriorityRank(b.priority);
       if (pr !== 0) return pr;
       const ad = a.due_date ? String(a.due_date).slice(0, 10) : '9999-99-99';
