@@ -33,16 +33,22 @@ jobs:
             shards: 1
           - account: '2'
             shard: 0
-            shards: 4
+            shards: 6
           - account: '2'
             shard: 1
-            shards: 4
+            shards: 6
           - account: '2'
             shard: 2
-            shards: 4
+            shards: 6
           - account: '2'
             shard: 3
-            shards: 4
+            shards: 6
+          - account: '2'
+            shard: 4
+            shards: 6
+          - account: '2'
+            shard: 5
+            shards: 6
     steps:
       - name: "날짜별 Vercel sync 엔드포인트 호출 (계정${{ matrix.account }}, 조각 ${{ matrix.shard }}/${{ matrix.shards }})"
         run: |
