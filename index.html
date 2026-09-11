@@ -495,7 +495,7 @@
   .gs-cal-grid { border: 1px solid rgba(15,23,42,.09); border-radius: 10px; overflow: hidden; min-width: 760px; }
   .gs-cal-week { display: grid; grid-template-columns: repeat(7, 1fr); position: relative; border-top: 1px solid rgba(15,23,42,.07); }
   .gs-cal-week:first-child { border-top: none; }
-  .gs-cal-week-head { grid-template-rows: 24px; background: #f4f5f8; }
+  .gs-cal-week-head { grid-template-rows: 30px; background: #f4f5f8; }
   .gs-cal-dow { grid-column: var(--c); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #475569; }
   .gs-cal-dow.dow-sun { color: #dc2626; }
   .gs-cal-dow.dow-sat { color: #2f5ce4; }
@@ -504,21 +504,28 @@
   .gs-day-bg.adjacent { background: #f8f9fb; }
   .gs-day-bg.today { background: rgba(77,124,254,.08); }
 
-  .gs-day-num { grid-row: 1; grid-column: var(--c); font-size: 10.5px; font-weight: 600; color: #475569; padding: 2px 5px; }
+  .gs-day-num {
+    grid-row: 1; grid-column: var(--c); font-size: 11px; font-weight: 600; color: #475569;
+    padding: 5px 7px; display: flex; align-items: center; justify-content: space-between;
+  }
   .gs-day-num.adjacent { color: #a7adc1; }
   .gs-day-num.today { color: #2f5ce4; font-weight: 800; }
   .gs-day-num.dow-sun { color: #dc2626; }
   .gs-day-num.dow-sat { color: #2f5ce4; }
   .gs-day-num.month-label { font-weight: 800; }
+  .gs-day-count {
+    font-size: 10px; font-weight: 700; color: #64748b; background: rgba(100,116,139,.14);
+    border-radius: 999px; min-width: 16px; height: 16px; line-height: 16px; text-align: center; padding: 0 4px;
+  }
 
   .gs-ev-card {
     grid-row: var(--r); grid-column: var(--c);
-    margin: 1px 2px; padding: 2px 6px; border-radius: 5px; font-size: 10px; line-height: 1.3;
+    margin: 1.5px 2px; padding: 3px 7px; border-radius: 6px; font-size: 10.5px; line-height: 1.35;
     background: #ffffff; border: 1px solid rgba(15,23,42,.08); border-left: 3px solid #94a3b8;
-    overflow: hidden; cursor: default; align-self: start;
+    overflow: hidden; cursor: pointer; align-self: start;
   }
-  .gs-ev-card-title { font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .gs-ev-card-meta { color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gs-ev-card-title { font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gs-ev-card-meta { font-size: 8.5px; font-weight: 700; letter-spacing: .1px; margin-bottom: 1px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .gs-ev-card-tags { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 1px; }
   .gs-ev-card-tags .gs-tag { padding: 0 5px; font-size: 9px; border-radius: 999px; font-weight: 600; line-height: 1.5; }
 
@@ -531,6 +538,12 @@
   .gs-ev-card-filled.gs-accent-pink .gs-ev-card-title { color: #9d174d; }
   .gs-ev-card-filled.gs-accent-pink .gs-ev-card-meta { color: #be185d; }
   .gs-ev-card-filled.gs-accent-pink .gs-ev-card-tags .gs-tag { background: rgba(190,24,93,.16); color: #9d174d; }
+
+  /* 콘텐츠팀 공구 일정 (department_color=blue) */
+  .gs-ev-card-filled.gs-accent-blue { background: rgba(37,99,235,.1); border-color: rgba(37,99,235,.28); }
+  .gs-ev-card-filled.gs-accent-blue .gs-ev-card-title { color: #1d4ed8; }
+  .gs-ev-card-filled.gs-accent-blue .gs-ev-card-meta { color: #2563eb; }
+  .gs-ev-card-filled.gs-accent-blue .gs-ev-card-tags .gs-tag { background: rgba(37,99,235,.16); color: #1d4ed8; }
 
   /* 외부몰 행사: 몰마다 다른 색상 (스마트스토어=연두, 오늘의집=하늘, 쿠팡=호박, 톡딜=보라) */
   .gs-ev-card-filled.gs-accent-green { background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.3); }
@@ -6545,10 +6558,12 @@
         start: r.start_date,
         end: r.end_date || r.start_date,
         title: `${r.brand_name || '브랜드미정'} · ${r.influencer_name || '(이름없음)'}`,
+        catLabel: r.department || '일반',
         pctText: typeof r.commission_rate === 'number' ? `${Math.round(r.commission_rate * 100)}%` : null,
         tags,
         department: r.department || '',
-        accent: r.department_color || 'default'
+        accent: r.department_color || 'default',
+        filled: true
       };
     });
   }
@@ -6590,7 +6605,8 @@
         rawId: r.id,
         start: r.start_date,
         end: r.end_date || r.start_date,
-        title: r.mall ? `${r.mall} · ${r.title}` : r.title,
+        title: r.title,
+        catLabel: r.mall || '외부몰',
         pctText: null,
         tags: r.memo ? [{ text: r.memo, color: 'mall' }] : [],
         accent: namedAccent || 'auto',
@@ -6601,13 +6617,12 @@
   }
 
   function gsEvCardHtml(r, style) {
-    const meta = `<div class="gs-ev-card-meta">${r.pctText ? `${escapeAttr(r.pctText)} · ` : ''}${gsShortDate(r.start)}→${gsShortDate(r.end)}</div>`;
-    const tags = r.tags.map((t) => `<span class="gs-tag gs-tag-${escapeAttr(t.color)}">${escapeAttr(t.text)}</span>`).join('');
     const cls = `gs-ev-card gs-accent-${escapeAttr(r.accent)}${r.filled ? ' gs-ev-card-filled' : ''}`;
     const fullStyle = style + (r.styleVars || '');
-    return `<div class="${cls}" style="${fullStyle}" title="${escapeAttr(r.title)}" onclick="gsOpenCardModal('${r.kind}', '${escapeAttr(String(r.rawId))}')">
-      <div class="gs-ev-card-title">${escapeAttr(r.title)}</div>${meta}
-      <div class="gs-ev-card-tags">${tags}</div></div>`;
+    const hoverTitle = `${r.title}${r.pctText ? ` · ${r.pctText}` : ''} · ${r.start}→${r.end}`;
+    return `<div class="${cls}" style="${fullStyle}" title="${escapeAttr(hoverTitle)}" onclick="gsOpenCardModal('${r.kind}', '${escapeAttr(String(r.rawId))}')">
+      ${r.catLabel ? `<div class="gs-ev-card-meta">${escapeAttr(r.catLabel)}</div>` : ''}
+      <div class="gs-ev-card-title">${escapeAttr(r.title)}</div></div>`;
   }
 
   // 같은 날짜에 겹칠 때 표시 우선순위: 외부몰 행사 → 영업팀 공동구매 → 콘텐츠기획팀 공동구매
@@ -6652,12 +6667,14 @@
       if (day.key === today) cls.push('today');
       if (day.isFirstOfMonth) cls.push('month-label');
       const label = day.isFirstOfMonth ? day.monthLabel : String(day.day);
-      return `<div class="${cls.join(' ')}" style="--c:${day.dow + 1}">${label}</div>`;
+      const dayCount = records.filter((r) => r.start <= day.key && r.end >= day.key).length;
+      const badge = dayCount > 0 ? `<span class="gs-day-count">${dayCount}</span>` : '';
+      return `<div class="${cls.join(' ')}" style="--c:${day.dow + 1}"><span>${label}</span>${badge}</div>`;
     }).join('');
 
     const cards = occ.map((o) => gsEvCardHtml(o.r, `--c:${o.startCol + 1} / ${o.endCol + 2};--r:${2 + o.lane}`)).join('');
 
-    return `<div class="gs-cal-week" style="grid-template-rows:18px repeat(${Math.max(1, laneCount)}, auto)">${dayBg}${dayNum}${cards}</div>`;
+    return `<div class="gs-cal-week" style="grid-template-rows:26px repeat(${Math.max(1, laneCount)}, auto)">${dayBg}${dayNum}${cards}</div>`;
   }
 
   function renderTeamSchedule() {
