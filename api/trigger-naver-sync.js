@@ -1,8 +1,11 @@
 // 대시보드의 "지금 동기화" 버튼이 호출하는 엔드포인트입니다.
 // GitHub Actions를 수동으로 "Run workflow" 누르는 것과 정확히 같은 일을
 // 코드로 대신 해줍니다 — 계정2 4조각 샤딩 등 이미 검증된 로직을 그대로
-// 재사용하기 위해, 여기서 직접 동기화를 돌리지 않고 두 워크플로
-// (ping-naver-ads-sync.yml, ping-naver-keywords-sync.yml)를 트리거만 합니다.
+// 재사용하기 위해, 여기서 직접 동기화를 돌리지 않고 아래 워크플로들을 트리거만 합니다:
+//   - ping-naver-ads-sync.yml (채널별 광고비, 월/일 단위)
+//   - ping-naver-keywords-sync.yml (캠페인·키워드, 월 단위 — 낭비 키워드 등)
+//   - ping-naver-keywords-daily-sync.yml (캠페인·키워드, 일 단위 — 상세 성과의 "하루전/3일" 등에 씀,
+//     스케줄이 채널별 동기화보다 늦어서 "하루전"을 눌러도 캠페인 성과가 비어 보이는 경우 이걸로 즉시 채움)
 // 버튼을 누르면 즉시 응답이 오고, 실제 동기화는 평소처럼 GitHub Actions에서
 // 1~2분 정도 걸려 완료됩니다(브라우저는 기다리지 않습니다).
 //
@@ -16,7 +19,7 @@
 
 const GITHUB_OWNER = 'somiiya05-cloud';
 const GITHUB_REPO = 'my-dashboard';
-const WORKFLOWS = ['ping-naver-ads-sync.yml', 'ping-naver-keywords-sync.yml'];
+const WORKFLOWS = ['ping-naver-ads-sync.yml', 'ping-naver-keywords-sync.yml', 'ping-naver-keywords-daily-sync.yml'];
 const ALLOWED_ORIGINS = [
   'https://ad-marketing-dashboard.vercel.app',
   'https://my-dashboard-three-fawn.vercel.app'
