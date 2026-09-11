@@ -518,6 +518,22 @@
     border-radius: 999px; min-width: 16px; height: 16px; line-height: 16px; text-align: center; padding: 0 4px;
   }
 
+  .gs-day-more {
+    grid-row: var(--r); grid-column: var(--c);
+    margin: 1.5px 2px; padding: 3px 7px; border-radius: 6px; font-size: 10px; font-weight: 700;
+    color: #475569; background: rgba(100,116,139,.12); cursor: pointer; text-align: center; align-self: start;
+  }
+  .gs-day-more:hover { background: rgba(100,116,139,.2); }
+
+  .gs-day-overflow-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; max-height: 50vh; overflow-y: auto; }
+  .gs-day-overflow-row {
+    display: flex; align-items: baseline; gap: 8px; padding: 7px 10px; border-radius: 8px;
+    background: #f4f5f8; border-left: 3px solid #94a3b8; cursor: pointer;
+  }
+  .gs-day-overflow-row:hover { background: #eceef2; }
+  .gs-day-overflow-cat { font-size: 10px; font-weight: 700; color: #64748b; white-space: nowrap; }
+  .gs-day-overflow-title { font-size: 12.5px; font-weight: 600; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
   .gs-ev-card {
     grid-row: var(--r); grid-column: var(--c);
     margin: 1.5px 2px; padding: 3px 7px; border-radius: 6px; font-size: 10.5px; line-height: 1.35;
@@ -6300,6 +6316,9 @@
   // 테이블(api/sync-groupbuy-schedule.js가 주기적으로 채워 넣음)을 월간 캘린더로 보여줍니다.
   // 읽기 전용입니다 — 수정은 인플루언서 매니저에서 해야 다음 동기화 때 반영됩니다.
   const gsCursor = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1 }; })();
+  // 한 주에 겹치는 일정이 너무 많으면(레인 수) 달력 전체가 세로로 길어져 한눈에 안 보이므로,
+  // 이 개수만큼만 카드로 보여주고 나머지는 날짜별 "+N개" 배지로 접어서 클릭 시 목록으로 보여줍니다.
+  const GS_MAX_LANES = 4;
   let gsRows = [];
   let gsMallRows = [];
   const gsFilters = { groupbuyTeam: true, groupbuyContent: true, mall: true };
@@ -6652,6 +6671,10 @@
       o.lane = lane;
     });
     const laneCount = laneEnds.length;
+    const visibleLanes = Math.min(laneCount, GS_MAX_LANES);
+    const overflow = occ.filter((o) => o.lane >= GS_MAX_LANES);
+    const hasOverflow = overflow.length > 0;
+    const overflowRow = 2 + visibleLanes;
 
     const dayBg = days.map((day) => {
       const cls = ['gs-day-bg'];
@@ -6672,14 +6695,24 @@
       return `<div class="${cls.join(' ')}" style="--c:${day.dow + 1}"><span>${label}</span>${badge}</div>`;
     }).join('');
 
-    const cards = occ.map((o) => gsEvCardHtml(o.r, `--c:${o.startCol + 1} / ${o.endCol + 2};--r:${2 + o.lane}`)).join('');
+    const cards = occ
+      .filter((o) => o.lane < GS_MAX_LANES)
+      .map((o) => gsEvCardHtml(o.r, `--c:${o.startCol + 1} / ${o.endCol + 2};--r:${2 + o.lane}`))
+      .join('');
 
-    return `<div class="gs-cal-week" style="grid-template-rows:26px repeat(${Math.max(1, laneCount)}, auto)">${dayBg}${dayNum}${cards}</div>`;
+    const moreChips = hasOverflow ? days.map((day, i) => {
+      const hiddenCount = overflow.filter((o) => o.startCol <= i && o.endCol >= i).length;
+      if (!hiddenCount) return '';
+      return `<div class="gs-day-more" style="--c:${i + 1};--r:${overflowRow}" onclick="gsShowDayOverflow('${day.key}')">+${hiddenCount}개 더보기</div>`;
+    }).join('') : '';
+
+    const totalRows = visibleLanes + (hasOverflow ? 1 : 0);
+    return `<div class="gs-cal-week" style="grid-template-rows:26px repeat(${Math.max(1, totalRows)}, auto)">${dayBg}${dayNum}${cards}${moreChips}</div>`;
   }
 
-  function renderTeamSchedule() {
-    const root = document.getElementById('scheduleCalendar');
-    if (!root) return;
+  // 현재 체크박스 필터(공구 일정 영업팀/콘텐츠팀, 외부몰 행사)를 적용한 전체 레코드 목록.
+  // 달력 렌더링과 "+N개 더보기" 팝업이 같은 필터 기준을 쓰도록 여기서 한 번만 만듭니다.
+  function gsBuildFilteredRecords() {
     let allRecords = [];
     if (gsFilters.groupbuyTeam || gsFilters.groupbuyContent) {
       const groupbuyRecords = gsToRecords(gsRows).filter((r) => {
@@ -6689,6 +6722,30 @@
       allRecords = allRecords.concat(groupbuyRecords);
     }
     if (gsFilters.mall) allRecords = allRecords.concat(gsMallToRecords(gsMallRows));
+    return allRecords;
+  }
+
+  function gsShowDayOverflow(dateKey) {
+    const dayRecords = gsBuildFilteredRecords()
+      .filter((r) => r.start <= dateKey && r.end >= dateKey)
+      .sort((a, b) => a.start.localeCompare(b.start));
+    const body = document.getElementById('gsCardModalBody');
+    body.innerHTML = `
+      <div class="gs-modal-title">${escapeAttr(dateKey)} 전체 일정 · ${dayRecords.length}건</div>
+      <div class="gs-day-overflow-list">
+        ${dayRecords.map((r) => `
+          <div class="gs-day-overflow-row gs-accent-${escapeAttr(r.accent)}" onclick="gsOpenCardModal('${r.kind}', '${escapeAttr(String(r.rawId))}')">
+            <span class="gs-day-overflow-cat">${escapeAttr(r.catLabel || '')}</span>
+            <span class="gs-day-overflow-title">${escapeAttr(r.title)}</span>
+          </div>`).join('')}
+      </div>`;
+    document.getElementById('gsCardModalOverlay').style.display = 'flex';
+  }
+
+  function renderTeamSchedule() {
+    const root = document.getElementById('scheduleCalendar');
+    if (!root) return;
+    const allRecords = gsBuildFilteredRecords();
 
     const q = gsSearchQuery.toLowerCase();
     const resultsBox = document.getElementById('scheduleSearchResults');
