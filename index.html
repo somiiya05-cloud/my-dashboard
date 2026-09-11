@@ -495,7 +495,7 @@
   .gs-cal-grid { border: 1px solid rgba(15,23,42,.09); border-radius: 10px; overflow: hidden; min-width: 760px; }
   .gs-cal-week { display: grid; grid-template-columns: repeat(7, 1fr); position: relative; border-top: 1px solid rgba(15,23,42,.07); }
   .gs-cal-week:first-child { border-top: none; }
-  .gs-cal-week-head { grid-template-rows: 30px; background: #f4f5f8; }
+  .gs-cal-week-head { grid-template-rows: 24px; background: #f4f5f8; }
   .gs-cal-dow { grid-column: var(--c); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #475569; }
   .gs-cal-dow.dow-sun { color: #dc2626; }
   .gs-cal-dow.dow-sat { color: #2f5ce4; }
@@ -505,8 +505,8 @@
   .gs-day-bg.today { background: rgba(77,124,254,.08); }
 
   .gs-day-num {
-    grid-row: 1; grid-column: var(--c); font-size: 11px; font-weight: 600; color: #475569;
-    padding: 5px 7px; display: flex; align-items: center; justify-content: space-between;
+    grid-row: 1; grid-column: var(--c); font-size: 10.5px; font-weight: 600; color: #475569;
+    padding: 3px 7px; display: flex; align-items: center; justify-content: space-between;
   }
   .gs-day-num.adjacent { color: #a7adc1; }
   .gs-day-num.today { color: #2f5ce4; font-weight: 800; }
@@ -520,7 +520,7 @@
 
   .gs-day-more {
     grid-row: var(--r); grid-column: var(--c);
-    margin: 1.5px 2px; padding: 3px 7px; border-radius: 6px; font-size: 10px; font-weight: 700;
+    margin: 1px 2px; padding: 2px 6px; border-radius: 5px; font-size: 9.5px; font-weight: 700;
     color: #475569; background: rgba(100,116,139,.12); cursor: pointer; text-align: center; align-self: start;
   }
   .gs-day-more:hover { background: rgba(100,116,139,.2); }
@@ -536,12 +536,12 @@
 
   .gs-ev-card {
     grid-row: var(--r); grid-column: var(--c);
-    margin: 1.5px 2px; padding: 3px 7px; border-radius: 6px; font-size: 10.5px; line-height: 1.35;
+    margin: 1px 2px; padding: 2px 6px; border-radius: 5px; font-size: 10px; line-height: 1.2;
     background: #ffffff; border: 1px solid rgba(15,23,42,.08); border-left: 3px solid #94a3b8;
     overflow: hidden; cursor: pointer; align-self: start;
   }
   .gs-ev-card-title { font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .gs-ev-card-meta { font-size: 8.5px; font-weight: 700; letter-spacing: .1px; margin-bottom: 1px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gs-ev-card-meta { font-size: 8px; font-weight: 700; letter-spacing: .1px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .gs-ev-card-tags { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 1px; }
   .gs-ev-card-tags .gs-tag { padding: 0 5px; font-size: 9px; border-radius: 999px; font-weight: 600; line-height: 1.5; }
 
@@ -6318,7 +6318,7 @@
   const gsCursor = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1 }; })();
   // 한 주에 겹치는 일정이 너무 많으면(레인 수) 달력 전체가 세로로 길어져 한눈에 안 보이므로,
   // 이 개수만큼만 카드로 보여주고 나머지는 날짜별 "+N개" 배지로 접어서 클릭 시 목록으로 보여줍니다.
-  const GS_MAX_LANES = 4;
+  const GS_MAX_LANES = 3;
   let gsRows = [];
   let gsMallRows = [];
   const gsFilters = { groupbuyTeam: true, groupbuyContent: true, mall: true };
@@ -6707,7 +6707,7 @@
     }).join('') : '';
 
     const totalRows = visibleLanes + (hasOverflow ? 1 : 0);
-    return `<div class="gs-cal-week" style="grid-template-rows:26px repeat(${Math.max(1, totalRows)}, auto)">${dayBg}${dayNum}${cards}${moreChips}</div>`;
+    return `<div class="gs-cal-week" style="grid-template-rows:22px repeat(${Math.max(1, totalRows)}, auto)">${dayBg}${dayNum}${cards}${moreChips}</div>`;
   }
 
   // 현재 체크박스 필터(공구 일정 영업팀/콘텐츠팀, 외부몰 행사)를 적용한 전체 레코드 목록.
