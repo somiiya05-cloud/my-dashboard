@@ -475,6 +475,8 @@
 
   /* ---- 영업팀 일정 캘린더 (공구 일정 동기화) ---- */
   .gs-empty { font-size: 13px; color: #64748b; padding: 24px 0; text-align: center; }
+  .gs-row-done { background: rgba(220,38,38,.05); }
+  .gs-row-done .inline-edit { color: #dc2626; font-weight: 600; }
   .gs-cal-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
   .gs-cal-nav .gs-cal-month { font-size: 15px; font-weight: 700; flex: 1; }
   .gs-cal-nav .gs-cal-month .gs-muted { color: #64748b; font-weight: 500; font-size: 12.5px; }
@@ -6787,7 +6789,7 @@
       return;
     }
     table.innerHTML = rows.map((r) => `
-      <tr>
+      <tr class="${r.status === '완료' ? 'gs-row-done' : ''}">
         <td>
           <select class="inline-edit" onchange="updateSettlementField(${r.id}, 'category', this.value)">
             <option value="공동구매"${r.category === '공동구매' ? ' selected' : ''}>공동구매</option>
