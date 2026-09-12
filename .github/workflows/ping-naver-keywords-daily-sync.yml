@@ -38,7 +38,10 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 1   # 조각을 동시에 돌리면 네이버 API 429 (위 설명 참고)
+      # 2026-09-12: 처음엔 1(완전 순차)로 막았더니 36초 → 191초, 월 단위까지 큐에 밀려 342초가
+      # 됐다. 9/11 전까지 4조각 동시는 멀쩡히 돌았고 6으로 늘리면서 429가 터졌으므로,
+      # 그보다 낮은 3으로 잡는다. 다시 429가 보이면 2 → 1 로 내리면 된다.
+      max-parallel: 3
       fail-fast: false
       matrix:
         include:
