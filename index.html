@@ -6713,7 +6713,7 @@
           <div class="task-panel-field"><label>담당자</label><input id="tpAssignee" type="text" placeholder="담당자" value="${escapeAttr(ps.assignee || taskFilterAssignee || '')}"></div>
         </div>
         <div class="task-panel-row">
-          <div class="task-panel-field"><label>시작일</label><input id="tpStartDate" type="date"></div>
+          <div class="task-panel-field"><label>시작일</label><input id="tpStartDate" type="date" value="${jwTodayKST()}"></div>
           <div class="task-panel-field"><label>마감일</label><input id="tpDueDate" type="date" value="${escapeAttr(ps.dueDate || '')}"></div>
         </div>
         <div class="task-panel-field"><label>세부내용</label><textarea id="tpDetail" placeholder="세부 내용/진행사항"></textarea></div>
