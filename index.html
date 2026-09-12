@@ -74,7 +74,10 @@
   #navProductCost.active { background: rgba(22,163,74,.12); }
   .dot-team { background: #7c3aed; }
   .nav-item.active .dot-team { background: #7c3aed; }
-  #navTeamProcess.active, #navTeamTasks.active { background: rgba(124,58,237,.12); }
+  #navTeamProcess.active { background: rgba(124,58,237,.12); }
+  .dot-task { background: #84cc16; }
+  .nav-item.active .dot-task { background: #84cc16; }
+  #navTeamTasks.active, #navTeamWeekly.active { background: rgba(132,204,22,.12); }
   .nav-subitem { padding: 7px 10px 7px 20px; margin-left: 14px; font-size: 14px; color: #c7cbe0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 7px; border-left: 1px solid rgba(255,255,255,.08); }
   .nav-subitem:hover { background: rgba(255,255,255,.04); color: #f5f6fa; }
   .nav-subitem.active { background: rgba(249,115,22,.12); color: #fb923c; font-weight: 700; }
@@ -935,7 +938,7 @@
             <span class="dot dot-team"></span>영업 운영관리
           </div>
           <div class="workspace-menu-item" data-ws="task" onclick="event.stopPropagation(); switchWorkspace('task');">
-            <span class="dot dot-team"></span>업무관리
+            <span class="dot dot-task"></span>업무관리
           </div>
         </div>
       </div>
@@ -996,11 +999,11 @@
         <div class="nav-group">
           <div class="nav-label nav-label-clickable" onclick="opsNavClick('overview')" title="영업팀 업무 가이드 보기">업무관리</div>
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
-            <span class="dot dot-team"></span>할일 관리
+            <span class="dot dot-task"></span>할일 관리
             <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
           </div>
           <div id="navTeamAssignees"></div>
-          <div class="nav-item" id="navTeamWeekly" onclick="switchView('team-weekly')"><span class="dot dot-team"></span>주차별 진행 업무</div>
+          <div class="nav-item" id="navTeamWeekly" onclick="switchView('team-weekly')"><span class="dot dot-task"></span>주차별 진행 업무</div>
         </div>
       </div>
 
