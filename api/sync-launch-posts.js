@@ -15,6 +15,8 @@
 // 선택 환경변수:
 //   DAOU_IMAP_HOST            - 기본값 imap.daouoffice.com
 //   DAOU_LAUNCH_KEYWORD       - 기본값 "런칭". 제목에 이 단어가 들어간 메일만 셉니다.
+//   DAOU_SUBJECT_FILTER       - 기본값 "게시판 알림". 알림 메일만 세도록 제목에 요구하는 문구.
+//                               일반 업무 메일에 "런칭"이 들어가 잘못 세는 걸 막습니다.
 //   DAOU_MAIL_FROM            - 발신자 주소에 이 문자열이 들어간 메일만 셉니다(오검출 방지, 선택).
 //   DAOU_MAIL_BOX             - 기본값 INBOX. 게시판 알림이 다른 폴더로 분류되면 그 폴더명을 넣으세요.
 //   DAOU_MAIL_SCAN_LIMIT      - 기본값 200. 폴더 끝에서 이만큼만 훑어 오늘 메일을 찾습니다.
@@ -208,6 +210,14 @@ async function fetchRecentMessages({ host, port, user, password, mailbox, timeou
   }
 }
 
+// 알림 메일 한 통이 게시글 여러 건을 담아 옵니다.
+//   예) "[게시판 알림] '런칭' 포함 새 게시물 1건"  →  1
+// 그래서 통수를 세지 않고 제목에 적힌 숫자를 읽습니다. 숫자를 못 찾으면 그 메일은 1건으로 봅니다.
+function postCountFromSubject(subject) {
+  const m = String(subject).match(/(\d+)\s*건/);
+  return m ? Number(m[1]) : 1;
+}
+
 // 메일 헤더의 Date를 서울 기준 YYYY-MM-DD로. 못 읽으면 null.
 function mailDateInSeoul(dateHeader) {
   const t = Date.parse(dateHeader);
@@ -240,6 +250,9 @@ module.exports = async function handler(req, res) {
   const mailbox = query.mailbox || process.env.DAOU_MAIL_BOX || 'INBOX';
   const keyword = process.env.DAOU_LAUNCH_KEYWORD || '런칭';
   const fromFilter = process.env.DAOU_MAIL_FROM || '';
+  // 일반 업무 메일 제목에 "런칭"이 들어가 잘못 세는 걸 막기 위해, 알림 메일만 남깁니다.
+  // 실제 제목 형태: "[게시판 알림] '런칭' 포함 새 게시물 1건"
+  const subjectFilter = process.env.DAOU_SUBJECT_FILTER || '게시판 알림';
   const today = todayInSeoul();
   const isDebug = query.debug === '1' || query.debug === 'true';
 
@@ -257,7 +270,13 @@ module.exports = async function handler(req, res) {
   // 서버가 SEARCH SINCE 를 무시할 수 있으므로, 메일 헤더의 날짜로 한 번 더 오늘 것만 거릅니다.
   const todayMessages = result.messages.filter((m) => mailDateInSeoul(m.date) === today);
   const scoped = fromFilter ? todayMessages.filter((m) => m.from.includes(fromFilter)) : todayMessages;
-  const matched = scoped.filter((m) => m.subject.includes(keyword));
+  const matched = scoped.filter(
+    (m) => m.subject.includes(keyword) && (!subjectFilter || m.subject.includes(subjectFilter))
+  );
+  // 알림 메일이 여러 통 와도 제목의 건수를 모두 더합니다.
+  const postCount = matched.reduce((sum, m) => sum + postCountFromSubject(m.subject), 0);
+  // 알림 제목 형식이 바뀌어 조건에 안 걸리는 경우를 알아채려고, 키워드만으로도 세어 둡니다.
+  const keywordOnly = scoped.filter((m) => m.subject.includes(keyword));
 
   // 제목 형태와 폴더 구성을 눈으로 확인하려고 부를 때는 저장하지 않고 목록만 돌려줍니다.
   if (isDebug) {
@@ -272,7 +291,11 @@ module.exports = async function handler(req, res) {
       fetched: result.messages.length,
       date_range: dates.length ? `${dates[0]} ~ ${dates[dates.length - 1]}` : null,
       today_count: todayMessages.length,
-      matched_count: matched.length,
+      subject_filter: subjectFilter || null,
+      matched_mails: matched.length,
+      post_count: postCount,
+      keyword_only_mails: keywordOnly.length,
+      matched_subjects: matched.map((m) => ({ subject: m.subject, posts: postCountFromSubject(m.subject) })),
       mailboxes: result.mailboxes,
       recent: result.messages.slice(-15).map((m) => ({ subject: m.subject, from: m.from, date: m.date }))
     });
@@ -297,13 +320,13 @@ module.exports = async function handler(req, res) {
   if (existing && existing.manual) {
     return res.status(200).json({
       today,
-      matched_count: matched.length,
+      post_count: postCount,
       skipped: 'manual_override',
       detail: `담당자가 직접 ${existing.count}건으로 정해둔 날이라 덮어쓰지 않았습니다.`
     });
   }
 
-  const payload = { count: matched.length, synced_at: new Date().toISOString() };
+  const payload = { count: postCount, synced_at: new Date().toISOString() };
   const writeRes = existing
     ? await fetch(`${SUPABASE_URL}/rest/v1/launch_post_counts?id=eq.${existing.id}`, {
         method: 'PATCH',
@@ -324,7 +347,8 @@ module.exports = async function handler(req, res) {
     keyword,
     mailbox,
     today_count: todayMessages.length,
-    matched_count: matched.length,
+    matched_mails: matched.length,
+    post_count: postCount,
     matched_subjects: matched.map((m) => m.subject)
   });
 };
