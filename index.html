@@ -1003,14 +1003,30 @@
     display: block; font-size: 11px; font-weight: 800; letter-spacing: .08em;
     color: #4d7cfe; margin-bottom: 6px; text-transform: uppercase;
   }
-  .ops-stat-row { display: flex; gap: 12px; }
-  .ops-stat-tile { flex: 1; background: #f4f5f8; border-radius: 10px; padding: 12px 14px; }
-  .ops-stat-tile .stat-cadence {
-    display: block; font-size: 10px; font-weight: 800; letter-spacing: .06em;
-    color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;
+  /* ---- 업무 카드 리스트 주기 필터 버튼 (--fc = 그룹 색상) ---- */
+  .ops-filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .ops-filter-btn {
+    display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+    background: #fff; border: 1px solid rgba(15,23,42,.1); border-radius: 10px;
+    padding: 8px 14px 8px 9px; font-size: 13px; font-weight: 700; color: #475569;
+    font-family: inherit; transition: border-color .12s ease, color .12s ease, box-shadow .12s ease;
   }
-  .ops-stat-tile .stat-count { font-size: 20px; font-weight: 800; color: #0f172a; }
-  .ops-stat-tile .stat-unit { font-size: 11.5px; color: #64748b; margin-left: 3px; }
+  .ops-filter-btn:hover { color: #0f172a; border-color: color-mix(in srgb, var(--fc) 45%, #fff); }
+  .ops-filter-btn.active {
+    color: var(--fc); border-color: var(--fc);
+    box-shadow: 0 0 0 1px var(--fc) inset, 0 2px 8px color-mix(in srgb, var(--fc) 16%, transparent);
+  }
+  .ops-filter-ico {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 24px; height: 24px; border-radius: 7px;
+    background: color-mix(in srgb, var(--fc) 12%, #fff); color: var(--fc);
+  }
+  .ops-filter-ico svg { width: 14px; height: 14px; display: block; }
+  .ops-filter-count {
+    font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 7px;
+    background: #f1f5f9; color: #64748b;
+  }
+  .ops-filter-btn.active .ops-filter-count { background: color-mix(in srgb, var(--fc) 14%, #fff); color: var(--fc); }
 
   /* ---- 영업팀 Overall Operations: 업무 카드 내 오전/오후 소그룹 ---- */
   .sop-subgroup { margin-top: 6px; }
@@ -1813,23 +1829,26 @@
         </div>
       </section>
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2>영업팀 루틴 업무</h2>
-          <span class="panel-note">데일리 · 주차별 · 월마감</span>
-        </div>
-        <div class="ops-stat-row">
-          <div class="ops-stat-tile"><span class="stat-cadence">Daily</span><span class="stat-count">13</span><span class="stat-unit">건 · 데일리</span></div>
-          <div class="ops-stat-tile"><span class="stat-cadence">Weekly</span><span class="stat-count">2</span><span class="stat-unit">건 · 주차별</span></div>
-          <div class="ops-stat-tile"><span class="stat-cadence">Monthly</span><span class="stat-count">6</span><span class="stat-unit">건 · 월마감</span></div>
-        </div>
-      </section>
-
       <div class="topbar" style="margin-bottom:14px;">
         <div>
           <h1 style="font-size:17px;">업무 카드 리스트</h1>
           <div class="subtitle">카테고리별 업무 카드입니다. 카드를 클릭하면 담당자·목적·완료 기준을 확인한 Notion 페이지가 새 창으로 열립니다.</div>
         </div>
+      </div>
+
+      <div class="ops-filter-row" id="opsFilterRow">
+        <button type="button" class="ops-filter-btn active" data-opsfilter="all" style="--fc:#475569" onclick="setOpsFilter('all')">
+          <span class="ops-filter-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>전체<span class="ops-filter-count"></span>
+        </button>
+        <button type="button" class="ops-filter-btn" data-opsfilter="daily" style="--fc:#4d7cfe" onclick="setOpsFilter('daily')">
+          <span class="ops-filter-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></svg></span>데일리 업무<span class="ops-filter-count"></span>
+        </button>
+        <button type="button" class="ops-filter-btn" data-opsfilter="weekly" style="--fc:#7c3aed" onclick="setOpsFilter('weekly')">
+          <span class="ops-filter-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>주차별 업무<span class="ops-filter-count"></span>
+        </button>
+        <button type="button" class="ops-filter-btn" data-opsfilter="monthly" style="--fc:#d97706" onclick="setOpsFilter('monthly')">
+          <span class="ops-filter-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8.8 15.6l2 2 3.6-3.8"/></svg></span>월마감 업무<span class="ops-filter-count"></span>
+        </button>
       </div>
 
       <section class="panel" id="opsGroupDaily">
@@ -3878,6 +3897,7 @@
 
   function jumpToChannel(channelName) {
     switchView('team-overview');
+    setOpsFilter('all');
     const card = document.querySelector('#opsGroupChannel .sop-card[data-channel="' + channelName + '"]');
     if (!card) return;
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -3886,6 +3906,40 @@
     void card.offsetWidth;
     card.classList.add('ops-channel-highlight');
     setTimeout(() => card.classList.remove('ops-channel-highlight'), 2000);
+  }
+
+  // 업무 카드 리스트 주기 필터. '전체'일 때만 채널별 운영·이슈 대응 매뉴얼까지 함께 보입니다.
+  const OPS_FILTER_SECTIONS = { daily: 'opsGroupDaily', weekly: 'opsGroupWeekly', monthly: 'opsGroupMonthly' };
+  const OPS_FILTER_EXTRA_IDS = ['opsGroupChannel', 'opsGroupIssue'];
+  let opsCardFilter = 'all';
+
+  function setOpsFilter(key) {
+    opsCardFilter = key;
+    document.querySelectorAll('#opsFilterRow .ops-filter-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.opsfilter === key);
+    });
+    Object.entries(OPS_FILTER_SECTIONS).forEach(([k, id]) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = (key === 'all' || key === k) ? '' : 'none';
+    });
+    OPS_FILTER_EXTRA_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = key === 'all' ? '' : 'none';
+    });
+  }
+
+  // 버튼의 건수는 각 섹션 헤더에 적힌 숫자를 그대로 읽어옵니다 (숫자가 따로 놀지 않도록).
+  function syncOpsFilterCounts() {
+    let total = 0;
+    Object.entries(OPS_FILTER_SECTIONS).forEach(([k, id]) => {
+      const src = document.querySelector('#' + id + ' .sop-group-count');
+      const n = src ? parseInt(src.textContent, 10) : NaN;
+      const badge = document.querySelector('#opsFilterRow [data-opsfilter="' + k + '"] .ops-filter-count');
+      if (badge) badge.textContent = isNaN(n) ? '' : String(n);
+      if (!isNaN(n)) total += n;
+    });
+    const allBadge = document.querySelector('#opsFilterRow [data-opsfilter="all"] .ops-filter-count');
+    if (allBadge) allBadge.textContent = total ? String(total) : '';
   }
 
   function opsNavClick(section) {
@@ -7746,6 +7800,7 @@
 
   refreshReviewAlertBadge();
   setupOpsScrollSpy();
+  syncOpsFilterCounts();
 
   // ==================== 출고 캘린더 (B2B 출고 관리 백엔드 연동) ====================
   // 데이터 원본: scm-b2b-outbound (Google Apps Script 팀 공유 저장소). 조회 전용.
