@@ -312,6 +312,11 @@ module.exports = async function handler(req, res) {
     );
 
     if (dailyRows.length) {
+      // updated_at 은 테이블에서 default now() 로 잡혀 있는데, 그 기본값은 "처음 넣을 때"만
+      // 찍힌다. on_conflict 로 덮어쓸 때는 그대로 남아서, 값은 새로 들어왔는데 시각은 옛날에
+      // 멈춰 있었다 — 대시보드가 이 값을 「마지막 업데이트」로 보여주기 때문에 오늘치를 새로
+      // 받아도 계속 옛 시각이 떴다(2026-09-12: 20:04 에 받았는데 화면은 13:43). 직접 실어준다.
+      const syncedAt = new Date().toISOString();
       const dailyUpsertRes = await fetch(`${SUPABASE_URL}/rest/v1/ad_performance_daily?on_conflict=date,channel`, {
         method: 'POST',
         headers: {
@@ -320,7 +325,7 @@ module.exports = async function handler(req, res) {
           'Content-Type': 'application/json',
           Prefer: 'resolution=merge-duplicates'
         },
-        body: JSON.stringify(dailyRows)
+        body: JSON.stringify(dailyRows.map((r) => ({ ...r, updated_at: syncedAt })))
       });
       if (!dailyUpsertRes.ok) {
         const errText = await dailyUpsertRes.text();
