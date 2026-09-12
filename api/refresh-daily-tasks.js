@@ -1,6 +1,11 @@
 // 전휘원의 "오전 필수업무"/"오후 필수업무"(할일 관리 상단 체크리스트) 항목을
-// 매일 새로 등록하는 Vercel 서버리스 함수입니다. 어제 남은 항목은 이관(archived)
-// 처리하고, 오늘 날짜로 정해진 10개 항목을 다시 등록합니다(이미 있으면 건너뜀).
+// 등록하는 Vercel 서버리스 함수입니다. 어제 이전에 남은 항목은 이관(archived)
+// 처리하고, 오늘부터 DAYS_AHEAD일 뒤까지의 날짜에 항목을 채웁니다(이미 있으면 건너뜀).
+// 미리 만들어 두기 때문에 화면에서 날짜를 앞으로 넘겨도 그날의 루틴 업무가 보입니다.
+//
+// ⚠️ 아래 DAILY_TASKS 목록을 바꾸면 "아직 만들어지지 않은 날짜"부터 반영됩니다.
+//    이미 만들어진 2주치 행은 그대로 남으므로, 즉시 반영하려면 Supabase에서
+//    해당 미래 날짜 행을 지운 뒤 이 함수를 한 번 실행하세요.
 //
 // ⚠️ 배치 위치: GitHub 저장소 최상위의 "api" 폴더 안에 "refresh-daily-tasks.js" 로 저장하세요.
 //    최종 경로: api/refresh-daily-tasks.js
@@ -19,6 +24,8 @@
 const SUPABASE_URL = 'https://fwsszzjfjktliredmjcn.supabase.co';
 const ASSIGNEE = '전휘원';
 const CATEGORIES = ['오전 필수업무', '오후 필수업무'];
+// 오늘 + 이후 며칠까지 미리 만들어 둘지. 14 = 오늘 포함 15일치.
+const DAYS_AHEAD = 14;
 
 // 매일 반복되는 고정 업무(오전 3개 + 오후 10개)와, 특정 요일/기간에만 생기는 업무.
 // weekdays를 지정하면 그 요일에만 등록됩니다 (0=일 ~ 6=토). 예: [3,4] = 수·목.
@@ -71,6 +78,24 @@ function weekdayInSeoul(today) {
   return new Date(today + 'T00:00:00Z').getUTCDay();
 }
 
+// YYYY-MM-DD 에 n일을 더한 날짜 문자열. UTC로만 계산해 월말·연말도 알아서 넘어갑니다.
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// 그 날짜에 등록돼야 하는 업무만 추립니다 (weekdays/monthDayFrom가 없으면 매일).
+function tasksForDate(date) {
+  const weekday = weekdayInSeoul(date);
+  const monthDay = Number(date.slice(8, 10));
+  return DAILY_TASKS.filter(
+    (t) =>
+      (!t.weekdays || t.weekdays.includes(weekday)) &&
+      (!t.monthDayFrom || monthDay >= t.monthDayFrom)
+  );
+}
+
 module.exports = async function handler(req, res) {
   const authHeader = req.headers['authorization'];
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -114,63 +139,65 @@ module.exports = async function handler(req, res) {
   }
   const archived = await archiveRes.json();
 
-  // 2) 오늘 날짜로 이미 등록된 항목 확인 (중복 등록 방지)
+  // 2) 오늘 ~ +DAYS_AHEAD일 사이에 이미 등록된 항목을 한 번에 조회 (중복 등록 방지)
+  const lastDate = addDays(today, DAYS_AHEAD);
   const existingRes = await fetch(
     `${SUPABASE_URL}/rest/v1/team_tasks` +
       `?category=in.(${categoryFilter})` +
       `&assignee=eq.${encodeURIComponent(ASSIGNEE)}` +
       `&archived_at=is.null` +
-      `&due_date=eq.${today}` +
-      `&select=title`,
+      `&due_date=gte.${today}` +
+      `&due_date=lte.${lastDate}` +
+      `&select=title,due_date`,
     { headers }
   );
   if (!existingRes.ok) {
     const errText = await existingRes.text();
     return res.status(500).json({ error: 'existing_check_failed', detail: errText });
   }
-  const existingTitles = new Set((await existingRes.json()).map((r) => r.title));
+  // "날짜|제목" 형태로 모아두고 날짜별로 빠진 것만 채웁니다.
+  const existingKeys = new Set((await existingRes.json()).map((r) => r.due_date + '|' + r.title));
 
-  // 오늘 등록할 업무만 추림 (weekdays/monthDayFrom가 없으면 매일 등록)
-  const weekday = weekdayInSeoul(today);
-  const monthDay = Number(today.slice(8, 10));
-  const todaysTasks = DAILY_TASKS.filter(
-    (t) =>
-      (!t.weekdays || t.weekdays.includes(weekday)) &&
-      (!t.monthDayFrom || monthDay >= t.monthDayFrom)
-  );
+  const rowsToInsert = [];
+  const insertedByDate = {};
+  for (let i = 0; i <= DAYS_AHEAD; i++) {
+    const date = addDays(today, i);
+    const missing = tasksForDate(date).filter((t) => !existingKeys.has(date + '|' + t.title));
+    if (missing.length > 0) insertedByDate[date] = missing.length;
+    missing.forEach(({ title, category, detail }) => {
+      rowsToInsert.push({
+        title,
+        category,
+        detail: detail || null,
+        assignee: ASSIGNEE,
+        status: '할일',
+        priority: '보통',
+        due_date: date
+      });
+    });
+  }
 
-  const missingTasks = todaysTasks.filter((t) => !existingTitles.has(t.title));
-
-  let inserted = [];
-  if (missingTasks.length > 0) {
-    const rows = missingTasks.map(({ title, category, detail }) => ({
-      title,
-      category,
-      detail: detail || null,
-      assignee: ASSIGNEE,
-      status: '할일',
-      priority: '보통',
-      due_date: today
-    }));
+  // 첫 실행에서는 300건 가까이 될 수 있어 200건씩 나눠 보냅니다.
+  let insertedCount = 0;
+  for (let i = 0; i < rowsToInsert.length; i += 200) {
+    const chunk = rowsToInsert.slice(i, i + 200);
     const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/team_tasks`, {
       method: 'POST',
       headers: { ...headers, Prefer: 'return=representation' },
-      body: JSON.stringify(rows)
+      body: JSON.stringify(chunk)
     });
     if (!insertRes.ok) {
       const errText = await insertRes.text();
-      return res.status(500).json({ error: 'insert_failed', detail: errText });
+      return res.status(500).json({ error: 'insert_failed', detail: errText, inserted_before_failure: insertedCount });
     }
-    inserted = await insertRes.json();
+    insertedCount += (await insertRes.json()).length;
   }
 
   return res.status(200).json({
     today,
-    weekday,
-    month_day: monthDay,
+    range: { from: today, to: lastDate, days: DAYS_AHEAD + 1 },
     archived_count: archived.length,
-    inserted_count: inserted.length,
-    inserted_titles: missingTasks.map((t) => t.title),
-    skipped_titles: todaysTasks.filter((t) => existingTitles.has(t.title)).map((t) => t.title)
+    inserted_count: insertedCount,
+    inserted_by_date: insertedByDate
   });
 };

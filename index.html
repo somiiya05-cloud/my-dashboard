@@ -6368,8 +6368,19 @@
     return !!t.due_date && t.status !== '확인완료' && String(t.due_date).slice(0, 10) === taskTodayStr();
   }
 
+  // 루틴 업무(오전/오후 필수업무)는 크론이 2주치를 미리 만들어 두기 때문에,
+  // 아직 오지 않은 날짜의 것까지 세면 "현재 미완료 업무" 숫자가 부풀어 보입니다.
+  // 그래서 팀 요약 지표에서는 미래 날짜의 루틴 업무를 빼고 셉니다.
+  const ROUTINE_CATEGORIES = ['오전 필수업무', '오후 필수업무'];
+  function isFutureRoutineTask(t) {
+    return ROUTINE_CATEGORIES.includes(t.category) && t.due_date && t.due_date > jwTodayKST();
+  }
+  function teamActiveTasks() {
+    return currentTasks.filter(t => !t.archived_at && t.status !== '확인완료' && !isFutureRoutineTask(t));
+  }
+
   function renderTeamSummary() {
-    const active = currentTasks.filter(t => !t.archived_at && t.status !== '확인완료');
+    const active = teamActiveTasks();
     const todoCount = active.filter(t => t.status === '할일').length;
     const midCount = active.filter(t => t.status === '진행중').length;
     const reviewCount = active.filter(t => t.status === '검수대기').length;
@@ -6457,7 +6468,7 @@
 
   function filterTeamAttention(key) {
     teamAttentionFilter = key;
-    renderTeamAttention(currentTasks.filter(t => !t.archived_at && t.status !== '확인완료'));
+    renderTeamAttention(teamActiveTasks());
   }
 
   async function jumpFromSummaryToTask(id) {
