@@ -14,10 +14,13 @@ const GITHUB_OWNER = 'somiiya05-cloud';
 const GITHUB_REPO = 'my-dashboard';
 
 // trigger-naver-sync.js 의 WORKFLOWS 와 같게 유지하세요.
+// byButton: 대시보드의 「지금 동기화」가 이 워크플로를 띄우는지. 월 단위는 2026-09-12 에
+// 버튼에서 뺐으므로(무거워서) 버튼을 눌러도 이 줄은 안 움직인다 — 그 사실을 화면에 밝혀
+// 옛 결과가 남아 있는 걸 고장으로 오해하지 않게 한다.
 const WORKFLOWS = [
-  { file: 'ping-naver-ads-sync.yml', label: '광고비·매출 (채널별)' },
-  { file: 'ping-naver-keywords-sync.yml', label: '캠페인·키워드 (월 단위)' },
-  { file: 'ping-naver-keywords-daily-sync.yml', label: '캠페인·키워드 (일 단위)' }
+  { file: 'ping-naver-ads-sync.yml', label: '광고비·매출 (채널별)', byButton: true },
+  { file: 'ping-naver-keywords-sync.yml', label: '캠페인·키워드 (월 단위)', byButton: false, note: '버튼으로는 안 돌아요 · 매일 새벽 자동' },
+  { file: 'ping-naver-keywords-daily-sync.yml', label: '캠페인·키워드 (일 단위)', byButton: true }
 ];
 
 const RUNS_PER_WORKFLOW = 5;
@@ -46,7 +49,7 @@ async function fetchRuns(workflow, token) {
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    return { workflow: workflow.file, label: workflow.label, error: `${res.status} ${detail.slice(0, 200)}` };
+    return { workflow: workflow.file, label: workflow.label, byButton: workflow.byButton, note: workflow.note, error: `${res.status} ${detail.slice(0, 200)}` };
   }
   const data = await res.json();
   const runs = (data.workflow_runs || []).map((r) => ({
@@ -60,7 +63,7 @@ async function fetchRuns(workflow, token) {
     event: r.event,
     url: r.html_url
   }));
-  return { workflow: workflow.file, label: workflow.label, runs };
+  return { workflow: workflow.file, label: workflow.label, byButton: workflow.byButton, note: workflow.note, runs };
 }
 
 module.exports = async function handler(req, res) {
