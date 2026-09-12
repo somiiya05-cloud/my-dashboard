@@ -328,19 +328,6 @@
   .jw-gb-empty { font-size: 12px; color: #94a3b8; }
   .jw-gb-warn { font-size: 11.5px; color: #b45309; background: rgba(217,119,6,.08); border-radius: 6px; padding: 6px 9px; margin-bottom: 8px; }
 
-  /* 데일리 발생 여부 체크: 오전/오후와 똑같은 .jw-task-card를 쓰고, 상세 내용만 "상세보기"로 접어둠 */
-  .jw-occ-detail-toggle {
-    align-self: flex-start; background: none; border: none; color: #2f5ce4;
-    font-size: 11.5px; font-weight: 600; cursor: pointer; padding: 0; margin-top: 2px;
-  }
-  .jw-occ-detail { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 4px 2px; padding: 8px 10px; background: #f8fafc; border-radius: 8px; }
-  .occ-card-desc { font-size: 11.5px; color: #64748b; }
-  .occ-card-action { font-size: 11px; color: #0d9488; background: rgba(13,148,136,.08); border-radius: 6px; padding: 4px 7px; }
-  .jw-occ-detail input[type="text"] {
-    background: #f4f5f8; color: #0f172a; border: 1px solid rgba(15,23,42,.12);
-    border-radius: 6px; padding: 5px 7px; font-size: 12px; font-family: inherit; width: 100%;
-  }
-
   /* ---- 할일 관리: 현재 업무 / 히스토리 탭 (스크롤해도 화면 상단에 고정) ---- */
   .task-tabs {
     display: flex; margin-bottom: 16px; border-bottom: 1px solid rgba(15,23,42,.07);
@@ -2479,11 +2466,6 @@
             <div class="jw-section">
               <div class="jw-section-title">오후</div>
               <div id="jwPmBody"></div>
-            </div>
-            <div class="jw-section">
-              <div class="jw-section-title">데일리 발생 여부 체크</div>
-              <div class="panel-note" id="jwOccNote" style="margin-bottom:8px;">오늘 이 업무가 실제로 발생했는지만 확인하는 항목입니다. "해당없음"이면 완료로 집계되고 지연으로 보지 않습니다.</div>
-              <div id="jwOccBody"></div>
             </div>
           </div>
 
@@ -5796,21 +5778,8 @@
   }
 
   // ==================== 전휘원 전용 할일 관리 화면 ====================
-  // 오전/오후 필수업무·요일별 업무·월마감 업무는 team_tasks의 category로 구분하는
-  // 단순 체크리스트이고, 데일리 발생 여부 체크는 별도 테이블(daily_occurrence_checks)로
-  // 하루 단위 상태(발생여부·담당자완료·파트장확인·상태·메모)를 관리합니다.
-  let currentOccChecks = [];
-
-  const OCCURRENCE_CHECK_ITEMS = [
-    { key: 'new_product_launch', title: '신규 상품 런칭 확인', desc: '오늘 신규 런칭 상품이 있는지 확인', action: 'SA / GFA / 파워링크 / 카페침투 진행 여부 확인' },
-    { key: 'external_mall_register', title: '외부몰 상품등록 확인', desc: '신규 상품 또는 미등록 상품 중 외부몰 등록이 필요한 건이 있는지 확인', action: '외부몰 상품등록 진행' },
-    { key: 'board_share_after_register', title: '다우게시판 공유 확인', desc: '오늘 등록 완료된 상품이 있는지 확인', action: '다우게시판에 등록 내역 공유' },
-    { key: 'cx_review_request', title: 'CX 리뷰작업 요청 확인', desc: '신규 상품 또는 리뷰 세팅이 필요한 상품이 있는지 확인', action: 'CX팀에 리뷰작업 요청' },
-    { key: 'external_mall_ezadmin', title: '이지어드민 연동 확인', desc: '신규 외부몰 입점 또는 연동 요청 건이 있는지 확인', action: '이지어드민 연동 요청' },
-    { key: 'b2b_tax_invoice', title: 'B2B 세금계산서 확인', desc: 'B2B 직납 거래 중 세금계산서 발행이 필요한 건이 있는지 확인', action: '회계팀에 발행 요청' },
-    { key: 'export_tax_invoice', title: '수출 세금계산서 확인', desc: '수출 거래 중 세금계산서 또는 영세율 관련 처리 필요 건이 있는지 확인', action: '회계팀에 발행 요청' },
-    { key: 'review_cafe_photo', title: '리뷰/카페침투 촬영 확인', desc: '리뷰 작업 또는 카페침투용 사진 촬영 요청이 있는지 확인', action: '촬영 일정 확인 및 진행' },
-  ];
+  // 오전/오후 필수업무·요일별 업무·월마감 업무를 team_tasks의 category로 구분해
+  // 단순 체크리스트로 보여주는 화면입니다.
 
   function jwTodayKST() {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
@@ -5829,7 +5798,6 @@
     renderJwPmChecklist();
     renderJwWeekday();
     renderJwMonthend();
-    loadAndRenderOccurrenceChecks();
     // 공구 일정은 별도 테이블이라 비동기로 받아온 뒤 배너가 붙는 목록을 다시 그립니다.
     loadJwGroupbuyToday().then(renderJwGroupbuyLists);
   }
@@ -5862,7 +5830,7 @@
     await loadJwGroupbuyChecks(today);
   }
 
-  // 오늘 뜬 공구 건마다 체크 행을 하루 1개씩 만들어 둡니다 (데일리 발생 여부 체크와 같은 방식).
+  // 오늘 뜬 공구 건마다 체크 행을 하루 1개씩 만들어 둡니다.
   async function loadJwGroupbuyChecks(today) {
     jwGroupbuyChecks = [];
     jwGroupbuyCheckError = '';
@@ -6135,118 +6103,6 @@
     }
     document.getElementById('jwMonthendNote').textContent = '매월 23일부터 말일까지 진행하는 마감 업무입니다.';
     renderJwSimpleChecklist('jwMonthendBody', '월마감 업무');
-  }
-
-  // 카드 배경색 판정: 완료(파트장확인)=초록, 발생했지만 미확인=주황, 지연=빨강, 해당없음=중립
-  // 오전/오후 카드와 같은 .jw-task-card를 그대로 쓰고, 상태에 따라 색만 얹음 (해당없음은 무색)
-  function occCardStateClass(status) {
-    if (status === '파트장확인완료') return 'done';
-    if (status === '지연') return 'late';
-    if (status === '해당없음') return '';
-    return 'pending'; // 발생 / 진행중 / 담당자완료
-  }
-
-  // 상태값은 occurrence(오늘 발생 여부)와 두 체크박스로부터 항상 한 가지로 다시 계산합니다.
-  // (드롭다운으로 상태를 직접 바꾸면 반대로 occurrence/체크박스를 그 상태에 맞게 되돌립니다.)
-  function deriveOccurrenceState(kind, value, cur) {
-    let { occurrence, staff_done, lead_done, status } = cur;
-    if (kind === 'occurrence') {
-      occurrence = value;
-      if (value === '해당없음') { staff_done = false; lead_done = false; status = '해당없음'; }
-      else if (status === '해당없음' || !status) { status = '발생'; }
-    } else if (kind === 'staff_done') {
-      staff_done = value; occurrence = '발생';
-      if (!value) { lead_done = false; status = '발생'; }
-      else { status = lead_done ? '파트장확인완료' : '담당자완료'; }
-    } else if (kind === 'lead_done') {
-      lead_done = value; occurrence = '발생';
-      if (value) { staff_done = true; status = '파트장확인완료'; }
-      else { status = staff_done ? '담당자완료' : '발생'; }
-    }
-    return { occurrence, staff_done, lead_done, status };
-  }
-
-  async function updateOccurrenceField(rowId, kind, value) {
-    const cur = currentOccChecks.find(r => r.id === rowId);
-    if (!cur) return;
-    const patch = kind === 'memo' ? { memo: value } : deriveOccurrenceState(kind, value, cur);
-    const { error } = await client.from('daily_occurrence_checks').update(patch).eq('id', rowId);
-    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
-    Object.assign(cur, patch);
-    renderJwOccurrenceTable();
-  }
-
-  function toggleOccDetail(rowId) {
-    const el = document.getElementById('occ-detail-' + rowId);
-    const btn = document.getElementById('occ-detail-btn-' + rowId);
-    if (!el) return;
-    const opening = el.style.display === 'none';
-    el.style.display = opening ? '' : 'none';
-    if (btn) btn.textContent = opening ? '접기' : '상세보기';
-  }
-
-  function renderJwOccurrenceTable() {
-    const rows = OCCURRENCE_CHECK_ITEMS
-      .map(item => { const row = currentOccChecks.find(r => r.item_key === item.key); return row ? { item, row } : null; })
-      .filter(Boolean);
-    const doneCount = rows.filter(({ row }) => row.status === '해당없음' || row.status === '파트장확인완료').length;
-    document.getElementById('jwOccNote').textContent = rows.length
-      ? `${doneCount}/${rows.length}건 완료 처리`
-      : '데이터를 불러오지 못했습니다. daily_occurrence_checks.sql을 Supabase에서 실행했는지 확인해주세요.';
-    document.getElementById('jwOccBody').innerHTML = rows.length
-      ? `<div class="jw-task-list">${rows.map(({ item, row }, i) => {
-          return `
-            <div class="jw-task-row-wrap">
-              <div class="jw-task-row ${occCardStateClass(row.status)}">
-                <div class="jw-task-row-title"><span class="jw-task-no">${i + 1}.</span>${escapeAttr(item.title)}</div>
-                <div class="jw-task-row-checks">
-                  <button type="button" class="jw-task-toggle-btn${row.staff_done ? ' active' : ''}"
-                    onclick="updateOccurrenceField(${row.id}, 'staff_done', ${!row.staff_done})">담당자</button>
-                  <button type="button" class="jw-task-toggle-btn${row.lead_done ? ' active' : ''}" ${!row.staff_done ? 'disabled' : ''}
-                    onclick="updateOccurrenceField(${row.id}, 'lead_done', ${!row.lead_done})">파트장</button>
-                  <button type="button" id="occ-detail-btn-${row.id}" class="jw-occ-detail-toggle" onclick="toggleOccDetail(${row.id})">상세보기</button>
-                </div>
-              </div>
-              <div class="jw-occ-detail" id="occ-detail-${row.id}" style="display:none">
-                <div class="occ-card-desc">${escapeAttr(item.desc)}</div>
-                <div class="occ-card-action">발생 시: ${escapeAttr(item.action)}</div>
-                <input type="text" value="${escapeAttr(row.memo || '')}" placeholder="메모" onchange="updateOccurrenceField(${row.id}, 'memo', this.value)">
-              </div>
-            </div>
-          `;
-        }).join('')}</div>`
-      : '';
-  }
-
-  // 오늘자 8개 항목이 없으면 생성하고, 어제 이전에 '발생'인 채로 남은 항목은 지연으로 자동 전환
-  async function loadAndRenderOccurrenceChecks() {
-    const today = jwTodayKST();
-    const { data: staleRows } = await client.from('daily_occurrence_checks')
-      .select('id')
-      .eq('assignee', JW_ASSIGNEE).lt('check_date', today)
-      .in('status', ['발생', '진행중', '담당자완료']);
-    if (staleRows && staleRows.length) {
-      await client.from('daily_occurrence_checks').update({ status: '지연' }).in('id', staleRows.map(r => r.id));
-    }
-    const { data: todayRows, error } = await client.from('daily_occurrence_checks')
-      .select('*').eq('assignee', JW_ASSIGNEE).eq('check_date', today);
-    if (error) {
-      currentOccChecks = [];
-      document.getElementById('jwOccNote').textContent = '불러오지 못했습니다: ' + error.message + ' (daily_occurrence_checks.sql 실행 여부를 확인해주세요)';
-      document.getElementById('jwOccBody').innerHTML = '';
-      return;
-    }
-    const existingKeys = new Set((todayRows || []).map(r => r.item_key));
-    const missing = OCCURRENCE_CHECK_ITEMS.filter(it => !existingKeys.has(it.key));
-    let allRows = todayRows || [];
-    if (missing.length) {
-      const { data: inserted, error: insErr } = await client.from('daily_occurrence_checks')
-        .insert(missing.map(it => ({ assignee: JW_ASSIGNEE, item_key: it.key, check_date: today })))
-        .select('*');
-      if (!insErr && inserted) allRows = allRows.concat(inserted);
-    }
-    currentOccChecks = allRows;
-    renderJwOccurrenceTable();
   }
 
   function filterTaskStatus(status) {
