@@ -44,6 +44,9 @@ const BULK_BATCH_SIZE = 100; // 벌크 통계 조회 시 한 번에 묶을 id �
 const BULK_CONCURRENCY = 4; // 위 배치를 동시에 몇 개씩 조회할지 (쇼핑검색 등 키워드가 수천 개인 계정 대응)
 const BULK_REQUEST_GAP_MS = 120;
 const UPSERT_CHUNK_SIZE = 200;
+const UPSERT_MAX_RETRIES = 3;      // Supabase 5xx/429 일 때만 다시 넣는다
+const UPSERT_RETRY_BASE_MS = 700;
+const UPSERT_RETRY_MAX_MS = 4000;
 const MAX_RETRIES = 6;
 // 429 재시도 대기: 800ms 부터 두 배씩, 한 번에 최대 4초까지만 (Vercel 함수 60초 제한 안에서
 // 되도록 많이 버티게 — 최악이라도 합쳐서 18초쯤). 네이버가 Retry-After 를 주면 그 값을 우선.
@@ -228,21 +231,31 @@ async function upsertInChunks(table, conflictCols, rows) {
   const chunks = [];
   for (let i = 0; i < rows.length; i += UPSERT_CHUNK_SIZE) chunks.push(rows.slice(i, i + UPSERT_CHUNK_SIZE));
 
+  // Supabase 가 가끔 504 Gateway Timeout 을 준다 — 2026-09-12 에 이것 하나로 조각 하나가
+  // 통째로 실패했다(7조각 중 1개). 5xx·429 는 잠깐 뒤 다시 넣으면 대개 통과하므로 재시도한다.
+  // 4xx(데이터가 잘못된 경우)는 다시 넣어도 같은 결과라 바로 던진다.
   await mapWithConcurrency(chunks, 3, async (chunk) => {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=${conflictCols}`, {
-      method: 'POST',
-      headers: {
-        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify(chunk)
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(`Supabase upsert 실패 (${res.status}): ${text}`);
+    let lastText = '';
+    let lastStatus = 0;
+    for (let attempt = 0; attempt <= UPSERT_MAX_RETRIES; attempt++) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=${conflictCols}`, {
+        method: 'POST',
+        headers: {
+          apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify(chunk)
+      });
+      if (res.ok) return;
+      lastStatus = res.status;
+      lastText = await res.text().catch(() => '');
+      const retriable = res.status >= 500 || res.status === 429;
+      if (!retriable || attempt === UPSERT_MAX_RETRIES) break;
+      await sleep(Math.min(UPSERT_RETRY_BASE_MS * Math.pow(2, attempt), UPSERT_RETRY_MAX_MS));
     }
+    throw new Error(`Supabase upsert 실패 (${lastStatus}): ${lastText}`);
   }, 0);
 }
 
