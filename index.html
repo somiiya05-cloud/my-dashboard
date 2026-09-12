@@ -221,15 +221,25 @@
   }
   .jw-task-row:hover { border-color: rgba(77,124,254,.3); }
   .jw-task-row-title { font-size: 13.5px; font-weight: 700; color: #0f172a; min-width: 0; }
-  .jw-task-row-checks { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
-  .jw-task-row-check { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: #475569; cursor: pointer; }
-  .jw-task-row-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: #4d7cfe; cursor: pointer; }
-  .jw-task-row-check input[type="checkbox"]:disabled { opacity: .35; cursor: not-allowed; }
+  .jw-task-row-checks { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .jw-task-toggle-btn {
+    background: #fff; border: 1px solid rgba(15,23,42,.15); color: #475569;
+    font-size: 11.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px;
+    cursor: pointer; transition: background .12s ease, color .12s ease, border-color .12s ease;
+  }
+  .jw-task-toggle-btn:hover { border-color: rgba(77,124,254,.4); }
+  .jw-task-toggle-btn.active { background: #4d7cfe; border-color: #4d7cfe; color: #fff; }
+  .jw-task-toggle-btn:disabled { opacity: .4; cursor: not-allowed; }
   .jw-task-row.pending { background: rgba(217,119,6,.06); border-color: rgba(217,119,6,.2); }
   .jw-task-row.done { background: rgba(22,163,74,.06); border-color: rgba(22,163,74,.2); }
   .jw-task-row.done .jw-task-row-title { color: #15803d; text-decoration: line-through; }
-  .jw-task-group-title { font-size: 12px; font-weight: 700; color: #64748b; margin: 10px 0 4px 2px; }
+  .jw-task-group-title {
+    font-size: 12px; font-weight: 700; color: #64748b; margin: 10px 0 4px 2px;
+    cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px;
+  }
+  .jw-task-group-title:hover { color: #2f5ce4; }
   .jw-task-group-title:first-child { margin-top: 0; }
+  .jw-task-group-items { display: flex; flex-direction: column; gap: 8px; }
   .jw-task-row-sub { margin-left: 18px; }
   .jw-task-card {
     display: flex; align-items: flex-start; gap: 10px; background: #fff;
@@ -5847,6 +5857,19 @@
     return m ? m[1] : null;
   }
 
+  function jwGroupElId(group) {
+    return 'jw-group-' + group.replace(/[^a-zA-Z0-9가-힣]+/g, '_');
+  }
+
+  function toggleJwGroup(id) {
+    const el = document.getElementById(id);
+    const arrow = document.getElementById(id + '-arrow');
+    if (!el) return;
+    const opening = el.style.display === 'none';
+    el.style.display = opening ? '' : 'none';
+    if (arrow) arrow.textContent = opening ? '▾' : '▸';
+  }
+
   function jwTaskListHtml(items) {
     const parts = [];
     let i = 0;
@@ -5856,8 +5879,15 @@
         let j = i;
         const groupItems = [];
         while (j < items.length && jwTaskGroupName(items[j]) === group) { groupItems.push(items[j]); j++; }
-        parts.push(`<div class="jw-task-group-title">${escapeAttr(group)}</div>`);
-        groupItems.forEach(t => parts.push(jwTaskRowHtml(t, true)));
+        const id = jwGroupElId(group);
+        parts.push(`
+          <div class="jw-task-group-title" onclick="toggleJwGroup('${id}')">
+            <span id="${id}-arrow">▸</span> ${escapeAttr(group)}
+          </div>
+          <div class="jw-task-group-items" id="${id}" style="display:none">
+            ${groupItems.map(t => jwTaskRowHtml(t, true)).join('')}
+          </div>
+        `);
         i = j;
       } else {
         parts.push(jwTaskRowHtml(items[i]));
@@ -5875,10 +5905,10 @@
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ''}">
         <div class="jw-task-row-title">${indented ? 'ㄴ ' : ''}${escapeAttr(t.title || '(제목 없음)')}</div>
         <div class="jw-task-row-checks">
-          <label class="jw-task-row-check"><input type="checkbox" ${staffDone ? 'checked' : ''}
-            onchange="updateTaskDualStatus(${t.id}, 'staff', this.checked)"> 담당자</label>
-          <label class="jw-task-row-check"><input type="checkbox" ${leadDone ? 'checked' : ''} ${!staffDone ? 'disabled' : ''}
-            onchange="updateTaskDualStatus(${t.id}, 'lead', this.checked)"> 파트장</label>
+          <button type="button" class="jw-task-toggle-btn${staffDone ? ' active' : ''}"
+            onclick="updateTaskDualStatus(${t.id}, 'staff', ${!staffDone})">담당자</button>
+          <button type="button" class="jw-task-toggle-btn${leadDone ? ' active' : ''}" ${!staffDone ? 'disabled' : ''}
+            onclick="updateTaskDualStatus(${t.id}, 'lead', ${!leadDone})">파트장</button>
         </div>
       </div>
     `;
