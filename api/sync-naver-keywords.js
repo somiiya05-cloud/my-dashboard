@@ -44,7 +44,11 @@ const BULK_BATCH_SIZE = 100; // 벌크 통계 조회 시 한 번에 묶을 id �
 const BULK_CONCURRENCY = 4; // 위 배치를 동시에 몇 개씩 조회할지 (쇼핑검색 등 키워드가 수천 개인 계정 대응)
 const BULK_REQUEST_GAP_MS = 120;
 const UPSERT_CHUNK_SIZE = 200;
-const MAX_RETRIES = 4;
+const MAX_RETRIES = 6;
+// 429 재시도 대기: 800ms 부터 두 배씩, 한 번에 최대 4초까지만 (Vercel 함수 60초 제한 안에서
+// 되도록 많이 버티게 — 최악이라도 합쳐서 18초쯤). 네이버가 Retry-After 를 주면 그 값을 우선.
+const RETRY_BASE_MS = 800;
+const RETRY_MAX_MS = 4000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -119,7 +123,13 @@ async function naverRequest(account, method, uri, params, attempt = 0) {
     }
   });
   if (res.status === 429 && attempt < MAX_RETRIES) {
-    await sleep(300 * Math.pow(2, attempt));
+    // 2026-09-12: 조각을 병렬로 돌리는 동안 이 한도에 계속 걸려 일별 동기화가 15번 연속
+    // 실패했다. 워크플로 쪽을 순차로 바꾸는 게 근본 고침이고, 여기는 그래도 몰릴 때를 위한 보루다.
+    const retryAfterSec = Number(res.headers.get('retry-after'));
+    const waitMs = Number.isFinite(retryAfterSec) && retryAfterSec > 0
+      ? Math.min(retryAfterSec * 1000, 10000)
+      : Math.min(RETRY_BASE_MS * Math.pow(2, attempt), RETRY_MAX_MS);
+    await sleep(waitMs);
     return naverRequest(account, method, uri, params, attempt + 1);
   }
   if (!res.ok) {
