@@ -210,6 +210,8 @@
   .jw-weekday-badge { display: inline-block; font-size: 10.5px; font-weight: 700; color: #6d28d9; background: rgba(124,58,237,.1); border-radius: 999px; padding: 2px 8px; margin-left: 6px; }
   .jw-weekday-badge.today { color: #fff; background: #7c3aed; }
   .jw-task-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .jw-task-columns { display: flex; gap: 16px; flex-wrap: wrap; }
+  .jw-task-column { flex: 1 1 260px; display: flex; flex-direction: column; gap: 12px; }
   .jw-task-card {
     display: flex; align-items: flex-start; gap: 10px; background: #fff;
     border: 1px solid rgba(15,23,42,.1); border-radius: 12px; padding: 12px 14px;
@@ -5736,13 +5738,13 @@
 
   function renderJwView() {
     renderJwSimpleChecklist('jwAmBody', '오전 필수업무');
-    renderJwSimpleChecklist('jwPmBody', '오후 필수업무');
+    renderJwPmChecklist();
     renderJwWeekday();
     renderJwMonthend();
     loadAndRenderOccurrenceChecks();
   }
 
-  // 오전/오후처럼 요일 배지·표시 조건이 필요 없는 단순 체크리스트 공통 렌더러 (가로형 카드 그리드)
+  // 오전처럼 요일 배지·표시 조건이 필요 없는 단순 체크리스트 공통 렌더러 (가로형 카드 그리드)
   // 등록된 순서(id)를 그대로 유지 — 처음 지정해주신 1~10번 순서와 일치합니다.
   function renderJwSimpleChecklist(bodyId, category) {
     const items = currentTasks
@@ -5751,6 +5753,37 @@
     document.getElementById(bodyId).innerHTML = items.length
       ? `<div class="jw-task-grid">${items.map(t => jwTaskCardHtml(t)).join('')}</div>`
       : '<div class="jw-task-empty">등록된 업무가 없습니다.</div>';
+  }
+
+  // 오후 필수업무는 지정하신 순서대로 왼쪽 열에 1~3번, 오른쪽 열에 4~7번을 세로로 배치.
+  const PM_TASK_ORDER = [
+    '신제품 런칭 시, SA / 파워링크 /gfa & 카페침투 진행',
+    '상품등록 후 게시판 공유',
+    '외부몰 입점 후에 이지어드민 연동 공유(w/scm)',
+    '쿠팡 상품등록 후 리뷰 작업 진행 (w.CX팀장님)',
+    '쿠팡 로켓그로스 재고 입고',
+    '쿠팡 로켓그로스 뱃지 확인',
+    'SCM팀 미출 메일 확인',
+  ];
+  const PM_LEFT_COLUMN_COUNT = 3;
+
+  function renderJwPmChecklist() {
+    const items = currentTasks.filter(t => !t.archived_at && t.assignee === JW_ASSIGNEE && t.category === '오후 필수업무');
+    const ordered = PM_TASK_ORDER.map(title => items.find(t => t.title === title)).filter(Boolean);
+    const extras = items.filter(t => !PM_TASK_ORDER.includes(t.title)).sort((a, b) => a.id - b.id);
+    const all = ordered.concat(extras);
+    if (!all.length) {
+      document.getElementById('jwPmBody').innerHTML = '<div class="jw-task-empty">등록된 업무가 없습니다.</div>';
+      return;
+    }
+    const col1 = all.slice(0, PM_LEFT_COLUMN_COUNT);
+    const col2 = all.slice(PM_LEFT_COLUMN_COUNT);
+    document.getElementById('jwPmBody').innerHTML = `
+      <div class="jw-task-columns">
+        <div class="jw-task-column">${col1.map(t => jwTaskCardHtml(t)).join('')}</div>
+        <div class="jw-task-column">${col2.map(t => jwTaskCardHtml(t)).join('')}</div>
+      </div>
+    `;
   }
 
   function jwTaskCardHtml(t, extraLabel) {
