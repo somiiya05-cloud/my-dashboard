@@ -253,6 +253,9 @@ module.exports = async function handler(req, res) {
   // 일반 업무 메일 제목에 "런칭"이 들어가 잘못 세는 걸 막기 위해, 알림 메일만 남깁니다.
   // 실제 제목 형태: "[게시판 알림] '런칭' 포함 새 게시물 1건"
   const subjectFilter = process.env.DAOU_SUBJECT_FILTER || '게시판 알림';
+  // SCM팀이 매일 보내는 미출 현황 메일. 제목 예:
+  //   "2026년 9월 11일 신규 미출고 현황, 미출 예정 현황, 익일 입고 상품, ... 공유드립니다."
+  const scmKeyword = process.env.DAOU_SCM_KEYWORD || '미출고 현황';
   const today = todayInSeoul();
   const isDebug = query.debug === '1' || query.debug === 'true';
 
@@ -278,6 +281,10 @@ module.exports = async function handler(req, res) {
   // 알림 제목 형식이 바뀌어 조건에 안 걸리는 경우를 알아채려고, 키워드만으로도 세어 둡니다.
   const keywordOnly = scoped.filter((m) => m.subject.includes(keyword));
 
+  // SCM 미출 현황 메일 — 하루 한 통 오므로 통수보다 "왔는지"가 중요합니다.
+  const scmMails = todayMessages.filter((m) => m.subject.includes(scmKeyword));
+  const scmSubject = scmMails.length ? scmMails[scmMails.length - 1].subject : null;
+
   // 제목 형태와 폴더 구성을 눈으로 확인하려고 부를 때는 저장하지 않고 목록만 돌려줍니다.
   if (isDebug) {
     const dates = result.messages.map((m) => mailDateInSeoul(m.date)).filter(Boolean).sort();
@@ -296,6 +303,9 @@ module.exports = async function handler(req, res) {
       post_count: postCount,
       keyword_only_mails: keywordOnly.length,
       matched_subjects: matched.map((m) => ({ subject: m.subject, posts: postCountFromSubject(m.subject) })),
+      scm_keyword: scmKeyword,
+      scm_mail_count: scmMails.length,
+      scm_mail_subject: scmSubject,
       mailboxes: result.mailboxes,
       recent: result.messages.slice(-15).map((m) => ({ subject: m.subject, from: m.from, date: m.date }))
     });
@@ -326,7 +336,12 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  const payload = { count: postCount, synced_at: new Date().toISOString() };
+  const payload = {
+    count: postCount,
+    scm_mail_count: scmMails.length,
+    scm_mail_subject: scmSubject,
+    synced_at: new Date().toISOString()
+  };
   const writeRes = existing
     ? await fetch(`${SUPABASE_URL}/rest/v1/launch_post_counts?id=eq.${existing.id}`, {
         method: 'PATCH',
@@ -349,6 +364,8 @@ module.exports = async function handler(req, res) {
     today_count: todayMessages.length,
     matched_mails: matched.length,
     post_count: postCount,
-    matched_subjects: matched.map((m) => m.subject)
+    matched_subjects: matched.map((m) => m.subject),
+    scm_mail_count: scmMails.length,
+    scm_mail_subject: scmSubject
   });
 };

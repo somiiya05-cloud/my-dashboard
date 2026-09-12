@@ -34,7 +34,7 @@
   }
   .workspace-menu {
     display: flex; flex-direction: column; gap: 4px;
-    background: #1a1d27; border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
+    background: #1a1d27; border-radius: 10px;
     padding: 6px; margin-bottom: 22px;
   }
   .workspace-menu-item {
@@ -265,6 +265,9 @@
   }
   .jw-launch-num:hover { background: #b91c1c; box-shadow: 0 2px 8px rgba(220,38,38,.3); }
   .jw-launch-num .arrow { font-size: 10px; opacity: .85; }
+  /* SCM 미출 메일 배지는 알림 표시일 뿐이라 누를 곳이 없습니다 */
+  .jw-launch-num.scm { cursor: default; margin-left: 4px; }
+  .jw-launch-num.scm:hover { background: #dc2626; box-shadow: none; }
   .jw-launch-warn {
     background: rgba(217,119,6,.1); color: #b45309;
     font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 10px;
@@ -5755,6 +5758,8 @@
   // 그래서 담당자가 다우게시판을 확인하고 +/- 로 직접 건수를 기록하는 방식입니다.
   // 하루 단위로 저장되므로 다음 날에는 0에서 다시 시작합니다.
   const JW_LAUNCH_GROUP = '신제품 광고세팅';
+  // SCM 미출 메일이 오면 이 업무 옆에도 같은 방식으로 배지를 붙입니다.
+  const JW_SCM_TASK_KEYWORD = 'SCM팀 미출';
   const JW_LAUNCH_BOARD_URL = 'https://selfdiylab.daouoffice.com/search?q=%EB%9F%B0%EC%B9%AD&app=dop-employee-board';
   let jwLaunchRow = null;
   let jwLaunchError = '';
@@ -5798,6 +5803,25 @@
         <a class="jw-launch-num" href="${JW_LAUNCH_BOARD_URL}" target="_blank" rel="noopener"
           onclick="event.stopPropagation()"
           title="${escapeAttr(hint)} 눌러서 다우게시판 '런칭' 검색 결과를 엽니다.">런칭 ${n}<span class="arrow">↗</span></a>
+      </span>`;
+  }
+
+  // 제목의 "2026년 9월 11일 ..." 에서 날짜만 뽑아 "9/11" 로 줄입니다. 못 찾으면 null.
+  function scmMailDateLabel(subject) {
+    const m = String(subject || '').match(/(\d{1,2})월\s*(\d{1,2})일/);
+    return m ? `${Number(m[1])}/${Number(m[2])}` : null;
+  }
+
+  // SCM 미출 현황 메일이 오늘 도착했으면 배지를 붙입니다. 안 왔으면 아무것도 그리지 않습니다.
+  function jwScmBadgeHtml() {
+    if (!jwLaunchRow || !jwLaunchRow.scm_mail_count) return '';
+    const label = scmMailDateLabel(jwLaunchRow.scm_mail_subject);
+    const tip = jwLaunchRow.scm_mail_subject
+      ? `오늘 도착한 SCM 미출 메일입니다 — ${jwLaunchRow.scm_mail_subject}`
+      : '오늘 SCM 미출 메일이 도착했습니다.';
+    return `
+      <span class="jw-launch" onclick="event.stopPropagation()">
+        <span class="jw-launch-num scm" title="${escapeAttr(tip)}">미출 ${label ? escapeAttr(label) : '도착'}</span>
       </span>`;
   }
 
@@ -6066,7 +6090,7 @@
       : '';
     const row = `
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ''}">
-        <div class="jw-task-row-title">${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}</div>
+        <div class="jw-task-row-title">${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${(t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}</div>
         <div class="jw-task-row-checks">
           ${gbBtn}
           <button type="button" class="jw-task-toggle-btn${staffDone ? ' active' : ''}"
