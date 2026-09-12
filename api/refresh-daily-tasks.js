@@ -20,17 +20,21 @@ const SUPABASE_URL = 'https://fwsszzjfjktliredmjcn.supabase.co';
 const ASSIGNEE = '전휘원';
 const CATEGORIES = ['오전 필수업무', '오후 필수업무'];
 
-// 매일 반복되는 10개 고정 업무(오전 3개 + 오후 7개). 여기 목록을 바꾸면 다음 실행부터 반영됩니다.
+// 매일 반복되는 13개 고정 업무(오전 3개 + 오후 10개, "신제품 광고세팅"은 하위 4건으로 나뉨).
+// 여기 목록을 바꾸면 다음 실행부터 반영됩니다.
 const DAILY_TASKS = [
   { title: '카카오 명퉤 오행염주 일자수정', category: '오전 필수업무' },
   { title: '공동구매 발주서 취합 후 전달(w/scm)', category: '오전 필수업무' },
   { title: '광고보고 / 매출마감', category: '오전 필수업무' },
+  { title: 'SA 광고세팅', category: '오후 필수업무', detail: '그룹:신제품 광고세팅' },
+  { title: '파워링크 세팅', category: '오후 필수업무', detail: '그룹:신제품 광고세팅' },
+  { title: 'GFA 세팅', category: '오후 필수업무', detail: '그룹:신제품 광고세팅' },
+  { title: '카페침투 세팅', category: '오후 필수업무', detail: '그룹:신제품 광고세팅' },
   { title: '쿠팡 로켓그로스 재고 입고', category: '오후 필수업무' },
   { title: '쿠팡 로켓그로스 뱃지 확인', category: '오후 필수업무' },
   { title: '쿠팡 상품등록 후 리뷰 작업 진행 (w.CX팀장님)', category: '오후 필수업무' },
   { title: 'SCM팀 미출 메일 확인', category: '오후 필수업무' },
   { title: '외부몰 입점 후에 이지어드민 연동 공유(w/scm)', category: '오후 필수업무' },
-  { title: '신제품 런칭 시, SA / 파워링크 /gfa & 카페침투 진행', category: '오후 필수업무' },
   { title: '상품등록 후 게시판 공유', category: '오후 필수업무' }
 ];
 
@@ -102,9 +106,10 @@ module.exports = async function handler(req, res) {
 
   let inserted = [];
   if (missingTasks.length > 0) {
-    const rows = missingTasks.map(({ title, category }) => ({
+    const rows = missingTasks.map(({ title, category, detail }) => ({
       title,
       category,
+      detail: detail || null,
       assignee: ASSIGNEE,
       status: '할일',
       priority: '보통',

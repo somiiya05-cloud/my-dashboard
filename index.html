@@ -228,6 +228,9 @@
   .jw-task-row.pending { background: rgba(217,119,6,.06); border-color: rgba(217,119,6,.2); }
   .jw-task-row.done { background: rgba(22,163,74,.06); border-color: rgba(22,163,74,.2); }
   .jw-task-row.done .jw-task-row-title { color: #15803d; text-decoration: line-through; }
+  .jw-task-group-title { font-size: 12px; font-weight: 700; color: #64748b; margin: 10px 0 4px 2px; }
+  .jw-task-group-title:first-child { margin-top: 0; }
+  .jw-task-row-sub { margin-left: 18px; }
   .jw-task-card {
     display: flex; align-items: flex-start; gap: 10px; background: #fff;
     border: 1px solid rgba(15,23,42,.1); border-radius: 12px; padding: 12px 14px;
@@ -5776,13 +5779,16 @@
       .filter(t => !t.archived_at && t.assignee === JW_ASSIGNEE && t.category === category)
       .sort((a, b) => a.id - b.id);
     document.getElementById(bodyId).innerHTML = items.length
-      ? `<div class="jw-task-list">${items.map(t => jwTaskRowHtml(t)).join('')}</div>`
+      ? `<div class="jw-task-list">${jwTaskListHtml(items)}</div>`
       : '<div class="jw-task-empty">등록된 업무가 없습니다.</div>';
   }
 
-  // 오후 필수업무는 지정하신 순서 그대로 한 줄씩 나열.
+  // 오후 필수업무는 지정하신 순서 그대로 한 줄씩 나열 (신제품 광고세팅은 하위 4건으로 묶어서 표시).
   const PM_TASK_ORDER = [
-    '신제품 런칭 시, SA / 파워링크 /gfa & 카페침투 진행',
+    'SA 광고세팅',
+    '파워링크 세팅',
+    'GFA 세팅',
+    '카페침투 세팅',
     '상품등록 후 게시판 공유',
     '외부몰 입점 후에 이지어드민 연동 공유(w/scm)',
     '쿠팡 상품등록 후 리뷰 작업 진행 (w.CX팀장님)',
@@ -5797,7 +5803,7 @@
     const extras = items.filter(t => !PM_TASK_ORDER.includes(t.title)).sort((a, b) => a.id - b.id);
     const all = ordered.concat(extras);
     document.getElementById('jwPmBody').innerHTML = all.length
-      ? `<div class="jw-task-list">${all.map(t => jwTaskRowHtml(t)).join('')}</div>`
+      ? `<div class="jw-task-list">${jwTaskListHtml(all)}</div>`
       : '<div class="jw-task-empty">등록된 업무가 없습니다.</div>';
   }
 
@@ -5835,13 +5841,39 @@
     updateTaskStatus(id, deriveTaskDualStatus(kind, value, t));
   }
 
-  function jwTaskRowHtml(t) {
+  // t.detail이 "그룹:이름" 형식이면 하위 항목으로 취급 — 같은 그룹이 연달아 있으면 그룹 제목을 한 번만 보여주고 들여씀.
+  function jwTaskGroupName(t) {
+    const m = /^그룹:(.+)$/.exec(t.detail || '');
+    return m ? m[1] : null;
+  }
+
+  function jwTaskListHtml(items) {
+    const parts = [];
+    let i = 0;
+    while (i < items.length) {
+      const group = jwTaskGroupName(items[i]);
+      if (group) {
+        let j = i;
+        const groupItems = [];
+        while (j < items.length && jwTaskGroupName(items[j]) === group) { groupItems.push(items[j]); j++; }
+        parts.push(`<div class="jw-task-group-title">${escapeAttr(group)}</div>`);
+        groupItems.forEach(t => parts.push(jwTaskRowHtml(t, true)));
+        i = j;
+      } else {
+        parts.push(jwTaskRowHtml(items[i]));
+        i++;
+      }
+    }
+    return parts.join('');
+  }
+
+  function jwTaskRowHtml(t, indented) {
     const staffDone = t.status === '검수대기' || t.status === '확인완료';
     const leadDone = t.status === '확인완료';
     const rowClass = leadDone ? 'done' : (staffDone ? 'pending' : '');
     return `
-      <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}">
-        <div class="jw-task-row-title">${escapeAttr(t.title || '(제목 없음)')}</div>
+      <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ''}">
+        <div class="jw-task-row-title">${indented ? 'ㄴ ' : ''}${escapeAttr(t.title || '(제목 없음)')}</div>
         <div class="jw-task-row-checks">
           <label class="jw-task-row-check"><input type="checkbox" ${staffDone ? 'checked' : ''}
             onchange="updateTaskDualStatus(${t.id}, 'staff', this.checked)"> 담당자</label>
