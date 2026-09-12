@@ -16,30 +16,24 @@
 //   DAOU_IMAP_HOST            - 기본값 imap.daouoffice.com
 //   DAOU_LAUNCH_KEYWORD       - 기본값 "런칭". 제목에 이 단어가 들어간 메일만 셉니다.
 //   DAOU_MAIL_FROM            - 발신자 주소에 이 문자열이 들어간 메일만 셉니다(오검출 방지, 선택).
-//   DAOU_MAIL_BOX             - 기본값 INBOX
+//   DAOU_MAIL_BOX             - 기본값 INBOX. 게시판 알림이 다른 폴더로 분류되면 그 폴더명을 넣으세요.
+//   DAOU_MAIL_SCAN_LIMIT      - 기본값 200. 폴더 끝에서 이만큼만 훑어 오늘 메일을 찾습니다.
 //
 // 메일 계정 정보가 없으면 아무 것도 하지 않고 "no_credentials"만 돌려주므로,
 // 환경변수를 넣기 전에 미리 배포해두어도 안전합니다.
 //
 // 수동 테스트 (터미널에서):
 //   curl -H "Authorization: Bearer <CRON_SECRET 값>" "https://내주소.vercel.app/api/sync-launch-posts"
-// 제목 형태를 확인하고 싶을 때 (오늘 받은 메일 제목을 그대로 돌려줍니다. 저장은 하지 않음):
+// 폴더 목록과 최근 메일 제목을 보고 싶을 때 (저장하지 않음). ?mailbox= 로 다른 폴더도 확인 가능:
 //   curl -H "Authorization: Bearer <CRON_SECRET 값>" "https://내주소.vercel.app/api/sync-launch-posts?debug=1"
 
 const tls = require('tls');
 
 const SUPABASE_URL = 'https://fwsszzjfjktliredmjcn.supabase.co';
 const ASSIGNEE = '전휘원';
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function todayInSeoul() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-}
-
-// IMAP SEARCH SINCE 가 요구하는 "12-Sep-2026" 형식
-function toImapDate(ymd) {
-  const [y, m, d] = ymd.split('-');
-  return `${Number(d)}-${MONTHS[Number(m) - 1]}-${y}`;
 }
 
 // IMAP 문자열 인자는 큰따옴표로 감싸고 \ 와 " 를 이스케이프합니다.
@@ -175,9 +169,12 @@ async function listMailboxes(client) {
 }
 
 // 최근 메일의 제목/발신자/날짜를 읽어옵니다. PEEK이라 읽음 표시는 바뀌지 않습니다.
-// 이 서버(DOPMAIL)는 SEARCH SINCE 가 제대로 걸리지 않는 경우가 있어서,
-// 검색 결과와 별개로 "가장 최근 N통"을 직접 집어오는 경로를 함께 둡니다.
-async function fetchRecentMessages({ host, port, user, password, mailbox, timeoutMs, since, limit }) {
+//
+// 이 서버(DOPMAIL)의 SEARCH SINCE 는 믿을 수 없습니다. 2,083통짜리 폴더에서
+// "오늘 이후"를 물었는데 7개월 전 메일 7통을 돌려줬습니다. 그래서 검색은 아예 쓰지 않고,
+// 도착 순서대로 매겨지는 일련번호(sequence number) 뒤쪽 N통을 직접 집어온 다음
+// 메일 헤더의 Date 로 오늘 것만 거릅니다.
+async function fetchRecentMessages({ host, port, user, password, mailbox, timeoutMs, limit }) {
   const client = await imapConnect({ host, port, timeoutMs });
   try {
     await client.send(`LOGIN ${imapQuote(user)} ${imapQuote(password)}`, 'LOGIN');
@@ -185,29 +182,11 @@ async function fetchRecentMessages({ host, port, user, password, mailbox, timeou
 
     const selectRes = await client.send(`SELECT ${imapQuote(mailbox)}`, 'SELECT');
     const total = Number((selectRes.match(/^\* (\d+) EXISTS/m) || [])[1] || 0);
+    if (!total) return { messages: [], mailboxes, total };
 
-    let ids = [];
-    let searchWorked = false;
-    if (total > 0) {
-      // 날짜는 큰따옴표로 감싸야 받아주는 서버가 있어 그렇게 보냅니다.
-      try {
-        const searchRes = await client.send(`SEARCH SINCE ${imapQuote(since)}`, 'SEARCH');
-        const line = (searchRes.match(/^\* SEARCH([^\r\n]*)/m) || [])[1] || '';
-        ids = line.trim().split(/\s+/).filter(Boolean);
-        // 전체 통수와 같으면 조건이 안 먹은 것으로 보고 최근 N통만 다시 집습니다.
-        searchWorked = ids.length > 0 && ids.length < total;
-      } catch (e) {
-        ids = [];
-      }
-      if (!searchWorked) {
-        const from = Math.max(1, total - limit + 1);
-        ids = [`${from}:${total}`];
-      }
-    }
-    if (!ids.length) return { messages: [], mailboxes, total, searchWorked };
-
+    const from = Math.max(1, total - limit + 1);
     const fetchRes = await client.send(
-      `FETCH ${ids.join(',')} (BODY.PEEK[HEADER.FIELDS (SUBJECT FROM DATE)])`,
+      `FETCH ${from}:${total} (BODY.PEEK[HEADER.FIELDS (SUBJECT FROM DATE)])`,
       'FETCH'
     );
 
@@ -222,7 +201,7 @@ async function fetchRecentMessages({ host, port, user, password, mailbox, timeou
       }))
       .filter((m) => m.subject || m.from);
 
-    return { messages, mailboxes, total, searchWorked };
+    return { messages, mailboxes, total, scanned: `${from}:${total}` };
   } finally {
     try { await client.send('LOGOUT', 'LOGOUT'); } catch (e) { /* 무시 */ }
     client.close();
@@ -268,8 +247,8 @@ module.exports = async function handler(req, res) {
   try {
     result = await fetchRecentMessages({
       host, port: 993, user, password, mailbox, timeoutMs: 30000,
-      since: toImapDate(today),
-      limit: isDebug ? 30 : 80
+      // 하루치를 놓치지 않도록 넉넉히 봅니다. 폴더에 하루 200통 넘게 쌓이면 이 값을 올리세요.
+      limit: Number(query.limit || process.env.DAOU_MAIL_SCAN_LIMIT || 200)
     });
   } catch (err) {
     return res.status(502).json({ error: 'imap_failed', detail: String(err.message || err), mailbox });
@@ -282,18 +261,20 @@ module.exports = async function handler(req, res) {
 
   // 제목 형태와 폴더 구성을 눈으로 확인하려고 부를 때는 저장하지 않고 목록만 돌려줍니다.
   if (isDebug) {
+    const dates = result.messages.map((m) => mailDateInSeoul(m.date)).filter(Boolean).sort();
     return res.status(200).json({
       today,
       keyword,
       mailbox,
       from_filter: fromFilter || null,
       mailbox_total: result.total,
-      search_since_worked: result.searchWorked,
+      scanned: result.scanned || null,
       fetched: result.messages.length,
+      date_range: dates.length ? `${dates[0]} ~ ${dates[dates.length - 1]}` : null,
       today_count: todayMessages.length,
       matched_count: matched.length,
       mailboxes: result.mailboxes,
-      recent: result.messages.slice(-30).map((m) => ({ subject: m.subject, from: m.from, date: m.date }))
+      recent: result.messages.slice(-15).map((m) => ({ subject: m.subject, from: m.from, date: m.date }))
     });
   }
 
