@@ -5483,7 +5483,6 @@
     document.getElementById('taskTopbarActions').style.display = isPersonal ? '' : 'none';
     document.getElementById('personalTaskArea').style.display = isPersonal ? '' : 'none';
     document.getElementById('teamSummaryArea').style.display = isPersonal ? 'none' : '';
-    document.getElementById('dailyChecklistPanel').style.display = isPersonal ? '' : 'none';
     if (isPersonal) {
       renderDailyChecklist();
       renderTaskCards();
@@ -5501,22 +5500,23 @@
     const items = currentTasks
       .filter(t => !t.archived_at && t.assignee === taskFilterAssignee && t.category === '데일리업무')
       .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
+    // 데일리 업무가 등록된 담당자만 체크리스트를 보여줌 (예: 전휘원만 있고 윤효선은 없으면 윤효선 화면엔 숨김)
+    document.getElementById('dailyChecklistPanel').style.display = items.length ? '' : 'none';
+    if (!items.length) return;
     const note = document.getElementById('dailyChecklistNote');
     const body = document.getElementById('dailyChecklistBody');
     const doneCount = items.filter(t => t.status === '확인완료').length;
-    note.textContent = items.length ? `${doneCount}/${items.length}건 완료` : '';
-    body.innerHTML = items.length
-      ? `<div class="daily-checklist-grid">${items.map(t => {
-          const done = t.status === '확인완료';
-          return `
-            <div class="daily-checklist-item${done ? ' done' : ''}">
-              <input type="checkbox" id="dc-${t.id}" ${done ? 'checked' : ''}
-                onchange="updateTaskStatus(${t.id}, this.checked ? '확인완료' : '할일')">
-              <label for="dc-${t.id}">${escapeAttr(t.title || '(제목 없음)')}</label>
-            </div>
-          `;
-        }).join('')}</div>`
-      : '<div class="daily-checklist-empty">등록된 데일리 업무가 없습니다.</div>';
+    note.textContent = `${doneCount}/${items.length}건 완료`;
+    body.innerHTML = `<div class="daily-checklist-grid">${items.map(t => {
+      const done = t.status === '확인완료';
+      return `
+        <div class="daily-checklist-item${done ? ' done' : ''}">
+          <input type="checkbox" id="dc-${t.id}" ${done ? 'checked' : ''}
+            onchange="updateTaskStatus(${t.id}, this.checked ? '확인완료' : '할일')">
+          <label for="dc-${t.id}">${escapeAttr(t.title || '(제목 없음)')}</label>
+        </div>
+      `;
+    }).join('')}</div>`;
   }
 
   function filterTaskStatus(status) {
