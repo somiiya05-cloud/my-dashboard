@@ -216,16 +216,25 @@
   .jw-task-list { display: flex; flex-direction: column; gap: 8px; }
   .jw-task-row {
     display: flex; align-items: center; justify-content: space-between; gap: 14px;
-    background: #fff; border: 1px solid rgba(15,23,42,.1); border-radius: 10px; padding: 10px 14px;
+    background: #fff; border: 1px solid rgba(15,23,42,.1); border-radius: 10px; padding: 11px 14px;
+    border-left: 3px solid #cbd5e1;
     transition: border-color .12s ease, background .12s ease;
   }
-  .jw-task-row:hover { border-color: rgba(77,124,254,.3); }
+  .jw-task-row:hover { border-color: rgba(77,124,254,.3); border-left-color: #4d7cfe; }
   .jw-task-row-title { font-size: 13.5px; font-weight: 700; color: #0f172a; min-width: 0; }
-  /* 업무명 앞 번호 — inline-block이라 완료 시 제목에 걸리는 취소선이 번호까지 번지지 않음 */
+  /* 업무명 앞 번호 배지 — inline-flex라 완료 시 제목에 걸리는 취소선이 번호까지 번지지 않고,
+     고정 너비라 자릿수가 달라져도 업무명 시작 위치가 흐트러지지 않음 */
   .jw-task-no {
-    display: inline-block; margin-right: 6px; color: #94a3b8; font-weight: 800;
-    font-variant-numeric: tabular-nums;
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 24px; height: 22px; padding: 0 6px; margin-right: 10px;
+    background: #eef2fb; color: #3b63d4; border-radius: 6px;
+    font-size: 11.5px; font-weight: 800; font-variant-numeric: tabular-nums;
+    vertical-align: middle; position: relative; top: -1px;
   }
+  .jw-task-no.sub { background: #f1f5f9; color: #64748b; min-width: 30px; }
+  .jw-task-row.pending .jw-task-no { background: rgba(217,119,6,.14); color: #b45309; }
+  .jw-task-row.done .jw-task-no { background: rgba(22,163,74,.14); color: #15803d; }
+  .jw-task-row.late .jw-task-no { background: rgba(220,38,38,.14); color: #b91c1c; }
   .jw-task-row-checks { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .jw-task-toggle-btn {
     background: #fff; border: 1px solid rgba(15,23,42,.15); color: #475569;
@@ -235,18 +244,35 @@
   .jw-task-toggle-btn:hover { border-color: rgba(77,124,254,.4); }
   .jw-task-toggle-btn.active { background: #4d7cfe; border-color: #4d7cfe; color: #fff; }
   .jw-task-toggle-btn:disabled { opacity: .4; cursor: not-allowed; }
-  .jw-task-row.pending { background: rgba(217,119,6,.06); border-color: rgba(217,119,6,.2); }
-  .jw-task-row.done { background: rgba(22,163,74,.06); border-color: rgba(22,163,74,.2); }
+  .jw-task-row.pending { background: rgba(217,119,6,.06); border-color: rgba(217,119,6,.2); border-left-color: #d97706; }
+  .jw-task-row.done { background: rgba(22,163,74,.06); border-color: rgba(22,163,74,.2); border-left-color: #16a34a; }
   .jw-task-row.done .jw-task-row-title { color: #15803d; text-decoration: line-through; }
-  .jw-task-row.late { background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.25); }
+  .jw-task-row.late { background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.25); border-left-color: #dc2626; }
+
+  /* 그룹 헤더는 일반 업무 줄과 헷갈리지 않도록 배경·테두리를 다르게 주고,
+     접혀 있어도 "몇 건 중 몇 건 완료"가 바로 보이게 함 */
   .jw-task-group-title {
-    font-size: 12px; font-weight: 700; color: #64748b; margin: 10px 0 4px 2px;
-    cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px;
+    display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+    background: #eef2fb; border: 1px solid rgba(77,124,254,.28); border-radius: 10px;
+    padding: 11px 14px; margin: 0; font-size: 13.5px; font-weight: 800; color: #2f5ce4;
+    transition: background .12s ease, border-color .12s ease;
   }
-  .jw-task-group-title:hover { color: #2f5ce4; }
-  .jw-task-group-title:first-child { margin-top: 0; }
-  .jw-task-group-items { display: flex; flex-direction: column; gap: 8px; }
-  .jw-task-row-sub { margin-left: 18px; }
+  .jw-task-group-title:hover { background: #e3eafb; border-color: rgba(77,124,254,.5); }
+  /* 그룹 헤더는 배경이 이미 연한 파랑이라 번호 배지를 흰색으로 뒤집어야 보임 */
+  .jw-task-group-title .jw-task-no { background: #fff; border: 1px solid rgba(77,124,254,.3); }
+  .jw-task-group-arrow { font-size: 13px; line-height: 1; color: #4d7cfe; width: 13px; flex-shrink: 0; }
+  .jw-task-group-count {
+    margin-left: auto; flex-shrink: 0; font-size: 11.5px; font-weight: 700;
+    color: #4d7cfe; background: #fff; border: 1px solid rgba(77,124,254,.3);
+    border-radius: 999px; padding: 3px 10px;
+  }
+  .jw-task-group-count.all-done { color: #15803d; border-color: rgba(22,163,74,.35); background: rgba(22,163,74,.08); }
+  /* 펼친 하위 항목은 왼쪽 세로선으로 그룹에 속한다는 걸 표시 */
+  .jw-task-group-items {
+    display: flex; flex-direction: column; gap: 8px;
+    margin: 0 0 0 12px; padding-left: 14px; border-left: 2px solid rgba(77,124,254,.22);
+  }
+  .jw-task-row-sub { margin-left: 0; }
   .jw-task-card {
     display: flex; align-items: flex-start; gap: 10px; background: #fff;
     border: 1px solid rgba(15,23,42,.1); border-radius: 12px; padding: 12px 14px;
@@ -5881,11 +5907,14 @@
         no++;
         const groupNo = no;
         const id = jwGroupElId(group);
+        const groupDone = groupItems.filter(t => t.status === '확인완료').length;
         parts.push(`
           <div class="jw-task-group-title" onclick="toggleJwGroup('${id}')">
-            <span id="${id}-arrow">▸</span> <span class="jw-task-no">${groupNo}.</span>${escapeAttr(group)}
+            <span class="jw-task-group-arrow" id="${id}-arrow">▾</span>
+            <span class="jw-task-no">${groupNo}.</span>${escapeAttr(group)}
+            <span class="jw-task-group-count${groupDone === groupItems.length ? ' all-done' : ''}">${groupDone}/${groupItems.length} 완료</span>
           </div>
-          <div class="jw-task-group-items" id="${id}" style="display:none">
+          <div class="jw-task-group-items" id="${id}">
             ${groupItems.map((t, k) => jwTaskRowHtml(t, true, `${groupNo}-${k + 1}`)).join('')}
           </div>
         `);
@@ -5905,7 +5934,7 @@
     const rowClass = leadDone ? 'done' : (staffDone ? 'pending' : '');
     return `
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ''}">
-        <div class="jw-task-row-title">${no ? `<span class="jw-task-no">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}</div>
+        <div class="jw-task-row-title">${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}</div>
         <div class="jw-task-row-checks">
           <button type="button" class="jw-task-toggle-btn${staffDone ? ' active' : ''}"
             onclick="updateTaskDualStatus(${t.id}, 'staff', ${!staffDone})">담당자</button>
