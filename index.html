@@ -32,19 +32,18 @@
     display: flex;
     flex-direction: column;
   }
+  /* 아래 nav-item 들과 같은 여백/정렬을 써서 한 줄로 이어지게 합니다. */
   .workspace-menu {
-    display: flex; flex-direction: column; gap: 4px;
-    background: #1a1d27; border-radius: 10px;
-    padding: 6px; margin-bottom: 22px;
+    display: flex; flex-direction: column; gap: 2px; margin-bottom: 22px;
   }
   .workspace-menu-item {
-    display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 8px;
-    font-size: 12.5px; font-weight: 600; color: #a7adc1; cursor: pointer;
+    display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px;
+    font-size: 13.5px; font-weight: 700; color: #a7adc1; cursor: pointer;
     border: none; background: none; width: 100%; text-align: left; font-family: inherit;
     transition: background .12s ease, color .12s ease;
   }
   .workspace-menu-item:hover { background: rgba(255,255,255,.06); color: #f5f6fa; }
-  .workspace-menu-item.active { background: rgba(79,124,254,.18); color: #f5f6fa; font-weight: 700; }
+  .workspace-menu-item.active { background: rgba(79,124,254,.12); color: #f5f6fa; }
   .workspace-menu-item .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
   .nav-group { margin-bottom: 22px; }
   .nav-label { font-size: 11px; color: #565d70; margin-bottom: 8px; padding: 0 8px; }
