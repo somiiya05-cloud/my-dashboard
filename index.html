@@ -111,7 +111,7 @@
   .footer-role { font-size: 11px; color: #6d7488; }
 
   /* ---- Main ---- */
-  .main { flex: 1; padding: 24px 28px; min-width: 0; }
+  .main { flex: 1; padding: 24px 20px; min-width: 0; }
 
   .topbar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
   .topbar h1 { font-size: 20px; margin: 0 0 4px 0; }
@@ -460,7 +460,7 @@
   @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } .grid-3 { grid-template-columns: 1fr; } }
   .panel {
     background: #ffffff; border: 1px solid rgba(15,23,42,.07);
-    border-radius: 14px; padding: 18px 20px; margin-bottom: 16px;
+    border-radius: 14px; padding: 18px 16px; margin-bottom: 16px;
   }
   .panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .panel-head h2 { font-size: 14px; margin: 0; font-weight: 700; }
@@ -5956,17 +5956,19 @@
       : '<div class="jw-task-empty">등록된 업무가 없습니다.</div>';
   }
 
-  // 오후 필수업무는 지정하신 순서 그대로 한 줄씩 나열 (신제품 광고세팅은 하위 4건으로 묶어서 표시).
+  // 오후 필수업무는 지정하신 순서 그대로 한 줄씩 나열.
+  // 신제품 광고세팅(4건)·상품등록(3건)·쿠팡(2건)은 그룹으로 묶여 표시되므로,
+  // 같은 그룹에 속한 업무끼리는 이 목록에서 반드시 붙어 있어야 합니다.
   const PM_TASK_ORDER = [
     'SA 광고세팅',
     '파워링크 세팅',
     'GFA 세팅',
     '카페침투 세팅',
-    '상품등록 후 게시판 공유',
-    '외부몰 입점 후에 이지어드민 연동 공유(w/scm)',
-    '상품리뷰 작업 요청 (CX팀)',
-    '쿠팡 로켓그로스 재고 입고',
-    '쿠팡 로켓그로스 뱃지 확인',
+    '다우게시판 공유',
+    '리뷰 작업 요청 (cx팀)',
+    '이지어드민 연동(scm팀)',
+    '쿠팡 재고 입고',
+    '쿠팡 뱃지 확인',
     'SCM팀 미출 메일 확인',
   ];
 
@@ -6017,8 +6019,11 @@
   // DB(team_tasks.detail)를 건드리지 않고 화면에서만 묶어 보여주는 그룹 — 업무명 기준.
   // 묶으려는 업무들은 PM_TASK_ORDER에서 서로 붙어 있어야 한 그룹으로 합쳐집니다.
   const JW_TITLE_GROUPS = {
-    '쿠팡 로켓그로스 재고 입고': '쿠팡',
-    '쿠팡 로켓그로스 뱃지 확인': '쿠팡',
+    '다우게시판 공유': '상품등록',
+    '리뷰 작업 요청 (cx팀)': '상품등록',
+    '이지어드민 연동(scm팀)': '상품등록',
+    '쿠팡 재고 입고': '쿠팡',
+    '쿠팡 뱃지 확인': '쿠팡',
   };
 
   // t.detail이 "그룹:이름" 형식이면 하위 항목으로 취급 — 같은 그룹이 연달아 있으면 그룹 제목을 한 번만 보여주고 들여씀.

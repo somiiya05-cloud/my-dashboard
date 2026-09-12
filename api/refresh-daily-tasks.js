@@ -30,12 +30,12 @@ const DAILY_TASKS = [
   { title: '파워링크 세팅', category: '오후 필수업무', detail: '그룹:신제품 광고세팅' },
   { title: 'GFA 세팅', category: '오후 필수업무', detail: '그룹:신제품 광고세팅' },
   { title: '카페침투 세팅', category: '오후 필수업무', detail: '그룹:신제품 광고세팅' },
-  { title: '쿠팡 로켓그로스 재고 입고', category: '오후 필수업무' },
-  { title: '쿠팡 로켓그로스 뱃지 확인', category: '오후 필수업무' },
-  { title: '상품리뷰 작업 요청 (CX팀)', category: '오후 필수업무' },
+  { title: '쿠팡 재고 입고', category: '오후 필수업무' },
+  { title: '쿠팡 뱃지 확인', category: '오후 필수업무' },
+  { title: '리뷰 작업 요청 (cx팀)', category: '오후 필수업무' },
   { title: 'SCM팀 미출 메일 확인', category: '오후 필수업무' },
-  { title: '외부몰 입점 후에 이지어드민 연동 공유(w/scm)', category: '오후 필수업무' },
-  { title: '상품등록 후 게시판 공유', category: '오후 필수업무' }
+  { title: '이지어드민 연동(scm팀)', category: '오후 필수업무' },
+  { title: '다우게시판 공유', category: '오후 필수업무' }
 ];
 
 function todayInSeoul() {
