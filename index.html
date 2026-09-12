@@ -309,17 +309,24 @@
   }
   .jw-gb-head .src { color: #94a3b8; font-weight: 600; }
   .jw-gb-list { display: flex; flex-direction: column; gap: 8px; }
-  .jw-gb-item { background: #fff; border: 1px solid rgba(15,23,42,.09); border-radius: 8px; padding: 9px 12px; }
-  .jw-gb-item-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  /* 하루에 공구가 여러 건이면 건별로 체크할 수 있게 각 줄에 체크박스를 둠 */
+  .jw-gb-item {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: #fff; border: 1px solid rgba(15,23,42,.09); border-radius: 8px; padding: 9px 12px;
+  }
+  .jw-gb-item input[type="checkbox"] { width: 17px; height: 17px; accent-color: #4d7cfe; cursor: pointer; flex-shrink: 0; }
+  .jw-gb-item input[type="checkbox"]:disabled { opacity: .35; cursor: not-allowed; }
+  .jw-gb-item label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer; min-width: 0; }
   .jw-gb-brand { font-size: 13px; font-weight: 800; color: #0f172a; }
   .jw-gb-inf { font-size: 12.5px; font-weight: 700; color: #475569; }
+  .jw-gb-item.checked { background: rgba(22,163,74,.07); border-color: rgba(22,163,74,.25); }
+  .jw-gb-item.checked .jw-gb-brand,
+  .jw-gb-item.checked .jw-gb-inf { color: #15803d; text-decoration: line-through; }
   .jw-gb-badge { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
   .jw-gb-badge.start { background: rgba(22,163,74,.12); color: #15803d; }
   .jw-gb-badge.end { background: rgba(220,38,38,.1); color: #b91c1c; }
-  .jw-gb-item-sub { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-  .jw-gb-chip { font-size: 11px; color: #475569; background: #f1f5f9; border-radius: 6px; padding: 3px 8px; }
-  .jw-gb-chip.period { color: #334155; font-weight: 700; font-variant-numeric: tabular-nums; }
   .jw-gb-empty { font-size: 12px; color: #94a3b8; }
+  .jw-gb-warn { font-size: 11.5px; color: #b45309; background: rgba(217,119,6,.08); border-radius: 6px; padding: 6px 9px; margin-bottom: 8px; }
 
   /* 데일리 발생 여부 체크: 오전/오후와 똑같은 .jw-task-card를 쓰고, 상세 내용만 "상세보기"로 접어둠 */
   .jw-occ-detail-toggle {
@@ -5838,6 +5845,8 @@
   // 체크박스와 동일한 기준(department에 '콘텐츠'가 들어가면 콘텐츠팀)으로 영업팀 건만 남깁니다.
   const JW_GROUPBUY_TASK_KEYWORD = '공동구매 발주서 취합';
   let jwGroupbuyRows = [];
+  let jwGroupbuyChecks = [];
+  let jwGroupbuyCheckError = '';
   let jwGroupbuyLoaded = false;
   let jwGroupbuyOpen = false;
 
@@ -5850,6 +5859,39 @@
       .order('start_date', { ascending: true });
     jwGroupbuyRows = error ? [] : (data || []).filter(r => !(r.department || '').includes('콘텐츠'));
     jwGroupbuyLoaded = !error;
+    await loadJwGroupbuyChecks(today);
+  }
+
+  // 오늘 뜬 공구 건마다 체크 행을 하루 1개씩 만들어 둡니다 (데일리 발생 여부 체크와 같은 방식).
+  async function loadJwGroupbuyChecks(today) {
+    jwGroupbuyChecks = [];
+    jwGroupbuyCheckError = '';
+    if (!jwGroupbuyRows.length) return;
+    const ids = jwGroupbuyRows.map(r => r.id);
+    const { data, error } = await client.from('groupbuy_order_checks')
+      .select('*')
+      .eq('assignee', JW_ASSIGNEE).eq('check_date', today).in('groupbuy_id', ids);
+    if (error) { jwGroupbuyCheckError = error.message; return; }
+    let rows = data || [];
+    const existing = new Set(rows.map(r => r.groupbuy_id));
+    const missing = ids.filter(id => !existing.has(id));
+    if (missing.length) {
+      const { data: inserted, error: insErr } = await client.from('groupbuy_order_checks')
+        .insert(missing.map(id => ({ assignee: JW_ASSIGNEE, groupbuy_id: id, check_date: today })))
+        .select('*');
+      if (insErr) { jwGroupbuyCheckError = insErr.message; return; }
+      if (inserted) rows = rows.concat(inserted);
+    }
+    jwGroupbuyChecks = rows;
+  }
+
+  async function toggleJwGroupbuyCheck(groupbuyId, value) {
+    const row = jwGroupbuyChecks.find(r => r.groupbuy_id === groupbuyId);
+    if (!row) return;
+    const { error } = await client.from('groupbuy_order_checks').update({ checked: value }).eq('id', row.id);
+    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
+    row.checked = value;
+    renderJwGroupbuyLists();
   }
 
   function toggleJwGroupbuy() {
@@ -5859,36 +5901,35 @@
 
   function jwGroupbuyBannerHtml() {
     const today = jwTodayKST();
+    const doneCount = jwGroupbuyChecks.filter(r => r.checked).length;
     const inner = !jwGroupbuyLoaded
       ? '<div class="jw-gb-empty">공구 일정을 불러오는 중입니다...</div>'
       : !jwGroupbuyRows.length
         ? `<div class="jw-gb-empty">오늘(${escapeAttr(today)}) 진행 중인 영업팀 공구 일정이 없습니다.</div>`
         : `<div class="jw-gb-head">
-             ${escapeAttr(today)} 기준 진행 중 ${jwGroupbuyRows.length}건
+             ${escapeAttr(today)} 기준 진행 중 ${jwGroupbuyRows.length}건 · ${doneCount}건 체크
              <span class="src">· 프로모션 &gt; 공구 일정(영업팀)</span>
            </div>
+           ${jwGroupbuyCheckError ? '<div class="jw-gb-warn">체크를 저장하지 못합니다 — groupbuy_order_checks.sql을 Supabase에서 실행해주세요. (' + escapeAttr(jwGroupbuyCheckError) + ')</div>' : ''}
            <div class="jw-gb-list">${jwGroupbuyRows.map(r => jwGroupbuyItemHtml(r, today)).join('')}</div>`;
     return `<div class="jw-gb-banner" style="display:${jwGroupbuyOpen ? '' : 'none'}">${inner}</div>`;
   }
 
   function jwGroupbuyItemHtml(r, today) {
     const end = r.end_date || r.start_date;
-    const chips = [
-      `<span class="jw-gb-chip period">${escapeAttr(r.start_date)} ~ ${escapeAttr(end)}</span>`,
-      r.brand_product ? `<span class="jw-gb-chip">${escapeAttr(r.brand_product)}</span>` : '',
-      r.status ? `<span class="jw-gb-chip">${escapeAttr(r.status)}</span>` : '',
-      r.settlement_method ? `<span class="jw-gb-chip">${escapeAttr(r.settlement_method)}</span>` : '',
-      typeof r.commission_rate === 'number' ? `<span class="jw-gb-chip">수수료 ${Math.round(r.commission_rate * 100)}%</span>` : '',
-    ].filter(Boolean).join('');
+    const check = jwGroupbuyChecks.find(c => c.groupbuy_id === r.id);
+    const checked = !!(check && check.checked);
+    const domId = 'jw-gb-check-' + String(r.id).replace(/[^a-zA-Z0-9]+/g, '_');
     return `
-      <div class="jw-gb-item">
-        <div class="jw-gb-item-main">
+      <div class="jw-gb-item${checked ? ' checked' : ''}">
+        <input type="checkbox" id="${domId}" ${checked ? 'checked' : ''} ${check ? '' : 'disabled'}
+          onchange="toggleJwGroupbuyCheck('${escapeAttr(String(r.id))}', this.checked)">
+        <label for="${domId}">
           <span class="jw-gb-brand">${escapeAttr(r.brand_name || '브랜드미정')}</span>
           <span class="jw-gb-inf">${escapeAttr(r.influencer_name || '(이름없음)')}</span>
           ${r.start_date === today ? '<span class="jw-gb-badge start">오늘 시작</span>' : ''}
           ${end === today ? '<span class="jw-gb-badge end">오늘 종료</span>' : ''}
-        </div>
-        <div class="jw-gb-item-sub">${chips}</div>
+        </label>
       </div>
     `;
   }
