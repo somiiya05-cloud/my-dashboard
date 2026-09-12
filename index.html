@@ -312,17 +312,28 @@
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     background: #fff; border: 1px solid rgba(15,23,42,.09); border-radius: 8px; padding: 9px 12px;
   }
-  /* 공구는 인플루언서명으로 식별합니다 (브랜드명·기간은 줄 전체 툴팁에) */
+  /* 공구는 인플루언서명으로 식별합니다 (브랜드명·기간은 툴팁에).
+     버튼을 누르면 처리 완료로 토글되고, 완료되면 초록 + 취소선으로 바뀝니다. */
   .jw-gb-inf {
-    display: inline-flex; align-items: center;
+    display: inline-flex; align-items: center; font-family: inherit;
     font-size: 12.5px; font-weight: 700; color: #334155;
     background: #f1f5f9; border: 1px solid rgba(15,23,42,.12);
-    border-radius: 999px; padding: 5px 12px;
+    border-radius: 999px; padding: 5px 12px; cursor: pointer;
+    transition: background .12s ease, border-color .12s ease, color .12s ease;
   }
+  .jw-gb-inf:hover { background: #e8eefb; border-color: rgba(77,124,254,.4); color: #2f5ce4; }
+  .jw-gb-inf:disabled { opacity: .5; cursor: not-allowed; }
+  .jw-gb-item.checked { background: rgba(22,163,74,.07); border-color: rgba(22,163,74,.25); }
+  .jw-gb-item.checked .jw-gb-inf {
+    background: rgba(22,163,74,.14); border-color: rgba(22,163,74,.35);
+    color: #15803d; text-decoration: line-through;
+  }
+  .jw-gb-item.checked .jw-gb-inf:hover { background: rgba(22,163,74,.22); border-color: rgba(22,163,74,.5); color: #15803d; }
   .jw-gb-badge { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
   .jw-gb-badge.start { background: rgba(22,163,74,.12); color: #15803d; }
   .jw-gb-badge.end { background: rgba(220,38,38,.1); color: #b91c1c; }
   .jw-gb-empty { font-size: 12px; color: #94a3b8; }
+  .jw-gb-warn { font-size: 11.5px; color: #b45309; background: rgba(217,119,6,.08); border-radius: 6px; padding: 6px 9px; margin-bottom: 8px; }
 
   /* ---- 할일 관리: 현재 업무 / 히스토리 탭 (스크롤해도 화면 상단에 고정) ---- */
   .task-tabs {
@@ -5836,6 +5847,8 @@
   // 체크박스와 동일한 기준(department에 '콘텐츠'가 들어가면 콘텐츠팀)으로 영업팀 건만 남깁니다.
   const JW_GROUPBUY_TASK_KEYWORD = '공동구매 발주서';
   let jwGroupbuyRows = [];
+  let jwGroupbuyChecks = [];
+  let jwGroupbuyCheckError = '';
   let jwGroupbuyLoaded = false;
   let jwGroupbuyOpen = false;
 
@@ -5848,6 +5861,41 @@
       .order('start_date', { ascending: true });
     jwGroupbuyRows = error ? [] : (data || []).filter(r => !(r.department || '').includes('콘텐츠'));
     jwGroupbuyLoaded = !error;
+    await loadJwGroupbuyChecks(today);
+  }
+
+  // 오늘 뜬 공구 건마다 처리 여부를 담을 행을 하루 1개씩 만들어 둡니다.
+  async function loadJwGroupbuyChecks(today) {
+    jwGroupbuyChecks = [];
+    jwGroupbuyCheckError = '';
+    if (!jwGroupbuyRows.length) return;
+    const ids = jwGroupbuyRows.map(r => r.id);
+    const { data, error } = await client.from('groupbuy_order_checks')
+      .select('*')
+      .eq('assignee', JW_ASSIGNEE).eq('check_date', today).in('groupbuy_id', ids);
+    if (error) { jwGroupbuyCheckError = error.message; return; }
+    let rows = data || [];
+    const existing = new Set(rows.map(r => r.groupbuy_id));
+    const missing = ids.filter(id => !existing.has(id));
+    if (missing.length) {
+      const { data: inserted, error: insErr } = await client.from('groupbuy_order_checks')
+        .insert(missing.map(id => ({ assignee: JW_ASSIGNEE, groupbuy_id: id, check_date: today })))
+        .select('*');
+      if (insErr) { jwGroupbuyCheckError = insErr.message; return; }
+      if (inserted) rows = rows.concat(inserted);
+    }
+    jwGroupbuyChecks = rows;
+  }
+
+  // 인플루언서명 버튼을 누르면 처리 완료 표시(초록 + 취소선)가 켜지고 꺼집니다.
+  async function toggleJwGroupbuyCheck(groupbuyId) {
+    const row = jwGroupbuyChecks.find(r => r.groupbuy_id === groupbuyId);
+    if (!row) return;
+    const next = !row.checked;
+    const { error } = await client.from('groupbuy_order_checks').update({ checked: next }).eq('id', row.id);
+    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
+    row.checked = next;
+    renderJwGroupbuyLists();
   }
 
   function toggleJwGroupbuy() {
@@ -5857,25 +5905,33 @@
 
   function jwGroupbuyBannerHtml() {
     const today = jwTodayKST();
+    const doneCount = jwGroupbuyChecks.filter(c => c.checked).length;
     const inner = !jwGroupbuyLoaded
       ? '<div class="jw-gb-empty">공구 일정을 불러오는 중입니다...</div>'
       : !jwGroupbuyRows.length
         ? `<div class="jw-gb-empty">오늘(${escapeAttr(today)}) 진행 중인 영업팀 공구 일정이 없습니다.</div>`
         : `<div class="jw-gb-head">
-             ${escapeAttr(today)} 기준 진행 중 ${jwGroupbuyRows.length}건
+             ${escapeAttr(today)} 기준 진행 중 ${jwGroupbuyRows.length}건${doneCount ? ` · ${doneCount}건 처리` : ''}
              <span class="src">· 프로모션 &gt; 공구 일정(영업팀)</span>
            </div>
+           ${jwGroupbuyCheckError ? `<div class="jw-gb-warn">처리 표시를 저장하지 못합니다 — groupbuy_order_checks.sql 실행 여부를 확인해주세요. (${escapeAttr(jwGroupbuyCheckError)})</div>` : ''}
            <div class="jw-gb-list">${jwGroupbuyRows.map(r => jwGroupbuyItemHtml(r, today)).join('')}</div>`;
     return `<div class="jw-gb-banner" style="display:${jwGroupbuyOpen ? '' : 'none'}">${inner}</div>`;
   }
 
-  // 보기 전용 목록입니다. 공구는 인플루언서명으로 식별하고,
-  // 브랜드명과 기간은 자리를 차지하지 않도록 툴팁에만 둡니다.
+  // 공구는 인플루언서명으로 식별하고, 브랜드명과 기간은 자리를 차지하지 않도록 툴팁에만 둡니다.
+  // 이름 버튼을 누르면 처리 완료(초록 + 취소선)로 토글됩니다.
   function jwGroupbuyItemHtml(r, today) {
     const end = r.end_date || r.start_date;
+    const check = jwGroupbuyChecks.find(c => c.groupbuy_id === r.id);
+    const checked = !!(check && check.checked);
+    const tip = `${r.brand_name || '브랜드미정'} · ${r.start_date} ~ ${end}`;
     return `
-      <div class="jw-gb-item" title="${escapeAttr(`${r.brand_name || '브랜드미정'} · ${r.start_date} ~ ${end}`)}">
-        <span class="jw-gb-inf">${escapeAttr(r.influencer_name || '(이름없음)')}</span>
+      <div class="jw-gb-item${checked ? ' checked' : ''}" title="${escapeAttr(tip)}">
+        <button type="button" class="jw-gb-inf" ${check ? '' : 'disabled'}
+          onclick="event.stopPropagation(); toggleJwGroupbuyCheck('${escapeAttr(String(r.id))}')"
+          title="${escapeAttr(tip + (checked ? ' — 눌러서 처리 완료 해제' : ' — 눌러서 처리 완료로 표시'))}"
+        >${escapeAttr(r.influencer_name || '(이름없음)')}</button>
         ${r.start_date === today ? '<span class="jw-gb-badge start">오늘 시작</span>' : ''}
         ${end === today ? '<span class="jw-gb-badge end">오늘 종료</span>' : ''}
       </div>
