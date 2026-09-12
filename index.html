@@ -205,6 +205,10 @@
     transition: border-color .12s ease, background .12s ease;
   }
   .jw-task-row:hover { border-color: rgba(77,124,254,.3); border-left-color: #4d7cfe; }
+  /* 번호가 1., 2. 인 최상위 줄은 그룹 머리글과 같은 연파랑 바탕으로 맞춰,
+     그룹이든 단일 업무든 같은 단계로 읽히게 합니다. (하위 1-1 줄은 흰 바탕 유지)
+     아래 상태 색(진행중·완료·지연)이 뒤에 와서 그때는 상태 색이 이깁니다. */
+  .jw-task-row.top { background: #eef2fb; border-color: rgba(77,124,254,.28); }
   .jw-task-row-title { font-size: 13.5px; font-weight: 700; color: #0f172a; min-width: 0; }
   /* 업무명 앞 번호 배지 — inline-flex라 완료 시 제목에 걸리는 취소선이 번호까지 번지지 않고,
      고정 너비라 자릿수가 달라져도 업무명 시작 위치가 흐트러지지 않음 */
@@ -6088,7 +6092,7 @@
            onclick="toggleJwGroupbuy()">오늘 공구 ${jwGroupbuyLoaded ? jwGroupbuyRows.length + '건' : '···'} ${jwGroupbuyOpen ? '접기' : '보기'}</button>`
       : '';
     const row = `
-      <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ''}">
+      <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}">
         <div class="jw-task-row-title">${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${(t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}</div>
         <div class="jw-task-row-checks">
           ${gbBtn}
