@@ -932,7 +932,7 @@
             <span class="dot" style="background:#4d7cfe;"></span>매출관리
           </div>
           <div class="workspace-menu-item" data-ws="team" onclick="event.stopPropagation(); switchWorkspace('team');">
-            <span class="dot dot-team"></span>영업팀
+            <span class="dot dot-team"></span>영업 운영관리
           </div>
           <div class="workspace-menu-item" data-ws="task" onclick="event.stopPropagation(); switchWorkspace('task');">
             <span class="dot dot-team"></span>업무관리
@@ -978,7 +978,7 @@
 
       <div id="teamNavGroups" style="display:none;">
         <div class="nav-group">
-          <div class="nav-label">영업팀</div>
+          <div class="nav-label">영업 운영관리</div>
           <div class="nav-item" id="navTeamSchedule" onclick="switchView('team-schedule', 'main')"><span class="dot dot-team"></span>프로모션</div>
           <div id="navScheduleSub">
             <div class="nav-subitem" data-schedulesub="main" onclick="switchView('team-schedule', 'main')">일정</div>
@@ -5441,8 +5441,8 @@
       document.getElementById('brandSub').textContent = 'TASK OPS';
       switchView('team-overview');
     } else {
-      document.getElementById('brandTitle').textContent = '영업팀';
-      document.getElementById('brandSub').textContent = 'SALES TEAM';
+      document.getElementById('brandTitle').textContent = '영업 운영관리';
+      document.getElementById('brandSub').textContent = 'SALES OPERATIONS';
       switchView('team-schedule', 'main');
     }
   }
