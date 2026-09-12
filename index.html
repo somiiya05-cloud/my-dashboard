@@ -210,10 +210,6 @@
   .jw-weekday-badge { display: inline-block; font-size: 10.5px; font-weight: 700; color: #6d28d9; background: rgba(124,58,237,.1); border-radius: 999px; padding: 2px 8px; margin-left: 6px; }
   .jw-weekday-badge.today { color: #fff; background: #7c3aed; }
   .jw-task-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-  /* 발생 여부 체크는 창 너비와 상관없이 항상 최소 2열로 나란히 보이게 고정 (auto-fit은 좁으면 1열로 줄어듦) */
-  .jw-occ-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-  @media (min-width: 900px) { .jw-occ-grid { grid-template-columns: repeat(4, 1fr); } }
-  @media (max-width: 480px) { .jw-occ-grid { grid-template-columns: 1fr; } }
   .jw-section { margin-bottom: 22px; }
   .jw-section:last-child { margin-bottom: 0; }
   .jw-section-title { font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 10px; }
@@ -237,6 +233,7 @@
   .jw-task-row.pending { background: rgba(217,119,6,.06); border-color: rgba(217,119,6,.2); }
   .jw-task-row.done { background: rgba(22,163,74,.06); border-color: rgba(22,163,74,.2); }
   .jw-task-row.done .jw-task-row-title { color: #15803d; text-decoration: line-through; }
+  .jw-task-row.late { background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.25); }
   .jw-task-group-title {
     font-size: 12px; font-weight: 700; color: #64748b; margin: 10px 0 4px 2px;
     cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px;
@@ -267,15 +264,7 @@
     align-self: flex-start; background: none; border: none; color: #2f5ce4;
     font-size: 11.5px; font-weight: 600; cursor: pointer; padding: 0; margin-top: 2px;
   }
-  .jw-occ-detail { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(15,23,42,.1); }
-  .jw-occ-detail-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .jw-occ-detail-row select {
-    background: #f4f5f8; color: #0f172a; border: 1px solid rgba(15,23,42,.12);
-    border-radius: 6px; padding: 5px 7px; font-size: 12px; font-family: inherit;
-  }
-  .jw-occ-lead { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: #475569; cursor: pointer; }
-  .jw-occ-lead input[type="checkbox"] { width: 15px; height: 15px; accent-color: #4d7cfe; cursor: pointer; }
-  .jw-occ-lead input[type="checkbox"]:disabled { opacity: .35; cursor: not-allowed; }
+  .jw-occ-detail { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 4px 2px; padding: 8px 10px; background: #f8fafc; border-radius: 8px; }
   .occ-card-desc { font-size: 11.5px; color: #64748b; }
   .occ-card-action { font-size: 11px; color: #0d9488; background: rgba(13,148,136,.08); border-radius: 6px; padding: 4px 7px; }
   .jw-occ-detail input[type="text"] {
@@ -6004,29 +5993,32 @@
       ? `${doneCount}/${rows.length}건 완료 처리`
       : '데이터를 불러오지 못했습니다. daily_occurrence_checks.sql을 Supabase에서 실행했는지 확인해주세요.';
     document.getElementById('jwOccBody').innerHTML = rows.length
-      ? `<div class="jw-occ-grid">${rows.map(({ item, row }) => `
-          <div class="jw-task-card ${occCardStateClass(row.status)}">
-            <input type="checkbox" id="occ-staff-${row.id}" ${row.staff_done ? 'checked' : ''}
-              onchange="updateOccurrenceField(${row.id}, 'staff_done', this.checked)">
-            <div class="jw-task-card-body">
-              <label class="jw-task-card-title" for="occ-staff-${row.id}">${escapeAttr(item.title)}</label>
-              <button type="button" id="occ-detail-btn-${row.id}" class="jw-occ-detail-toggle" onclick="toggleOccDetail(${row.id})">상세보기</button>
-              <div class="jw-occ-detail" id="occ-detail-${row.id}" style="display:none">
-                <div class="jw-occ-detail-row">
-                  <select onchange="updateOccurrenceField(${row.id}, 'occurrence', this.value)">
-                    <option value="해당없음" ${row.occurrence === '해당없음' ? 'selected' : ''}>해당없음</option>
-                    <option value="발생" ${row.occurrence === '발생' ? 'selected' : ''}>발생</option>
-                  </select>
-                  <label class="jw-occ-lead"><input type="checkbox" ${row.lead_done ? 'checked' : ''} ${row.occurrence === '해당없음' ? 'disabled' : ''}
-                    onchange="updateOccurrenceField(${row.id}, 'lead_done', this.checked)"> 파트장 확인</label>
+      ? `<div class="jw-task-list">${rows.map(({ item, row }) => {
+          const na = row.occurrence === '해당없음';
+          return `
+            <div class="jw-task-row-wrap">
+              <div class="jw-task-row ${occCardStateClass(row.status)}">
+                <div class="jw-task-row-title">${escapeAttr(item.title)}</div>
+                <div class="jw-task-row-checks">
+                  <button type="button" class="jw-task-toggle-btn${na ? ' active' : ''}"
+                    onclick="updateOccurrenceField(${row.id}, 'occurrence', '해당없음')">해당없음</button>
+                  <button type="button" class="jw-task-toggle-btn${row.occurrence === '발생' ? ' active' : ''}"
+                    onclick="updateOccurrenceField(${row.id}, 'occurrence', '발생')">발생</button>
+                  <button type="button" class="jw-task-toggle-btn${row.staff_done ? ' active' : ''}" ${na ? 'disabled' : ''}
+                    onclick="updateOccurrenceField(${row.id}, 'staff_done', ${!row.staff_done})">담당자</button>
+                  <button type="button" class="jw-task-toggle-btn${row.lead_done ? ' active' : ''}" ${(na || !row.staff_done) ? 'disabled' : ''}
+                    onclick="updateOccurrenceField(${row.id}, 'lead_done', ${!row.lead_done})">파트장</button>
+                  <button type="button" id="occ-detail-btn-${row.id}" class="jw-occ-detail-toggle" onclick="toggleOccDetail(${row.id})">상세보기</button>
                 </div>
+              </div>
+              <div class="jw-occ-detail" id="occ-detail-${row.id}" style="display:none">
                 <div class="occ-card-desc">${escapeAttr(item.desc)}</div>
                 <div class="occ-card-action">발생 시: ${escapeAttr(item.action)}</div>
                 <input type="text" value="${escapeAttr(row.memo || '')}" placeholder="메모" onchange="updateOccurrenceField(${row.id}, 'memo', this.value)">
               </div>
             </div>
-          </div>
-        `).join('')}</div>`
+          `;
+        }).join('')}</div>`
       : '';
   }
 
