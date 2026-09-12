@@ -978,7 +978,7 @@
 
       <div id="teamNavGroups" style="display:none;">
         <div class="nav-group">
-          <div class="nav-label nav-label-clickable" onclick="opsNavClick('overview')" title="영업팀 업무 가이드 보기">영업팀</div>
+          <div class="nav-label">영업팀</div>
           <div class="nav-item" id="navTeamSchedule" onclick="switchView('team-schedule', 'main')"><span class="dot dot-team"></span>프로모션</div>
           <div id="navScheduleSub">
             <div class="nav-subitem" data-schedulesub="main" onclick="switchView('team-schedule', 'main')">일정</div>
@@ -994,7 +994,7 @@
 
       <div id="taskNavGroups" style="display:none;">
         <div class="nav-group">
-          <div class="nav-label">업무관리</div>
+          <div class="nav-label nav-label-clickable" onclick="opsNavClick('overview')" title="영업팀 업무 가이드 보기">업무관리</div>
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
             <span class="dot dot-team"></span>할일 관리
             <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
@@ -5439,11 +5439,11 @@
     } else if (ws === 'task') {
       document.getElementById('brandTitle').textContent = '업무관리';
       document.getElementById('brandSub').textContent = 'TASK OPS';
-      switchView('team-tasks');
+      switchView('team-overview');
     } else {
       document.getElementById('brandTitle').textContent = '영업팀';
       document.getElementById('brandSub').textContent = 'SALES TEAM';
-      switchView('team-overview');
+      switchView('team-schedule', 'main');
     }
   }
 
