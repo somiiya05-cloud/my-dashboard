@@ -5123,7 +5123,7 @@
   async function loadSampleProductList() {
     if (sampleProductList) return sampleProductList;
     try {
-      const res = await fetch('/api/get-sample-product-list');
+      const res = await fetch('/api/samples?action=product-list');
       const json = await res.json();
       sampleProductList = res.ok ? (json.products || []) : [];
     } catch (err) {
@@ -5195,7 +5195,7 @@
 
     status.textContent = '추가하는 중...';
     try {
-      const res = await fetch('/api/add-sample-request', {
+      const res = await fetch('/api/samples?action=add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -5221,7 +5221,7 @@
     const note = document.getElementById('sampleSyncListNote');
     note.textContent = '불러오는 중...';
     try {
-      const res = await fetch('/api/get-sample-requests');
+      const res = await fetch('/api/samples?action=requests');
       const json = await res.json();
       if (!res.ok) {
         note.innerHTML = '<span class="error">불러오지 못했습니다: ' + (json.detail || json.error || '') + '</span>';
