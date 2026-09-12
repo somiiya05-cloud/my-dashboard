@@ -19,7 +19,22 @@
 
 const GITHUB_OWNER = 'somiiya05-cloud';
 const GITHUB_REPO = 'my-dashboard';
-const WORKFLOWS = ['ping-naver-ads-sync.yml', 'ping-naver-keywords-sync.yml', 'ping-naver-keywords-daily-sync.yml'];
+// 버튼은 "오늘치를 지금 당겨오는" 용도입니다 (2026-09-12 변경).
+//  - ping-naver-ads-sync: 입력 없이 = 이번 달. 오늘치 광고비·매출이 여기서 들어옵니다.
+//  - ping-naver-keywords-daily-sync: from=to=오늘. 예전엔 입력을 안 줘서 "어제"만 받았고,
+//    그래서 「오늘」 탭의 상세 성과(캠페인·키워드)가 늘 비어 있었습니다.
+//  - ping-naver-keywords-sync(월 단위)는 버튼에서 뺐습니다. 같은 키워드 목록을 처음부터
+//    다시 훑는 무거운 작업인데다 위 일별과 concurrency 그룹이 같아서 큐에서 기다리느라
+//    버튼 한 번에 342초까지 걸렸습니다. 이건 매일 05:00(UTC) 스케줄로 계속 돕니다.
+const WORKFLOWS = [
+  { file: 'ping-naver-ads-sync.yml' },
+  { file: 'ping-naver-keywords-daily-sync.yml', todayRange: true }
+];
+
+// 워크플로 안에서는 TZ=Asia/Seoul 로 날짜를 잡습니다. 여기(Vercel)는 UTC 라 9시간 더해서 맞춥니다.
+function seoulToday() {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
 const ALLOWED_ORIGINS = [
   'https://ad-marketing-dashboard.vercel.app',
   'https://my-dashboard-three-fawn.vercel.app'
@@ -33,8 +48,13 @@ function applyCors(req, res) {
 }
 
 async function dispatchWorkflow(workflow, token) {
+  const body = { ref: 'main' };
+  if (workflow.todayRange) {
+    const today = seoulToday();
+    body.inputs = { from: today, to: today };
+  }
   const res = await fetch(
-    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${workflow}/dispatches`,
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${workflow.file}/dispatches`,
     {
       method: 'POST',
       headers: {
@@ -43,12 +63,12 @@ async function dispatchWorkflow(workflow, token) {
         'Content-Type': 'application/json',
         'X-GitHub-Api-Version': '2022-11-28'
       },
-      body: JSON.stringify({ ref: 'main' })
+      body: JSON.stringify(body)
     }
   );
-  if (res.ok) return { workflow, ok: true };
+  if (res.ok) return { workflow: workflow.file, ok: true };
   const detail = await res.text().catch(() => '');
-  return { workflow, ok: false, status: res.status, detail };
+  return { workflow: workflow.file, ok: false, status: res.status, detail };
 }
 
 module.exports = async function handler(req, res) {
@@ -63,8 +83,9 @@ module.exports = async function handler(req, res) {
 
   try {
     const results = await Promise.all(WORKFLOWS.map((w) => dispatchWorkflow(w, token)));
+    const date = seoulToday();
     const allOk = results.every((r) => r.ok);
-    return res.status(allOk ? 200 : 502).json({ triggered: allOk, results });
+    return res.status(allOk ? 200 : 502).json({ triggered: allOk, date, results });
   } catch (err) {
     return res.status(500).json({ error: 'unexpected_error', detail: String(err) });
   }
