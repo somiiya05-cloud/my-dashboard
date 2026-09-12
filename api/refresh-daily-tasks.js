@@ -24,7 +24,7 @@ const CATEGORIES = ['오전 필수업무', '오후 필수업무'];
 // 여기 목록을 바꾸면 다음 실행부터 반영됩니다.
 const DAILY_TASKS = [
   { title: '카카오 명퉤 오행염주 일자수정', category: '오전 필수업무' },
-  { title: '공동구매 발주서 취합 후 전달(w/scm)', category: '오전 필수업무' },
+  { title: '공동구매 발주서 전달 (scm팀)', category: '오전 필수업무' },
   { title: '광고보고 / 매출마감', category: '오전 필수업무' },
   { title: 'SA 광고세팅', category: '오후 필수업무', detail: '그룹:신제품 광고세팅' },
   { title: '파워링크 세팅', category: '오후 필수업무', detail: '그룹:신제품 광고세팅' },
