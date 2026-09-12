@@ -311,7 +311,6 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  // 담당자가 그날 +/- 로 직접 정한 값(manual=true)은 덮어쓰지 않습니다.
   const headers = {
     apikey: supabaseServiceKey,
     Authorization: `Bearer ${supabaseServiceKey}`,
@@ -319,7 +318,7 @@ module.exports = async function handler(req, res) {
   };
   const rowRes = await fetch(
     `${SUPABASE_URL}/rest/v1/launch_post_counts` +
-      `?assignee=eq.${encodeURIComponent(ASSIGNEE)}&check_date=eq.${today}&select=id,count,manual`,
+      `?assignee=eq.${encodeURIComponent(ASSIGNEE)}&check_date=eq.${today}&select=id`,
     { headers }
   );
   if (!rowRes.ok) {
@@ -327,16 +326,11 @@ module.exports = async function handler(req, res) {
   }
   const existing = (await rowRes.json())[0];
 
-  if (existing && existing.manual) {
-    return res.status(200).json({
-      today,
-      post_count: postCount,
-      skipped: 'manual_override',
-      detail: `담당자가 직접 ${existing.count}건으로 정해둔 날이라 덮어쓰지 않았습니다.`
-    });
-  }
-
+  // 배지는 이제 보기 전용이라 손으로 고치는 경로가 없습니다. 그래서 manual 플래그는
+  // 보지 않고 항상 메일에서 센 값으로 덮어씁니다. 예전에 +/- 버튼으로 켜진 manual이
+  // 남아 있으면 그날 동기화가 영영 막히기 때문에, 여기서 함께 꺼줍니다.
   const payload = {
+    manual: false,
     count: postCount,
     scm_mail_count: scmMails.length,
     scm_mail_subject: scmSubject,
