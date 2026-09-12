@@ -221,6 +221,11 @@
   }
   .jw-task-row:hover { border-color: rgba(77,124,254,.3); }
   .jw-task-row-title { font-size: 13.5px; font-weight: 700; color: #0f172a; min-width: 0; }
+  /* 업무명 앞 번호 — inline-block이라 완료 시 제목에 걸리는 취소선이 번호까지 번지지 않음 */
+  .jw-task-no {
+    display: inline-block; margin-right: 6px; color: #94a3b8; font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
   .jw-task-row-checks { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .jw-task-toggle-btn {
     background: #fff; border: 1px solid rgba(15,23,42,.15); color: #475569;
@@ -5770,7 +5775,7 @@
       .filter(t => !t.archived_at && t.assignee === JW_ASSIGNEE && t.category === category)
       .sort((a, b) => a.id - b.id);
     document.getElementById(bodyId).innerHTML = items.length
-      ? `<div class="jw-task-grid">${items.map(t => jwTaskCardHtml(t)).join('')}</div>`
+      ? `<div class="jw-task-grid">${items.map((t, i) => jwTaskCardHtml(t, '', `${i + 1}.`)).join('')}</div>`
       : '<div class="jw-task-empty">등록된 업무가 없습니다.</div>';
   }
 
@@ -5809,14 +5814,14 @@
       : '<div class="jw-task-empty">등록된 업무가 없습니다.</div>';
   }
 
-  function jwTaskCardHtml(t, extraLabel) {
+  function jwTaskCardHtml(t, extraLabel, no) {
     const done = t.status === '확인완료';
     return `
       <div class="jw-task-card${done ? ' done' : ''}">
         <input type="checkbox" id="jw-${t.id}" ${done ? 'checked' : ''}
           onchange="updateTaskStatus(${t.id}, this.checked ? '확인완료' : '할일')">
         <div class="jw-task-card-body">
-          <label class="jw-task-card-title" for="jw-${t.id}">${escapeAttr(t.title || '(제목 없음)')}${extraLabel || ''}</label>
+          <label class="jw-task-card-title" for="jw-${t.id}">${no ? `<span class="jw-task-no">${no}</span>` : ''}${escapeAttr(t.title || '(제목 없음)')}${extraLabel || ''}</label>
           ${t.detail && !/^요일:/.test(t.detail) ? `<div class="jw-task-card-desc">${escapeAttr(t.detail)}</div>` : ''}
         </div>
       </div>
@@ -5862,40 +5867,45 @@
     if (arrow) arrow.textContent = opening ? '▾' : '▸';
   }
 
+  // 번호는 화면에 보이는 순서대로 1부터 매김. 그룹은 그룹 전체가 한 번호를 쓰고, 하위 항목은 "3-1, 3-2"처럼 붙임.
   function jwTaskListHtml(items) {
     const parts = [];
     let i = 0;
+    let no = 0;
     while (i < items.length) {
       const group = jwTaskGroupName(items[i]);
       if (group) {
         let j = i;
         const groupItems = [];
         while (j < items.length && jwTaskGroupName(items[j]) === group) { groupItems.push(items[j]); j++; }
+        no++;
+        const groupNo = no;
         const id = jwGroupElId(group);
         parts.push(`
           <div class="jw-task-group-title" onclick="toggleJwGroup('${id}')">
-            <span id="${id}-arrow">▸</span> ${escapeAttr(group)}
+            <span id="${id}-arrow">▸</span> <span class="jw-task-no">${groupNo}.</span>${escapeAttr(group)}
           </div>
           <div class="jw-task-group-items" id="${id}" style="display:none">
-            ${groupItems.map(t => jwTaskRowHtml(t, true)).join('')}
+            ${groupItems.map((t, k) => jwTaskRowHtml(t, true, `${groupNo}-${k + 1}`)).join('')}
           </div>
         `);
         i = j;
       } else {
-        parts.push(jwTaskRowHtml(items[i]));
+        no++;
+        parts.push(jwTaskRowHtml(items[i], false, `${no}.`));
         i++;
       }
     }
     return parts.join('');
   }
 
-  function jwTaskRowHtml(t, indented) {
+  function jwTaskRowHtml(t, indented, no) {
     const staffDone = t.status === '검수대기' || t.status === '확인완료';
     const leadDone = t.status === '확인완료';
     const rowClass = leadDone ? 'done' : (staffDone ? 'pending' : '');
     return `
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ''}">
-        <div class="jw-task-row-title">${indented ? 'ㄴ ' : ''}${escapeAttr(t.title || '(제목 없음)')}</div>
+        <div class="jw-task-row-title">${no ? `<span class="jw-task-no">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}</div>
         <div class="jw-task-row-checks">
           <button type="button" class="jw-task-toggle-btn${staffDone ? ' active' : ''}"
             onclick="updateTaskDualStatus(${t.id}, 'staff', ${!staffDone})">담당자</button>
@@ -5920,7 +5930,7 @@
       .sort((a, b) => a.id - b.id);
     document.getElementById('jwWeekdayNote').textContent = `오늘(${today}요일)에 해당하는 업무만 표시됩니다.`;
     document.getElementById('jwWeekdayBody').innerHTML = items.length
-      ? `<div class="jw-task-grid">${items.map(t => jwTaskCardHtml(t, `<span class="jw-weekday-badge today">${escapeAttr(today)}</span>`)).join('')}</div>`
+      ? `<div class="jw-task-grid">${items.map((t, i) => jwTaskCardHtml(t, `<span class="jw-weekday-badge today">${escapeAttr(today)}</span>`, `${i + 1}.`)).join('')}</div>`
       : '<div class="jw-task-empty">오늘 해당되는 요일별 업무가 없습니다.</div>';
   }
 
@@ -5993,11 +6003,11 @@
       ? `${doneCount}/${rows.length}건 완료 처리`
       : '데이터를 불러오지 못했습니다. daily_occurrence_checks.sql을 Supabase에서 실행했는지 확인해주세요.';
     document.getElementById('jwOccBody').innerHTML = rows.length
-      ? `<div class="jw-task-list">${rows.map(({ item, row }) => {
+      ? `<div class="jw-task-list">${rows.map(({ item, row }, i) => {
           return `
             <div class="jw-task-row-wrap">
               <div class="jw-task-row ${occCardStateClass(row.status)}">
-                <div class="jw-task-row-title">${escapeAttr(item.title)}</div>
+                <div class="jw-task-row-title"><span class="jw-task-no">${i + 1}.</span>${escapeAttr(item.title)}</div>
                 <div class="jw-task-row-checks">
                   <button type="button" class="jw-task-toggle-btn${row.staff_done ? ' active' : ''}"
                     onclick="updateOccurrenceField(${row.id}, 'staff_done', ${!row.staff_done})">담당자</button>
