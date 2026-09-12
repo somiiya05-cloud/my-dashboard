@@ -206,10 +206,7 @@
   .daily-checklist-item.done label { color: #94a3b8; text-decoration: line-through; }
   .daily-checklist-empty { font-size: 12.5px; color: #94a3b8; padding: 4px; }
 
-  /* ---- 할일 관리: 전휘원 전용 화면 (오전/오후/발생체크/요일별/월마감 — 가로형 카드 그리드) ---- */
-  .jw-weekday-badge { display: inline-block; font-size: 10.5px; font-weight: 700; color: #6d28d9; background: rgba(124,58,237,.1); border-radius: 999px; padding: 2px 8px; margin-left: 6px; }
-  .jw-weekday-badge.today { color: #fff; background: #7c3aed; }
-  .jw-task-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  /* ---- 할일 관리: 전휘원 전용 화면 (오전/오후 업무 목록) ---- */
   .jw-section { margin-bottom: 22px; }
   .jw-section:last-child { margin-bottom: 0; }
   .jw-section-title { font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 10px; }
@@ -273,21 +270,6 @@
     margin: 0 0 0 12px; padding-left: 14px; border-left: 2px solid rgba(77,124,254,.22);
   }
   .jw-task-row-sub { margin-left: 0; }
-  .jw-task-card {
-    display: flex; align-items: flex-start; gap: 10px; background: #fff;
-    border: 1px solid rgba(15,23,42,.1); border-radius: 12px; padding: 12px 14px;
-    transition: border-color .12s ease, box-shadow .12s ease;
-  }
-  .jw-task-card:hover { border-color: rgba(77,124,254,.35); box-shadow: 0 2px 10px rgba(15,23,42,.06); }
-  .jw-task-card input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; accent-color: #4d7cfe; cursor: pointer; flex-shrink: 0; }
-  .jw-task-card input[type="checkbox"]:disabled { opacity: .35; cursor: not-allowed; }
-  .jw-task-card-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
-  .jw-task-card-title { font-size: 13.5px; font-weight: 700; color: #0f172a; cursor: pointer; }
-  .jw-task-card-desc { font-size: 11.5px; color: #64748b; }
-  .jw-task-card.done { background: rgba(22,163,74,.07); border-color: rgba(22,163,74,.25); }
-  .jw-task-card.done .jw-task-card-title { color: #15803d; text-decoration: line-through; }
-  .jw-task-card.pending { background: rgba(217,119,6,.07); border-color: rgba(217,119,6,.25); }
-  .jw-task-card.late { background: rgba(220,38,38,.07); border-color: rgba(220,38,38,.3); }
   .jw-task-empty { font-size: 12.5px; color: #94a3b8; padding: 20px; text-align: center; background: #f8fafc; border-radius: 10px; }
 
   /* 공동구매 발주서 전달 업무에서 펼치는 "오늘 진행 중인 공구 일정" 배너 */
@@ -2452,12 +2434,6 @@
 
       <div id="jwPersonalTaskArea" style="display:none">
         <section class="panel">
-          <div class="task-tabs" id="jwTaskTabs">
-            <button type="button" class="task-tab active" data-tab="ampm" onclick="switchJwTab('ampm')">오전·오후 업무</button>
-            <button type="button" class="task-tab" data-tab="weekday" onclick="switchJwTab('weekday')">요일별 업무</button>
-            <button type="button" class="task-tab" data-tab="monthend" onclick="switchJwTab('monthend')">월마감 업무</button>
-          </div>
-
           <div id="jwPaneAmpm" class="jw-pane">
             <div class="jw-section">
               <div class="jw-section-title">오전</div>
@@ -2469,15 +2445,6 @@
             </div>
           </div>
 
-          <div id="jwPaneWeekday" class="jw-pane" style="display:none">
-            <div class="panel-note" id="jwWeekdayNote" style="margin-bottom:8px;">해당 요일에만 발생하는 업무입니다. 오늘 요일에 해당하는 업무만 표시됩니다.</div>
-            <div id="jwWeekdayBody"></div>
-          </div>
-
-          <div id="jwPaneMonthend" class="jw-pane" style="display:none">
-            <div class="panel-note" id="jwMonthendNote" style="margin-bottom:8px;">매월 23일부터 표시되는 마감 업무입니다.</div>
-            <div id="jwMonthendBody"></div>
-          </div>
         </section>
       </div>
     </main>
@@ -5778,26 +5745,17 @@
   }
 
   // ==================== 전휘원 전용 할일 관리 화면 ====================
-  // 오전/오후 필수업무·요일별 업무·월마감 업무를 team_tasks의 category로 구분해
-  // 단순 체크리스트로 보여주는 화면입니다.
+  // team_tasks의 category가 '오전 필수업무'/'오후 필수업무'인 항목을 단순 체크리스트로 보여줍니다.
+  // 특정 요일에만 생기는 업무(올리브영·광고비 충전)는 api/refresh-daily-tasks.js가 그 요일에만
+  // 등록하므로, 화면에서는 요일 조건을 따로 보지 않고 "있으면 그린다"로 처리합니다.
 
   function jwTodayKST() {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
   }
 
-  function switchJwTab(tab) {
-    const panes = { ampm: 'jwPaneAmpm', weekday: 'jwPaneWeekday', monthend: 'jwPaneMonthend' };
-    document.querySelectorAll('#jwTaskTabs .task-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
-    Object.keys(panes).forEach(key => {
-      document.getElementById(panes[key]).style.display = key === tab ? '' : 'none';
-    });
-  }
-
   function renderJwView() {
     renderJwTaskList('jwAmBody', '오전 필수업무');
     renderJwPmChecklist();
-    renderJwWeekday();
-    renderJwMonthend();
     // 공구 일정은 별도 테이블이라 비동기로 받아온 뒤 배너가 붙는 목록을 다시 그립니다.
     loadJwGroupbuyToday().then(renderJwGroupbuyLists);
   }
@@ -5902,17 +5860,6 @@
     `;
   }
 
-  // 오전처럼 요일 배지·표시 조건이 필요 없는 단순 체크리스트 공통 렌더러 (가로형 카드 그리드) — 요일별/월마감용
-  // 등록된 순서(id)를 그대로 유지 — 처음 지정해주신 1~10번 순서와 일치합니다.
-  function renderJwSimpleChecklist(bodyId, category) {
-    const items = currentTasks
-      .filter(t => !t.archived_at && t.assignee === JW_ASSIGNEE && t.category === category)
-      .sort((a, b) => a.id - b.id);
-    document.getElementById(bodyId).innerHTML = items.length
-      ? `<div class="jw-task-grid">${items.map((t, i) => jwTaskCardHtml(t, '', `${i + 1}.`)).join('')}</div>`
-      : '<div class="jw-task-empty">등록된 업무가 없습니다.</div>';
-  }
-
   // 오전/오후 필수업무는 한 줄에 하나씩, 담당자 완료·파트장 확인 체크박스 2개짜리 목록으로 표시.
   // (team_tasks의 status를 그대로 재사용: 할일 → 검수대기(담당자 완료) → 확인완료(파트장 확인))
   function renderJwTaskList(bodyId, category) {
@@ -5928,6 +5875,17 @@
   // 신제품 광고세팅(4건)·상품등록(3건)·쿠팡(2건)은 그룹으로 묶여 표시되므로,
   // 같은 그룹에 속한 업무끼리는 이 목록에서 반드시 붙어 있어야 합니다.
   const PM_TASK_ORDER = [
+    // 수·목에만 생기는 업무 — 그날은 오후 업무 맨 위에 표시되고, 다른 요일엔 아예 등록되지 않아 저절로 빠짐
+    '올리브영 발주서 마감',
+    '올리브영 매출 보고',
+    '올리브영 재고 확인',
+    // 목요일에만 생기는 광고비 충전 6건
+    '네이버 SA / nkiss2152 (법인)',
+    '네이버 SA / selfdiylab (법인)',
+    '네이버 SA / seldilab (법인)',
+    '네이버 GFA / 미니멀룸스토어 (법인)',
+    '네이버 GFA / selflow (지점)',
+    '네이버 쇼핑 파트너센터',
     'SA 광고세팅',
     '파워링크 세팅',
     'GFA 세팅',
@@ -5938,6 +5896,13 @@
     '쿠팡 재고 입고',
     '쿠팡 뱃지 확인',
     'SCM팀 미출 메일 확인',
+    // 매월 23일~말일에만 생기는 월마감 업무 — 목록 맨 뒤에 그룹으로 붙음
+    '올리브영 월마감',
+    '파스토 월마감',
+    '자사몰 광고보고서 월마감',
+    '쿠팡 월마감',
+    '오프하우스 월마감',
+    '메타 광고비 및 매출 회계팀 공유',
   ];
 
   function renderJwPmChecklist() {
@@ -5948,20 +5913,6 @@
     document.getElementById('jwPmBody').innerHTML = all.length
       ? `<div class="jw-task-list">${jwTaskListHtml(all)}</div>`
       : '<div class="jw-task-empty">등록된 업무가 없습니다.</div>';
-  }
-
-  function jwTaskCardHtml(t, extraLabel, no) {
-    const done = t.status === '확인완료';
-    return `
-      <div class="jw-task-card${done ? ' done' : ''}">
-        <input type="checkbox" id="jw-${t.id}" ${done ? 'checked' : ''}
-          onchange="updateTaskStatus(${t.id}, this.checked ? '확인완료' : '할일')">
-        <div class="jw-task-card-body">
-          <label class="jw-task-card-title" for="jw-${t.id}">${no ? `<span class="jw-task-no">${no}</span>` : ''}${escapeAttr(t.title || '(제목 없음)')}${extraLabel || ''}</label>
-          ${t.detail && !/^요일:/.test(t.detail) ? `<div class="jw-task-card-desc">${escapeAttr(t.detail)}</div>` : ''}
-        </div>
-      </div>
-    `;
   }
 
   // 담당자 완료 체크 후 파트장 확인 체크까지 되어야 최종 확인완료로 집계됨 (team_tasks.status 재사용)
@@ -5987,11 +5938,23 @@
   // DB(team_tasks.detail)를 건드리지 않고 화면에서만 묶어 보여주는 그룹 — 업무명 기준.
   // 묶으려는 업무들은 PM_TASK_ORDER에서 서로 붙어 있어야 한 그룹으로 합쳐집니다.
   const JW_TITLE_GROUPS = {
+    '네이버 SA / nkiss2152 (법인)': '광고비 충전',
+    '네이버 SA / selfdiylab (법인)': '광고비 충전',
+    '네이버 SA / seldilab (법인)': '광고비 충전',
+    '네이버 GFA / 미니멀룸스토어 (법인)': '광고비 충전',
+    '네이버 GFA / selflow (지점)': '광고비 충전',
+    '네이버 쇼핑 파트너센터': '광고비 충전',
     '다우게시판 공유': '상품등록',
     '리뷰 작업 요청 (cx팀)': '상품등록',
     '이지어드민 연동(scm팀)': '상품등록',
     '쿠팡 재고 입고': '쿠팡',
     '쿠팡 뱃지 확인': '쿠팡',
+    '올리브영 월마감': '월마감',
+    '파스토 월마감': '월마감',
+    '자사몰 광고보고서 월마감': '월마감',
+    '쿠팡 월마감': '월마감',
+    '오프하우스 월마감': '월마감',
+    '메타 광고비 및 매출 회계팀 공유': '월마감',
   };
 
   // t.detail이 "그룹:이름" 형식이면 하위 항목으로 취급 — 같은 그룹이 연달아 있으면 그룹 제목을 한 번만 보여주고 들여씀.
@@ -6073,36 +6036,6 @@
       </div>
     `;
     return isGroupbuy ? `<div class="jw-task-row-wrap">${row}${jwGroupbuyBannerHtml()}</div>` : row;
-  }
-
-  // 요일별 업무: 오늘 요일에 해당하는 항목만 보여줌 (해당 없으면 안내 문구)
-  function renderJwWeekday() {
-    const KO_WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
-    const today = KO_WEEKDAYS[new Date().getDay()];
-    const items = currentTasks
-      .filter(t => !t.archived_at && t.assignee === JW_ASSIGNEE && t.category === '요일별 업무')
-      .filter(t => {
-        const m = /요일:([^|]+)/.exec(t.detail || '');
-        const days = m ? m[1].split(',').map(s => s.trim()) : [];
-        return days.includes(today);
-      })
-      .sort((a, b) => a.id - b.id);
-    document.getElementById('jwWeekdayNote').textContent = `오늘(${today}요일)에 해당하는 업무만 표시됩니다.`;
-    document.getElementById('jwWeekdayBody').innerHTML = items.length
-      ? `<div class="jw-task-grid">${items.map((t, i) => jwTaskCardHtml(t, `<span class="jw-weekday-badge today">${escapeAttr(today)}</span>`, `${i + 1}.`)).join('')}</div>`
-      : '<div class="jw-task-empty">오늘 해당되는 요일별 업무가 없습니다.</div>';
-  }
-
-  // 월마감 업무: 매월 23일부터만 노출
-  function renderJwMonthend() {
-    const dayOfMonth = new Date().getDate();
-    if (dayOfMonth < 23) {
-      document.getElementById('jwMonthendNote').textContent = '월마감 업무는 매월 23일부터 표시됩니다.';
-      document.getElementById('jwMonthendBody').innerHTML = '<div class="jw-task-empty">월마감 업무는 매월 23일부터 표시됩니다.</div>';
-      return;
-    }
-    document.getElementById('jwMonthendNote').textContent = '매월 23일부터 말일까지 진행하는 마감 업무입니다.';
-    renderJwSimpleChecklist('jwMonthendBody', '월마감 업무');
   }
 
   function filterTaskStatus(status) {
