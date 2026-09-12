@@ -5743,10 +5743,11 @@
   }
 
   // 오전/오후처럼 요일 배지·표시 조건이 필요 없는 단순 체크리스트 공통 렌더러 (가로형 카드 그리드)
+  // 등록된 순서(id)를 그대로 유지 — 처음 지정해주신 1~10번 순서와 일치합니다.
   function renderJwSimpleChecklist(bodyId, category) {
     const items = currentTasks
       .filter(t => !t.archived_at && t.assignee === JW_ASSIGNEE && t.category === category)
-      .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
+      .sort((a, b) => a.id - b.id);
     document.getElementById(bodyId).innerHTML = items.length
       ? `<div class="jw-task-grid">${items.map(t => jwTaskCardHtml(t)).join('')}</div>`
       : '<div class="jw-task-empty">등록된 업무가 없습니다.</div>';
@@ -5777,7 +5778,7 @@
         const days = m ? m[1].split(',').map(s => s.trim()) : [];
         return days.includes(today);
       })
-      .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
+      .sort((a, b) => a.id - b.id);
     document.getElementById('jwWeekdayNote').textContent = `오늘(${today}요일)에 해당하는 업무만 표시됩니다.`;
     document.getElementById('jwWeekdayBody').innerHTML = items.length
       ? `<div class="jw-task-grid">${items.map(t => jwTaskCardHtml(t, `<span class="jw-weekday-badge today">${escapeAttr(today)}</span>`)).join('')}</div>`
