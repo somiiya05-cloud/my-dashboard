@@ -10,12 +10,16 @@ on:
     - cron: '5 0-10 * * 1-5'
   workflow_dispatch:
     inputs:
-      debug:
-        description: '1을 넣으면 저장하지 않고 메일 폴더 목록과 최근 메일 제목을 확인합니다.'
-        required: false
-        default: ''
+      mode:
+        description: '실행 방식'
+        required: true
+        type: choice
+        default: '저장 (배지에 반영)'
+        options:
+          - '저장 (배지에 반영)'
+          - '확인만 (저장 안 함 · 폴더와 메일 제목 보기)'
       mailbox:
-        description: '볼 메일 폴더 이름 (비워두면 INBOX). debug=1 결과의 mailboxes 목록에서 골라 넣으세요.'
+        description: '볼 메일 폴더 이름 (비워두면 INBOX). 평소에는 비워두세요.'
         required: false
         default: ''
 
@@ -26,10 +30,13 @@ jobs:
       - name: Vercel sync 엔드포인트 호출
         run: |
           URL="${{ secrets.VERCEL_APP_URL }}/api/sync-launch-posts"
-          DEBUG="${{ github.event.inputs.debug }}"
+          MODE="${{ github.event.inputs.mode }}"
           MAILBOX="${{ github.event.inputs.mailbox }}"
           SEP="?"
-          if [ -n "$DEBUG" ]; then URL="${URL}${SEP}debug=${DEBUG}"; SEP="&"; fi
+          # 스케줄 실행은 mode가 비어 있으므로 항상 저장 모드로 돕니다.
+          case "$MODE" in
+            확인만*) URL="${URL}${SEP}debug=1"; SEP="&" ;;
+          esac
           if [ -n "$MAILBOX" ]; then
             ENCODED=$(printf '%s' "$MAILBOX" | od -An -tx1 | tr -d ' \n' | sed 's/../%&/g')
             URL="${URL}${SEP}mailbox=${ENCODED}"
