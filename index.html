@@ -206,6 +206,28 @@
   .daily-checklist-item.done label { color: #94a3b8; text-decoration: line-through; }
   .daily-checklist-empty { font-size: 12.5px; color: #94a3b8; padding: 4px; }
 
+  /* ---- 할일 관리: 전휘원 전용 화면 (오전/오후/발생체크/요일별/월마감/히스토리) ---- */
+  .jw-weekday-badge { display: inline-block; font-size: 10.5px; font-weight: 700; color: #6d28d9; background: rgba(124,58,237,.1); border-radius: 999px; padding: 2px 8px; margin-left: 6px; }
+  .jw-weekday-badge.today { color: #fff; background: #7c3aed; }
+  .occ-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .occ-table th, .occ-table td { padding: 8px 10px; border-bottom: 1px solid rgba(15,23,42,.07); text-align: left; vertical-align: top; }
+  .occ-table th { font-size: 11px; color: #64748b; font-weight: 600; position: sticky; top: 0; background: #fff; }
+  .occ-table td.occ-title { font-weight: 700; color: #0f172a; min-width: 150px; }
+  .occ-table td.occ-desc { color: #475569; min-width: 190px; }
+  .occ-table select, .occ-table input[type="text"] {
+    background: #f4f5f8; color: #0f172a; border: 1px solid rgba(15,23,42,.12);
+    border-radius: 6px; padding: 5px 7px; font-size: 12px; font-family: inherit; width: 100%;
+  }
+  .occ-table input[type="checkbox"] { width: 17px; height: 17px; accent-color: #4d7cfe; cursor: pointer; }
+  .occ-table input[type="checkbox"]:disabled { opacity: .35; cursor: not-allowed; }
+  .occ-status-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .occ-status-badge.na { background: rgba(148,163,184,.16); color: #64748b; }
+  .occ-status-badge.occurred { background: rgba(217,119,6,.14); color: #b45309; }
+  .occ-status-badge.mid { background: rgba(77,124,254,.14); color: #2f5ce4; }
+  .occ-status-badge.staff-done { background: rgba(13,148,136,.14); color: #0d9488; }
+  .occ-status-badge.lead-done { background: rgba(22,163,74,.14); color: #15803d; }
+  .occ-status-badge.late { background: rgba(220,38,38,.14); color: #dc2626; }
+
   /* ---- 할일 관리: 현재 업무 / 히스토리 탭 (스크롤해도 화면 상단에 고정) ---- */
   .task-tabs {
     display: flex; margin-bottom: 16px; border-bottom: 1px solid rgba(15,23,42,.07);
@@ -2322,6 +2344,66 @@
                   <tr><th>이관일</th><th>구분</th><th>업무 내용</th><th>담당자</th><th>마감일</th></tr>
                 </thead>
                 <tbody id="taskHistoryBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div id="jwPersonalTaskArea" style="display:none">
+        <section class="panel">
+          <div class="task-tabs" id="jwTaskTabs">
+            <button type="button" class="task-tab active" data-tab="am" onclick="switchJwTab('am')">오전 필수 업무</button>
+            <button type="button" class="task-tab" data-tab="pm" onclick="switchJwTab('pm')">오후 필수 업무</button>
+            <button type="button" class="task-tab" data-tab="occ" onclick="switchJwTab('occ')">데일리 발생 여부 체크</button>
+            <button type="button" class="task-tab" data-tab="weekday" onclick="switchJwTab('weekday')">요일별 업무</button>
+            <button type="button" class="task-tab" data-tab="monthend" onclick="switchJwTab('monthend')">월마감 업무</button>
+            <button type="button" class="task-tab" data-tab="history" onclick="switchJwTab('history')">업무 히스토리</button>
+          </div>
+
+          <div id="jwPaneAm" class="jw-pane">
+            <div class="panel-note" style="margin-bottom:8px;">오늘 무조건 완료해야 하는 오전 업무입니다.</div>
+            <div id="jwAmBody"></div>
+          </div>
+
+          <div id="jwPanePm" class="jw-pane" style="display:none">
+            <div class="panel-note" style="margin-bottom:8px;">오늘 무조건 완료해야 하는 오후 업무입니다.</div>
+            <div id="jwPmBody"></div>
+          </div>
+
+          <div id="jwPaneOcc" class="jw-pane" style="display:none">
+            <div class="panel-note" id="jwOccNote" style="margin-bottom:8px;">오늘 이 업무가 실제로 발생했는지만 확인하는 항목입니다. "해당없음"이면 완료로 집계되고 지연으로 보지 않습니다.</div>
+            <div class="scroll-box">
+              <table class="occ-table">
+                <thead>
+                  <tr>
+                    <th>업무명</th><th>확인 내용</th><th>발생 시 처리 업무</th><th>오늘 발생 여부</th>
+                    <th>담당자 완료</th><th>파트장 확인</th><th>상태</th><th>메모</th>
+                  </tr>
+                </thead>
+                <tbody id="jwOccBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="jwPaneWeekday" class="jw-pane" style="display:none">
+            <div class="panel-note" style="margin-bottom:8px;">해당 요일에만 발생하는 업무입니다. 오늘 요일에 해당하는 항목은 배지로 강조됩니다.</div>
+            <div id="jwWeekdayBody"></div>
+          </div>
+
+          <div id="jwPaneMonthend" class="jw-pane" style="display:none">
+            <div class="panel-note" style="margin-bottom:8px;">매월 말 진행하는 마감 업무입니다.</div>
+            <div id="jwMonthendBody"></div>
+          </div>
+
+          <div id="jwPaneHistory" class="jw-pane" style="display:none">
+            <div class="panel-note" id="jwHistoryNote" style="margin-bottom:8px;"></div>
+            <div class="scroll-box">
+              <table>
+                <thead>
+                  <tr><th>이관일</th><th>구분</th><th>업무 내용</th><th>담당자</th><th>마감일</th></tr>
+                </thead>
+                <tbody id="jwHistoryBody"></tbody>
               </table>
             </div>
           </div>
@@ -5573,13 +5655,20 @@
     renderTaskWeeklyTable();
   }
 
-  // 담당자 미선택 = 팀 서머리, 담당자 선택 = 개인 업무관리. 두 모드의 표시 영역과 렌더 함수를 여기서 나눔.
+  // 담당자 미선택 = 팀 서머리, 담당자 선택 = 개인 업무관리(전휘원은 전용 화면). 표시 영역과 렌더 함수를 여기서 나눔.
+  const JW_ASSIGNEE = '전휘원';
   function renderTaskView() {
     const isPersonal = !!taskFilterAssignee;
+    const isJw = taskFilterAssignee === JW_ASSIGNEE;
     document.getElementById('taskTopbarActions').style.display = isPersonal ? '' : 'none';
-    document.getElementById('personalTaskArea').style.display = isPersonal ? '' : 'none';
+    document.getElementById('personalTaskArea').style.display = (isPersonal && !isJw) ? '' : 'none';
+    document.getElementById('jwPersonalTaskArea').style.display = (isPersonal && isJw) ? '' : 'none';
     document.getElementById('teamSummaryArea').style.display = isPersonal ? 'none' : '';
-    if (isPersonal) {
+    if (isPersonal && isJw) {
+      document.getElementById('dailyChecklistPanel').style.display = 'none';
+      renderJwCards();
+      renderJwView();
+    } else if (isPersonal) {
       renderDailyChecklist();
       renderTaskCards();
       renderTaskStatusChips();
@@ -5613,6 +5702,236 @@
         </div>
       `;
     }).join('')}</div>`;
+  }
+
+  // ==================== 전휘원 전용 할일 관리 화면 ====================
+  // 오전/오후 필수업무·요일별 업무·월마감 업무는 team_tasks의 category로 구분하는
+  // 단순 체크리스트이고, 데일리 발생 여부 체크는 별도 테이블(daily_occurrence_checks)로
+  // 하루 단위 상태(발생여부·담당자완료·파트장확인·상태·메모)를 관리합니다.
+  let currentOccChecks = [];
+
+  const OCCURRENCE_CHECK_ITEMS = [
+    { key: 'new_product_launch', title: '신규 상품 런칭 여부 확인', desc: '오늘 신규 런칭 상품이 있는지 확인', action: 'SA / GFA / 파워링크 / 카페침투 진행 여부 확인' },
+    { key: 'external_mall_register', title: '외부몰 상품등록 필요 여부 확인', desc: '신규 상품 또는 미등록 상품 중 외부몰 등록이 필요한 건이 있는지 확인', action: '외부몰 상품등록 진행' },
+    { key: 'board_share_after_register', title: '상품등록 후 다우게시판 공유 여부 확인', desc: '오늘 등록 완료된 상품이 있는지 확인', action: '다우게시판에 등록 내역 공유' },
+    { key: 'cx_review_request', title: 'CX팀 리뷰작업 요청 필요 여부 확인', desc: '신규 상품 또는 리뷰 세팅이 필요한 상품이 있는지 확인', action: 'CX팀에 리뷰작업 요청' },
+    { key: 'external_mall_ezadmin', title: '외부몰 입점/이지어드민 연동 필요 여부 확인', desc: '신규 외부몰 입점 또는 연동 요청 건이 있는지 확인', action: '이지어드민 연동 요청' },
+    { key: 'b2b_tax_invoice', title: 'B2B 세금계산서 발행 필요 여부 확인', desc: 'B2B 직납 거래 중 세금계산서 발행이 필요한 건이 있는지 확인', action: '회계팀에 발행 요청' },
+    { key: 'export_tax_invoice', title: '수출 세금계산서 발행 필요 여부 확인', desc: '수출 거래 중 세금계산서 또는 영세율 관련 처리 필요 건이 있는지 확인', action: '회계팀에 발행 요청' },
+    { key: 'review_cafe_photo', title: '리뷰/카페침투 사진 촬영 필요 여부 확인', desc: '리뷰 작업 또는 카페침투용 사진 촬영 요청이 있는지 확인', action: '촬영 일정 확인 및 진행' },
+  ];
+  const OCC_STATUS_OPTIONS = ['해당없음', '발생', '진행중', '담당자완료', '파트장확인완료', '지연'];
+
+  function jwTodayKST() {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+  }
+
+  function switchJwTab(tab) {
+    const panes = { am: 'jwPaneAm', pm: 'jwPanePm', occ: 'jwPaneOcc', weekday: 'jwPaneWeekday', monthend: 'jwPaneMonthend', history: 'jwPaneHistory' };
+    document.querySelectorAll('#jwTaskTabs .task-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+    Object.keys(panes).forEach(key => {
+      document.getElementById(panes[key]).style.display = key === tab ? '' : 'none';
+    });
+  }
+
+  function renderJwView() {
+    renderJwSimpleChecklist('jwAmBody', '오전 필수업무');
+    renderJwSimpleChecklist('jwPmBody', '오후 필수업무');
+    renderJwWeekday();
+    renderJwSimpleChecklist('jwMonthendBody', '월마감 업무');
+    renderJwHistory();
+    loadAndRenderOccurrenceChecks();
+  }
+
+  // 오전/오후/월마감처럼 요일 배지가 필요 없는 단순 체크리스트 공통 렌더러
+  function renderJwSimpleChecklist(bodyId, category) {
+    const items = currentTasks
+      .filter(t => !t.archived_at && t.assignee === JW_ASSIGNEE && t.category === category)
+      .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
+    document.getElementById(bodyId).innerHTML = items.length
+      ? `<div class="daily-checklist-grid">${items.map(t => {
+          const done = t.status === '확인완료';
+          return `
+            <div class="daily-checklist-item${done ? ' done' : ''}">
+              <input type="checkbox" id="jw-${t.id}" ${done ? 'checked' : ''}
+                onchange="updateTaskStatus(${t.id}, this.checked ? '확인완료' : '할일')">
+              <label for="jw-${t.id}">${escapeAttr(t.title || '(제목 없음)')}</label>
+            </div>
+          `;
+        }).join('')}</div>`
+      : '<div class="daily-checklist-empty">등록된 업무가 없습니다.</div>';
+  }
+
+  function renderJwWeekday() {
+    const KO_WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+    const today = KO_WEEKDAYS[new Date().getDay()];
+    const items = currentTasks
+      .filter(t => !t.archived_at && t.assignee === JW_ASSIGNEE && t.category === '요일별 업무')
+      .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
+    document.getElementById('jwWeekdayBody').innerHTML = items.length
+      ? `<div class="daily-checklist-grid">${items.map(t => {
+          const done = t.status === '확인완료';
+          const m = /요일:([^|]+)/.exec(t.detail || '');
+          const days = m ? m[1].split(',').map(s => s.trim()).filter(Boolean) : [];
+          const isToday = days.includes(today);
+          const badge = days.length ? `<span class="jw-weekday-badge${isToday ? ' today' : ''}">${days.map(escapeAttr).join('/')}</span>` : '';
+          return `
+            <div class="daily-checklist-item${done ? ' done' : ''}">
+              <input type="checkbox" id="jw-${t.id}" ${done ? 'checked' : ''}
+                onchange="updateTaskStatus(${t.id}, this.checked ? '확인완료' : '할일')">
+              <label for="jw-${t.id}">${escapeAttr(t.title || '(제목 없음)')}${badge}</label>
+            </div>
+          `;
+        }).join('')}</div>`
+      : '<div class="daily-checklist-empty">등록된 업무가 없습니다.</div>';
+  }
+
+  function renderJwHistory() {
+    const tasks = currentTasks
+      .filter(t => t.archived_at && t.assignee === JW_ASSIGNEE)
+      .sort((a, b) => String(b.archived_at || '').localeCompare(String(a.archived_at || '')));
+    document.getElementById('jwHistoryNote').textContent = tasks.length + '건 (확인완료 후 이관된 업무)';
+    document.getElementById('jwHistoryBody').innerHTML = tasks.length
+      ? tasks.map(t => `
+          <tr class="task-row" onclick="openTaskPanel(${t.id})">
+            <td>${escapeAttr(String(t.archived_at).slice(0, 10))}</td>
+            <td>${escapeAttr(t.category || '-')}</td>
+            <td class="task-title-cell">${escapeAttr(t.title || '(제목 없음)')}</td>
+            <td>${escapeAttr(t.assignee || '-')}</td>
+            <td>${t.due_date ? escapeAttr(String(t.due_date).slice(0, 10)) : '-'}</td>
+          </tr>
+        `).join('')
+      : '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">이관된 업무가 없습니다.</td></tr>';
+  }
+
+  function occStatusClass(status) {
+    return { '해당없음': 'na', '발생': 'occurred', '진행중': 'mid', '담당자완료': 'staff-done', '파트장확인완료': 'lead-done', '지연': 'late' }[status] || 'na';
+  }
+
+  // 상태값은 occurrence(오늘 발생 여부)와 두 체크박스로부터 항상 한 가지로 다시 계산합니다.
+  // (드롭다운으로 상태를 직접 바꾸면 반대로 occurrence/체크박스를 그 상태에 맞게 되돌립니다.)
+  function deriveOccurrenceState(kind, value, cur) {
+    let { occurrence, staff_done, lead_done, status } = cur;
+    if (kind === 'occurrence') {
+      occurrence = value;
+      if (value === '해당없음') { staff_done = false; lead_done = false; status = '해당없음'; }
+      else if (status === '해당없음' || !status) { status = '발생'; }
+    } else if (kind === 'staff_done') {
+      staff_done = value; occurrence = '발생';
+      if (!value) { lead_done = false; status = '발생'; }
+      else { status = lead_done ? '파트장확인완료' : '담당자완료'; }
+    } else if (kind === 'lead_done') {
+      lead_done = value; occurrence = '발생';
+      if (value) { staff_done = true; status = '파트장확인완료'; }
+      else { status = staff_done ? '담당자완료' : '발생'; }
+    } else if (kind === 'status') {
+      status = value;
+      occurrence = value === '해당없음' ? '해당없음' : '발생';
+      staff_done = (value === '담당자완료' || value === '파트장확인완료');
+      lead_done = value === '파트장확인완료';
+    }
+    return { occurrence, staff_done, lead_done, status };
+  }
+
+  async function updateOccurrenceField(rowId, kind, value) {
+    const cur = currentOccChecks.find(r => r.id === rowId);
+    if (!cur) return;
+    const patch = kind === 'memo' ? { memo: value } : deriveOccurrenceState(kind, value, cur);
+    const { error } = await client.from('daily_occurrence_checks').update(patch).eq('id', rowId);
+    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
+    Object.assign(cur, patch);
+    renderJwOccurrenceTable();
+    renderJwCards();
+  }
+
+  function renderJwOccurrenceTable() {
+    const rows = OCCURRENCE_CHECK_ITEMS
+      .map(item => { const row = currentOccChecks.find(r => r.item_key === item.key); return row ? { item, row } : null; })
+      .filter(Boolean);
+    const doneCount = rows.filter(({ row }) => row.status === '해당없음' || row.status === '파트장확인완료').length;
+    document.getElementById('jwOccNote').textContent = rows.length
+      ? `${doneCount}/${rows.length}건 완료 처리`
+      : '데이터를 불러오지 못했습니다. daily_occurrence_checks.sql을 Supabase에서 실행했는지 확인해주세요.';
+    document.getElementById('jwOccBody').innerHTML = rows.map(({ item, row }) => `
+      <tr>
+        <td class="occ-title">${escapeAttr(item.title)}</td>
+        <td class="occ-desc">${escapeAttr(item.desc)}</td>
+        <td class="occ-desc">${escapeAttr(item.action)}</td>
+        <td>
+          <select onchange="updateOccurrenceField(${row.id}, 'occurrence', this.value)">
+            <option value="해당없음" ${row.occurrence === '해당없음' ? 'selected' : ''}>해당없음</option>
+            <option value="발생" ${row.occurrence === '발생' ? 'selected' : ''}>발생</option>
+          </select>
+        </td>
+        <td style="text-align:center;">
+          <input type="checkbox" ${row.staff_done ? 'checked' : ''} ${row.occurrence === '해당없음' ? 'disabled' : ''}
+            onchange="updateOccurrenceField(${row.id}, 'staff_done', this.checked)">
+        </td>
+        <td style="text-align:center;">
+          <input type="checkbox" ${row.lead_done ? 'checked' : ''} ${row.occurrence === '해당없음' ? 'disabled' : ''}
+            onchange="updateOccurrenceField(${row.id}, 'lead_done', this.checked)">
+        </td>
+        <td>
+          <select class="occ-status-badge ${occStatusClass(row.status)}" onchange="updateOccurrenceField(${row.id}, 'status', this.value)">
+            ${OCC_STATUS_OPTIONS.map(s => `<option value="${s}" ${row.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </td>
+        <td><input type="text" value="${escapeAttr(row.memo || '')}" placeholder="메모" onchange="updateOccurrenceField(${row.id}, 'memo', this.value)"></td>
+      </tr>
+    `).join('');
+  }
+
+  // 오늘자 8개 항목이 없으면 생성하고, 어제 이전에 '발생'인 채로 남은 항목은 지연으로 자동 전환
+  async function loadAndRenderOccurrenceChecks() {
+    const today = jwTodayKST();
+    const { data: staleRows } = await client.from('daily_occurrence_checks')
+      .select('id')
+      .eq('assignee', JW_ASSIGNEE).lt('check_date', today)
+      .in('status', ['발생', '진행중', '담당자완료']);
+    if (staleRows && staleRows.length) {
+      await client.from('daily_occurrence_checks').update({ status: '지연' }).in('id', staleRows.map(r => r.id));
+    }
+    const { data: todayRows, error } = await client.from('daily_occurrence_checks')
+      .select('*').eq('assignee', JW_ASSIGNEE).eq('check_date', today);
+    if (error) {
+      currentOccChecks = [];
+      document.getElementById('jwOccNote').textContent = '불러오지 못했습니다: ' + error.message + ' (daily_occurrence_checks.sql 실행 여부를 확인해주세요)';
+      document.getElementById('jwOccBody').innerHTML = '';
+      renderJwCards();
+      return;
+    }
+    const existingKeys = new Set((todayRows || []).map(r => r.item_key));
+    const missing = OCCURRENCE_CHECK_ITEMS.filter(it => !existingKeys.has(it.key));
+    let allRows = todayRows || [];
+    if (missing.length) {
+      const { data: inserted, error: insErr } = await client.from('daily_occurrence_checks')
+        .insert(missing.map(it => ({ assignee: JW_ASSIGNEE, item_key: it.key, check_date: today })))
+        .select('*');
+      if (!insErr && inserted) allRows = allRows.concat(inserted);
+    }
+    currentOccChecks = allRows;
+    renderJwOccurrenceTable();
+    renderJwCards();
+  }
+
+  function renderJwCards() {
+    const amPm = currentTasks.filter(t => !t.archived_at && t.assignee === JW_ASSIGNEE && (t.category === '오전 필수업무' || t.category === '오후 필수업무'));
+    const requiredRemaining = amPm.filter(t => t.status !== '확인완료').length;
+    const occurred = currentOccChecks.filter(o => o.occurrence === '발생').length;
+    const staffDone = currentOccChecks.filter(o => o.status === '담당자완료').length;
+    const leadDone = currentOccChecks.filter(o => o.status === '파트장확인완료').length;
+    const late = currentOccChecks.filter(o => o.status === '지연').length;
+    const cards = [
+      { label: '오늘 필수 업무', value: requiredRemaining, cls: 'todo' },
+      { label: '발생 여부 체크', value: occurred, cls: 'mid' },
+      { label: '담당자 완료', value: staffDone, cls: 'review' },
+      { label: '파트장 확인 완료', value: leadDone, cls: 'done' },
+      { label: '미확인 업무', value: staffDone, cls: 'review' },
+      { label: '지연 업무', value: late, cls: 'late' },
+    ];
+    document.getElementById('taskCards').innerHTML = cards.map(c => `
+      <div class="kpi-card status-${c.cls}"><div class="kpi-label"><span class="kpi-status-dot"></span>${c.label}</div><div class="kpi-value">${c.value}건</div></div>
+    `).join('');
   }
 
   function filterTaskStatus(status) {
