@@ -11,7 +11,11 @@ on:
   workflow_dispatch:
     inputs:
       debug:
-        description: '1을 넣으면 저장하지 않고 오늘 받은 메일 제목만 확인합니다.'
+        description: '1을 넣으면 저장하지 않고 메일 폴더 목록과 최근 메일 제목을 확인합니다.'
+        required: false
+        default: ''
+      mailbox:
+        description: '볼 메일 폴더 이름 (비워두면 INBOX). debug=1 결과의 mailboxes 목록에서 골라 넣으세요.'
         required: false
         default: ''
 
@@ -23,7 +27,13 @@ jobs:
         run: |
           URL="${{ secrets.VERCEL_APP_URL }}/api/sync-launch-posts"
           DEBUG="${{ github.event.inputs.debug }}"
-          if [ -n "$DEBUG" ]; then URL="${URL}?debug=${DEBUG}"; fi
+          MAILBOX="${{ github.event.inputs.mailbox }}"
+          SEP="?"
+          if [ -n "$DEBUG" ]; then URL="${URL}${SEP}debug=${DEBUG}"; SEP="&"; fi
+          if [ -n "$MAILBOX" ]; then
+            ENCODED=$(printf '%s' "$MAILBOX" | od -An -tx1 | tr -d ' \n' | sed 's/../%&/g')
+            URL="${URL}${SEP}mailbox=${ENCODED}"
+          fi
           HTTP_CODE=$(curl -s --max-time 90 -o response.json -w "%{http_code}" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "$URL")
           echo "HTTP status: $HTTP_CODE"

@@ -47,6 +47,22 @@ function imapQuote(value) {
   return '"' + String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 }
 
+// 폴더 이름은 IMAP 규격상 modified UTF-7로 오기 때문에(한글 폴더는 "&xxx-" 형태)
+// 사람이 읽을 수 있게 되돌립니다.
+function decodeModifiedUtf7(name) {
+  return String(name).replace(/&([^-]*)-/g, (whole, chunk) => {
+    if (chunk === '') return '&';
+    try {
+      const buf = Buffer.from(chunk.replace(/,/g, '/'), 'base64');
+      let out = '';
+      for (let i = 0; i + 1 < buf.length; i += 2) out += String.fromCharCode(buf.readUInt16BE(i));
+      return out;
+    } catch (e) {
+      return whole;
+    }
+  });
+}
+
 // 메일 제목의 =?UTF-8?B?....?= 같은 MIME 인코딩 조각을 실제 글자로 되돌립니다.
 // 한글 메일은 UTF-8 또는 EUC-KR(=CP949)로 인코딩돼 오는 경우가 둘 다 있습니다.
 function decodeMimeWords(raw) {
@@ -143,25 +159,60 @@ function imapConnect({ host, port, timeoutMs }) {
   });
 }
 
-async function fetchTodaySubjects({ host, port, user, password, mailbox, timeoutMs }) {
+// 메일함 목록을 돌려줍니다. 게시판 알림이 INBOX가 아닌 별도 폴더로 오는 경우
+// 어느 폴더를 봐야 하는지 찾기 위해 씁니다.
+async function listMailboxes(client) {
+  const res = await client.send('LIST "" "*"', 'LIST');
+  return res
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('* LIST'))
+    .map((line) => {
+      const quoted = line.match(/"([^"]*)"\s*$/);
+      const bare = line.match(/\s([^\s"]+)\s*$/);
+      return decodeModifiedUtf7(quoted ? quoted[1] : bare ? bare[1] : '');
+    })
+    .filter(Boolean);
+}
+
+// 최근 메일의 제목/발신자/날짜를 읽어옵니다. PEEK이라 읽음 표시는 바뀌지 않습니다.
+// 이 서버(DOPMAIL)는 SEARCH SINCE 가 제대로 걸리지 않는 경우가 있어서,
+// 검색 결과와 별개로 "가장 최근 N통"을 직접 집어오는 경로를 함께 둡니다.
+async function fetchRecentMessages({ host, port, user, password, mailbox, timeoutMs, since, limit }) {
   const client = await imapConnect({ host, port, timeoutMs });
   try {
     await client.send(`LOGIN ${imapQuote(user)} ${imapQuote(password)}`, 'LOGIN');
-    await client.send(`SELECT ${imapQuote(mailbox)}`, 'SELECT');
+    const mailboxes = await listMailboxes(client);
 
-    const searchRes = await client.send(`SEARCH SINCE ${toImapDate(todayInSeoul())}`, 'SEARCH');
-    const searchLine = (searchRes.match(/^\* SEARCH([^\r\n]*)/m) || [])[1] || '';
-    const ids = searchLine.trim().split(/\s+/).filter(Boolean);
-    if (!ids.length) return [];
+    const selectRes = await client.send(`SELECT ${imapQuote(mailbox)}`, 'SELECT');
+    const total = Number((selectRes.match(/^\* (\d+) EXISTS/m) || [])[1] || 0);
 
-    // 제목·발신자·날짜 헤더만 받아옵니다. PEEK이라 읽음 표시가 바뀌지 않습니다.
+    let ids = [];
+    let searchWorked = false;
+    if (total > 0) {
+      // 날짜는 큰따옴표로 감싸야 받아주는 서버가 있어 그렇게 보냅니다.
+      try {
+        const searchRes = await client.send(`SEARCH SINCE ${imapQuote(since)}`, 'SEARCH');
+        const line = (searchRes.match(/^\* SEARCH([^\r\n]*)/m) || [])[1] || '';
+        ids = line.trim().split(/\s+/).filter(Boolean);
+        // 전체 통수와 같으면 조건이 안 먹은 것으로 보고 최근 N통만 다시 집습니다.
+        searchWorked = ids.length > 0 && ids.length < total;
+      } catch (e) {
+        ids = [];
+      }
+      if (!searchWorked) {
+        const from = Math.max(1, total - limit + 1);
+        ids = [`${from}:${total}`];
+      }
+    }
+    if (!ids.length) return { messages: [], mailboxes, total, searchWorked };
+
     const fetchRes = await client.send(
       `FETCH ${ids.join(',')} (BODY.PEEK[HEADER.FIELDS (SUBJECT FROM DATE)])`,
       'FETCH'
     );
 
-    // 응답 전체에서 Subject/From 쌍을 메시지 단위로 끊어 읽습니다.
-    return fetchRes
+    // 응답 전체에서 메시지 단위로 끊어 헤더를 읽습니다.
+    const messages = fetchRes
       .split(/^\* \d+ FETCH /m)
       .slice(1)
       .map((block) => ({
@@ -170,10 +221,19 @@ async function fetchTodaySubjects({ host, port, user, password, mailbox, timeout
         date: (extractHeader(block, 'Date')[0] || '').trim()
       }))
       .filter((m) => m.subject || m.from);
+
+    return { messages, mailboxes, total, searchWorked };
   } finally {
     try { await client.send('LOGOUT', 'LOGOUT'); } catch (e) { /* 무시 */ }
     client.close();
   }
+}
+
+// 메일 헤더의 Date를 서울 기준 YYYY-MM-DD로. 못 읽으면 null.
+function mailDateInSeoul(dateHeader) {
+  const t = Date.parse(dateHeader);
+  if (Number.isNaN(t)) return null;
+  return new Date(t).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 }
 
 module.exports = async function handler(req, res) {
@@ -195,31 +255,45 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'missing_env_vars', detail: 'SUPABASE_SERVICE_ROLE_KEY 확인 필요' });
   }
 
+  const query = req.query || {};
   const host = process.env.DAOU_IMAP_HOST || 'imap.daouoffice.com';
-  const mailbox = process.env.DAOU_MAIL_BOX || 'INBOX';
+  // ?mailbox= 로 다른 폴더를 바로 시험해볼 수 있게 합니다(게시판 알림 폴더 찾기용).
+  const mailbox = query.mailbox || process.env.DAOU_MAIL_BOX || 'INBOX';
   const keyword = process.env.DAOU_LAUNCH_KEYWORD || '런칭';
   const fromFilter = process.env.DAOU_MAIL_FROM || '';
   const today = todayInSeoul();
+  const isDebug = query.debug === '1' || query.debug === 'true';
 
-  let messages;
+  let result;
   try {
-    messages = await fetchTodaySubjects({ host, port: 993, user, password, mailbox, timeoutMs: 30000 });
+    result = await fetchRecentMessages({
+      host, port: 993, user, password, mailbox, timeoutMs: 30000,
+      since: toImapDate(today),
+      limit: isDebug ? 30 : 80
+    });
   } catch (err) {
-    return res.status(502).json({ error: 'imap_failed', detail: String(err.message || err) });
+    return res.status(502).json({ error: 'imap_failed', detail: String(err.message || err), mailbox });
   }
 
-  const scoped = fromFilter ? messages.filter((m) => m.from.includes(fromFilter)) : messages;
+  // 서버가 SEARCH SINCE 를 무시할 수 있으므로, 메일 헤더의 날짜로 한 번 더 오늘 것만 거릅니다.
+  const todayMessages = result.messages.filter((m) => mailDateInSeoul(m.date) === today);
+  const scoped = fromFilter ? todayMessages.filter((m) => m.from.includes(fromFilter)) : todayMessages;
   const matched = scoped.filter((m) => m.subject.includes(keyword));
 
-  // 제목 형태를 눈으로 확인하려고 부를 때는 저장하지 않고 목록만 돌려줍니다.
-  if (req.query && (req.query.debug === '1' || req.query.debug === 'true')) {
+  // 제목 형태와 폴더 구성을 눈으로 확인하려고 부를 때는 저장하지 않고 목록만 돌려줍니다.
+  if (isDebug) {
     return res.status(200).json({
       today,
       keyword,
+      mailbox,
       from_filter: fromFilter || null,
-      total_today: messages.length,
+      mailbox_total: result.total,
+      search_since_worked: result.searchWorked,
+      fetched: result.messages.length,
+      today_count: todayMessages.length,
       matched_count: matched.length,
-      subjects: messages.map((m) => ({ subject: m.subject, from: m.from, date: m.date }))
+      mailboxes: result.mailboxes,
+      recent: result.messages.slice(-30).map((m) => ({ subject: m.subject, from: m.from, date: m.date }))
     });
   }
 
@@ -267,7 +341,8 @@ module.exports = async function handler(req, res) {
   return res.status(200).json({
     today,
     keyword,
-    total_today: messages.length,
+    mailbox,
+    today_count: todayMessages.length,
     matched_count: matched.length,
     matched_subjects: matched.map((m) => m.subject)
   });
