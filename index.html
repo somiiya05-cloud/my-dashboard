@@ -2265,6 +2265,7 @@
         </div>
       </div>
       <section class="panel">
+        <div class="task-status-chips" id="taskWeeklyAssigneeChips" style="margin-bottom:14px;"></div>
         <div id="taskWeeklyBody"></div>
       </section>
     </main>
@@ -5491,6 +5492,7 @@
     updateTaskViewHeader();
     populateTaskFilterOptions();
     renderTaskView();
+    renderTaskWeeklyAssigneeChips();
     renderTaskWeeklyTable();
   }
 
@@ -6209,8 +6211,9 @@
     `;
   }
 
-  // 주차별 진행 업무는 이제 담당자 선택과 무관하게 별도 메뉴에서 팀 전체를 보여줍니다.
+  // 주차별 진행 업무: 기본은 팀 전체를 보여주되, 담당자 칩으로 윤효선/전휘원 개별 보기도 가능.
   // 반환값: [{ range, assignee, tasks }, ...] — 최신 주차부터, 각 주차 안에서는 담당자별로 나눠서.
+  let taskWeeklyFilterAssignee = ''; // ''=전체
   function getTaskWeeklyBlocks() {
     const groups = {};
     currentTasks.forEach(t => {
@@ -6236,7 +6239,22 @@
       });
       assigneeNames.forEach(name => blocks.push({ range: g.range, assignee: name, tasks: byAssignee[name] }));
     });
-    return blocks;
+    return taskWeeklyFilterAssignee ? blocks.filter(b => b.assignee === taskWeeklyFilterAssignee) : blocks;
+  }
+
+  function renderTaskWeeklyAssigneeChips() {
+    const names = Array.from(new Set(currentTasks.map(t => t.assignee).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'));
+    const chips = [{ key: '', label: '전체' }, ...names.map(n => ({ key: n, label: n }))];
+    document.getElementById('taskWeeklyAssigneeChips').innerHTML = chips.map(c => `
+      <button type="button" class="task-chip${taskWeeklyFilterAssignee === c.key ? ' active' : ''}"
+        onclick="filterTaskWeeklyAssignee('${escapeAttr(c.key)}')">${escapeAttr(c.label)}</button>
+    `).join('');
+  }
+
+  function filterTaskWeeklyAssignee(name) {
+    taskWeeklyFilterAssignee = name;
+    renderTaskWeeklyAssigneeChips();
+    renderTaskWeeklyTable();
   }
 
   function renderTaskWeeklyTable() {
