@@ -5807,13 +5807,15 @@
     jwLaunchRow = inserted;
   }
 
+  // 직접 조정한 날은 manual을 세워, 메일 동기화(api/sync-launch-posts)가 그 값을 덮지 않게 합니다.
+  // 행은 날짜별로 새로 생기므로 다음 날에는 다시 자동 집계로 돌아갑니다.
   async function changeJwLaunchCount(delta) {
     if (!jwLaunchRow) return;
     const next = Math.max(0, (jwLaunchRow.count || 0) + delta);
-    const { error } = await client.from('launch_post_counts')
-      .update({ count: next, updated_at: new Date().toISOString() }).eq('id', jwLaunchRow.id);
+    const patch = { count: next, manual: true, updated_at: new Date().toISOString() };
+    const { error } = await client.from('launch_post_counts').update(patch).eq('id', jwLaunchRow.id);
     if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
-    jwLaunchRow.count = next;
+    Object.assign(jwLaunchRow, patch);
     renderJwGroupbuyLists();
   }
 
@@ -5828,11 +5830,14 @@
       return `<span class="jw-launch" onclick="event.stopPropagation()">${link}${why}</span>`;
     }
     const n = jwLaunchRow.count || 0;
+    const hint = jwLaunchRow.manual
+      ? '직접 정한 값입니다. 오늘은 메일 동기화가 이 값을 덮지 않습니다.'
+      : (jwLaunchRow.synced_at ? '다우게시판 알림 메일에서 자동으로 센 건수입니다.' : '아직 자동 집계된 적이 없습니다.');
     const body = n > 0
       ? `<button type="button" class="jw-launch-btn" onclick="event.stopPropagation(); changeJwLaunchCount(-1)" title="건수 줄이기">−</button>
-         <span class="jw-launch-num">런칭 ${n}</span>
+         <span class="jw-launch-num" title="${escapeAttr(hint)}">런칭 ${n}</span>
          <button type="button" class="jw-launch-btn" onclick="event.stopPropagation(); changeJwLaunchCount(1)" title="건수 늘리기">+</button>`
-      : `<button type="button" class="jw-launch-add" onclick="event.stopPropagation(); changeJwLaunchCount(1)" title="런칭 글을 확인했으면 눌러서 기록">＋ 런칭</button>`;
+      : `<button type="button" class="jw-launch-add" onclick="event.stopPropagation(); changeJwLaunchCount(1)" title="${escapeAttr(hint + ' 눌러서 직접 기록할 수도 있습니다.')}">＋ 런칭</button>`;
     return `<span class="jw-launch" onclick="event.stopPropagation()">${body}${link}</span>`;
   }
 

@@ -1,0 +1,32 @@
+name: 런칭 글 건수 동기화 호출
+
+# Vercel Hobby 플랜의 cron 2개 한도를 이미 다 쓰고 있어서(sync-meta-ads, sync-ezadmin-inventory),
+# 다른 동기화들과 마찬가지로 GitHub Actions가 주기적으로 엔드포인트를 호출해 실행합니다.
+# 실제 로직은 전부 api/sync-launch-posts.js 안에 있고, 여기서는 깨우기만 합니다.
+
+on:
+  schedule:
+    # 평일 업무시간(KST 09~19시) 동안 1시간마다. UTC 기준 00~10시가 KST 09~19시입니다.
+    - cron: '5 0-10 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: '1을 넣으면 저장하지 않고 오늘 받은 메일 제목만 확인합니다.'
+        required: false
+        default: ''
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vercel sync 엔드포인트 호출
+        run: |
+          URL="${{ secrets.VERCEL_APP_URL }}/api/sync-launch-posts"
+          DEBUG="${{ github.event.inputs.debug }}"
+          if [ -n "$DEBUG" ]; then URL="${URL}?debug=${DEBUG}"; fi
+          HTTP_CODE=$(curl -s --max-time 90 -o response.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "$URL")
+          echo "HTTP status: $HTTP_CODE"
+          cat response.json
+          echo
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then exit 1; fi
