@@ -5994,19 +5994,14 @@
       : '데이터를 불러오지 못했습니다. daily_occurrence_checks.sql을 Supabase에서 실행했는지 확인해주세요.';
     document.getElementById('jwOccBody').innerHTML = rows.length
       ? `<div class="jw-task-list">${rows.map(({ item, row }) => {
-          const na = row.occurrence === '해당없음';
           return `
             <div class="jw-task-row-wrap">
               <div class="jw-task-row ${occCardStateClass(row.status)}">
                 <div class="jw-task-row-title">${escapeAttr(item.title)}</div>
                 <div class="jw-task-row-checks">
-                  <button type="button" class="jw-task-toggle-btn${na ? ' active' : ''}"
-                    onclick="updateOccurrenceField(${row.id}, 'occurrence', '해당없음')">해당없음</button>
-                  <button type="button" class="jw-task-toggle-btn${row.occurrence === '발생' ? ' active' : ''}"
-                    onclick="updateOccurrenceField(${row.id}, 'occurrence', '발생')">발생</button>
-                  <button type="button" class="jw-task-toggle-btn${row.staff_done ? ' active' : ''}" ${na ? 'disabled' : ''}
+                  <button type="button" class="jw-task-toggle-btn${row.staff_done ? ' active' : ''}"
                     onclick="updateOccurrenceField(${row.id}, 'staff_done', ${!row.staff_done})">담당자</button>
-                  <button type="button" class="jw-task-toggle-btn${row.lead_done ? ' active' : ''}" ${(na || !row.staff_done) ? 'disabled' : ''}
+                  <button type="button" class="jw-task-toggle-btn${row.lead_done ? ' active' : ''}" ${!row.staff_done ? 'disabled' : ''}
                     onclick="updateOccurrenceField(${row.id}, 'lead_done', ${!row.lead_done})">파트장</button>
                   <button type="button" id="occ-detail-btn-${row.id}" class="jw-occ-detail-toggle" onclick="toggleOccDetail(${row.id})">상세보기</button>
                 </div>
