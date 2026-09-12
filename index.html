@@ -2405,7 +2405,6 @@
         <section class="panel">
           <div class="task-tabs" id="jwTaskTabs">
             <button type="button" class="task-tab active" data-tab="ampm" onclick="switchJwTab('ampm')">오전·오후 업무</button>
-            <button type="button" class="task-tab" data-tab="occ" onclick="switchJwTab('occ')">데일리 발생 여부 체크</button>
             <button type="button" class="task-tab" data-tab="weekday" onclick="switchJwTab('weekday')">요일별 업무</button>
             <button type="button" class="task-tab" data-tab="monthend" onclick="switchJwTab('monthend')">월마감 업무</button>
           </div>
@@ -2419,11 +2418,11 @@
               <div class="jw-section-title">오후</div>
               <div id="jwPmBody"></div>
             </div>
-          </div>
-
-          <div id="jwPaneOcc" class="jw-pane" style="display:none">
-            <div class="panel-note" id="jwOccNote" style="margin-bottom:8px;">오늘 이 업무가 실제로 발생했는지만 확인하는 항목입니다. "해당없음"이면 완료로 집계되고 지연으로 보지 않습니다.</div>
-            <div id="jwOccBody"></div>
+            <div class="jw-section">
+              <div class="jw-section-title">데일리 발생 여부 체크</div>
+              <div class="panel-note" id="jwOccNote" style="margin-bottom:8px;">오늘 이 업무가 실제로 발생했는지만 확인하는 항목입니다. "해당없음"이면 완료로 집계되고 지연으로 보지 않습니다.</div>
+              <div id="jwOccBody"></div>
+            </div>
           </div>
 
           <div id="jwPaneWeekday" class="jw-pane" style="display:none">
@@ -5756,7 +5755,7 @@
   }
 
   function switchJwTab(tab) {
-    const panes = { ampm: 'jwPaneAmpm', occ: 'jwPaneOcc', weekday: 'jwPaneWeekday', monthend: 'jwPaneMonthend' };
+    const panes = { ampm: 'jwPaneAmpm', weekday: 'jwPaneWeekday', monthend: 'jwPaneMonthend' };
     document.querySelectorAll('#jwTaskTabs .task-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
     Object.keys(panes).forEach(key => {
       document.getElementById(panes[key]).style.display = key === tab ? '' : 'none';
@@ -5801,7 +5800,7 @@
     '카페침투 세팅',
     '상품등록 후 게시판 공유',
     '외부몰 입점 후에 이지어드민 연동 공유(w/scm)',
-    '쿠팡 상품등록 후 리뷰 작업 진행 (w.CX팀장님)',
+    '상품리뷰 작업 요청 (CX팀)',
     '쿠팡 로켓그로스 재고 입고',
     '쿠팡 로켓그로스 뱃지 확인',
     'SCM팀 미출 메일 확인',
