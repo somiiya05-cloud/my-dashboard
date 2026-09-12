@@ -271,17 +271,15 @@
     background: #dc2626; color: #fff; font-size: 11.5px; font-weight: 800;
     border-radius: 999px; padding: 3px 10px; font-variant-numeric: tabular-nums;
   }
-  .jw-launch-btn {
-    width: 20px; height: 20px; padding: 0; line-height: 1; cursor: pointer;
-    background: #fff; border: 1px solid rgba(220,38,38,.35); color: #dc2626;
-    border-radius: 50%; font-size: 13px; font-weight: 800;
+  .jw-launch-link {
+    color: #94a3b8; font-size: 11px; font-weight: 700; text-decoration: none;
+    border-bottom: 1px dotted rgba(15,23,42,.25);
   }
-  .jw-launch-btn:hover { background: rgba(220,38,38,.08); }
-  .jw-launch-add {
-    background: #fff; border: 1px dashed rgba(15,23,42,.22); color: #94a3b8;
-    font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 10px; cursor: pointer;
+  .jw-launch-link:hover { color: #dc2626; border-bottom-color: rgba(220,38,38,.5); }
+  .jw-launch-warn {
+    background: rgba(217,119,6,.1); color: #b45309;
+    font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 10px;
   }
-  .jw-launch-add:hover { border-color: rgba(220,38,38,.4); color: #dc2626; }
   /* 펼친 하위 항목은 왼쪽 세로선으로 그룹에 속한다는 걸 표시 */
   .jw-task-group-items {
     display: flex; flex-direction: column; gap: 8px;
@@ -5809,36 +5807,30 @@
 
   // 직접 조정한 날은 manual을 세워, 메일 동기화(api/sync-launch-posts)가 그 값을 덮지 않게 합니다.
   // 행은 날짜별로 새로 생기므로 다음 날에는 다시 자동 집계로 돌아갑니다.
-  async function changeJwLaunchCount(delta) {
-    if (!jwLaunchRow) return;
-    const next = Math.max(0, (jwLaunchRow.count || 0) + delta);
-    const patch = { count: next, manual: true, updated_at: new Date().toISOString() };
-    const { error } = await client.from('launch_post_counts').update(patch).eq('id', jwLaunchRow.id);
-    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
-    Object.assign(jwLaunchRow, patch);
-    renderJwGroupbuyLists();
-  }
-
+  // 배지는 보기 전용입니다. 건수는 api/sync-launch-posts.js 가 알림 메일에서 세어 넣습니다.
+  // 0건이면 아무것도 그리지 않아, 런칭 건이 있는 날에만 눈에 띕니다.
   function jwLaunchBadgeHtml() {
-    const link = `<a class="jw-launch-add" href="${JW_LAUNCH_BOARD_URL}" target="_blank" rel="noopener"
-      onclick="event.stopPropagation()" title="다우게시판에서 '런칭' 검색 결과 열기">게시판 ↗</a>`;
     if (!jwLaunchRow) {
-      // 테이블이 없으면 저장이 안 되므로 배지 대신 게시판 링크만 두고, 이유를 툴팁으로 알려줍니다.
-      const why = jwLaunchError
-        ? ` <span class="jw-launch-add" title="런칭 건수를 저장하지 못합니다 — launch_post_counts.sql을 Supabase에서 실행해주세요. (${escapeAttr(jwLaunchError)})">런칭 기록 불가</span>`
+      // 집계를 아예 못 읽는 상태(테이블 없음 등)일 때만 이유를 남겨둡니다.
+      return jwLaunchError
+        ? `<span class="jw-launch" onclick="event.stopPropagation()"><span class="jw-launch-warn"
+             title="런칭 건수를 읽지 못했습니다 — launch_post_counts.sql 실행 여부를 확인해주세요. (${escapeAttr(jwLaunchError)})">런칭 집계 오류</span></span>`
         : '';
-      return `<span class="jw-launch" onclick="event.stopPropagation()">${link}${why}</span>`;
     }
     const n = jwLaunchRow.count || 0;
-    const hint = jwLaunchRow.manual
-      ? '직접 정한 값입니다. 오늘은 메일 동기화가 이 값을 덮지 않습니다.'
-      : (jwLaunchRow.synced_at ? '다우게시판 알림 메일에서 자동으로 센 건수입니다.' : '아직 자동 집계된 적이 없습니다.');
-    const body = n > 0
-      ? `<button type="button" class="jw-launch-btn" onclick="event.stopPropagation(); changeJwLaunchCount(-1)" title="건수 줄이기">−</button>
-         <span class="jw-launch-num" title="${escapeAttr(hint)}">런칭 ${n}</span>
-         <button type="button" class="jw-launch-btn" onclick="event.stopPropagation(); changeJwLaunchCount(1)" title="건수 늘리기">+</button>`
-      : `<button type="button" class="jw-launch-add" onclick="event.stopPropagation(); changeJwLaunchCount(1)" title="${escapeAttr(hint + ' 눌러서 직접 기록할 수도 있습니다.')}">＋ 런칭</button>`;
-    return `<span class="jw-launch" onclick="event.stopPropagation()">${body}${link}</span>`;
+    if (!n) return '';
+    const when = jwLaunchRow.synced_at
+      ? new Date(jwLaunchRow.synced_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' })
+      : null;
+    const hint = when
+      ? `다우게시판 알림 메일에서 자동으로 센 건수입니다. (${when} 기준)`
+      : '다우게시판 알림 메일에서 센 건수입니다.';
+    return `
+      <span class="jw-launch" onclick="event.stopPropagation()">
+        <span class="jw-launch-num" title="${escapeAttr(hint)}">런칭 ${n}</span>
+        <a class="jw-launch-link" href="${JW_LAUNCH_BOARD_URL}" target="_blank" rel="noopener"
+          onclick="event.stopPropagation()" title="다우게시판에서 '런칭' 검색 결과 열기">게시판 ↗</a>
+      </span>`;
   }
 
   // ---- 공동구매 발주서 전달 업무: 오늘 진행 중인 공구 일정 배너 ----
