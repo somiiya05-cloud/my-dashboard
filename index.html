@@ -219,41 +219,30 @@
   }
   .jw-task-card:hover { border-color: rgba(77,124,254,.35); box-shadow: 0 2px 10px rgba(15,23,42,.06); }
   .jw-task-card input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; accent-color: #4d7cfe; cursor: pointer; flex-shrink: 0; }
-  .jw-task-card-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .jw-task-card input[type="checkbox"]:disabled { opacity: .35; cursor: not-allowed; }
+  .jw-task-card-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
   .jw-task-card-title { font-size: 13.5px; font-weight: 700; color: #0f172a; cursor: pointer; }
   .jw-task-card-desc { font-size: 11.5px; color: #64748b; }
   .jw-task-card.done { background: rgba(22,163,74,.07); border-color: rgba(22,163,74,.25); }
   .jw-task-card.done .jw-task-card-title { color: #15803d; text-decoration: line-through; }
+  .jw-task-card.pending { background: rgba(217,119,6,.07); border-color: rgba(217,119,6,.25); }
+  .jw-task-card.late { background: rgba(220,38,38,.07); border-color: rgba(220,38,38,.3); }
   .jw-task-empty { font-size: 12.5px; color: #94a3b8; padding: 20px; text-align: center; background: #f8fafc; border-radius: 10px; }
 
-  /* 데일리 발생 여부 체크: 오전/오후와 같은 톤의 가로형 카드, 상세 내용은 "상세보기"로 접어둠 */
-  .jw-occ-card {
-    display: flex; flex-direction: column; gap: 8px; background: #fff;
-    border: 1px solid rgba(15,23,42,.1); border-radius: 12px; padding: 12px 14px;
-    transition: border-color .12s ease, box-shadow .12s ease;
+  /* 데일리 발생 여부 체크: 오전/오후와 똑같은 .jw-task-card를 쓰고, 상세 내용만 "상세보기"로 접어둠 */
+  .jw-occ-detail-toggle {
+    align-self: flex-start; background: none; border: none; color: #2f5ce4;
+    font-size: 11.5px; font-weight: 600; cursor: pointer; padding: 0; margin-top: 2px;
   }
-  .jw-occ-card:hover { border-color: rgba(77,124,254,.3); box-shadow: 0 2px 10px rgba(15,23,42,.06); }
-  .jw-occ-card.occ-na { background: #fff; }
-  .jw-occ-card.occ-pending { background: rgba(217,119,6,.07); border-color: rgba(217,119,6,.25); }
-  .jw-occ-card.occ-done { background: rgba(22,163,74,.07); border-color: rgba(22,163,74,.25); }
-  .jw-occ-card.occ-late { background: rgba(220,38,38,.07); border-color: rgba(220,38,38,.3); }
-  .jw-occ-card-top { display: flex; align-items: center; gap: 8px; }
-  .jw-occ-card-top input[type="checkbox"] { width: 17px; height: 17px; accent-color: #4d7cfe; cursor: pointer; flex-shrink: 0; }
-  .jw-occ-card-top input[type="checkbox"]:disabled { opacity: .35; cursor: not-allowed; }
-  .jw-occ-card-top label { font-size: 13.5px; font-weight: 700; color: #0f172a; cursor: pointer; }
-  .jw-occ-card-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .jw-occ-card-row select {
+  .jw-occ-detail { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(15,23,42,.1); }
+  .jw-occ-detail-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .jw-occ-detail-row select {
     background: #f4f5f8; color: #0f172a; border: 1px solid rgba(15,23,42,.12);
     border-radius: 6px; padding: 5px 7px; font-size: 12px; font-family: inherit;
   }
   .jw-occ-lead { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: #475569; cursor: pointer; }
   .jw-occ-lead input[type="checkbox"] { width: 15px; height: 15px; accent-color: #4d7cfe; cursor: pointer; }
   .jw-occ-lead input[type="checkbox"]:disabled { opacity: .35; cursor: not-allowed; }
-  .jw-occ-detail-toggle {
-    align-self: flex-start; background: none; border: none; color: #2f5ce4;
-    font-size: 11.5px; font-weight: 600; cursor: pointer; padding: 0;
-  }
-  .jw-occ-detail { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; border-top: 1px dashed rgba(15,23,42,.1); }
   .occ-card-desc { font-size: 11.5px; color: #64748b; }
   .occ-card-action { font-size: 11px; color: #0d9488; background: rgba(13,148,136,.08); border-radius: 6px; padding: 4px 7px; }
   .jw-occ-detail input[type="text"] {
@@ -5838,11 +5827,12 @@
   }
 
   // 카드 배경색 판정: 완료(파트장확인)=초록, 발생했지만 미확인=주황, 지연=빨강, 해당없음=중립
+  // 오전/오후 카드와 같은 .jw-task-card를 그대로 쓰고, 상태에 따라 색만 얹음 (해당없음은 무색)
   function occCardStateClass(status) {
-    if (status === '파트장확인완료') return 'occ-done';
-    if (status === '지연') return 'occ-late';
-    if (status === '해당없음') return 'occ-na';
-    return 'occ-pending'; // 발생 / 진행중 / 담당자완료
+    if (status === '파트장확인완료') return 'done';
+    if (status === '지연') return 'late';
+    if (status === '해당없음') return '';
+    return 'pending'; // 발생 / 진행중 / 담당자완료
   }
 
   // 상태값은 occurrence(오늘 발생 여부)와 두 체크박스로부터 항상 한 가지로 다시 계산합니다.
@@ -5895,25 +5885,25 @@
       : '데이터를 불러오지 못했습니다. daily_occurrence_checks.sql을 Supabase에서 실행했는지 확인해주세요.';
     document.getElementById('jwOccBody').innerHTML = rows.length
       ? `<div class="jw-task-grid">${rows.map(({ item, row }) => `
-          <div class="jw-occ-card ${occCardStateClass(row.status)}">
-            <div class="jw-occ-card-top">
-              <input type="checkbox" id="occ-staff-${row.id}" ${row.staff_done ? 'checked' : ''} ${row.occurrence === '해당없음' ? 'disabled' : ''}
-                onchange="updateOccurrenceField(${row.id}, 'staff_done', this.checked)">
-              <label for="occ-staff-${row.id}">${escapeAttr(item.title)}</label>
-            </div>
-            <div class="jw-occ-card-row">
-              <select onchange="updateOccurrenceField(${row.id}, 'occurrence', this.value)">
-                <option value="해당없음" ${row.occurrence === '해당없음' ? 'selected' : ''}>해당없음</option>
-                <option value="발생" ${row.occurrence === '발생' ? 'selected' : ''}>발생</option>
-              </select>
-              <label class="jw-occ-lead"><input type="checkbox" ${row.lead_done ? 'checked' : ''} ${row.occurrence === '해당없음' ? 'disabled' : ''}
-                onchange="updateOccurrenceField(${row.id}, 'lead_done', this.checked)"> 파트장 확인</label>
-            </div>
-            <button type="button" id="occ-detail-btn-${row.id}" class="jw-occ-detail-toggle" onclick="toggleOccDetail(${row.id})">상세보기</button>
-            <div class="jw-occ-detail" id="occ-detail-${row.id}" style="display:none">
-              <div class="occ-card-desc">${escapeAttr(item.desc)}</div>
-              <div class="occ-card-action">발생 시: ${escapeAttr(item.action)}</div>
-              <input type="text" value="${escapeAttr(row.memo || '')}" placeholder="메모" onchange="updateOccurrenceField(${row.id}, 'memo', this.value)">
+          <div class="jw-task-card ${occCardStateClass(row.status)}">
+            <input type="checkbox" id="occ-staff-${row.id}" ${row.staff_done ? 'checked' : ''}
+              onchange="updateOccurrenceField(${row.id}, 'staff_done', this.checked)">
+            <div class="jw-task-card-body">
+              <label class="jw-task-card-title" for="occ-staff-${row.id}">${escapeAttr(item.title)}</label>
+              <button type="button" id="occ-detail-btn-${row.id}" class="jw-occ-detail-toggle" onclick="toggleOccDetail(${row.id})">상세보기</button>
+              <div class="jw-occ-detail" id="occ-detail-${row.id}" style="display:none">
+                <div class="jw-occ-detail-row">
+                  <select onchange="updateOccurrenceField(${row.id}, 'occurrence', this.value)">
+                    <option value="해당없음" ${row.occurrence === '해당없음' ? 'selected' : ''}>해당없음</option>
+                    <option value="발생" ${row.occurrence === '발생' ? 'selected' : ''}>발생</option>
+                  </select>
+                  <label class="jw-occ-lead"><input type="checkbox" ${row.lead_done ? 'checked' : ''} ${row.occurrence === '해당없음' ? 'disabled' : ''}
+                    onchange="updateOccurrenceField(${row.id}, 'lead_done', this.checked)"> 파트장 확인</label>
+                </div>
+                <div class="occ-card-desc">${escapeAttr(item.desc)}</div>
+                <div class="occ-card-action">발생 시: ${escapeAttr(item.action)}</div>
+                <input type="text" value="${escapeAttr(row.memo || '')}" placeholder="메모" onchange="updateOccurrenceField(${row.id}, 'memo', this.value)">
+              </div>
             </div>
           </div>
         `).join('')}</div>`
