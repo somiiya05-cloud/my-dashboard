@@ -28,13 +28,6 @@
     display: flex;
     flex-direction: column;
   }
-  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; position: relative; user-select: none; }
-  .brand-dot {
-    width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
-    background: linear-gradient(135deg,#4d7cfe,#2f5ce4);
-  }
-  .brand-title { font-size: 14px; font-weight: 800; }
-  .brand-sub { font-size: 10px; color: #6d7488; letter-spacing: .05em; }
   .workspace-menu {
     display: flex; flex-direction: column; gap: 4px;
     background: #1a1d27; border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
@@ -1102,14 +1095,6 @@
 <body>
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand" id="workspaceSwitcher">
-        <div class="brand-dot"></div>
-        <div>
-          <div class="brand-title" id="brandTitle">매출관리</div>
-          <div class="brand-sub" id="brandSub">SALES OPS</div>
-        </div>
-      </div>
-
       <nav class="workspace-menu" id="workspaceMenu" aria-label="워크스페이스">
         <button type="button" class="workspace-menu-item active" data-ws="sales" onclick="switchWorkspace('sales')">
           <span class="dot" style="background:#4d7cfe;"></span>매출관리
@@ -5635,16 +5620,10 @@
     document.getElementById('taskNavGroups').style.display = ws === 'task' ? '' : 'none';
 
     if (ws === 'sales') {
-      document.getElementById('brandTitle').textContent = '매출관리';
-      document.getElementById('brandSub').textContent = 'SALES OPS';
       switchView('dashboard');
     } else if (ws === 'task') {
-      document.getElementById('brandTitle').textContent = '업무관리';
-      document.getElementById('brandSub').textContent = 'TASK OPS';
       switchView('team-overview');
     } else {
-      document.getElementById('brandTitle').textContent = '영업 운영관리';
-      document.getElementById('brandSub').textContent = 'SALES OPERATIONS';
       switchView('team-schedule', 'main');
     }
   }
