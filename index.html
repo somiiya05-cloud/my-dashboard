@@ -213,6 +213,21 @@
   .jw-section { margin-bottom: 22px; }
   .jw-section:last-child { margin-bottom: 0; }
   .jw-section-title { font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 10px; }
+  .jw-task-list { display: flex; flex-direction: column; gap: 8px; }
+  .jw-task-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    background: #fff; border: 1px solid rgba(15,23,42,.1); border-radius: 10px; padding: 10px 14px;
+    transition: border-color .12s ease, background .12s ease;
+  }
+  .jw-task-row:hover { border-color: rgba(77,124,254,.3); }
+  .jw-task-row-title { font-size: 13.5px; font-weight: 700; color: #0f172a; min-width: 0; }
+  .jw-task-row-checks { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .jw-task-row-check { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: #475569; cursor: pointer; }
+  .jw-task-row-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: #4d7cfe; cursor: pointer; }
+  .jw-task-row-check input[type="checkbox"]:disabled { opacity: .35; cursor: not-allowed; }
+  .jw-task-row.pending { background: rgba(217,119,6,.06); border-color: rgba(217,119,6,.2); }
+  .jw-task-row.done { background: rgba(22,163,74,.06); border-color: rgba(22,163,74,.2); }
+  .jw-task-row.done .jw-task-row-title { color: #15803d; text-decoration: line-through; }
   .jw-task-columns { display: flex; gap: 16px; flex-wrap: wrap; }
   .jw-task-column { flex: 1 1 260px; display: flex; flex-direction: column; gap: 12px; }
   .jw-task-card {
@@ -5738,14 +5753,14 @@
   }
 
   function renderJwView() {
-    renderJwSimpleChecklist('jwAmBody', '오전 필수업무');
+    renderJwTaskList('jwAmBody', '오전 필수업무');
     renderJwPmChecklist();
     renderJwWeekday();
     renderJwMonthend();
     loadAndRenderOccurrenceChecks();
   }
 
-  // 오전처럼 요일 배지·표시 조건이 필요 없는 단순 체크리스트 공통 렌더러 (가로형 카드 그리드)
+  // 오전처럼 요일 배지·표시 조건이 필요 없는 단순 체크리스트 공통 렌더러 (가로형 카드 그리드) — 요일별/월마감용
   // 등록된 순서(id)를 그대로 유지 — 처음 지정해주신 1~10번 순서와 일치합니다.
   function renderJwSimpleChecklist(bodyId, category) {
     const items = currentTasks
@@ -5753,6 +5768,17 @@
       .sort((a, b) => a.id - b.id);
     document.getElementById(bodyId).innerHTML = items.length
       ? `<div class="jw-task-grid">${items.map(t => jwTaskCardHtml(t)).join('')}</div>`
+      : '<div class="jw-task-empty">등록된 업무가 없습니다.</div>';
+  }
+
+  // 오전/오후 필수업무는 한 줄에 하나씩, 담당자 완료·파트장 확인 체크박스 2개짜리 목록으로 표시.
+  // (team_tasks의 status를 그대로 재사용: 할일 → 검수대기(담당자 완료) → 확인완료(파트장 확인))
+  function renderJwTaskList(bodyId, category) {
+    const items = currentTasks
+      .filter(t => !t.archived_at && t.assignee === JW_ASSIGNEE && t.category === category)
+      .sort((a, b) => a.id - b.id);
+    document.getElementById(bodyId).innerHTML = items.length
+      ? `<div class="jw-task-list">${items.map(t => jwTaskRowHtml(t)).join('')}</div>`
       : '<div class="jw-task-empty">등록된 업무가 없습니다.</div>';
   }
 
@@ -5781,8 +5807,8 @@
     const col2 = all.slice(PM_LEFT_COLUMN_COUNT);
     document.getElementById('jwPmBody').innerHTML = `
       <div class="jw-task-columns">
-        <div class="jw-task-column">${col1.map(t => jwTaskCardHtml(t)).join('')}</div>
-        <div class="jw-task-column">${col2.map(t => jwTaskCardHtml(t)).join('')}</div>
+        <div class="jw-task-column jw-task-list">${col1.map(t => jwTaskRowHtml(t)).join('')}</div>
+        <div class="jw-task-column jw-task-list">${col2.map(t => jwTaskRowHtml(t)).join('')}</div>
       </div>
     `;
   }
@@ -5796,6 +5822,43 @@
         <div class="jw-task-card-body">
           <label class="jw-task-card-title" for="jw-${t.id}">${escapeAttr(t.title || '(제목 없음)')}${extraLabel || ''}</label>
           ${t.detail && !/^요일:/.test(t.detail) ? `<div class="jw-task-card-desc">${escapeAttr(t.detail)}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  // 담당자 완료 체크 후 파트장 확인 체크까지 되어야 최종 확인완료로 집계됨 (team_tasks.status 재사용)
+  function deriveTaskDualStatus(kind, value, cur) {
+    let staffDone = cur.status === '검수대기' || cur.status === '확인완료';
+    let leadDone = cur.status === '확인완료';
+    if (kind === 'staff') {
+      staffDone = value;
+      if (!value) leadDone = false;
+    } else if (kind === 'lead') {
+      leadDone = value;
+      if (value) staffDone = true;
+    }
+    return leadDone ? '확인완료' : (staffDone ? '검수대기' : '할일');
+  }
+
+  function updateTaskDualStatus(id, kind, value) {
+    const t = currentTasks.find(x => x.id === id);
+    if (!t) return;
+    updateTaskStatus(id, deriveTaskDualStatus(kind, value, t));
+  }
+
+  function jwTaskRowHtml(t) {
+    const staffDone = t.status === '검수대기' || t.status === '확인완료';
+    const leadDone = t.status === '확인완료';
+    const rowClass = leadDone ? 'done' : (staffDone ? 'pending' : '');
+    return `
+      <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}">
+        <div class="jw-task-row-title">${escapeAttr(t.title || '(제목 없음)')}</div>
+        <div class="jw-task-row-checks">
+          <label class="jw-task-row-check"><input type="checkbox" ${staffDone ? 'checked' : ''}
+            onchange="updateTaskDualStatus(${t.id}, 'staff', this.checked)"> 담당자</label>
+          <label class="jw-task-row-check"><input type="checkbox" ${leadDone ? 'checked' : ''} ${!staffDone ? 'disabled' : ''}
+            onchange="updateTaskDualStatus(${t.id}, 'lead', this.checked)"> 파트장</label>
         </div>
       </div>
     `;
