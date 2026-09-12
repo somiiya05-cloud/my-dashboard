@@ -267,15 +267,16 @@
 
   /* 신제품 광고세팅 옆 "런칭 N건" 배지 — 다우게시판에서 확인한 건수를 담당자가 직접 눌러 기록 */
   .jw-launch { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; }
+  /* 배지 자체가 다우게시판 "런칭" 검색으로 가는 버튼입니다 */
   .jw-launch-num {
+    display: inline-flex; align-items: center; gap: 4px;
     background: #dc2626; color: #fff; font-size: 11.5px; font-weight: 800;
-    border-radius: 999px; padding: 3px 10px; font-variant-numeric: tabular-nums;
+    border: 1px solid #dc2626; border-radius: 999px; padding: 4px 11px;
+    font-variant-numeric: tabular-nums; text-decoration: none; cursor: pointer;
+    transition: background .12s ease, box-shadow .12s ease;
   }
-  .jw-launch-link {
-    color: #94a3b8; font-size: 11px; font-weight: 700; text-decoration: none;
-    border-bottom: 1px dotted rgba(15,23,42,.25);
-  }
-  .jw-launch-link:hover { color: #dc2626; border-bottom-color: rgba(220,38,38,.5); }
+  .jw-launch-num:hover { background: #b91c1c; box-shadow: 0 2px 8px rgba(220,38,38,.3); }
+  .jw-launch-num .arrow { font-size: 10px; opacity: .85; }
   .jw-launch-warn {
     background: rgba(217,119,6,.1); color: #b45309;
     font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 10px;
@@ -315,11 +316,21 @@
   .jw-gb-item input[type="checkbox"] { width: 17px; height: 17px; accent-color: #4d7cfe; cursor: pointer; flex-shrink: 0; }
   .jw-gb-item input[type="checkbox"]:disabled { opacity: .35; cursor: not-allowed; }
   .jw-gb-item label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer; min-width: 0; }
-  .jw-gb-brand { font-size: 13px; font-weight: 800; color: #0f172a; }
-  .jw-gb-inf { font-size: 12.5px; font-weight: 700; color: #475569; }
+  /* 공구는 인플루언서명으로 식별합니다. 버튼처럼 보이게 해서 눌러 체크하기 쉽게 함 */
+  .jw-gb-inf {
+    display: inline-flex; align-items: center;
+    font-size: 12.5px; font-weight: 700; color: #334155;
+    background: #f1f5f9; border: 1px solid rgba(15,23,42,.12);
+    border-radius: 999px; padding: 5px 12px;
+    transition: background .12s ease, border-color .12s ease;
+  }
+  .jw-gb-item:hover .jw-gb-inf { background: #e8eefb; border-color: rgba(77,124,254,.35); color: #2f5ce4; }
   .jw-gb-item.checked { background: rgba(22,163,74,.07); border-color: rgba(22,163,74,.25); }
-  .jw-gb-item.checked .jw-gb-brand,
-  .jw-gb-item.checked .jw-gb-inf { color: #15803d; text-decoration: line-through; }
+  .jw-gb-item.checked .jw-gb-inf {
+    background: rgba(22,163,74,.12); border-color: rgba(22,163,74,.3);
+    color: #15803d; text-decoration: line-through;
+  }
+  .jw-gb-item.checked:hover .jw-gb-inf { background: rgba(22,163,74,.18); border-color: rgba(22,163,74,.4); color: #15803d; }
   .jw-gb-badge { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
   .jw-gb-badge.start { background: rgba(22,163,74,.12); color: #15803d; }
   .jw-gb-badge.end { background: rgba(220,38,38,.1); color: #b91c1c; }
@@ -5827,9 +5838,9 @@
       : '다우게시판 알림 메일에서 센 건수입니다.';
     return `
       <span class="jw-launch" onclick="event.stopPropagation()">
-        <span class="jw-launch-num" title="${escapeAttr(hint)}">런칭 ${n}</span>
-        <a class="jw-launch-link" href="${JW_LAUNCH_BOARD_URL}" target="_blank" rel="noopener"
-          onclick="event.stopPropagation()" title="다우게시판에서 '런칭' 검색 결과 열기">게시판 ↗</a>
+        <a class="jw-launch-num" href="${JW_LAUNCH_BOARD_URL}" target="_blank" rel="noopener"
+          onclick="event.stopPropagation()"
+          title="${escapeAttr(hint)} 눌러서 다우게시판 '런칭' 검색 결과를 엽니다.">런칭 ${n}<span class="arrow">↗</span></a>
       </span>`;
   }
 
@@ -5917,8 +5928,7 @@
       <div class="jw-gb-item${checked ? ' checked' : ''}">
         <input type="checkbox" id="${domId}" ${checked ? 'checked' : ''} ${check ? '' : 'disabled'}
           onchange="toggleJwGroupbuyCheck('${escapeAttr(String(r.id))}', this.checked)">
-        <label for="${domId}">
-          <span class="jw-gb-brand">${escapeAttr(r.brand_name || '브랜드미정')}</span>
+        <label for="${domId}" title="${escapeAttr(`${r.brand_name || '브랜드미정'} · ${r.start_date} ~ ${end}`)}">
           <span class="jw-gb-inf">${escapeAttr(r.influencer_name || '(이름없음)')}</span>
           ${r.start_date === today ? '<span class="jw-gb-badge start">오늘 시작</span>' : ''}
           ${end === today ? '<span class="jw-gb-badge end">오늘 종료</span>' : ''}
