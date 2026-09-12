@@ -6081,8 +6081,30 @@
     });
   }
 
+  // 담당자가 체크(업무 완료 처리)를 끝낸 업무인지. 파트장 확인까지 끝난 것도 포함합니다.
+  function jwStaffDone(t) {
+    return t.status === '검수대기' || t.status === '확인완료';
+  }
+
+  // 긴급 업무는 "이미 체크한 업무 바로 다음", 즉 아직 남은 업무들 맨 앞에 놓습니다.
+  // (정해진 루틴 순서 PM_TASK_ORDER에 있는 업무는 순서를 건드리지 않습니다.)
+  function jwArrangeUrgent(items) {
+    const isUrgent = (t) => t.priority === '높음' && !PM_TASK_ORDER.includes(t.title);
+    const urgent = items.filter(isUrgent);
+    if (urgent.length === 0) return items;
+
+    const rest = items.filter(t => !isUrgent(t));
+    let idx = 0;
+    rest.forEach((t, i) => { if (jwStaffDone(t)) idx = i + 1; });
+    // 그룹(신제품 광고세팅 등) 중간에 끼우면 그룹이 둘로 쪼개지므로, 같은 그룹이 이어지는 동안 뒤로 밉니다.
+    while (idx > 0 && idx < rest.length && jwTaskGroupName(rest[idx]) && jwTaskGroupName(rest[idx]) === jwTaskGroupName(rest[idx - 1])) {
+      idx++;
+    }
+    return [...rest.slice(0, idx), ...urgent, ...rest.slice(idx)];
+  }
+
   function renderJwTaskList(bodyId, category) {
-    const items = jwScopedTasks(category).sort((a, b) => a.id - b.id);
+    const items = jwArrangeUrgent(jwScopedTasks(category).sort((a, b) => a.id - b.id));
     document.getElementById(bodyId).innerHTML = items.length
       ? `<div class="jw-task-list">${jwTaskListHtml(items)}</div>`
       : `<div class="jw-task-empty">${jwEmptyMessage()}</div>`;
@@ -6128,7 +6150,7 @@
     const items = jwScopedTasks('오후 필수업무');
     const ordered = PM_TASK_ORDER.map(title => items.find(t => t.title === title)).filter(Boolean);
     const extras = items.filter(t => !PM_TASK_ORDER.includes(t.title)).sort((a, b) => a.id - b.id);
-    const all = ordered.concat(extras);
+    const all = jwArrangeUrgent(ordered.concat(extras));
     document.getElementById('jwPmBody').innerHTML = all.length
       ? `<div class="jw-task-list">${jwTaskListHtml(all)}</div>`
       : `<div class="jw-task-empty">${jwEmptyMessage()}</div>`;
@@ -6681,7 +6703,7 @@
       const ps = taskPanelPreset || {};
       titleEl.textContent = ps.priority === '높음' ? '긴급 업무 등록' : '새 업무 등록';
       body.innerHTML = `
-        ${ps.priority === '높음' ? '<div class="task-review-hint">등록하면 ' + escapeAttr(ps.dueDate || '') + ' 업무 목록 맨 끝에 붙습니다.</div>' : ''}
+        ${ps.priority === '높음' ? '<div class="task-review-hint">등록하면 ' + escapeAttr(ps.dueDate || '') + ' 목록에서 이미 체크한 업무 바로 다음(= 다음에 할 일)에 놓입니다.</div>' : ''}
         <div class="task-panel-field"><label>구분</label><select id="tpCategory">${taskCategoryOptionsHtml(ps.category || '')}</select></div>
         <div class="task-panel-field"><label>업무 내용 *</label><input id="tpTitle" type="text" placeholder="${escapeAttr(ps.titlePlaceholder || '업무 내용')}"></div>
         <div class="task-panel-row">
