@@ -28,27 +28,26 @@
     display: flex;
     flex-direction: column;
   }
-  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; position: relative; cursor: pointer; user-select: none; }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; position: relative; user-select: none; }
   .brand-dot {
     width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
     background: linear-gradient(135deg,#4d7cfe,#2f5ce4);
   }
   .brand-title { font-size: 14px; font-weight: 800; }
   .brand-sub { font-size: 10px; color: #6d7488; letter-spacing: .05em; }
-  .brand-caret { margin-left: auto; color: #6d7488; font-size: 12px; transition: transform .15s ease; }
-  .brand-caret.open { transform: rotate(180deg); }
   .workspace-menu {
-    position: absolute; top: calc(100% + 8px); left: 0; right: 0;
+    display: flex; flex-direction: column; gap: 4px;
     background: #1a1d27; border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
-    padding: 6px; z-index: 20; display: none; box-shadow: 0 12px 24px rgba(0,0,0,.35);
+    padding: 6px; margin-bottom: 22px;
   }
-  .workspace-menu.open { display: block; }
   .workspace-menu-item {
-    display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px;
-    font-size: 12.5px; color: #a7adc1; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 8px;
+    font-size: 12.5px; font-weight: 600; color: #a7adc1; cursor: pointer;
+    border: none; background: none; width: 100%; text-align: left; font-family: inherit;
+    transition: background .12s ease, color .12s ease;
   }
   .workspace-menu-item:hover { background: rgba(255,255,255,.06); color: #f5f6fa; }
-  .workspace-menu-item.active { background: rgba(79,124,254,.14); color: #f5f6fa; font-weight: 700; }
+  .workspace-menu-item.active { background: rgba(79,124,254,.18); color: #f5f6fa; font-weight: 700; }
   .workspace-menu-item .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
   .nav-group { margin-bottom: 22px; }
   .nav-label { font-size: 11px; color: #565d70; margin-bottom: 8px; padding: 0 8px; }
@@ -1111,25 +1110,25 @@
 <body>
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand" id="workspaceSwitcher" onclick="toggleWorkspaceMenu(event)">
+      <div class="brand" id="workspaceSwitcher">
         <div class="brand-dot"></div>
         <div>
           <div class="brand-title" id="brandTitle">매출관리</div>
           <div class="brand-sub" id="brandSub">SALES OPS</div>
         </div>
-        <span class="brand-caret" id="brandCaret">▾</span>
-        <div class="workspace-menu" id="workspaceMenu">
-          <div class="workspace-menu-item active" data-ws="sales" onclick="event.stopPropagation(); switchWorkspace('sales');">
-            <span class="dot" style="background:#4d7cfe;"></span>매출관리
-          </div>
-          <div class="workspace-menu-item" data-ws="team" onclick="event.stopPropagation(); switchWorkspace('team');">
-            <span class="dot dot-team"></span>영업 운영관리
-          </div>
-          <div class="workspace-menu-item" data-ws="task" onclick="event.stopPropagation(); switchWorkspace('task');">
-            <span class="dot dot-task"></span>업무관리
-          </div>
-        </div>
       </div>
+
+      <nav class="workspace-menu" id="workspaceMenu" aria-label="워크스페이스">
+        <button type="button" class="workspace-menu-item active" data-ws="sales" onclick="switchWorkspace('sales')">
+          <span class="dot" style="background:#4d7cfe;"></span>매출관리
+        </button>
+        <button type="button" class="workspace-menu-item" data-ws="team" onclick="switchWorkspace('team')">
+          <span class="dot dot-team"></span>영업 운영관리
+        </button>
+        <button type="button" class="workspace-menu-item" data-ws="task" onclick="switchWorkspace('task')">
+          <span class="dot dot-task"></span>업무관리
+        </button>
+      </nav>
 
       <div id="salesNavGroups">
         <div class="nav-group">
@@ -1189,7 +1188,6 @@
           <div class="nav-label nav-label-clickable" onclick="opsNavClick('overview')" title="영업팀 업무 가이드 보기">업무관리</div>
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
             <span class="dot dot-task"></span>할일 관리
-            <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
           </div>
           <div id="navTeamAssignees"></div>
           <div class="nav-item" id="navTeamWeekly" onclick="switchView('team-weekly')"><span class="dot dot-task"></span>주차별 진행 업무</div>
@@ -5626,22 +5624,8 @@
   // ==================== 워크스페이스 전환 (매출관리 ↔ 영업팀) ====================
   let currentWorkspace = 'sales';
 
-  function toggleWorkspaceMenu(e) {
-    e.stopPropagation();
-    const menu = document.getElementById('workspaceMenu');
-    const caret = document.getElementById('brandCaret');
-    const isOpen = menu.classList.toggle('open');
-    caret.classList.toggle('open', isOpen);
-  }
-
-  document.addEventListener('click', () => {
-    document.getElementById('workspaceMenu').classList.remove('open');
-    document.getElementById('brandCaret').classList.remove('open');
-  });
-
+  // 사이드바 워크스페이스 버튼은 항상 노출된 상태라 별도 열고 닫는 로직이 없습니다.
   function switchWorkspace(ws) {
-    document.getElementById('workspaceMenu').classList.remove('open');
-    document.getElementById('brandCaret').classList.remove('open');
     if (ws === currentWorkspace) return;
     if ((ws === 'team' || ws === 'task') && sessionStorage.getItem('teamUnlocked') !== '1') {
       const input = prompt('워크스페이스 비밀번호를 입력하세요');
@@ -6341,24 +6325,6 @@
     await loadTeamTasks();
     openTaskPanel(id);
   }
-
-  function toggleTeamAssignees() {
-    const container = document.getElementById('navTeamAssignees');
-    const toggle = document.getElementById('teamAssigneesToggle');
-    const collapsed = container.classList.toggle('collapsed');
-    toggle.classList.toggle('collapsed', collapsed);
-    localStorage.setItem('teamAssigneesCollapsed', collapsed ? '1' : '0');
-  }
-  (function initTeamAssigneesCollapsedState() {
-    if (localStorage.getItem('teamAssigneesCollapsed') === '1') {
-      const container = document.getElementById('navTeamAssignees');
-      const toggle = document.getElementById('teamAssigneesToggle');
-      if (container && toggle) {
-        container.classList.add('collapsed');
-        toggle.classList.add('collapsed');
-      }
-    }
-  })();
 
   function renderTaskAssigneeNav() {
     const container = document.getElementById('navTeamAssignees');
