@@ -2062,38 +2062,6 @@
 
         <section class="panel">
           <div class="panel-head">
-            <h2>거래처 목록</h2>
-            <input type="text" id="partnerSearchInput" class="gs-search-input" style="margin-left:auto;" placeholder="거래처명·담당자·연락처·사업자번호 검색" oninput="renderPartnerTable()">
-          </div>
-          <form class="deal-form" id="partnerForm">
-            <input type="hidden" name="type" value="바이어">
-            <select name="tradeType" style="width:90px;">
-              <option value="수출">수출</option>
-              <option value="B2B">B2B</option>
-            </select>
-            <input type="text" name="name" placeholder="거래처명" required style="flex:1; min-width:140px;">
-            <input type="text" name="contactName" placeholder="담당자" style="width:110px;">
-            <input type="text" name="contactPhone" placeholder="연락처" style="width:140px;">
-            <input type="text" name="bizRegNo" placeholder="사업자등록번호" style="width:150px;">
-            <input type="text" name="country" placeholder="국가" style="width:90px;">
-            <select name="status" style="width:100px;">
-              <option value="거래중">거래중</option>
-              <option value="휴면">휴면</option>
-              <option value="중단">중단</option>
-            </select>
-            <input type="text" name="memo" placeholder="메모(선택)" style="flex:1; min-width:120px;">
-            <button type="submit" class="btn-primary">추가</button>
-          </form>
-          <div class="scroll-box">
-            <table>
-              <thead><tr><th>유형</th><th>구분</th><th>거래처명</th><th>담당자</th><th>연락처</th><th>사업자등록번호</th><th>국가</th><th>거래 상태</th><th>메모</th><th></th></tr></thead>
-              <tbody id="partnerTable"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
             <h2>수금 · 지급 관리</h2>
             <select id="partnerPaymentFilter" style="margin-left:auto;" onchange="renderPartnerPaymentTable()">
               <option value="">전체 거래처</option>
@@ -2123,6 +2091,38 @@
             <table>
               <thead><tr><th>거래처</th><th>거래 건명</th><th>구분</th><th>항목명</th><th class="num">금액</th><th>예정일</th><th>실제 처리일</th><th>D-day</th><th>상태</th><th>메모</th><th></th></tr></thead>
               <tbody id="partnerPaymentTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>거래처 목록</h2>
+            <input type="text" id="partnerSearchInput" class="gs-search-input" style="margin-left:auto;" placeholder="거래처명·담당자·연락처·사업자번호 검색" oninput="renderPartnerTable()">
+          </div>
+          <form class="deal-form" id="partnerForm">
+            <input type="hidden" name="type" value="바이어">
+            <select name="tradeType" style="width:90px;">
+              <option value="수출">수출</option>
+              <option value="B2B">B2B</option>
+            </select>
+            <input type="text" name="name" placeholder="거래처명" required style="flex:1; min-width:140px;">
+            <input type="text" name="contactName" placeholder="담당자" style="width:110px;">
+            <input type="text" name="contactPhone" placeholder="연락처" style="width:140px;">
+            <input type="text" name="bizRegNo" placeholder="사업자등록번호" style="width:150px;">
+            <input type="text" name="country" placeholder="국가" style="width:90px;">
+            <select name="status" style="width:100px;">
+              <option value="거래중">거래중</option>
+              <option value="휴면">휴면</option>
+              <option value="중단">중단</option>
+            </select>
+            <input type="text" name="memo" placeholder="메모(선택)" style="flex:1; min-width:120px;">
+            <button type="submit" class="btn-primary">추가</button>
+          </form>
+          <div class="scroll-box">
+            <table>
+              <thead><tr><th>유형</th><th>구분</th><th>거래처명</th><th>담당자</th><th>연락처</th><th>사업자등록번호</th><th>국가</th><th>거래 상태</th><th>메모</th><th></th></tr></thead>
+              <tbody id="partnerTable"></tbody>
             </table>
           </div>
         </section>
