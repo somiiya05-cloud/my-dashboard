@@ -934,6 +934,9 @@
           <div class="workspace-menu-item" data-ws="team" onclick="event.stopPropagation(); switchWorkspace('team');">
             <span class="dot dot-team"></span>영업팀
           </div>
+          <div class="workspace-menu-item" data-ws="task" onclick="event.stopPropagation(); switchWorkspace('task');">
+            <span class="dot dot-team"></span>업무관리
+          </div>
         </div>
       </div>
 
@@ -976,12 +979,6 @@
       <div id="teamNavGroups" style="display:none;">
         <div class="nav-group">
           <div class="nav-label nav-label-clickable" onclick="opsNavClick('overview')" title="영업팀 업무 가이드 보기">영업팀</div>
-          <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
-            <span class="dot dot-team"></span>할일 관리
-            <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
-          </div>
-          <div id="navTeamAssignees"></div>
-          <div class="nav-item" id="navTeamWeekly" onclick="switchView('team-weekly')"><span class="dot dot-team"></span>주차별 진행 업무</div>
           <div class="nav-item" id="navTeamSchedule" onclick="switchView('team-schedule', 'main')"><span class="dot dot-team"></span>프로모션</div>
           <div id="navScheduleSub">
             <div class="nav-subitem" data-schedulesub="main" onclick="switchView('team-schedule', 'main')">일정</div>
@@ -992,6 +989,18 @@
             <div class="nav-subitem" data-processsub="export" onclick="switchView('team-process', 'export')">수출가이드</div>
             <div class="nav-subitem" data-processsub="b2b" onclick="switchView('team-process', 'b2b')">직납가이드</div>
           </div>
+        </div>
+      </div>
+
+      <div id="taskNavGroups" style="display:none;">
+        <div class="nav-group">
+          <div class="nav-label">업무관리</div>
+          <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
+            <span class="dot dot-team"></span>할일 관리
+            <span class="nav-collapse-toggle" id="teamAssigneesToggle" onclick="event.stopPropagation(); toggleTeamAssignees();">▾</span>
+          </div>
+          <div id="navTeamAssignees"></div>
+          <div class="nav-item" id="navTeamWeekly" onclick="switchView('team-weekly')"><span class="dot dot-team"></span>주차별 진행 업무</div>
         </div>
       </div>
 
@@ -5408,8 +5417,8 @@
     document.getElementById('workspaceMenu').classList.remove('open');
     document.getElementById('brandCaret').classList.remove('open');
     if (ws === currentWorkspace) return;
-    if (ws === 'team' && sessionStorage.getItem('teamUnlocked') !== '1') {
-      const input = prompt('영업팀 워크스페이스 비밀번호를 입력하세요');
+    if ((ws === 'team' || ws === 'task') && sessionStorage.getItem('teamUnlocked') !== '1') {
+      const input = prompt('워크스페이스 비밀번호를 입력하세요');
       if (input === null) return;
       if (input !== TEAM_WORKSPACE_PASSWORD) { alert('비밀번호가 올바르지 않습니다.'); return; }
       sessionStorage.setItem('teamUnlocked', '1');
@@ -5421,11 +5430,16 @@
     });
     document.getElementById('salesNavGroups').style.display = ws === 'sales' ? '' : 'none';
     document.getElementById('teamNavGroups').style.display = ws === 'team' ? '' : 'none';
+    document.getElementById('taskNavGroups').style.display = ws === 'task' ? '' : 'none';
 
     if (ws === 'sales') {
       document.getElementById('brandTitle').textContent = '매출관리';
       document.getElementById('brandSub').textContent = 'SALES OPS';
       switchView('dashboard');
+    } else if (ws === 'task') {
+      document.getElementById('brandTitle').textContent = '업무관리';
+      document.getElementById('brandSub').textContent = 'TASK OPS';
+      switchView('team-tasks');
     } else {
       document.getElementById('brandTitle').textContent = '영업팀';
       document.getElementById('brandSub').textContent = 'SALES TEAM';
