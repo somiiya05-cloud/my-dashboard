@@ -21,10 +21,24 @@ on:
         required: false
         default: ''
 
+# ⚠ 2026-09-12: 이 워크플로가 2026-09-10 이후 15번 연속 실패했다.
+#   원인은 네이버 광고 API 호출 한도 — `GET /ncc/keywords (429) Too Many Requests`.
+#   계정2 조각 6개가 **동시에** 같은 네이버 계정을 때리는 데다, 대시보드의
+#   「지금 동기화」 버튼은 월 단위 워크플로(ping-naver-keywords-sync.yml)까지
+#   같이 띄워서 한 계정에 최대 12조각이 한꺼번에 붙었다.
+#   그래서 (1) 두 워크플로를 같은 concurrency 그룹으로 묶어 절대 겹치지 않게 하고,
+#          (2) matrix 를 max-parallel: 1 로 바꿔 조각을 하나씩 순서대로 돌린다.
+#   조각당 최대 90초라 전부 도는 데 몇 분 더 걸리지만, 실패해서 아무것도 안 들어오는
+#   것보다 낫다. 한도가 늘어나면 max-parallel 을 2~3 으로 올려보면 된다.
+concurrency:
+  group: naver-keywords-sync
+  cancel-in-progress: false
+
 jobs:
   ping:
     runs-on: ubuntu-latest
     strategy:
+      max-parallel: 1   # 조각을 동시에 돌리면 네이버 API 429 (위 설명 참고)
       fail-fast: false
       matrix:
         include:
