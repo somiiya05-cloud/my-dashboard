@@ -49,6 +49,9 @@ const DAILY_TASKS = [
   { title: 'SCM팀 미출 메일 확인', category: '오후 필수업무' },
   { title: '이지어드민 연동(scm팀)', category: '오후 필수업무' },
   { title: '다우게시판 공유', category: '오후 필수업무' },
+  // 화면에서 "계산서 발행" 그룹으로 묶임
+  { title: 'B2B 세금계산서 발행', category: '오후 필수업무' },
+  { title: '해외/수출 영세율 계산서 발행', category: '오후 필수업무' },
   // 매월 23일~말일에만 생기는 월마감 업무 (화면에서 "월마감" 그룹으로 묶임)
   { title: '올리브영 월마감', category: '오후 필수업무', monthDayFrom: 23 },
   { title: '파스토 월마감', category: '오후 필수업무', monthDayFrom: 23 },
