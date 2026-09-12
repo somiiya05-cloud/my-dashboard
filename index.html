@@ -210,6 +210,9 @@
   .jw-weekday-badge { display: inline-block; font-size: 10.5px; font-weight: 700; color: #6d28d9; background: rgba(124,58,237,.1); border-radius: 999px; padding: 2px 8px; margin-left: 6px; }
   .jw-weekday-badge.today { color: #fff; background: #7c3aed; }
   .jw-task-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .jw-section { margin-bottom: 22px; }
+  .jw-section:last-child { margin-bottom: 0; }
+  .jw-section-title { font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 10px; }
   .jw-task-columns { display: flex; gap: 16px; flex-wrap: wrap; }
   .jw-task-column { flex: 1 1 260px; display: flex; flex-direction: column; gap: 12px; }
   .jw-task-card {
@@ -2375,21 +2378,21 @@
       <div id="jwPersonalTaskArea" style="display:none">
         <section class="panel">
           <div class="task-tabs" id="jwTaskTabs">
-            <button type="button" class="task-tab active" data-tab="am" onclick="switchJwTab('am')">오전 필수 업무</button>
-            <button type="button" class="task-tab" data-tab="pm" onclick="switchJwTab('pm')">오후 필수 업무</button>
+            <button type="button" class="task-tab active" data-tab="ampm" onclick="switchJwTab('ampm')">오전·오후 업무</button>
             <button type="button" class="task-tab" data-tab="occ" onclick="switchJwTab('occ')">데일리 발생 여부 체크</button>
             <button type="button" class="task-tab" data-tab="weekday" onclick="switchJwTab('weekday')">요일별 업무</button>
             <button type="button" class="task-tab" data-tab="monthend" onclick="switchJwTab('monthend')">월마감 업무</button>
           </div>
 
-          <div id="jwPaneAm" class="jw-pane">
-            <div class="panel-note" style="margin-bottom:8px;">오늘 무조건 완료해야 하는 오전 업무입니다.</div>
-            <div id="jwAmBody"></div>
-          </div>
-
-          <div id="jwPanePm" class="jw-pane" style="display:none">
-            <div class="panel-note" style="margin-bottom:8px;">오늘 무조건 완료해야 하는 오후 업무입니다.</div>
-            <div id="jwPmBody"></div>
+          <div id="jwPaneAmpm" class="jw-pane">
+            <div class="jw-section">
+              <div class="jw-section-title">오전</div>
+              <div id="jwAmBody"></div>
+            </div>
+            <div class="jw-section">
+              <div class="jw-section-title">오후</div>
+              <div id="jwPmBody"></div>
+            </div>
           </div>
 
           <div id="jwPaneOcc" class="jw-pane" style="display:none">
@@ -5665,15 +5668,17 @@
     document.getElementById('teamSummaryArea').style.display = isPersonal ? 'none' : '';
     if (isPersonal && isJw) {
       document.getElementById('dailyChecklistPanel').style.display = 'none';
-      renderJwCards();
+      document.getElementById('taskCards').style.display = 'none';
       renderJwView();
     } else if (isPersonal) {
+      document.getElementById('taskCards').style.display = '';
       renderDailyChecklist();
       renderTaskCards();
       renderTaskStatusChips();
       renderTaskTable();
       renderTaskHistory();
     } else {
+      document.getElementById('taskCards').style.display = '';
       renderTeamSummary();
     }
   }
@@ -5725,7 +5730,7 @@
   }
 
   function switchJwTab(tab) {
-    const panes = { am: 'jwPaneAm', pm: 'jwPanePm', occ: 'jwPaneOcc', weekday: 'jwPaneWeekday', monthend: 'jwPaneMonthend' };
+    const panes = { ampm: 'jwPaneAmpm', occ: 'jwPaneOcc', weekday: 'jwPaneWeekday', monthend: 'jwPaneMonthend' };
     document.querySelectorAll('#jwTaskTabs .task-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
     Object.keys(panes).forEach(key => {
       document.getElementById(panes[key]).style.display = key === tab ? '' : 'none';
@@ -5863,7 +5868,6 @@
     if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
     Object.assign(cur, patch);
     renderJwOccurrenceTable();
-    renderJwCards();
   }
 
   function toggleOccDetail(rowId) {
@@ -5926,7 +5930,6 @@
       currentOccChecks = [];
       document.getElementById('jwOccNote').textContent = '불러오지 못했습니다: ' + error.message + ' (daily_occurrence_checks.sql 실행 여부를 확인해주세요)';
       document.getElementById('jwOccBody').innerHTML = '';
-      renderJwCards();
       return;
     }
     const existingKeys = new Set((todayRows || []).map(r => r.item_key));
@@ -5940,27 +5943,6 @@
     }
     currentOccChecks = allRows;
     renderJwOccurrenceTable();
-    renderJwCards();
-  }
-
-  function renderJwCards() {
-    const amPm = currentTasks.filter(t => !t.archived_at && t.assignee === JW_ASSIGNEE && (t.category === '오전 필수업무' || t.category === '오후 필수업무'));
-    const requiredRemaining = amPm.filter(t => t.status !== '확인완료').length;
-    const occurred = currentOccChecks.filter(o => o.occurrence === '발생').length;
-    const staffDone = currentOccChecks.filter(o => o.status === '담당자완료').length;
-    const leadDone = currentOccChecks.filter(o => o.status === '파트장확인완료').length;
-    const late = currentOccChecks.filter(o => o.status === '지연').length;
-    const cards = [
-      { label: '오늘 필수 업무', value: requiredRemaining, cls: 'todo' },
-      { label: '발생 여부 체크', value: occurred, cls: 'mid' },
-      { label: '담당자 완료', value: staffDone, cls: 'review' },
-      { label: '파트장 확인 완료', value: leadDone, cls: 'done' },
-      { label: '미확인 업무', value: staffDone, cls: 'review' },
-      { label: '지연 업무', value: late, cls: 'late' },
-    ];
-    document.getElementById('taskCards').innerHTML = cards.map(c => `
-      <div class="kpi-card status-${c.cls}"><div class="kpi-label"><span class="kpi-status-dot"></span>${c.label}</div><div class="kpi-value">${c.value}건</div></div>
-    `).join('');
   }
 
   function filterTaskStatus(status) {
