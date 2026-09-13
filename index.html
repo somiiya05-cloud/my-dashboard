@@ -680,7 +680,9 @@
     background: linear-gradient(180deg,#4d7cfe,#2f5ce4);
   }
   .bar.last { box-shadow: 0 0 0 2px rgba(79,124,254,.35); }
-  .bar-label { font-size: 12px; color: #475569; margin-top: 8px; }
+  .bar-label { font-size: 12px; color: #475569; margin-top: 8px; text-align: center; }
+  /* 막대 아래 "2주차" 밑에 붙는 실제 날짜 범위 */
+  .bar-label-sub { display: block; font-size: 10px; font-weight: 600; color: #94a3b8; margin-top: 1px; }
   .trend-up { color: #16a34a; font-weight: 700; font-size: 11px; margin-left: 4px; }
   .trend-down { color: #dc2626; font-weight: 700; font-size: 11px; margin-left: 4px; }
   .target-line {
@@ -3173,26 +3175,32 @@
       </div>
     `;
 
-    // ---- 영업팀 주별 매출 추이 (해당 월 1~7,8~14,15~21,22~28,29~31일 5개 구간) ----
-    const weekBuckets = [0, 0, 0, 0, 0];
+    // ---- 영업팀 주별 매출 추이 (월~일 기준. 1일이 낀 주가 1주차 — 몰별 표와 같은 기준) ----
+    // 달의 모든 날짜를 먼저 주차로 묶어둡니다. 목표는 실제 매출 유무와 무관하게
+    // "그 주에 속한 달력상 일수 x 일 목표"라서, 짧은 1주차·마지막 주는 목표도 그만큼 작아집니다.
+    const monthRef = minDate || (rows[0] && rows[0].sale_date) || '';
+    const [wYear, wMonth] = monthRef ? monthRef.split('-').map(Number) : [0, 0];
+    const daysInSelectedMonth = wYear ? new Date(wYear, wMonth, 0).getDate() : 31;
+    const weekDays = {};
+    for (let d = 1; d <= daysInSelectedMonth; d++) {
+      const ds = `${wYear}-${String(wMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const no = weekNoOfMonth(ds);
+      (weekDays[no] = weekDays[no] || []).push(d);
+    }
+    const weekNos = Object.keys(weekDays).map(Number).sort((a, b) => a - b);
+
+    const weekBuckets = weekNos.map(() => 0);
     rows.forEach(r => {
       if (EXCLUDED_FROM_TEAM.includes(r.vendor)) return;
-      const day = Number(r.sale_date.split('-')[2]);
-      const idx = Math.min(4, Math.floor((day - 1) / 7));
-      weekBuckets[idx] += Number(r.amount);
+      const i = weekNos.indexOf(weekNoOfMonth(r.sale_date));
+      if (i >= 0) weekBuckets[i] += Number(r.amount);
     });
-    // 구간별 목표 = 일 목표 x 해당 구간의 달력상 일수 (실제 데이터 유무와 무관)
-    const daysInSelectedMonth = minDate
-      ? new Date(Number(minDate.split('-')[0]), Number(minDate.split('-')[1]), 0).getDate()
-      : 31;
-    const bucketDayCounts = [0, 0, 0, 0, 0].map((_, i) => {
-      const start = i * 7 + 1;
-      const end = Math.min(daysInSelectedMonth, start + 6);
-      return Math.max(0, end - start + 1);
-    });
-    const weekTargets = bucketDayCounts.map(d => d * TEAM_DAILY_TARGET);
+    const weekTargets = weekNos.map(no => weekDays[no].length * TEAM_DAILY_TARGET);
     const maxWeek = Math.max(...weekBuckets, ...weekTargets, 1);
-    const weekLabels = ['1~7일', '8~14일', '15~21일', '22~28일', '29일~31일'];
+    const weekLabels = weekNos.map(no => {
+      const ds = weekDays[no];
+      return `${no}주차<span class="bar-label-sub">${wMonth}/${ds[0]}~${wMonth}/${ds[ds.length - 1]}</span>`;
+    });
     document.getElementById('weeklyChart').innerHTML = weekBuckets.map((amt, i) => `
       <div class="bar-col">
         <div class="bar-value-label">${amt > 0 ? won(amt) : ''}</div>
@@ -5725,15 +5733,16 @@
 
   // 펼쳐 놓은 업무 목적 칸은 적힌 내용만큼 높이를 늘려 전부 보이게 합니다.
   // 기본은 한 줄이고, 여러 줄이 적혀 있을 때만 그만큼 커집니다.
+  // 화면에 보이지 않을 때(다른 탭에 가 있거나 접혀 있을 때)는 너비가 0이라
+  // 줄바꿈이 엉뚱하게 계산돼 칸이 비정상적으로 길어집니다. 그럴 땐 건너뜁니다.
+  function jwGrowInput(el) {
+    if (!el || !el.value || !el.offsetWidth) return;
+    autoGrowTextarea(el);
+  }
+
   function jwGrowOpenPurposes() {
-    jwOpenDetailIds.forEach((id) => {
-      const el = document.getElementById('jwPurpose' + id);
-      if (el && el.value) autoGrowTextarea(el);
-    });
-    jwOpenCriteriaIds.forEach((id) => {
-      const el = document.getElementById('jwCriteria' + id);
-      if (el && el.value) autoGrowTextarea(el);
-    });
+    jwOpenDetailIds.forEach((id) => jwGrowInput(document.getElementById('jwPurpose' + id)));
+    jwOpenCriteriaIds.forEach((id) => jwGrowInput(document.getElementById('jwCriteria' + id)));
   }
 
   function renderJwView() {
