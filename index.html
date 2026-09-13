@@ -5744,6 +5744,7 @@
     await loadJwNotes();           // 상세보기의 목적·코멘트를 화면 그리기 전에 받아둡니다
     await loadJwInvoicePending();  // "계산서 발행" 배지에 쓸 입금 완료 건수
     await loadJwSettleDue();       // 정산일이 된 공동구매 건 (상단 배너)
+    await loadJwRegCheck();        // "상품등록" 배지에 쓸 사방넷 등록 실패 건수
     renderTaskAssigneeNav();
     updateTaskViewHeader();
     populateTaskFilterOptions();
@@ -5864,8 +5865,9 @@
 
   async function refreshJwAlerts() {
     if (!jwIsViewingJw()) return;
-    await Promise.all([loadJwInvoicePending(), loadJwSettleDue()]);
+    await Promise.all([loadJwInvoicePending(), loadJwSettleDue(), loadJwRegCheck()]);
     jwRefreshInvoiceBadge();
+    jwRefreshRegBadge();
     renderJwSettleBanner();
   }
 
@@ -5889,6 +5891,7 @@
     jwRealtimeChannel = client.channel('jw-alerts')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'partner_deals' }, scheduleJwAlertRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settlements' }, scheduleJwAlertRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_reg_checks' }, scheduleJwAlertRefresh)
       .subscribe((status) => { jwRealtimeStatus = status; });
   }
 
@@ -5912,6 +5915,20 @@
     clearInterval(jwLiveTimer);
     jwLiveTimer = null;
     document.removeEventListener('visibilitychange', jwOnVisible);
+  }
+
+  // "상품등록" 그룹 제목의 배지만 넣고 빼고 숫자를 고칩니다.
+  function jwRefreshRegBadge() {
+    const arrow = document.getElementById(jwGroupElId(JW_REG_GROUP) + '-arrow');
+    const title = arrow && arrow.closest('.jw-task-group-title');
+    if (!title) return;
+    const existing = title.querySelector('.jw-invoice-badge');
+    const html = jwRegBadgeHtml();
+    if (!html) { if (existing) existing.remove(); return; }
+    if (existing) { existing.outerHTML = html; return; }
+    const cnt = title.querySelector('.jw-task-group-count');
+    if (cnt) cnt.insertAdjacentHTML('beforebegin', html);
+    else title.insertAdjacentHTML('beforeend', html);
   }
 
   // "계산서 발행" 그룹 제목의 빨간 배지만 넣고 빼고 숫자를 고칩니다.
@@ -5988,6 +6005,32 @@
     void row.offsetWidth;
     row.classList.add('gs-row-flash');
     setTimeout(() => row.classList.remove('gs-row-flash'), 2400);
+  }
+
+  // ---- "상품등록" 그룹의 등록 실패 배지 ----
+  // 사방넷에서 읽어 product_reg_checks 에 넣어둔 결과를 그대로 보여줍니다.
+  // (대시보드는 사방넷에 직접 접속할 수 없어, 검수는 사람이 요청할 때 따로 돌립니다.)
+  const JW_REG_GROUP = '상품등록';
+  let jwRegCheck = null;
+
+  async function loadJwRegCheck() {
+    const { data, error } = await client.from('product_reg_checks')
+      .select('checked_at,period_days,fail_recent,fail_total,soldout_count,stopped_count,fails')
+      .order('checked_at', { ascending: false })
+      .limit(1);
+    jwRegCheck = (error || !data || !data.length) ? null : data[0];
+  }
+
+  function jwRegBadgeHtml() {
+    if (!jwRegCheck || !jwRegCheck.fail_recent) return '';
+    const when = new Date(jwRegCheck.checked_at)
+      .toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' });
+    const reasons = (jwRegCheck.fails || [])
+      .slice(0, 5)
+      .map((f) => '· ' + [f.상품코드, f.실패사유 || '사유 미표시'].filter(Boolean).join(' — '))
+      .join('\n');
+    const tip = `사방넷 상품등록 실패 ${jwRegCheck.fail_recent}건 (최근 7일)\n${reasons}\n\n검수 시각 ${when}`;
+    return `<span class="jw-invoice-badge" title="${escapeAttr(tip)}">+${jwRegCheck.fail_recent}</span>`;
   }
 
   // ---- "계산서 발행" 그룹의 빨간 +N 배지 ----
@@ -6387,7 +6430,7 @@
         parts.push(`
           <div class="jw-task-group-title" onclick="toggleJwGroup('${id}')">
             <span class="jw-task-group-arrow" id="${id}-arrow">▾</span>
-            <span class="jw-task-no">${groupNo}.</span>${escapeAttr(group)}${jwIsToday() && group === JW_LAUNCH_GROUP ? jwLaunchBadgeHtml() : ''}${group === JW_INVOICE_GROUP ? jwInvoiceBadgeHtml() : ''}
+            <span class="jw-task-no">${groupNo}.</span>${escapeAttr(group)}${jwIsToday() && group === JW_LAUNCH_GROUP ? jwLaunchBadgeHtml() : ''}${group === JW_INVOICE_GROUP ? jwInvoiceBadgeHtml() : ''}${group === JW_REG_GROUP ? jwRegBadgeHtml() : ''}
             <span class="jw-task-group-count${groupDone === groupItems.length ? ' all-done' : ''}">${groupDone}/${groupItems.length} 완료</span>
           </div>
           <div class="jw-task-group-items" id="${id}">
