@@ -2249,7 +2249,7 @@
             <table>
               <thead><tr>
                 <th>구분</th><th>거래처명</th><th>거래 건명</th><th>진행 단계</th><th class="num">예상 매출액</th>
-                <th>예정일</th><th>특이사항</th><th></th>
+                <th class="num">공급가</th><th class="num">세액</th><th>세금계산서 발행일</th><th>특이사항</th><th></th>
               </tr></thead>
               <tbody id="partnerDealTable"></tbody>
             </table>
@@ -3661,11 +3661,13 @@
         <td><input type="text" class="inline-edit" value="${escapeAttr(d.title || '')}" onchange="updatePartnerDealField(${d.id}, 'title', this.value)"></td>
         <td>${dealStageChecksHtml(d)}</td>
         <td class="num"><input type="number" class="inline-edit num" value="${d.expected_amount ?? ''}" onchange="updatePartnerDealField(${d.id}, 'expected_amount', this.value)"></td>
+        <td class="num"><input type="number" class="inline-edit num" value="${d.supply_amount ?? ''}" onchange="updatePartnerDealField(${d.id}, 'supply_amount', this.value)"></td>
+        <td class="num"><input type="number" class="inline-edit num" value="${d.tax_amount ?? ''}" onchange="updatePartnerDealField(${d.id}, 'tax_amount', this.value)"></td>
         <td><input type="date" class="inline-edit" value="${escapeAttr(d.due_date || '')}" onchange="updatePartnerDealField(${d.id}, 'due_date', this.value)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(d.memo || '')}" onchange="updatePartnerDealField(${d.id}, 'memo', this.value)"></td>
         <td><button class="btn-danger" onclick="deletePartnerDeal(${d.id})">삭제</button></td>
       </tr>
-    `).join('') : '<tr><td colspan="8" class="gs-empty">진행 중인 거래 건이 없습니다. 위에서 추가해보세요.</td></tr>';
+    `).join('') : '<tr><td colspan="10" class="gs-empty">진행 중인 거래 건이 없습니다. 위에서 추가해보세요.</td></tr>';
   }
 
   document.getElementById('partnerDealForm').addEventListener('submit', async (e) => {
@@ -3697,9 +3699,11 @@
     loadPartnerOverview();
   });
 
+  const DEAL_NUMBER_FIELDS = new Set(['expected_amount', 'supply_amount', 'tax_amount']);
+
   async function updatePartnerDealField(id, field, rawValue) {
     let value = rawValue;
-    if (field === 'expected_amount') value = rawValue === '' ? null : Number(rawValue);
+    if (DEAL_NUMBER_FIELDS.has(field)) value = rawValue === '' ? null : Number(rawValue);
     else if (typeof rawValue === 'string' && field !== 'due_date') value = rawValue.trim() || null;
     const { error } = await client.from('partner_deals').update({ [field]: value }).eq('id', id);
     if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
