@@ -3561,7 +3561,7 @@
   let partnerPaymentRows = [];
   let partnerOverviewLoaded = false;
 
-  const DEAL_STAGES = ['문의 접수', '입금 완료', '출고 준비', '출고 완료'];
+  const DEAL_STAGES = ['문의 접수', '입금 완료', '세금계산서', '출고 준비', '출고 완료'];
   // 종료로 보는 단계 — "진행 중 거래 건수" 등 요약 지표에서 빠집니다.
   // 예전 종료 단계였던 '수금 완료'·'드랍'을 목록에서 빼면서, 마지막 단계인 '출고 완료'를 종료로 봅니다.
   const DEAL_CLOSED_STAGES = new Set(['출고 완료']);
