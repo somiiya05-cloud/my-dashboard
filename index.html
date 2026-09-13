@@ -219,10 +219,14 @@
   .jw-urgent-add-btn:hover { background: rgba(220,38,38,.08); }
   /* 목록에서 긴급 업무를 바로 알아볼 수 있게 붙이는 배지 */
   .jw-urgent-tag {
-    margin-left: 7px; background: #dc2626; color: #fff;
+    display: inline-block; margin-left: 7px; background: #dc2626; color: #fff;
     font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px;
-    vertical-align: 1px;
+    vertical-align: 1px; border: none; font-family: inherit; line-height: 1.5;
   }
+  /* 긴급 업무는 배지를 두 번 눌러 지울 수 있습니다 (루틴 업무 배지는 누를 수 없음) */
+  .jw-urgent-tag.clickable { cursor: pointer; }
+  .jw-urgent-tag.clickable:hover { background: #b91c1c; }
+  .jw-urgent-tag.armed { background: #7f1d1d; box-shadow: 0 0 0 2px rgba(220,38,38,.35); }
   .jw-today-btn {
     background: none; border: none; color: #4d7cfe; font-size: 12px; font-weight: 700;
     cursor: pointer; font-family: inherit; padding: 7px 4px;
@@ -6195,6 +6199,44 @@
     return parts.join('');
   }
 
+  // 긴급 배지. 루틴 업무(PM_TASK_ORDER)는 실수로 지워지면 안 되므로 누를 수 없는 배지로 둡니다.
+  function jwUrgentTagHtml(t) {
+    if (PM_TASK_ORDER.includes(t.title)) return '<span class="jw-urgent-tag">긴급</span>';
+    return `<button type="button" class="jw-urgent-tag clickable" title="두 번 누르면 이 업무를 삭제합니다"
+      onclick="jwUrgentTagClick(event, ${t.id})">긴급</button>`;
+  }
+
+  // 한 번 누르면 "삭제?"로 바뀌고, 3초 안에 다시 누르면 지웁니다.
+  // 두 번 누르는 것 자체가 확인 절차라 별도 확인창은 띄우지 않습니다.
+  let jwUrgentArmedId = null;
+  let jwUrgentArmTimer = null;
+
+  function jwDisarmUrgentTag() {
+    clearTimeout(jwUrgentArmTimer);
+    jwUrgentArmedId = null;
+    document.querySelectorAll('.jw-urgent-tag.armed').forEach(el => {
+      el.classList.remove('armed');
+      el.textContent = '긴급';
+    });
+  }
+
+  async function jwUrgentTagClick(e, id) {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    if (jwUrgentArmedId !== id) {
+      jwDisarmUrgentTag();
+      jwUrgentArmedId = id;
+      btn.classList.add('armed');
+      btn.textContent = '삭제?';
+      jwUrgentArmTimer = setTimeout(jwDisarmUrgentTag, 3000);
+      return;
+    }
+    jwDisarmUrgentTag();
+    const { error } = await client.from('team_tasks').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadTeamTasks();
+  }
+
   function jwTaskRowHtml(t, indented, no) {
     const staffDone = t.status === '검수대기' || t.status === '확인완료';
     const leadDone = t.status === '확인완료';
@@ -6208,7 +6250,7 @@
       : '';
     const row = `
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}">
-        <div class="jw-task-row-title">${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? '<span class="jw-urgent-tag">긴급</span>' : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}</div>
+        <div class="jw-task-row-title">${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}</div>
         <div class="jw-task-row-checks">
           ${gbBtn}
           <button type="button" class="jw-task-toggle-btn${staffDone ? ' active' : ''}"
