@@ -2247,7 +2247,7 @@
 
         <section class="panel">
           <div class="panel-head">
-            <h2>수금 · 지급 관리</h2>
+            <h2>수금 · 지급 계산서 관리</h2>
             <select id="partnerPaymentFilter" style="margin-left:auto;" onchange="renderPartnerPaymentTable()">
               <option value="">전체 거래처</option>
             </select>
@@ -3733,7 +3733,7 @@
   // 거래처 목록(업체 마스터) 화면은 제거했습니다. partners 데이터 자체는 진행 건·수금/지급
   // 화면의 거래처 선택칸에서 계속 쓰므로 loadPartnerOverview()에서 그대로 불러옵니다.
 
-  // ---- 수금 · 지급 관리 (돈의 입출금) ----
+  // ---- 수금 · 지급 계산서 관리 (돈의 입출금) ----
   function renderPartnerPaymentFormOptions() {
     const opts = partnerRows.map((p) => `<option value="${p.id}">${escapeAttr(p.name)}</option>`).join('');
     document.getElementById('partnerPaymentFormPartner').innerHTML = opts || '<option value="">거래처를 먼저 추가하세요</option>';
