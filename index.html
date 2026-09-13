@@ -377,6 +377,14 @@
   }
   .jw-launch-num:hover { background: #b91c1c; box-shadow: 0 2px 8px rgba(220,38,38,.3); }
   .jw-launch-num .arrow { font-size: 10px; opacity: .85; }
+  /* 입금 완료된 거래 건이 있으면 "계산서 발행" 그룹에 붙는 빨간 배지 */
+  .jw-invoice-badge {
+    display: inline-block; margin-left: 7px;
+    background: #dc2626; color: #fff; font-size: 11px; font-weight: 800;
+    border-radius: 999px; padding: 2px 9px; vertical-align: 1px;
+    font-variant-numeric: tabular-nums;
+  }
+
   /* SCM 미출 메일 배지는 알림 표시일 뿐이라 누를 곳이 없습니다 */
   .jw-launch-num.scm { cursor: default; margin-left: 4px; }
   .jw-launch-num.scm:hover { background: #dc2626; box-shadow: none; }
@@ -5548,7 +5556,8 @@
       return;
     }
     currentTasks = (data || []).map(t => ({ ...t, status: normalizeStatus(t.status) }));
-    await loadJwNotes();   // 상세보기의 목적·코멘트를 화면 그리기 전에 받아둡니다
+    await loadJwNotes();           // 상세보기의 목적·코멘트를 화면 그리기 전에 받아둡니다
+    await loadJwInvoicePending();  // "계산서 발행" 배지에 쓸 입금 완료 건수
     renderTaskAssigneeNav();
     updateTaskViewHeader();
     populateTaskFilterOptions();
@@ -5636,6 +5645,26 @@
   // 그래서 담당자가 다우게시판을 확인하고 +/- 로 직접 건수를 기록하는 방식입니다.
   // 하루 단위로 저장되므로 다음 날에는 0에서 다시 시작합니다.
   const JW_LAUNCH_GROUP = '신제품 광고세팅';
+
+  // ---- "계산서 발행" 그룹의 빨간 +N 배지 ----
+  // 거래처 운영현황에서 거래 건을 "입금 완료"로 표시하면 세금계산서를 끊어야 하므로,
+  // 입금 완료 상태로 멈춰 있는 거래 건 수를 세어 여기에 알려줍니다.
+  // 그 건을 "세금계산서" 단계로 넘기면(또는 그 뒤로) 자동으로 숫자가 줄어듭니다.
+  const JW_INVOICE_GROUP = '계산서 발행';
+  const JW_INVOICE_PENDING_STAGE = '입금 완료';
+  let jwInvoicePendingCount = 0;
+
+  async function loadJwInvoicePending() {
+    const { data, error } = await client.from('partner_deals')
+      .select('id').eq('stage', JW_INVOICE_PENDING_STAGE);
+    jwInvoicePendingCount = error ? 0 : (data || []).length;
+  }
+
+  function jwInvoiceBadgeHtml() {
+    if (!jwInvoicePendingCount) return '';
+    const tip = `입금 완료된 거래 건 ${jwInvoicePendingCount}건의 세금계산서 발행이 필요합니다`;
+    return `<span class="jw-invoice-badge" title="${escapeAttr(tip)}">+${jwInvoicePendingCount}</span>`;
+  }
   // SCM 미출 메일이 오면 이 업무 옆에도 같은 방식으로 배지를 붙입니다.
   const JW_SCM_TASK_KEYWORD = 'SCM팀 미출';
   const JW_LAUNCH_BOARD_URL = 'https://selfdiylab.daouoffice.com/search?q=%EB%9F%B0%EC%B9%AD&app=dop-employee-board';
@@ -6013,7 +6042,7 @@
         parts.push(`
           <div class="jw-task-group-title" onclick="toggleJwGroup('${id}')">
             <span class="jw-task-group-arrow" id="${id}-arrow">▾</span>
-            <span class="jw-task-no">${groupNo}.</span>${escapeAttr(group)}${jwIsToday() && group === JW_LAUNCH_GROUP ? jwLaunchBadgeHtml() : ''}
+            <span class="jw-task-no">${groupNo}.</span>${escapeAttr(group)}${jwIsToday() && group === JW_LAUNCH_GROUP ? jwLaunchBadgeHtml() : ''}${group === JW_INVOICE_GROUP ? jwInvoiceBadgeHtml() : ''}
             <span class="jw-task-group-count${groupDone === groupItems.length ? ' all-done' : ''}">${groupDone}/${groupItems.length} 완료</span>
           </div>
           <div class="jw-task-group-items" id="${id}">
