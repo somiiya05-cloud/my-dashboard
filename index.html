@@ -5752,6 +5752,7 @@
       return;
     }
     currentTasks = (data || []).map(t => ({ ...t, status: normalizeStatus(t.status) }));
+    await loadJwNotes();   // 상세보기의 목적·코멘트를 화면 그리기 전에 받아둡니다
     renderTaskAssigneeNav();
     updateTaskViewHeader();
     populateTaskFilterOptions();
@@ -6304,25 +6305,49 @@
   //  · 업무 목적  : 업무명 기준으로 저장 — 루틴 업무는 매일 새 행으로 만들어지므로
   //                 id로 저장하면 매일 다시 써야 해서 업무명에 붙입니다.
   //  · 코멘트/답글: 업무 id 기준으로 저장 — 그날 그 업무에 대한 이야기라서 날짜별로 남습니다.
-  const JW_PURPOSE_KEY = 'jwTaskPurpose';
-  const JW_COMMENT_KEY = 'jwTaskComments';
   const jwOpenDetailIds = new Set();
 
-  function jwReadStore(key) {
-    try { return JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (e) { return {}; }
+  // 목적/코멘트는 team_task_purposes · team_task_notes 테이블에 저장합니다.
+  // 화면을 그릴 때마다 조회하면 느리므로, 업무 목록을 불러올 때 한 번에 받아 여기 담아두고
+  // 그리기는 이 메모리 값만 보고 합니다 (저장하면 이 값도 같이 갱신).
+  let jwTaskPurposes = {};   // { 업무명: 목적 }
+  let jwTaskNotes = {};      // { 업무id: { lead, staff, updatedAt } }
+  let jwNotesLoadError = ''; // 테이블이 아직 없을 때 안내에 씁니다
+
+  async function loadJwNotes() {
+    jwNotesLoadError = '';
+    const [purposeRes, noteRes] = await Promise.all([
+      client.from('team_task_purposes').select('title,purpose'),
+      client.from('team_task_notes').select('task_id,lead_comment,staff_reply,updated_at'),
+    ]);
+    if (purposeRes.error || noteRes.error) {
+      // 보통은 team_task_notes.sql 을 아직 실행하지 않은 경우입니다.
+      jwNotesLoadError = (purposeRes.error || noteRes.error).message;
+      jwTaskPurposes = {};
+      jwTaskNotes = {};
+      return;
+    }
+    jwTaskPurposes = {};
+    (purposeRes.data || []).forEach(r => { jwTaskPurposes[r.title] = r.purpose || ''; });
+    jwTaskNotes = {};
+    (noteRes.data || []).forEach(r => {
+      jwTaskNotes[r.task_id] = {
+        lead: r.lead_comment || '',
+        staff: r.staff_reply || '',
+        updatedAt: r.updated_at ? new Date(r.updated_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' }) : '',
+      };
+    });
   }
-  function jwWriteStore(key, obj) {
-    try { localStorage.setItem(key, JSON.stringify(obj)); return true; } catch (e) { return false; }
-  }
+
   function jwPurposeOf(t) {
-    const saved = jwReadStore(JW_PURPOSE_KEY)[t.title];
+    const saved = jwTaskPurposes[t.title];
     if (saved != null) return saved;
     // 예전에 세부내용에 적어둔 내용이 있으면 첫 값으로 씁니다 ("그룹:..." 은 화면 묶음용 표시라 제외).
     const detail = t.detail || '';
     return /^그룹:/.test(detail) ? '' : detail;
   }
   function jwCommentOf(id) {
-    return jwReadStore(JW_COMMENT_KEY)[id] || { lead: '', staff: '', updatedAt: '' };
+    return jwTaskNotes[id] || { lead: '', staff: '', updatedAt: '' };
   }
   function jwHasComment(id) {
     const c = jwCommentOf(id);
@@ -6350,15 +6375,17 @@
             onblur="jwSaveDetail(${t.id}, true)">${escapeAttr(c.staff || '')}</textarea>
         </div>
         <div class="jw-detail-actions">
-          <span class="jw-detail-saved" id="jwSaved${t.id}">${c.updatedAt ? '마지막 저장 ' + escapeAttr(c.updatedAt) : ''}</span>
+          <span class="jw-detail-saved" id="jwSaved${t.id}">${jwNotesLoadError
+            ? '저장용 테이블이 없습니다 — team_task_notes.sql 을 먼저 실행하세요'
+            : (c.updatedAt ? '마지막 저장 ' + escapeAttr(c.updatedAt) : '')}</span>
           <button type="button" class="jw-detail-save-btn" onclick="jwSaveDetail(${t.id})">저장</button>
         </div>
       </div>`;
   }
 
-  function jwToggleDetail(id) {
+  async function jwToggleDetail(id) {
     if (jwOpenDetailIds.has(id)) {
-      jwSaveDetail(id, true);   // 접기 전에 적던 내용을 잃지 않게 조용히 저장
+      await jwSaveDetail(id, true);   // 접기 전에 적던 내용을 잃지 않게 조용히 저장
       jwOpenDetailIds.delete(id);
     } else {
       jwOpenDetailIds.add(id);
@@ -6367,30 +6394,44 @@
   }
 
   // silent=true 면 저장 문구를 갱신하지 않고 조용히 저장만 합니다 (입력칸을 벗어날 때).
-  function jwSaveDetail(id, silent) {
+  async function jwSaveDetail(id, silent) {
     const purposeEl = document.getElementById('jwPurpose' + id);
     const leadEl = document.getElementById('jwLead' + id);
     const staffEl = document.getElementById('jwStaff' + id);
     if (!purposeEl || !leadEl || !staffEl) return;
 
     const task = currentTasks.find(x => x.id === id);
+    const nowIso = new Date().toISOString();
+    const jobs = [];
     if (task) {
-      const purposes = jwReadStore(JW_PURPOSE_KEY);
-      purposes[task.title] = purposeEl.value;
-      jwWriteStore(JW_PURPOSE_KEY, purposes);
+      jobs.push(client.from('team_task_purposes')
+        .upsert({ title: task.title, purpose: purposeEl.value, updated_at: nowIso }, { onConflict: 'title' }));
     }
+    jobs.push(client.from('team_task_notes')
+      .upsert({ task_id: id, lead_comment: leadEl.value, staff_reply: staffEl.value, updated_at: nowIso }, { onConflict: 'task_id' }));
 
-    const stamp = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' });
-    const comments = jwReadStore(JW_COMMENT_KEY);
-    comments[id] = { lead: leadEl.value, staff: staffEl.value, updatedAt: stamp };
-    const ok = jwWriteStore(JW_COMMENT_KEY, comments);
+    const results = await Promise.all(jobs);
+    const failed = results.find(r => r.error);
+
+    if (!failed) {
+      // 화면이 보고 있는 메모리 값도 같이 갱신해야 배지와 내용이 바로 맞습니다.
+      if (task) jwTaskPurposes[task.title] = purposeEl.value;
+      jwTaskNotes[id] = {
+        lead: leadEl.value,
+        staff: staffEl.value,
+        updatedAt: new Date(nowIso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' }),
+      };
+    }
 
     // 입력칸을 벗어날 때(silent) 다시 그리면 저장 버튼이 사라져 클릭이 먹지 않습니다.
     // 그래서 조용한 저장은 저장만 하고, 배지 갱신은 저장 버튼을 눌렀을 때 합니다.
     if (silent) return;
     renderJwView();
     const savedEl = document.getElementById('jwSaved' + id);
-    if (savedEl) savedEl.textContent = ok ? '저장됨 ' + stamp : '저장하지 못했습니다 (브라우저 저장공간)';
+    if (!savedEl) return;
+    savedEl.textContent = failed
+      ? '저장하지 못했습니다: ' + failed.error.message
+      : '저장됨 ' + jwTaskNotes[id].updatedAt;
   }
 
   function filterTaskStatus(status) {
