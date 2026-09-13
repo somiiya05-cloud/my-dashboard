@@ -5641,7 +5641,9 @@
       document.getElementById('dailyChecklistPanel').style.display = 'none';
       document.getElementById('taskCards').style.display = 'none';
       renderJwView();
+      startJwLiveRefresh();   // 이 화면을 보는 동안만 주기적으로 다시 셉니다
     } else if (isPersonal) {
+      stopJwLiveRefresh();
       document.getElementById('taskCards').style.display = '';
       renderDailyChecklist();
       renderTaskCards();
@@ -5649,6 +5651,7 @@
       renderTaskTable();
       renderTaskHistory();
     } else {
+      stopJwLiveRefresh();
       document.getElementById('taskCards').style.display = '';
       renderTeamSummary();
     }
@@ -5707,6 +5710,54 @@
   // 그래서 담당자가 다우게시판을 확인하고 +/- 로 직접 건수를 기록하는 방식입니다.
   // 하루 단위로 저장되므로 다음 날에는 0에서 다시 시작합니다.
   const JW_LAUNCH_GROUP = '신제품 광고세팅';
+
+  // ---- 배지·배너 실시간 갱신 ----
+  // 30초마다, 그리고 다른 탭에 갔다가 돌아올 때 다시 세어봅니다.
+  // 화면 전체를 다시 그리면 업무 목적이나 댓글을 쓰던 중에 내용이 날아가므로,
+  // 바뀐 배지와 배너만 그 자리에서 고쳐 넣습니다.
+  const JW_LIVE_INTERVAL_MS = 30000;
+  let jwLiveTimer = null;
+
+  function jwIsViewingJw() {
+    const area = document.getElementById('jwPersonalTaskArea');
+    return !!area && area.style.display !== 'none' && !document.hidden;
+  }
+
+  async function refreshJwAlerts() {
+    if (!jwIsViewingJw()) return;
+    await Promise.all([loadJwInvoicePending(), loadJwSettleDue()]);
+    jwRefreshInvoiceBadge();
+    renderJwSettleBanner();
+  }
+
+  function jwOnVisible() { if (!document.hidden) refreshJwAlerts(); }
+
+  function startJwLiveRefresh() {
+    if (jwLiveTimer) return;
+    jwLiveTimer = setInterval(refreshJwAlerts, JW_LIVE_INTERVAL_MS);
+    document.addEventListener('visibilitychange', jwOnVisible);
+  }
+
+  function stopJwLiveRefresh() {
+    if (!jwLiveTimer) return;
+    clearInterval(jwLiveTimer);
+    jwLiveTimer = null;
+    document.removeEventListener('visibilitychange', jwOnVisible);
+  }
+
+  // "계산서 발행" 그룹 제목의 빨간 배지만 넣고 빼고 숫자를 고칩니다.
+  function jwRefreshInvoiceBadge() {
+    const arrow = document.getElementById(jwGroupElId(JW_INVOICE_GROUP) + '-arrow');
+    const title = arrow && arrow.closest('.jw-task-group-title');
+    if (!title) return;
+    const existing = title.querySelector('.jw-invoice-badge');
+    if (!jwInvoicePendingCount) { if (existing) existing.remove(); return; }
+    if (existing) { existing.textContent = '+' + jwInvoicePendingCount; return; }
+    // 없던 배지가 생기는 경우 — 완료 개수(0/2) 앞에 끼워 넣습니다.
+    const cnt = title.querySelector('.jw-task-group-count');
+    if (cnt) cnt.insertAdjacentHTML('beforebegin', jwInvoiceBadgeHtml());
+    else title.insertAdjacentHTML('beforeend', jwInvoiceBadgeHtml());
+  }
 
   // ---- 공동구매 정산 알림 배너 ----
   // 프로모션 > 정산에 등록된 공동구매 건 중, 정산일이 오늘이거나 지났는데
