@@ -453,6 +453,12 @@
   .task-chip.active { background: #0f172a; color: #fff; border-color: #0f172a; }
   .task-chip.review-chip.active { background: #b45309; border-color: #b45309; }
   .task-filter-bar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  /* 정산 목록 검색창 — 공동구매/수출 토글 옆에 놓입니다 */
+  .settlement-search {
+    border: 1px solid rgba(15,23,42,.14); border-radius: 8px; padding: 6px 10px;
+    font-size: 12.5px; font-family: inherit; color: #0f172a; width: 210px;
+  }
+  .settlement-search:focus { outline: none; border-color: rgba(77,124,254,.55); }
   .task-filter-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .task-filter-row select, .task-filter-row input {
     background: #f4f5f8; color: #0f172a; border: 1px solid rgba(15,23,42,.12);
@@ -2521,22 +2527,6 @@
           </div>
 
           <div id="taskCurrentPane">
-            <div class="task-filter-bar">
-              <div class="task-status-chips" id="taskStatusChips"></div>
-              <div class="task-filter-row">
-                <select id="taskFlAssignee" onchange="onTaskFilterChange()"><option value="">담당자 전체</option></select>
-                <select id="taskFlCategory" onchange="onTaskFilterChange()"><option value="">구분 전체</option></select>
-                <select id="taskFlPriority" onchange="onTaskFilterChange()">
-                  <option value="">우선순위 전체</option>
-                  <option value="높음">높음</option><option value="보통">보통</option><option value="낮음">낮음</option>
-                </select>
-                <input type="date" id="taskFlFrom" onchange="onTaskFilterChange()" title="마감일 시작">
-                <span class="task-filter-sep">~</span>
-                <input type="date" id="taskFlTo" onchange="onTaskFilterChange()" title="마감일 끝">
-                <input type="text" id="taskFlSearch" placeholder="업무 검색" oninput="onTaskFilterChange()">
-                <button type="button" class="btn-ghost" onclick="resetTaskFilters()">필터 초기화</button>
-              </div>
-            </div>
             <div class="panel-note" id="taskListNote" style="margin-bottom:8px;"></div>
             <div class="scroll-box">
               <table>
@@ -2668,29 +2658,6 @@
       </div>
 
       <div id="scheduleSubSettlement" style="display:none">
-      <section class="panel">
-        <div class="panel-head"><h2>정산 등록</h2></div>
-        <form class="deal-form" id="settlementForm">
-          <select name="category" style="width:120px;">
-            <option value="공동구매">공동구매</option>
-            <option value="수출">수출</option>
-          </select>
-          <input type="text" name="partner" placeholder="인플루언서/거래처명" style="flex:1; min-width:160px;">
-          <input type="text" inputmode="numeric" name="revenue" placeholder="매출(원)" style="width:130px;" oninput="gsFormatMoneyInput(this)">
-          <input type="text" inputmode="numeric" name="commissionAmount" placeholder="수수료(원)" style="width:120px;" oninput="gsFormatMoneyInput(this)">
-          <input type="text" inputmode="numeric" name="collectedAmount" placeholder="수금(원)" style="width:120px;" oninput="gsFormatMoneyInput(this)">
-          <input type="date" name="periodStart" title="공동구매 시작일">
-          <input type="date" name="periodEnd" title="공동구매 종료일 (정산일이 종료일+14일로 자동 계산됩니다)" onchange="settlementFormAutoDate(this)">
-          <input type="date" name="settlementDate" title="정산일 (종료일 입력 시 자동 계산, 직접 수정 가능)">
-          <select name="status" style="width:100px;">
-            <option value="대기">대기</option>
-            <option value="완료">완료</option>
-          </select>
-          <input type="text" name="memo" placeholder="메모(선택)" style="flex:1; min-width:140px;">
-          <button type="submit" class="btn-primary">추가</button>
-        </form>
-      </section>
-
       <section class="kpi-row" id="settlementGroupbuyKpiRow"></section>
 
       <section class="panel">
@@ -2700,6 +2667,7 @@
             <label class="gs-toggle"><input type="checkbox" id="settlementFilterGroupbuy" checked onchange="renderSettlementTable()">공동구매</label>
             <label class="gs-toggle"><input type="checkbox" id="settlementFilterExport" checked onchange="renderSettlementTable()">수출</label>
           </div>
+          <input type="text" id="settlementSearch" class="settlement-search" placeholder="인플루언서/거래처·메모 검색" oninput="renderSettlementTable()">
           <span class="panel-note" id="settlementListNote"></span>
         </div>
         <div class="scroll-box">
@@ -6594,19 +6562,25 @@
     }).join('');
   }
 
+  // 상태 칩과 필터 줄은 화면에서 뺐습니다. 상단 KPI 카드로 상태를 고르는 길은 그대로라
+  // filterTaskStatus()는 남겨두고, 칩을 그리는 일만 하지 않습니다.
   function renderTaskStatusChips() {
-    document.getElementById('taskStatusChips').innerHTML = TASK_STATUS_CHIPS.map(c => {
+    const box = document.getElementById('taskStatusChips');
+    if (!box) return;
+    box.innerHTML = TASK_STATUS_CHIPS.map(c => {
       const active = taskStatusFilter === c.key;
       const reviewCls = c.key === '검수대기' ? ' review-chip' : '';
       return `<button type="button" class="task-chip${reviewCls}${active ? ' active' : ''}" onclick="filterTaskStatus('${c.key}')">${c.label}</button>`;
     }).join('');
   }
 
+  // 필터 입력칸이 사라졌으므로 채울 것이 없으면 그냥 넘어갑니다.
   function populateTaskFilterOptions() {
-    const assignees = Array.from(new Set(currentTasks.map(t => t.assignee).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'));
-    const categories = Array.from(new Set(currentTasks.map(t => t.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'));
     const flAssignee = document.getElementById('taskFlAssignee');
     const flCategory = document.getElementById('taskFlCategory');
+    if (!flAssignee || !flCategory) return;
+    const assignees = Array.from(new Set(currentTasks.map(t => t.assignee).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'));
+    const categories = Array.from(new Set(currentTasks.map(t => t.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'));
     flAssignee.innerHTML = '<option value="">담당자 전체</option>' + assignees.map(a => `<option value="${escapeAttr(a)}">${escapeAttr(a)}</option>`).join('');
     flCategory.innerHTML = '<option value="">구분 전체</option>' + categories.map(c => `<option value="${escapeAttr(c)}">${escapeAttr(c)}</option>`).join('');
     flAssignee.value = taskFilterAssignee;
@@ -6615,33 +6589,6 @@
     document.getElementById('taskFlFrom').value = taskFilterFrom;
     document.getElementById('taskFlTo').value = taskFilterTo;
     document.getElementById('taskFlSearch').value = taskFilterSearch;
-  }
-
-  function onTaskFilterChange() {
-    taskFilterAssignee = document.getElementById('taskFlAssignee').value;
-    taskFilterCategory = document.getElementById('taskFlCategory').value;
-    taskFilterPriority = document.getElementById('taskFlPriority').value;
-    taskFilterFrom = document.getElementById('taskFlFrom').value;
-    taskFilterTo = document.getElementById('taskFlTo').value;
-    taskFilterSearch = document.getElementById('taskFlSearch').value.trim();
-    updateTaskViewHeader();
-    renderDailyChecklist();
-    renderTaskCards();
-    renderTaskTable();
-    renderTaskHistory();
-  }
-
-  function resetTaskFilters() {
-    taskFilterAssignee = ''; taskFilterCategory = ''; taskFilterPriority = '';
-    taskFilterFrom = ''; taskFilterTo = ''; taskFilterSearch = '';
-    taskStatusFilter = null;
-    populateTaskFilterOptions();
-    updateTaskViewHeader();
-    renderDailyChecklist();
-    renderTaskCards();
-    renderTaskStatusChips();
-    renderTaskTable();
-    renderTaskHistory();
   }
 
   function switchTaskTab(tab) {
@@ -7924,11 +7871,16 @@
     if (!note || !table) return;
     const showGroupbuy = document.getElementById('settlementFilterGroupbuy').checked;
     const showExport = document.getElementById('settlementFilterExport').checked;
-    const rows = gsSettlementRows.filter((r) =>
-      (r.category === '공동구매' && showGroupbuy) || (r.category === '수출' && showExport));
+    const q = (document.getElementById('settlementSearch')?.value || '').trim().toLowerCase();
+    const rows = gsSettlementRows
+      .filter((r) => (r.category === '공동구매' && showGroupbuy) || (r.category === '수출' && showExport))
+      // 인플루언서/거래처명과 메모에서 찾습니다.
+      .filter((r) => !q || [r.partner, r.memo].filter(Boolean).join(' ').toLowerCase().includes(q));
     note.textContent = rows.length + '건';
     if (!rows.length) {
-      table.innerHTML = '<tr><td colspan="10" class="gs-empty">등록된 정산 내역이 없습니다. 위에서 추가해보세요.</td></tr>';
+      table.innerHTML = q
+        ? '<tr><td colspan="10" class="gs-empty">검색 결과가 없습니다.</td></tr>'
+        : '<tr><td colspan="10" class="gs-empty">등록된 정산 내역이 없습니다.</td></tr>';
       return;
     }
     table.innerHTML = rows.map((r) => `
@@ -7986,12 +7938,8 @@
     return due.toISOString().slice(0, 10);
   }
 
-  function settlementFormAutoDate(endInput) {
-    if (!endInput.value) return;
-    const form = document.getElementById('settlementForm');
-    form.settlementDate.value = settlementDueFromEnd(endInput.value);
-  }
-
+  // 정산 등록 폼은 화면에서 뺐습니다. 폼 전용이던 settlementFormAutoDate()와
+  // 제출 처리도 함께 지웠습니다. 정산 목록의 인라인 수정·삭제는 그대로 동작합니다.
   async function updateSettlementPeriodEnd(id, endDate) {
     const patch = { period_end: endDate || null };
     if (endDate) patch.settlement_date = settlementDueFromEnd(endDate);
@@ -7999,29 +7947,6 @@
     if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
     loadTeamSchedule();
   }
-
-  document.getElementById('settlementForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const category = form.category.value;
-    const partner = form.partner.value.trim() || null;
-    const revenueRaw = gsMoneyValue(form.revenue.value);
-    const revenue = revenueRaw === '' ? null : Number(revenueRaw);
-    const commissionRaw = gsMoneyValue(form.commissionAmount.value);
-    const commissionAmount = commissionRaw === '' ? null : Number(commissionRaw);
-    const collectedRaw = gsMoneyValue(form.collectedAmount.value);
-    const collectedAmount = collectedRaw === '' ? null : Number(collectedRaw);
-    const periodStart = form.periodStart.value || null;
-    const periodEnd = form.periodEnd.value || null;
-    const settlementDate = form.settlementDate.value || (periodEnd ? settlementDueFromEnd(periodEnd) : null);
-    const status = form.status.value;
-    const memo = form.memo.value.trim() || null;
-    const { error } = await client.from('settlements')
-      .insert([{ category, partner, revenue, commission_amount: commissionAmount, collected_amount: collectedAmount, period_start: periodStart, period_end: periodEnd, settlement_date: settlementDate, status, memo }]);
-    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
-    form.reset();
-    loadTeamSchedule();
-  });
 
   async function updateSettlementField(id, field, rawValue) {
     let value = rawValue;
