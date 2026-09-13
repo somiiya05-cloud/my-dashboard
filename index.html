@@ -1179,7 +1179,7 @@
           <div class="nav-item" id="navProduct" onclick="switchView('product')"><span class="dot"></span>품별</div>
           <div class="nav-item" id="navChannel" onclick="switchView('channel')"><span class="dot"></span>몰별</div>
           <div class="nav-item" id="navCodenitProducts" onclick="switchView('codenit-products')"><span class="dot"></span>코드니처 자사몰</div>
-          <div class="nav-item" id="navMallPrices" onclick="switchView('mall-prices')"><span class="dot"></span>외부몰 판매가</div>
+          <div class="nav-item" id="navMallPrices" onclick="switchView('mall-prices')"><span class="dot"></span>외부몰</div>
         </div>
         <div class="nav-group">
           <div class="nav-label">광고마케팅</div>
@@ -1525,14 +1525,6 @@
       </div>
 
       <section class="kpi-row" id="pcCards"></section>
-
-      <section class="panel">
-        <div class="panel-head">
-          <h2>브랜드별 원가율 (2026년 6월)</h2>
-          <span class="panel-note">원가율 = 원가 ÷ 매출 (해당 브랜드의 6월 판매 기준, 원가 대시보드에 등록된 개당 원가 사용)</span>
-        </div>
-        <div id="pcBrandCostRatio"></div>
-      </section>
 
       <section class="panel">
         <div class="panel-head">
@@ -4679,7 +4671,6 @@
     setupPcFilters();
     renderPcCards();
     renderPcTable();
-    renderPcBrandCostRatio();
   }
 
   function parseWon(v) {
@@ -4850,58 +4841,6 @@
         </tr>
       `;
     }).join('');
-  }
-
-  // 브랜드별 원가율 (원가 ÷ 매출, 해당 브랜드의 해당 월 판매 기준)
-  const PC_BRAND_COST_RATIO_BRANDS = ['코드니처', '라이프스타일마트', '그로우뮤즈', '빠이러스'];
-  const PC_BRAND_COST_RATIO_MONTH = '2026-06';
-
-  function computeBrandCostRatio(brandName, monthStr) {
-    const canonical = canonicalBrand(brandName);
-    const rows = allRows.filter(r => r.sale_date.slice(0, 7) === monthStr && canonicalBrand(getBrand(r)) === canonical);
-    let revenue = 0;
-    let cost = 0;
-    let costMissingRevenue = 0;
-    const costCache = {};
-    rows.forEach(r => {
-      const amount = Number(r.amount) || 0;
-      revenue += amount;
-      const key = productMatchKey(r.product_name);
-      if (!(key in costCache)) {
-        const matches = allProductCostRows.filter(c => productMatchKey(c.product_name) === key && c.unit_cost_krw != null);
-        costCache[key] = matches.length ? matches.reduce((s, c) => s + Number(c.unit_cost_krw), 0) / matches.length : null;
-      }
-      const avgUnitCost = costCache[key];
-      if (avgUnitCost != null) {
-        cost += avgUnitCost * Number(r.quantity);
-      } else {
-        costMissingRevenue += amount;
-      }
-    });
-    return { revenue, cost, ratio: revenue > 0 ? (cost / revenue * 100) : null, costMissingRevenue };
-  }
-
-  function renderPcBrandCostRatio() {
-    const container = document.getElementById('pcBrandCostRatio');
-    if (!container) return;
-    if (!allRows.length) { container.innerHTML = '<div class="panel-note">매출 데이터 로딩 중...</div>'; return; }
-    container.innerHTML = `
-      <div class="kpi-row" style="margin-bottom:0;">
-        ${PC_BRAND_COST_RATIO_BRANDS.map(b => {
-          const r = computeBrandCostRatio(b, PC_BRAND_COST_RATIO_MONTH);
-          const ratioText = r.ratio == null ? '-' : r.ratio.toFixed(1) + '%';
-          const missingPct = r.revenue > 0 ? (r.costMissingRevenue / r.revenue * 100) : 0;
-          return `
-            <div class="kpi-card">
-              <div class="kpi-label">${b}</div>
-              <div class="kpi-value">${ratioText}</div>
-              <div class="kpi-sub">매출 ${Math.round(r.revenue).toLocaleString('ko-KR')}원 · 원가 ${Math.round(r.cost).toLocaleString('ko-KR')}원</div>
-              ${missingPct >= 0.5 ? `<div class="kpi-sub" style="color:#dc2626;">원가 미등록 매출 비중 ${missingPct.toFixed(0)}% (원가율이 실제보다 낮게 표시될 수 있음)</div>` : ''}
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `;
   }
 
   // ==================== 물류 대시보드 ====================
