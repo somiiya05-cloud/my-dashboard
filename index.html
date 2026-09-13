@@ -5712,7 +5712,8 @@
   // 사이드바 워크스페이스 버튼은 항상 노출된 상태라 별도 열고 닫는 로직이 없습니다.
   function switchWorkspace(ws) {
     if (ws === currentWorkspace) return;
-    if ((ws === 'team' || ws === 'task') && sessionStorage.getItem('teamUnlocked') !== '1') {
+    // 영업 운영관리(team)는 잠금을 풀었고, 업무관리(task)만 비밀번호를 받습니다.
+    if (ws === 'task' && sessionStorage.getItem('teamUnlocked') !== '1') {
       const input = prompt('워크스페이스 비밀번호를 입력하세요');
       if (input === null) return;
       if (input !== TEAM_WORKSPACE_PASSWORD) { alert('비밀번호가 올바르지 않습니다.'); return; }
