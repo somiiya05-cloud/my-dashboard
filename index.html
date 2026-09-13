@@ -263,6 +263,40 @@
   .jw-task-row.done .jw-task-no { background: rgba(22,163,74,.14); color: #15803d; }
   .jw-task-row.late .jw-task-no { background: rgba(220,38,38,.14); color: #b91c1c; }
   .jw-task-row-checks { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  /* 상세보기 아코디언 — 업무 줄 바로 아래로 펼쳐집니다 */
+  .jw-task-row-wrap { display: flex; flex-direction: column; gap: 8px; }
+  .jw-detail-btn {
+    background: #fff; border: 1px solid rgba(15,23,42,.15); color: #475569;
+    font-size: 11.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px;
+    cursor: pointer; font-family: inherit; transition: border-color .12s ease, color .12s ease;
+  }
+  .jw-detail-btn:hover { border-color: rgba(77,124,254,.4); color: #0f172a; }
+  .jw-detail-btn.open { border-color: #4d7cfe; color: #3b63d4; }
+  .jw-comment-tag {
+    margin-left: 7px; background: #eef2fb; color: #3b63d4; border: 1px solid rgba(77,124,254,.28);
+    font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; vertical-align: 1px;
+  }
+  .jw-task-detail {
+    background: #fff; border: 1px solid rgba(15,23,42,.1); border-radius: 10px;
+    padding: 14px; margin-left: 12px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  /* display:flex 가 브라우저 기본 [hidden] 규칙을 이기므로 직접 숨겨줍니다 */
+  .jw-task-detail[hidden] { display: none; }
+  .jw-detail-label { font-size: 11.5px; font-weight: 800; color: #475569; margin-bottom: 5px; }
+  .jw-detail-input {
+    width: 100%; border: 1px solid rgba(15,23,42,.14); border-radius: 8px;
+    padding: 8px 10px; font-size: 12.5px; font-family: inherit; color: #0f172a;
+    resize: vertical; min-height: 54px; line-height: 1.6;
+  }
+  .jw-detail-input:focus { outline: none; border-color: rgba(77,124,254,.55); }
+  .jw-detail-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+  .jw-detail-saved { font-size: 11.5px; color: #64748b; }
+  .jw-detail-save-btn {
+    background: #4d7cfe; border: none; color: #fff; font-size: 12px; font-weight: 700;
+    padding: 7px 16px; border-radius: 8px; cursor: pointer; font-family: inherit;
+  }
+  .jw-detail-save-btn:hover { background: #3b63d4; }
   .jw-task-toggle-btn {
     background: #fff; border: 1px solid rgba(15,23,42,.15); color: #475569;
     font-size: 11.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px;
@@ -6250,9 +6284,11 @@
       : '';
     const row = `
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}">
-        <div class="jw-task-row-title">${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}</div>
+        <div class="jw-task-row-title">${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwHasComment(t.id) ? '<span class="jw-comment-tag">코멘트 있음</span>' : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}</div>
         <div class="jw-task-row-checks">
           ${gbBtn}
+          <button type="button" class="jw-detail-btn${jwOpenDetailIds.has(t.id) ? ' open' : ''}"
+            onclick="jwToggleDetail(${t.id})">상세보기</button>
           <button type="button" class="jw-task-toggle-btn${staffDone ? ' active' : ''}"
             onclick="updateTaskDualStatus(${t.id}, 'staff', ${!staffDone})">담당자</button>
           <button type="button" class="jw-task-toggle-btn${leadDone ? ' active' : ''}" ${!staffDone ? 'disabled' : ''}
@@ -6260,7 +6296,101 @@
         </div>
       </div>
     `;
-    return isGroupbuy ? `<div class="jw-task-row-wrap">${row}${jwGroupbuyBannerHtml()}</div>` : row;
+    return `<div class="jw-task-row-wrap">${row}${isGroupbuy ? jwGroupbuyBannerHtml() : ''}${jwTaskDetailHtml(t)}</div>`;
+  }
+
+  // ---- 상세보기 아코디언: 업무 목적 · 파트장 코멘트 · 담당자 답글 ----
+  // 저장 위치는 브라우저 localStorage 입니다 (Supabase에는 쓰지 않습니다).
+  //  · 업무 목적  : 업무명 기준으로 저장 — 루틴 업무는 매일 새 행으로 만들어지므로
+  //                 id로 저장하면 매일 다시 써야 해서 업무명에 붙입니다.
+  //  · 코멘트/답글: 업무 id 기준으로 저장 — 그날 그 업무에 대한 이야기라서 날짜별로 남습니다.
+  const JW_PURPOSE_KEY = 'jwTaskPurpose';
+  const JW_COMMENT_KEY = 'jwTaskComments';
+  const jwOpenDetailIds = new Set();
+
+  function jwReadStore(key) {
+    try { return JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (e) { return {}; }
+  }
+  function jwWriteStore(key, obj) {
+    try { localStorage.setItem(key, JSON.stringify(obj)); return true; } catch (e) { return false; }
+  }
+  function jwPurposeOf(t) {
+    const saved = jwReadStore(JW_PURPOSE_KEY)[t.title];
+    if (saved != null) return saved;
+    // 예전에 세부내용에 적어둔 내용이 있으면 첫 값으로 씁니다 ("그룹:..." 은 화면 묶음용 표시라 제외).
+    const detail = t.detail || '';
+    return /^그룹:/.test(detail) ? '' : detail;
+  }
+  function jwCommentOf(id) {
+    return jwReadStore(JW_COMMENT_KEY)[id] || { lead: '', staff: '', updatedAt: '' };
+  }
+  function jwHasComment(id) {
+    const c = jwCommentOf(id);
+    return !!((c.lead || '').trim() || (c.staff || '').trim());
+  }
+
+  function jwTaskDetailHtml(t) {
+    const open = jwOpenDetailIds.has(t.id);
+    const c = jwCommentOf(t.id);
+    return `
+      <div class="jw-task-detail" id="jwDetail${t.id}"${open ? '' : ' hidden'}>
+        <div>
+          <div class="jw-detail-label">업무 목적</div>
+          <textarea class="jw-detail-input" id="jwPurpose${t.id}" placeholder="이 업무를 왜 하는지 적어두면 같은 업무에 매일 그대로 보입니다."
+            onblur="jwSaveDetail(${t.id}, true)">${escapeAttr(jwPurposeOf(t))}</textarea>
+        </div>
+        <div>
+          <div class="jw-detail-label">파트장 코멘트</div>
+          <textarea class="jw-detail-input" id="jwLead${t.id}" placeholder="파트장이 남기는 지시·피드백"
+            onblur="jwSaveDetail(${t.id}, true)">${escapeAttr(c.lead || '')}</textarea>
+        </div>
+        <div>
+          <div class="jw-detail-label">담당자 답글</div>
+          <textarea class="jw-detail-input" id="jwStaff${t.id}" placeholder="담당자 답변"
+            onblur="jwSaveDetail(${t.id}, true)">${escapeAttr(c.staff || '')}</textarea>
+        </div>
+        <div class="jw-detail-actions">
+          <span class="jw-detail-saved" id="jwSaved${t.id}">${c.updatedAt ? '마지막 저장 ' + escapeAttr(c.updatedAt) : ''}</span>
+          <button type="button" class="jw-detail-save-btn" onclick="jwSaveDetail(${t.id})">저장</button>
+        </div>
+      </div>`;
+  }
+
+  function jwToggleDetail(id) {
+    if (jwOpenDetailIds.has(id)) {
+      jwSaveDetail(id, true);   // 접기 전에 적던 내용을 잃지 않게 조용히 저장
+      jwOpenDetailIds.delete(id);
+    } else {
+      jwOpenDetailIds.add(id);
+    }
+    renderJwView();
+  }
+
+  // silent=true 면 저장 문구를 갱신하지 않고 조용히 저장만 합니다 (입력칸을 벗어날 때).
+  function jwSaveDetail(id, silent) {
+    const purposeEl = document.getElementById('jwPurpose' + id);
+    const leadEl = document.getElementById('jwLead' + id);
+    const staffEl = document.getElementById('jwStaff' + id);
+    if (!purposeEl || !leadEl || !staffEl) return;
+
+    const task = currentTasks.find(x => x.id === id);
+    if (task) {
+      const purposes = jwReadStore(JW_PURPOSE_KEY);
+      purposes[task.title] = purposeEl.value;
+      jwWriteStore(JW_PURPOSE_KEY, purposes);
+    }
+
+    const stamp = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' });
+    const comments = jwReadStore(JW_COMMENT_KEY);
+    comments[id] = { lead: leadEl.value, staff: staffEl.value, updatedAt: stamp };
+    const ok = jwWriteStore(JW_COMMENT_KEY, comments);
+
+    // 입력칸을 벗어날 때(silent) 다시 그리면 저장 버튼이 사라져 클릭이 먹지 않습니다.
+    // 그래서 조용한 저장은 저장만 하고, 배지 갱신은 저장 버튼을 눌렀을 때 합니다.
+    if (silent) return;
+    renderJwView();
+    const savedEl = document.getElementById('jwSaved' + id);
+    if (savedEl) savedEl.textContent = ok ? '저장됨 ' + stamp : '저장하지 못했습니다 (브라우저 저장공간)';
   }
 
   function filterTaskStatus(status) {
