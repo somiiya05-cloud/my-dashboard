@@ -1,7 +1,9 @@
 name: 네이버 순위별 예상 입찰가 호출
 
-# api/sync-naver-bid-estimates.js 를 기기별로(모바일 → PC) 한 번씩 부른다.
-# 대시보드 키워드 표의 「예상 순위」 칸 — 입찰가를 바꾸면 몇 위쯤 되는지 — 가 이 데이터를 쓴다.
+# api/sync-naver-bid-estimates.js 를 방식(by) × 기기(device)별로 한 번씩 부른다.
+# 대시보드 키워드 표의 「1위 예상가」 · 「추천 입찰가」 아랫줄 예상 순위가 이 데이터를 쓴다.
+#   by=keyword : 키워드 글자 기준 시장 평균 (naver_keyword_bid_estimate)
+#   by=id      : 우리 키워드 ID 기준, 품질지수 반영 (naver_keyword_bid_estimate_by_id) — 2026-09-13 추가
 # 시장 추정치라 하루 한 번이면 충분하다.
 
 on:
@@ -12,6 +14,10 @@ on:
     inputs:
       limit:
         description: '처음 확인용 — 키워드 몇 개만 보내 보기(예: 10). 비워두면 전부.'
+        required: false
+        default: ''
+      by:
+        description: 'keyword 또는 id 만 돌리기. 비워두면 둘 다.'
         required: false
         default: ''
 
@@ -28,11 +34,17 @@ jobs:
       max-parallel: 1
       fail-fast: false
       matrix:
+        by: ['id', 'keyword']
         device: ['MOBILE', 'PC']
     steps:
-      - name: "Vercel 예상 입찰가 엔드포인트 호출 (${{ matrix.device }})"
+      - name: "Vercel 예상 입찰가 엔드포인트 호출 (${{ matrix.by }} · ${{ matrix.device }})"
         run: |
-          URL="${{ secrets.VERCEL_APP_URL }}/api/sync-naver-bid-estimates?device=${{ matrix.device }}&debug=1"
+          ONLY="${{ github.event.inputs.by }}"
+          if [ -n "$ONLY" ] && [ "$ONLY" != "${{ matrix.by }}" ]; then
+            echo "by=$ONLY 만 돌리는 실행이라 건너뜀"
+            exit 0
+          fi
+          URL="${{ secrets.VERCEL_APP_URL }}/api/sync-naver-bid-estimates?device=${{ matrix.device }}&by=${{ matrix.by }}&debug=1"
           LIMIT="${{ github.event.inputs.limit }}"
           if [ -n "$LIMIT" ]; then URL="${URL}&limit=${LIMIT}"; fi
           HTTP_CODE=$(curl -s --max-time 90 -o response.json -w "%{http_code}" \
