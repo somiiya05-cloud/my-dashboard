@@ -2214,17 +2214,9 @@
             <input type="text" name="title" placeholder="거래 건명" required style="flex:1; min-width:140px;">
             <select name="stage" style="width:130px;">
               <option value="문의 접수">문의 접수</option>
-              <option value="조건 협의">조건 협의</option>
-              <option value="견적 발송">견적 발송</option>
-              <option value="샘플/자료 전달">샘플/자료 전달</option>
-              <option value="발주 대기">발주 대기</option>
-              <option value="발주 확정">발주 확정</option>
-              <option value="입금 대기">입금 대기</option>
+              <option value="입금 완료">입금 완료</option>
               <option value="출고 준비">출고 준비</option>
               <option value="출고 완료">출고 완료</option>
-              <option value="수금 완료">수금 완료</option>
-              <option value="보류">보류</option>
-              <option value="드랍">드랍</option>
             </select>
             <input type="number" name="expectedAmount" placeholder="예상 매출액(원)" style="width:140px;">
             <input type="text" name="paymentTerms" placeholder="입금 조건" style="width:120px;">
@@ -3601,8 +3593,10 @@
   let partnerPaymentRows = [];
   let partnerOverviewLoaded = false;
 
-  const DEAL_STAGES = ['문의 접수', '조건 협의', '견적 발송', '샘플/자료 전달', '발주 대기', '발주 확정', '입금 대기', '출고 준비', '출고 완료', '수금 완료', '보류', '드랍'];
-  const DEAL_CLOSED_STAGES = new Set(['수금 완료', '드랍']);
+  const DEAL_STAGES = ['문의 접수', '입금 완료', '출고 준비', '출고 완료'];
+  // 종료로 보는 단계 — "진행 중 거래 건수" 등 요약 지표에서 빠집니다.
+  // 예전 종료 단계였던 '수금 완료'·'드랍'을 목록에서 빼면서, 마지막 단계인 '출고 완료'를 종료로 봅니다.
+  const DEAL_CLOSED_STAGES = new Set(['출고 완료']);
   const DEAL_COLLECTION_STATUSES = ['미발생', '수금 예정', '일부 수금', '수금 완료', '지연', '보류'];
 
   function ddayText(dueDate) {
