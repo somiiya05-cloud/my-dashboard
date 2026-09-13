@@ -407,6 +407,8 @@ async function syncNaverKeywordsForAccount(account, since, until, rowMeta, debug
       sales_channel: channelInfo.salesChannel,
       bid_amt: t.bidAmt,
       use_group_bid: t.useGroupBid,
+      // 키워드 ID 기준 예상가(sync-naver-bid-estimates.js ?by=id)는 키워드를 가진 계정으로 요청해야 해서 같이 저장한다.
+      account_id: account.id,
       ...(keywordTotals.get(t.keywordId) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0, avg_rank: null })
     };
   });
