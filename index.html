@@ -2241,7 +2241,7 @@
             </select>
             <select name="partnerId" id="partnerDealFormPartner" required style="flex:1; min-width:130px;"></select>
             <input type="text" name="title" placeholder="거래 건명" required style="flex:1; min-width:140px;">
-            <input type="number" name="expectedAmount" placeholder="예상 매출액(원)" style="width:140px;">
+            <input type="text" inputmode="numeric" name="expectedAmount" placeholder="예상 매출액(원)" style="width:140px;" oninput="gsFormatMoneyInput(this)">
             <input type="text" name="memo" placeholder="특이사항(선택)" style="flex:1; min-width:120px;">
             <button type="submit" class="btn-primary">추가</button>
           </form>
@@ -3660,9 +3660,12 @@
         <td>${escapeAttr(partnerName(d.partner_id))}</td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(d.title || '')}" onchange="updatePartnerDealField(${d.id}, 'title', this.value)"></td>
         <td>${dealStageChecksHtml(d)}</td>
-        <td class="num"><input type="number" class="inline-edit num" value="${d.expected_amount ?? ''}" onchange="updatePartnerDealField(${d.id}, 'expected_amount', this.value)"></td>
-        <td class="num"><input type="number" class="inline-edit num" value="${d.supply_amount ?? ''}" onchange="updatePartnerDealField(${d.id}, 'supply_amount', this.value)"></td>
-        <td class="num"><input type="number" class="inline-edit num" value="${d.tax_amount ?? ''}" onchange="updatePartnerDealField(${d.id}, 'tax_amount', this.value)"></td>
+        <td class="num"><input type="text" inputmode="numeric" class="inline-edit num" value="${dealMoneyText(d.expected_amount)}"
+          oninput="gsFormatMoneyInput(this)" onchange="updatePartnerDealField(${d.id}, 'expected_amount', this.value)"></td>
+        <td class="num"><input type="text" inputmode="numeric" class="inline-edit num" value="${dealMoneyText(d.supply_amount)}"
+          oninput="gsFormatMoneyInput(this)" onchange="updatePartnerDealField(${d.id}, 'supply_amount', this.value)"></td>
+        <td class="num"><input type="text" inputmode="numeric" class="inline-edit num" value="${dealMoneyText(d.tax_amount)}"
+          oninput="gsFormatMoneyInput(this)" onchange="updatePartnerDealField(${d.id}, 'tax_amount', this.value)"></td>
         <td><input type="date" class="inline-edit" value="${escapeAttr(d.due_date || '')}" onchange="updatePartnerDealField(${d.id}, 'due_date', this.value)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(d.memo || '')}" onchange="updatePartnerDealField(${d.id}, 'memo', this.value)"></td>
         <td><button class="btn-danger" onclick="deletePartnerDeal(${d.id})">삭제</button></td>
@@ -3679,7 +3682,7 @@
     if (!title) return;
     // 입금 조건·수금 상태·다음 액션·세금계산서 발행일·담당자는 추가 폼에서 뺐습니다.
     // 세금계산서 발행일은 실제로 계산서를 끊은 날 표에서 직접 넣도록 비워둡니다.
-    const dealFormAmount = form.expectedAmount.value === '' ? null : Number(form.expectedAmount.value);
+    const dealFormAmount = dealMoneyNumber(form.expectedAmount.value);
     const dealFormSplit = dealTaxSplit(dealFormAmount, form.category.value);
     const { error } = await client.from('partner_deals').insert([{
       category: form.category.value,
@@ -3709,6 +3712,15 @@
   // 수출은 영세율이라 공급가만 넣고 세액은 0으로 둡니다.
   const DEAL_ZERO_TAX_CATEGORY = '수출';
 
+  // 표에 보여줄 때는 콤마를 넣고, 저장할 때는 콤마를 떼고 숫자로 바꿉니다.
+  function dealMoneyText(v) {
+    return v == null || v === '' ? '' : Number(v).toLocaleString('ko-KR');
+  }
+  function dealMoneyNumber(v) {
+    const digits = gsMoneyValue(String(v ?? ''));
+    return digits === '' ? null : Number(digits);
+  }
+
   function dealTaxSplit(amount, category) {
     const total = Number(amount);
     if (amount == null || amount === '' || !Number.isFinite(total)) return { supply: null, tax: null };
@@ -3719,7 +3731,7 @@
 
   async function updatePartnerDealField(id, field, rawValue) {
     let value = rawValue;
-    if (DEAL_NUMBER_FIELDS.has(field)) value = rawValue === '' ? null : Number(rawValue);
+    if (DEAL_NUMBER_FIELDS.has(field)) value = dealMoneyNumber(rawValue);
     else if (typeof rawValue === 'string' && field !== 'due_date') value = rawValue.trim() || null;
 
     const patch = { [field]: value };
