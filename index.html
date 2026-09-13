@@ -301,6 +301,13 @@
   /* display:flex 가 브라우저 기본 [hidden] 규칙을 이기므로 직접 숨겨줍니다 */
   .jw-task-detail[hidden] { display: none; }
   .jw-detail-label { font-size: 11px; font-weight: 800; color: #475569; margin-bottom: 3px; }
+  /* 업무 기준 — 고칠 수 없는 내용이라 입력칸이 아니라 글로 보여줍니다 */
+  .jw-criteria-text {
+    background: #f8fafc; border: 1px solid rgba(15,23,42,.1); border-radius: 7px;
+    padding: 7px 10px; font-size: 12.5px; line-height: 1.6; color: #0f172a;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .jw-criteria-empty { font-size: 11.5px; color: #94a3b8; padding: 2px 0; }
   .jw-detail-input {
     width: 100%; border: 1px solid rgba(15,23,42,.14); border-radius: 7px;
     padding: 6px 9px; font-size: 12.5px; font-family: inherit; color: #0f172a;
@@ -5819,7 +5826,6 @@
 
   function jwGrowOpenPurposes() {
     jwOpenDetailIds.forEach((id) => jwGrowInput(document.getElementById('jwPurpose' + id)));
-    jwOpenCriteriaIds.forEach((id) => jwGrowInput(document.getElementById('jwCriteria' + id)));
   }
 
   function renderJwView() {
@@ -6277,8 +6283,8 @@
     '네이버 쇼핑 파트너센터',
     'SA 광고세팅',
     '파워링크 세팅',
-    'GFA 세팅',
     '카페침투 세팅',
+    'GFA 세팅',
     '다우게시판 공유',
     '리뷰 작업 요청 (cx팀)',
     '이지어드민 연동(scm팀)',
@@ -6529,61 +6535,27 @@
     return jwTaskCriteria[t.title] || '';
   }
 
+  // 업무 기준은 정해진 규칙이라 화면에서는 읽기만 하고 고칠 수 없습니다.
+  // 내용을 바꿀 일이 있으면 team_task_purposes.criteria 를 직접 수정합니다.
   function jwTaskCriteriaHtml(t) {
     const open = jwOpenCriteriaIds.has(t.id);
+    const text = jwCriteriaOf(t);
+    const body = text
+      ? `<div class="jw-criteria-text">${escapeAttr(text)}</div>`
+      : '<div class="jw-criteria-empty">등록된 업무 기준이 없습니다.</div>';
     return `
       <div class="jw-task-detail" id="jwCriteriaBox${t.id}"${open ? '' : ' hidden'}>
         <div>
           <div class="jw-detail-label">업무 기준</div>
-          <textarea class="jw-detail-input" rows="1" id="jwCriteria${t.id}" placeholder="이 업무를 어떤 기준으로 진행하는지 적어두면 같은 업무에 매일 그대로 보입니다."
-            oninput="autoGrowTextarea(this); jwAutoSaveCriteria(${t.id})" onblur="jwSaveCriteriaNow(${t.id})">${escapeAttr(jwCriteriaOf(t))}</textarea>
-          <div class="jw-detail-saved" id="jwCriteriaSaved${t.id}"></div>
+          ${body}
         </div>
       </div>`;
   }
 
-  async function jwToggleCriteria(id) {
-    if (jwOpenCriteriaIds.has(id)) {
-      await jwSaveCriteriaNow(id);
-      jwOpenCriteriaIds.delete(id);
-    } else {
-      jwOpenCriteriaIds.add(id);
-    }
+  function jwToggleCriteria(id) {
+    if (jwOpenCriteriaIds.has(id)) jwOpenCriteriaIds.delete(id);
+    else jwOpenCriteriaIds.add(id);
     renderJwView();
-  }
-
-  const jwCriteriaTimers = {};
-  function jwAutoSaveCriteria(id) {
-    clearTimeout(jwCriteriaTimers[id]);
-    const el = document.getElementById('jwCriteriaSaved' + id);
-    if (el) el.textContent = '입력 중...';
-    jwCriteriaTimers[id] = setTimeout(() => jwSaveCriteria(id), 700);
-  }
-  function jwSaveCriteriaNow(id) {
-    clearTimeout(jwCriteriaTimers[id]);
-    return jwSaveCriteria(id);
-  }
-
-  async function jwSaveCriteria(id) {
-    const el = document.getElementById('jwCriteria' + id);
-    if (!el) return;
-    const task = currentTasks.find(x => x.id === id);
-    if (!task) return;
-    // 아무것도 적지 않고 열었다 닫기만 한 경우에는 빈 행을 만들지 않습니다.
-    if (!el.value.trim() && jwTaskCriteria[task.title] == null) return;
-
-    const nowIso = new Date().toISOString();
-    // criteria 만 보내므로 같은 줄의 업무 목적(purpose)은 건드리지 않습니다.
-    const failed = await client.from('team_task_purposes')
-      .upsert({ title: task.title, criteria: el.value, updated_at: nowIso }, { onConflict: 'title' })
-      .then(r => (r.error ? r : null));
-    if (!failed) jwTaskCriteria[task.title] = el.value;
-
-    const savedEl = document.getElementById('jwCriteriaSaved' + id);
-    if (!savedEl) return;
-    savedEl.textContent = failed
-      ? '저장하지 못했습니다: ' + failed.error.message
-      : '저장됨 ' + new Date(nowIso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' });
   }
 
   function jwTaskDetailHtml(t) {
