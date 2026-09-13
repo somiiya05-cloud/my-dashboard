@@ -115,15 +115,23 @@ async function estimateItems(account, mode, by, device, items, state) {
   }
 }
 
+// Supabase 가 가끔 504 를 준다(2026-09-13 모바일 조각이 대상 키워드를 읽다 이것 하나로 실패). 5xx·429 만 다시 읽는다.
 async function supabaseGet(path) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    headers: {
-      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-    }
-  });
-  if (!res.ok) throw new Error(`Supabase 조회 실패 (${res.status}): ${await res.text().catch(() => '')}`);
-  return res.json();
+  let lastStatus = 0, lastText = '';
+  for (let attempt = 0; attempt <= 3; attempt++) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+      }
+    });
+    if (res.ok) return res.json();
+    lastStatus = res.status;
+    lastText = await res.text().catch(() => '');
+    if (!(res.status >= 500 || res.status === 429) || attempt === 3) break;
+    await sleep(Math.min(700 * Math.pow(2, attempt), 4000));
+  }
+  throw new Error(`Supabase 조회 실패 (${lastStatus}): ${lastText}`);
 }
 
 // 최근 30일에 클릭이 있었던 키워드. by=keyword 는 글자 목록, by=id 는 { keyword_id → { keyword, account_id } }.
@@ -136,13 +144,32 @@ async function loadTargets(fromDate, by) {
     );
     for (const r of rows) {
       if (by === 'id') {
-        // 계정을 모르는 옛 행(account_id 를 저장하기 전)은 건너뛴다 — 계정 없이는 ID 로 조회할 수 없다.
-        if (r.keyword_id && r.account_id) map.set(r.keyword_id, { keyword: r.keyword, account_id: r.account_id });
+        if (!r.keyword_id) continue;
+        const cur = map.get(r.keyword_id) || { keyword: r.keyword, account_id: null };
+        if (r.account_id) cur.account_id = r.account_id;
+        map.set(r.keyword_id, cur);
       } else if (r.keyword) {
         map.set(r.keyword, { keyword: r.keyword });
       }
     }
     if (rows.length < 1000) break;
+  }
+  if (by === 'id') {
+    // 계정 번호는 2026-09-13 부터 저장해서, 그 뒤로 활동이 없던 키워드는 일별 표에 계정이 없다.
+    // 월간 표는 매일 이번 달 키워드를 전부 다시 쓰므로 거기서 찾는다. 그래도 모르면 조회에서 뺀다.
+    const missing = [...map.values()].filter((t) => !t.account_id).length;
+    if (missing) {
+      for (let offset = 0; ; offset += 1000) {
+        const rows = await supabaseGet(
+          `naver_keyword_performance?select=keyword_id,account_id&month=gte.${fromDate.slice(0, 7)}&month=lte.${seoulDate().slice(0, 7)}&account_id=not.is.null&order=id&offset=${offset}&limit=1000`
+        );
+        for (const r of rows) {
+          const cur = map.get(r.keyword_id);
+          if (cur && !cur.account_id) cur.account_id = r.account_id;
+        }
+        if (rows.length < 1000) break;
+      }
+    }
   }
   return map;
 }
@@ -207,6 +234,8 @@ module.exports = async function handler(req, res) {
 
   try {
     let targets = [...(await loadTargets(seoulDate(-(TARGET_DAYS - 1)), by)).entries()];
+    const unknownAccount = by === 'id' ? targets.filter(([, t]) => !t.account_id).length : 0;
+    if (by === 'id') targets = targets.filter(([, t]) => t.account_id);
     if (limit) targets = targets.slice(0, limit);
     console.log(`[bid-estimate][${by}][${device}] 대상 키워드 ${targets.length}개 (${elapsed()})`);
 
@@ -241,6 +270,7 @@ module.exports = async function handler(req, res) {
       keywordCount: targets.length,
       perAccount,
       noAccountCount: noAccount,
+      unknownAccountCount: unknownAccount,
       savedCount: rows.length,
       requests: state.requests,
       skippedCount: state.skipped.size,
