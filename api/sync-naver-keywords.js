@@ -182,17 +182,32 @@ function classifySalesChannel(url) {
 // BULK_BATCH_SIZE개씩 묶고, 그 배치들을 BULK_CONCURRENCY만큼 동시에 조회해서
 // 키워드가 수천 개인 계정(쇼핑검색은 상품마다 키워드가 자동 생성돼 아주 많아짐)도
 // 시간 안에 끝낼 수 있게 합니다. 반환값은 id -> 합계 Map.
-async function fetchBulkTotals(account, ids, since, until, debugSample) {
+// opts.withRank 가 true 면 평균 노출 순위(avgRnk)도 같이 받는다(키워드 조회에서만 쓴다).
+// 네이버가 이 항목을 거절(400)해도 성과 수집 자체는 멈추면 안 되므로, 그땐 순위 없이 다시
+// 조회하고 opts.rankUnsupported 를 켜서 남은 배치는 처음부터 순위 없이 조회한다.
+async function fetchBulkTotals(account, ids, since, until, debugSample, opts = {}) {
   const totalsById = new Map();
+  const baseFields = ['salesAmt', 'impCnt', 'clkCnt', 'ccnt', 'convAmt'];
+  const timeRange = JSON.stringify({ since, until });
   const batches = [];
   for (let i = 0; i < ids.length; i += BULK_BATCH_SIZE) batches.push(ids.slice(i, i + BULK_BATCH_SIZE));
 
   await mapWithConcurrency(batches, BULK_CONCURRENCY, async (batch, i) => {
-    const data = await naverRequest(account, 'GET', '/stats', {
-      ids: batch,
-      fields: JSON.stringify(['salesAmt', 'impCnt', 'clkCnt', 'ccnt', 'convAmt']),
-      timeRange: JSON.stringify({ since, until })
-    });
+    let data = null;
+    if (opts.withRank && !opts.rankUnsupported) {
+      try {
+        data = await naverRequest(account, 'GET', '/stats', {
+          ids: batch, fields: JSON.stringify([...baseFields, 'avgRnk']), timeRange
+        });
+      } catch (e) {
+        if (!String(e).includes('(400)')) throw e;
+        opts.rankUnsupported = true;
+        console.log(`[naver-keywords][${account.label}] 평균 순위(avgRnk) 조회 거절 — 순위 없이 계속합니다: ${String(e).slice(0, 300)}`);
+      }
+    }
+    if (!data) {
+      data = await naverRequest(account, 'GET', '/stats', { ids: batch, fields: JSON.stringify(baseFields), timeRange });
+    }
     if (debugSample && i === 0) {
       debugSample.raw = data;
       console.log(`[naver-keywords][DEBUG] 벌크 통계 원본 응답: ${JSON.stringify(data).slice(0, 1500)}`);
@@ -204,7 +219,8 @@ async function fetchBulkTotals(account, ids, since, until, debugSample) {
         impressions: Number(r.impCnt) || 0,
         clicks: Number(r.clkCnt) || 0,
         conversions: Number(r.ccnt) || 0,
-        revenue: Number(r.convAmt) || 0
+        revenue: Number(r.convAmt) || 0,
+        ...(opts.withRank ? { avg_rank: Number(r.avgRnk) > 0 ? Number(r.avgRnk) : null } : {})
       });
     }
   }, BULK_REQUEST_GAP_MS);
@@ -311,7 +327,10 @@ async function syncNaverKeywordsForAccount(account, since, until, rowMeta, debug
   const adgroupTargets = [];
   for (const { channel, campaignName, adgroups } of campaignAdgroups) {
     for (const ag of adgroups) {
-      adgroupTargets.push({ channel, campaignName, adgroupId: ag.nccAdgroupId, adgroupName: ag.name });
+      adgroupTargets.push({
+        channel, campaignName, adgroupId: ag.nccAdgroupId, adgroupName: ag.name,
+        adgroupBidAmt: Number(ag.bidAmt) > 0 ? Number(ag.bidAmt) : null
+      });
     }
   }
   console.log(`[naver-keywords][${account.label}] 광고그룹 ${adgroupTargets.length}개 조회 완료 (${elapsed()})`);
@@ -356,7 +375,10 @@ async function syncNaverKeywordsForAccount(account, since, until, rowMeta, debug
         adgroup: t.adgroupName,
         adgroupId: t.adgroupId,
         keyword: kw.keyword,
-        keywordId: kw.nccKeywordId
+        keywordId: kw.nccKeywordId,
+        // 광고그룹 입찰가를 따르는 키워드는 키워드 쪽 bidAmt 가 실제 입찰가가 아니다 — 광고그룹 값을 쓴다.
+        useGroupBid: !!kw.useGroupBidAmt,
+        bidAmt: kw.useGroupBidAmt ? t.adgroupBidAmt : (Number(kw.bidAmt) > 0 ? Number(kw.bidAmt) : null)
       });
     }
   }
@@ -369,7 +391,8 @@ async function syncNaverKeywordsForAccount(account, since, until, rowMeta, debug
     keywordTargets.map((t) => t.keywordId),
     since,
     until,
-    debug ? keywordBulkDebug : null
+    debug ? keywordBulkDebug : null,
+    { withRank: true }
   );
   const rows = keywordTargets.map((t) => {
     const channelInfo = adgroupSalesChannel.get(t.adgroupId) || { landingUrl: null, salesChannel: null };
@@ -382,7 +405,9 @@ async function syncNaverKeywordsForAccount(account, since, until, rowMeta, debug
       keyword_id: t.keywordId,
       landing_url: channelInfo.landingUrl,
       sales_channel: channelInfo.salesChannel,
-      ...(keywordTotals.get(t.keywordId) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 })
+      bid_amt: t.bidAmt,
+      use_group_bid: t.useGroupBid,
+      ...(keywordTotals.get(t.keywordId) || { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0, avg_rank: null })
     };
   });
   console.log(`[naver-keywords][${account.label}] 키워드별 성과 수집 완료 (${elapsed()})`);
