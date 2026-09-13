@@ -1063,6 +1063,8 @@
   }
   .channel-table th { font-size: 11px; color: #64748b; font-weight: 600; }
   .channel-table td.num, .channel-table th.num { text-align: right; font-size: 12px; }
+  /* 주차 헤더의 실제 날짜 범위 (예: "2주차" 아래 "9/7~9/13") */
+  .channel-table th .col-sub { display: block; font-size: 10.5px; font-weight: 600; color: #94a3b8; margin-top: 2px; }
   .channel-table th:first-child, .channel-table td:first-child { width: 60px; padding-left: 8px; }
   .channel-table th:nth-child(2), .channel-table td:nth-child(2) { width: 130px; padding-right: 8px; }
   .channel-total-row td { font-weight: 800; color: #0f172a; background: rgba(77,124,254,.08); }
@@ -4044,7 +4046,26 @@
   // 매일 전날 매출을 마감하는 워크플로우라 지난 날짜를 하나하나 펼쳐둘 필요가 없기 때문입니다.
   let channelViewMode = 'today';
   let currentChannelMonth = '';
-  const WEEK_LABELS = ['1~7일', '8~14일', '15~21일', '22~28일', '29~31일'];
+
+  // 주차는 월요일에 시작해 일요일에 끝납니다. 1일이 낀 주가 그 달의 1주차이고,
+  // 그래서 1주차는 1일이 무슨 요일이냐에 따라 짧을 수 있습니다.
+  // (예: 2026년 9월은 1일이 화요일 → 1주차 = 9/1~9/6, 2주차 = 9/7~9/13)
+  function weekNoOfMonth(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const firstDow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(); // 0=일 … 6=토
+    const backToMonday = (firstDow + 6) % 7;                      // 1일이 속한 주의 월요일까지 며칠 전인지
+    const firstMonday = Date.UTC(y, m - 1, 1 - backToMonday);
+    return Math.floor((Date.UTC(y, m - 1, d) - firstMonday) / 604800000) + 1;
+  }
+
+  // 실제로 매출이 있는 날짜만 모이므로, 그 주에 담긴 날짜의 처음~끝으로 범위를 적습니다.
+  function weekColumnLabel(weekNo, daysInWeek) {
+    const short = (s) => { const [, m, d] = s.split('-'); return Number(m) + '/' + Number(d); };
+    const first = daysInWeek[0];
+    const last = daysInWeek[daysInWeek.length - 1];
+    const range = first === last ? short(first) : `${short(first)}~${short(last)}`;
+    return `${weekNo}주차<span class="col-sub">${range}</span>`;
+  }
 
   function toggleChannelDays() {
     channelViewMode = (channelViewMode === 'today') ? 'weekly' : 'today';
@@ -4080,13 +4101,12 @@
     if (channelViewMode === 'weekly') {
       const buckets = {};
       days.forEach(d => {
-        const dom = Number(d.split('-')[2]);
-        const idx = Math.min(4, Math.floor((dom - 1) / 7));
-        if (!buckets[idx]) buckets[idx] = [];
-        buckets[idx].push(d);
+        const no = weekNoOfMonth(d);
+        if (!buckets[no]) buckets[no] = [];
+        buckets[no].push(d);
       });
       columns = Object.keys(buckets).map(Number).sort((a, b) => a - b)
-        .map(idx => ({ label: WEEK_LABELS[idx], days: buckets[idx] }));
+        .map(no => ({ label: weekColumnLabel(no, buckets[no]), days: buckets[no] }));
     } else {
       const lastDay = days[days.length - 1];
       columns = lastDay ? [{ label: (() => { const [, m, dd] = lastDay.split('-'); return Number(m) + '/' + Number(dd); })(), days: [lastDay] }] : [];
@@ -5710,6 +5730,10 @@
       const el = document.getElementById('jwPurpose' + id);
       if (el && el.value) autoGrowTextarea(el);
     });
+    jwOpenCriteriaIds.forEach((id) => {
+      const el = document.getElementById('jwCriteria' + id);
+      if (el && el.value) autoGrowTextarea(el);
+    });
   }
 
   function renderJwView() {
@@ -6339,7 +6363,7 @@
       : '';
     const row = `
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}">
-        <div class="jw-task-row-title clickable" onclick="jwToggleDetail(${t.id})" title="누르면 업무 목적·댓글이 펼쳐집니다">${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwHasComment(t.id) ? '<span class="jw-comment-tag">코멘트 있음</span>' : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}</div>
+        <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwHasComment(t.id) ? '<span class="jw-comment-tag">코멘트 있음</span>' : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}</div>
         <div class="jw-task-row-checks">
           ${gbBtn}
           <button type="button" class="jw-detail-btn${jwOpenDetailIds.has(t.id) ? ' open' : ''}"
@@ -6351,7 +6375,7 @@
         </div>
       </div>
     `;
-    return `<div class="jw-task-row-wrap" data-taskid="${t.id}">${row}${isGroupbuy ? jwGroupbuyBannerHtml() : ''}${jwTaskDetailHtml(t)}</div>`;
+    return `<div class="jw-task-row-wrap" data-taskid="${t.id}">${row}${isGroupbuy ? jwGroupbuyBannerHtml() : ''}${jwTaskCriteriaHtml(t)}${jwTaskDetailHtml(t)}</div>`;
   }
 
   // ---- 상세보기 아코디언: 업무 목적 · 파트장 코멘트 · 담당자 답글 ----
@@ -6364,25 +6388,37 @@
   // 목적/코멘트는 team_task_purposes · team_task_notes 테이블에 저장합니다.
   // 화면을 그릴 때마다 조회하면 느리므로, 업무 목록을 불러올 때 한 번에 받아 여기 담아두고
   // 그리기는 이 메모리 값만 보고 합니다 (저장하면 이 값도 같이 갱신).
-  let jwTaskPurposes = {};   // { 업무명: 목적 }
+  let jwTaskPurposes = {};   // { 업무명: 업무 목적 }
+  let jwTaskCriteria = {};   // { 업무명: 업무 기준 }
   let jwTaskComments = {};   // { 업무id: [댓글 행, ...] }
   let jwNotesLoadError = ''; // 테이블이 아직 없을 때 안내에 씁니다
 
   async function loadJwNotes() {
     jwNotesLoadError = '';
-    const [purposeRes, cmtRes] = await Promise.all([
-      client.from('team_task_purposes').select('title,purpose'),
+    let [purposeRes, cmtRes] = await Promise.all([
+      client.from('team_task_purposes').select('title,purpose,criteria'),
       client.from('team_task_comments').select('id,task_id,parent_id,author,body,created_at').order('created_at'),
     ]);
+    // 업무 기준(criteria) 칸을 아직 만들지 않았을 수 있습니다. 그 경우 칸 없이 다시 조회해서
+    // 이미 적어둔 업무 목적과 댓글은 그대로 보이게 합니다 (업무 기준만 비어 보입니다).
+    if (purposeRes.error) {
+      const retry = await client.from('team_task_purposes').select('title,purpose');
+      if (!retry.error) purposeRes = retry;
+    }
     if (purposeRes.error || cmtRes.error) {
       // 보통은 team_task_notes.sql / team_task_comments.sql 을 아직 실행하지 않은 경우입니다.
       jwNotesLoadError = (purposeRes.error || cmtRes.error).message;
       jwTaskPurposes = {};
+      jwTaskCriteria = {};
       jwTaskComments = {};
       return;
     }
     jwTaskPurposes = {};
-    (purposeRes.data || []).forEach(r => { jwTaskPurposes[r.title] = r.purpose || ''; });
+    jwTaskCriteria = {};
+    (purposeRes.data || []).forEach(r => {
+      jwTaskPurposes[r.title] = r.purpose || '';
+      jwTaskCriteria[r.title] = r.criteria || '';
+    });
     jwTaskComments = {};
     (cmtRes.data || []).forEach(r => {
       (jwTaskComments[r.task_id] = jwTaskComments[r.task_id] || []).push(r);
@@ -6398,6 +6434,70 @@
   }
   function jwHasComment(id) {
     return (jwTaskComments[id] || []).length > 0;
+  }
+
+  // 업무명을 누르면 열리는 "업무 기준" 칸. 업무 목적과는 별개 내용입니다.
+  const jwOpenCriteriaIds = new Set();
+
+  function jwCriteriaOf(t) {
+    return jwTaskCriteria[t.title] || '';
+  }
+
+  function jwTaskCriteriaHtml(t) {
+    const open = jwOpenCriteriaIds.has(t.id);
+    return `
+      <div class="jw-task-detail" id="jwCriteriaBox${t.id}"${open ? '' : ' hidden'}>
+        <div>
+          <div class="jw-detail-label">업무 기준</div>
+          <textarea class="jw-detail-input" rows="1" id="jwCriteria${t.id}" placeholder="이 업무를 어떤 기준으로 진행하는지 적어두면 같은 업무에 매일 그대로 보입니다."
+            oninput="autoGrowTextarea(this); jwAutoSaveCriteria(${t.id})" onblur="jwSaveCriteriaNow(${t.id})">${escapeAttr(jwCriteriaOf(t))}</textarea>
+          <div class="jw-detail-saved" id="jwCriteriaSaved${t.id}"></div>
+        </div>
+      </div>`;
+  }
+
+  async function jwToggleCriteria(id) {
+    if (jwOpenCriteriaIds.has(id)) {
+      await jwSaveCriteriaNow(id);
+      jwOpenCriteriaIds.delete(id);
+    } else {
+      jwOpenCriteriaIds.add(id);
+    }
+    renderJwView();
+  }
+
+  const jwCriteriaTimers = {};
+  function jwAutoSaveCriteria(id) {
+    clearTimeout(jwCriteriaTimers[id]);
+    const el = document.getElementById('jwCriteriaSaved' + id);
+    if (el) el.textContent = '입력 중...';
+    jwCriteriaTimers[id] = setTimeout(() => jwSaveCriteria(id), 700);
+  }
+  function jwSaveCriteriaNow(id) {
+    clearTimeout(jwCriteriaTimers[id]);
+    return jwSaveCriteria(id);
+  }
+
+  async function jwSaveCriteria(id) {
+    const el = document.getElementById('jwCriteria' + id);
+    if (!el) return;
+    const task = currentTasks.find(x => x.id === id);
+    if (!task) return;
+    // 아무것도 적지 않고 열었다 닫기만 한 경우에는 빈 행을 만들지 않습니다.
+    if (!el.value.trim() && jwTaskCriteria[task.title] == null) return;
+
+    const nowIso = new Date().toISOString();
+    // criteria 만 보내므로 같은 줄의 업무 목적(purpose)은 건드리지 않습니다.
+    const failed = await client.from('team_task_purposes')
+      .upsert({ title: task.title, criteria: el.value, updated_at: nowIso }, { onConflict: 'title' })
+      .then(r => (r.error ? r : null));
+    if (!failed) jwTaskCriteria[task.title] = el.value;
+
+    const savedEl = document.getElementById('jwCriteriaSaved' + id);
+    if (!savedEl) return;
+    savedEl.textContent = failed
+      ? '저장하지 못했습니다: ' + failed.error.message
+      : '저장됨 ' + new Date(nowIso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' });
   }
 
   function jwTaskDetailHtml(t) {
