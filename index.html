@@ -263,6 +263,9 @@
      아래 상태 색(진행중·완료·지연)이 뒤에 와서 그때는 상태 색이 이깁니다. */
   .jw-task-row.top { background: #eef2fb; border-color: rgba(77,124,254,.28); }
   .jw-task-row-title { font-size: 13.5px; font-weight: 700; color: #0f172a; min-width: 0; }
+  /* 업무명을 눌러도 업무목적 상세가 열립니다 */
+  .jw-task-row-title.clickable { cursor: pointer; }
+  .jw-task-row-title.clickable:hover { color: #2f5ce4; }
   /* 업무명 앞 번호 배지 — inline-flex라 완료 시 제목에 걸리는 취소선이 번호까지 번지지 않고,
      고정 너비라 자릿수가 달라져도 업무명 시작 위치가 흐트러지지 않음 */
   .jw-task-no {
@@ -5700,10 +5703,20 @@
     return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
   }
 
+  // 펼쳐 놓은 업무 목적 칸은 적힌 내용만큼 높이를 늘려 전부 보이게 합니다.
+  // 기본은 한 줄이고, 여러 줄이 적혀 있을 때만 그만큼 커집니다.
+  function jwGrowOpenPurposes() {
+    jwOpenDetailIds.forEach((id) => {
+      const el = document.getElementById('jwPurpose' + id);
+      if (el && el.value) autoGrowTextarea(el);
+    });
+  }
+
   function renderJwView() {
     renderJwToolbar();
     renderJwTaskList('jwAmBody', '오전 필수업무');
     renderJwPmChecklist();
+    jwGrowOpenPurposes();
     // 공구 일정·런칭 건수는 별도 테이블이라 비동기로 받아온 뒤 목록을 다시 그립니다.
     Promise.all([loadJwGroupbuyToday(), loadJwLaunchCount()]).then(renderJwGroupbuyLists);
   }
@@ -5712,6 +5725,7 @@
   function renderJwGroupbuyLists() {
     renderJwTaskList('jwAmBody', '오전 필수업무');
     renderJwPmChecklist();
+    jwGrowOpenPurposes();
   }
 
   // ---- 신제품 광고세팅: 다우게시판 "런칭" 글 건수 배지 ----
@@ -6325,7 +6339,7 @@
       : '';
     const row = `
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}">
-        <div class="jw-task-row-title">${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwHasComment(t.id) ? '<span class="jw-comment-tag">코멘트 있음</span>' : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}</div>
+        <div class="jw-task-row-title clickable" onclick="jwToggleDetail(${t.id})" title="누르면 업무 목적·댓글이 펼쳐집니다">${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwHasComment(t.id) ? '<span class="jw-comment-tag">코멘트 있음</span>' : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}</div>
         <div class="jw-task-row-checks">
           ${gbBtn}
           <button type="button" class="jw-detail-btn${jwOpenDetailIds.has(t.id) ? ' open' : ''}"
@@ -6393,7 +6407,7 @@
         <div>
           <div class="jw-detail-label">업무 목적</div>
           <textarea class="jw-detail-input" rows="1" id="jwPurpose${t.id}" placeholder="이 업무를 왜 하는지 적어두면 같은 업무에 매일 그대로 보입니다."
-            oninput="jwAutoSave(${t.id})" onblur="jwSaveNow(${t.id})">${escapeAttr(jwPurposeOf(t))}</textarea>
+            oninput="autoGrowTextarea(this); jwAutoSave(${t.id})" onblur="jwSaveNow(${t.id})">${escapeAttr(jwPurposeOf(t))}</textarea>
           <div class="jw-detail-saved" id="jwSaved${t.id}">${jwNotesLoadError
             ? '저장용 테이블이 없습니다 — team_task_notes.sql 을 먼저 실행하세요'
             : ''}</div>
