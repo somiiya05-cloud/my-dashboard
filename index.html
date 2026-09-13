@@ -461,6 +461,8 @@
   }
   .deal-stage-check input { margin: 0; cursor: pointer; }
   .deal-stage-check.done { color: #15803d; font-weight: 700; }
+  /* 추가 폼 줄에서는 한 줄이 길어지지 않게 가로로 늘어놓습니다 */
+  .deal-stage-checks.inline { flex-direction: row; gap: 10px; align-items: center; }
 
   /* 정산 목록 검색창 — 공동구매/수출 토글 옆에 놓입니다 */
   .settlement-search {
@@ -752,7 +754,13 @@
 
   .gs-day-bg { grid-column: var(--c); grid-row: 1 / -1; border-left: 1px solid rgba(15,23,42,.07); }
   .gs-day-bg.adjacent { background: #f8f9fb; }
-  .gs-day-bg.today { background: rgba(77,124,254,.08); }
+  /* 오늘은 배경만으로는 눈에 잘 안 띄어서 칸 전체에 테두리를 둘러 표시합니다.
+     자리를 밀지 않도록 border 대신 안쪽 그림자를 씁니다. */
+  .gs-day-bg.today {
+    background: rgba(77,124,254,.08);
+    box-shadow: inset 0 0 0 2px #2f5ce4;
+    border-radius: 4px;
+  }
 
   .gs-day-num {
     grid-row: 1; grid-column: var(--c); font-size: 10.5px; font-weight: 600; color: #475569;
@@ -2221,12 +2229,7 @@
             </select>
             <select name="partnerId" id="partnerDealFormPartner" required style="flex:1; min-width:130px;"></select>
             <input type="text" name="title" placeholder="거래 건명" required style="flex:1; min-width:140px;">
-            <select name="stage" style="width:130px;">
-              <option value="문의 접수">문의 접수</option>
-              <option value="입금 완료">입금 완료</option>
-              <option value="출고 준비">출고 준비</option>
-              <option value="출고 완료">출고 완료</option>
-            </select>
+            <div class="deal-stage-checks inline" id="dealFormStages" title="진행 단계"></div>
             <input type="number" name="expectedAmount" placeholder="예상 매출액(원)" style="width:140px;">
             <input type="text" name="memo" placeholder="특이사항(선택)" style="flex:1; min-width:120px;">
             <button type="submit" class="btn-primary">추가</button>
@@ -3605,8 +3608,31 @@
 
   // ---- 진행 중 거래 건 관리 (영업 파이프라인) ----
   function renderPartnerDealFormOptions() {
+    renderDealFormStages();
     const opts = partnerRows.map((p) => `<option value="${p.id}">${escapeAttr(p.name)}</option>`).join('');
     document.getElementById('partnerDealFormPartner').innerHTML = opts || '<option value="">거래처를 먼저 추가하세요</option>';
+  }
+
+  // 추가 폼의 진행 단계도 표와 같은 체크박스로 고릅니다. 고른 단계(가장 마지막에 체크된 것)가
+  // 등록될 stage 값이고, 앞 단계는 자동으로 체크된 모습이 됩니다.
+  let dealFormStageIndex = 0;
+
+  function renderDealFormStages() {
+    const box = document.getElementById('dealFormStages');
+    if (!box) return;
+    box.innerHTML = DEAL_STAGES.map((stage, i) => {
+      const done = i <= dealFormStageIndex;
+      return `<label class="deal-stage-check${done ? ' done' : ''}">
+        <input type="checkbox"${done ? ' checked' : ''} onchange="setDealFormStage(${i}, this.checked)">${escapeAttr(stage)}
+      </label>`;
+    }).join('');
+  }
+
+  function setDealFormStage(index, checked) {
+    // 표와 같은 방식: 체크하면 그 단계로, 해제하면 한 단계 앞으로. 첫 단계는 항상 체크된 채로 둡니다.
+    const next = checked ? index : index - 1;
+    dealFormStageIndex = next < 0 ? 0 : next;
+    renderDealFormStages();
   }
 
   // 진행 단계를 드롭다운 대신 체크박스로 보여줍니다.
@@ -3666,7 +3692,7 @@
       category: form.category.value,
       partner_id: Number(partnerId),
       title,
-      stage: form.stage.value,
+      stage: DEAL_STAGES[dealFormStageIndex],
       expected_amount: form.expectedAmount.value === '' ? null : Number(form.expectedAmount.value),
       payment_terms: null,
       collection_status: '미발생',
@@ -3677,6 +3703,8 @@
     }]);
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
     form.reset();
+    dealFormStageIndex = 0;   // 다음 등록을 위해 첫 단계로 되돌립니다
+    renderDealFormStages();
     loadPartnerOverview();
   });
 
