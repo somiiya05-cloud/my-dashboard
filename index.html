@@ -6388,7 +6388,7 @@
       <div class="jw-task-detail" id="jwDetail${t.id}"${open ? '' : ' hidden'}>
         <div>
           <div class="jw-detail-label">업무 목적</div>
-          <textarea class="jw-detail-input" id="jwPurpose${t.id}" placeholder="이 업무를 왜 하는지 적어두면 같은 업무에 매일 그대로 보입니다."
+          <textarea class="jw-detail-input" rows="1" id="jwPurpose${t.id}" placeholder="이 업무를 왜 하는지 적어두면 같은 업무에 매일 그대로 보입니다."
             oninput="jwAutoSave(${t.id})" onblur="jwSaveNow(${t.id})">${escapeAttr(jwPurposeOf(t))}</textarea>
           <div class="jw-detail-saved" id="jwSaved${t.id}">${jwNotesLoadError
             ? '저장용 테이블이 없습니다 — team_task_notes.sql 을 먼저 실행하세요'
