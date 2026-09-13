@@ -222,12 +222,6 @@
     background: rgba(255,255,255,.25); border-radius: 999px; padding: 1px 7px;
     font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums;
   }
-  /* 인플루언서/거래처명 — 길면 말줄임 (전체 이름은 마우스를 올리면 보입니다) */
-  .jw-settle-banner .who {
-    max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    padding-left: 2px; border-left: 1px solid rgba(255,255,255,.35); padding-left: 8px; margin-left: 2px;
-  }
-  .jw-settle-banner .when { font-size: 11.5px; font-weight: 600; opacity: .9; }
 
   /* 긴급 업무를 그 날짜 목록 맨 끝(= 다음 스텝)에 추가하는 버튼 */
   .jw-urgent-add-btn {
@@ -761,6 +755,13 @@
   .gs-empty { font-size: 13px; color: #64748b; padding: 24px 0; text-align: center; }
   .gs-row-done { background: rgba(220,38,38,.05); }
   .gs-row-done .inline-edit { color: #dc2626; font-weight: 600; }
+  /* 정산일이 됐는데 아직 "대기"인 공동구매 — 연한 파랑으로 살짝 떠 보이게 */
+  .gs-row-due td {
+    background: linear-gradient(#f3f7ff, #dfeaff);
+    box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(47,92,228,.22);
+  }
+  .gs-row-due td:first-child { box-shadow: inset 3px 0 0 #2f5ce4, inset 0 1px 0 #fff, inset 0 -1px 0 rgba(47,92,228,.22); }
+  .gs-row-due .inline-edit { color: #1e3a8a; font-weight: 700; }
   .gs-cal-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
   .gs-cal-nav .gs-cal-month { font-size: 15px; font-weight: 700; flex: 1; }
   .gs-cal-nav .gs-cal-month .gs-muted { color: #64748b; font-weight: 500; font-size: 12.5px; }
@@ -5812,35 +5813,19 @@
     jwSettleDue = error ? [] : (data || []);
   }
 
-  // "9/13" 처럼 짧게. 정산일이 오늘보다 지났으면 얼마나 밀렸는지도 붙입니다.
-  function jwSettleDateLabel(dateStr) {
-    if (!dateStr) return '';
-    const [, m, d] = dateStr.split('-');
-    const label = `${Number(m)}/${Number(d)}`;
-    const today = jwTodayKST();
-    if (dateStr === today) return label + ' 오늘';
-    const days = Math.round((new Date(today + 'T00:00:00Z') - new Date(dateStr + 'T00:00:00Z')) / 86400000);
-    return days > 0 ? `${label} · ${days}일 지남` : label;
-  }
-
   function renderJwSettleBanner() {
     const box = document.getElementById('jwSettleBanner');
     if (!box) return;
     if (!jwSettleDue.length) { box.innerHTML = ''; return; }
 
-    // 어떤 정산인지 바로 알아볼 수 있게 인플루언서/거래처명과 정산일을 배너에 씁니다.
-    // 여러 건이면 가장 오래된 건을 쓰고 "외 N건"을 붙입니다(전체 목록은 마우스를 올리면 보입니다).
-    const first = jwSettleDue[0];
-    const name = first.partner || '(이름 없음)';
-    const date = jwSettleDateLabel(first.settlement_date);
-    const more = jwSettleDue.length > 1 ? `<span class="cnt">외 ${jwSettleDue.length - 1}건</span>` : '';
+    // 배너에는 건수만 씁니다. 어떤 정산인지는 누르면 넘어가는 정산 목록에서
+    // 해당 줄이 연한 파랑으로 떠 보이게 표시됩니다.
     const tip = jwSettleDue
       .map((r) => `${r.partner || '(이름 없음)'} — 정산일 ${r.settlement_date || '미정'}`)
-      .join('\n') + '\n\n누르면 정산 화면으로 갑니다';
+      .join('\n') + '\n\n누르면 정산 목록으로 갑니다';
 
-    box.innerHTML = `<button type="button" class="jw-settle-banner" title="${escapeAttr(tip)}" onclick="jwGoToSettlement()">
-      공동구매 정산<span class="who">${escapeAttr(name)}</span><span class="when">${escapeAttr(date)}</span>${more}
-    </button>`;
+    box.innerHTML = `<button type="button" class="jw-settle-banner" title="${escapeAttr(tip)}"
+      onclick="jwGoToSettlement()">공동구매 정산<span class="cnt">${jwSettleDue.length}</span></button>`;
   }
 
   // 배너를 누르면 프로모션 > 정산 화면으로 이동합니다.
@@ -7908,8 +7893,14 @@
         : '<tr><td colspan="10" class="gs-empty">등록된 정산 내역이 없습니다.</td></tr>';
       return;
     }
+    // 정산일이 오늘이거나 지났는데 아직 대기인 공동구매는 눈에 띄게 표시합니다
+    // (전휘원 화면 상단 배너가 세는 기준과 같습니다).
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    const isDue = (r) => r.category === '공동구매' && r.status === '대기'
+      && r.settlement_date && r.settlement_date <= todayStr;
+
     table.innerHTML = rows.map((r) => `
-      <tr class="${r.status === '완료' ? 'gs-row-done' : ''}">
+      <tr class="${r.status === '완료' ? 'gs-row-done' : (isDue(r) ? 'gs-row-due' : '')}">
         <td>
           <select class="inline-edit" onchange="updateSettlementField(${r.id}, 'category', this.value)">
             <option value="공동구매"${r.category === '공동구매' ? ' selected' : ''}>공동구매</option>
