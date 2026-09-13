@@ -5732,13 +5732,43 @@
 
   function jwOnVisible() { if (!document.hidden) refreshJwAlerts(); }
 
+  // 변경 알림이 한꺼번에 여러 개 올 수 있어 0.3초 모아서 한 번만 다시 셉니다.
+  let jwAlertDebounce = null;
+  function scheduleJwAlertRefresh() {
+    clearTimeout(jwAlertDebounce);
+    jwAlertDebounce = setTimeout(refreshJwAlerts, 300);
+  }
+
+  // Supabase 실시간 구독 — 거래 건/정산이 바뀌는 즉시 알림을 받습니다.
+  // realtime_alerts.sql 로 두 표의 실시간 발행을 켜야 동작합니다.
+  // 켜지지 않았거나 연결이 끊겨도 아래 30초 주기 갱신이 받쳐주므로 숫자가 틀어지지 않습니다.
+  let jwRealtimeChannel = null;
+  let jwRealtimeStatus = '연결 안 함';
+
+  function startJwRealtime() {
+    if (jwRealtimeChannel) return;
+    jwRealtimeChannel = client.channel('jw-alerts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'partner_deals' }, scheduleJwAlertRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settlements' }, scheduleJwAlertRefresh)
+      .subscribe((status) => { jwRealtimeStatus = status; });
+  }
+
+  function stopJwRealtime() {
+    if (!jwRealtimeChannel) return;
+    client.removeChannel(jwRealtimeChannel);
+    jwRealtimeChannel = null;
+    jwRealtimeStatus = '연결 안 함';
+  }
+
   function startJwLiveRefresh() {
+    startJwRealtime();
     if (jwLiveTimer) return;
     jwLiveTimer = setInterval(refreshJwAlerts, JW_LIVE_INTERVAL_MS);
     document.addEventListener('visibilitychange', jwOnVisible);
   }
 
   function stopJwLiveRefresh() {
+    stopJwRealtime();
     if (!jwLiveTimer) return;
     clearInterval(jwLiveTimer);
     jwLiveTimer = null;
