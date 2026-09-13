@@ -453,6 +453,15 @@
   .task-chip.active { background: #0f172a; color: #fff; border-color: #0f172a; }
   .task-chip.review-chip.active { background: #b45309; border-color: #b45309; }
   .task-filter-bar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  /* 진행 단계 체크박스 — 드롭다운 대신 단계를 한눈에 보고 체크합니다 */
+  .deal-stage-checks { display: flex; flex-direction: column; gap: 2px; }
+  .deal-stage-check {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11.5px; color: #64748b; white-space: nowrap; cursor: pointer;
+  }
+  .deal-stage-check input { margin: 0; cursor: pointer; }
+  .deal-stage-check.done { color: #15803d; font-weight: 700; }
+
   /* 정산 목록 검색창 — 공동구매/수출 토글 옆에 놓입니다 */
   .settlement-search {
     border: 1px solid rgba(15,23,42,.14); border-radius: 8px; padding: 6px 10px;
@@ -2226,7 +2235,7 @@
             <table>
               <thead><tr>
                 <th>구분</th><th>거래처명</th><th>거래 건명</th><th>진행 단계</th><th class="num">예상 매출액</th>
-                <th>입금 조건</th><th>수금 상태</th><th>다음 액션</th><th>예정일</th><th>담당자</th><th>특이사항</th><th></th>
+                <th>예정일</th><th>특이사항</th><th></th>
               </tr></thead>
               <tbody id="partnerDealTable"></tbody>
             </table>
@@ -3550,7 +3559,6 @@
   // 종료로 보는 단계 — "진행 중 거래 건수" 등 요약 지표에서 빠집니다.
   // 예전 종료 단계였던 '수금 완료'·'드랍'을 목록에서 빼면서, 마지막 단계인 '출고 완료'를 종료로 봅니다.
   const DEAL_CLOSED_STAGES = new Set(['출고 완료']);
-  const DEAL_COLLECTION_STATUSES = ['미발생', '수금 예정', '일부 수금', '수금 완료', '지연', '보류'];
 
   function ddayText(dueDate) {
     if (!dueDate) return '-';
@@ -3601,6 +3609,28 @@
     document.getElementById('partnerDealFormPartner').innerHTML = opts || '<option value="">거래처를 먼저 추가하세요</option>';
   }
 
+  // 진행 단계를 드롭다운 대신 체크박스로 보여줍니다.
+  // 단계는 순서대로 진행되므로 지금 단계까지가 모두 체크된 모습으로 그립니다.
+  //  · 어떤 단계를 체크하면  → 그 단계로 이동(앞 단계는 자동으로 체크된 상태가 됨)
+  //  · 지금 단계를 체크 해제 → 바로 앞 단계로 되돌아감(첫 단계면 그대로 둠)
+  function dealStageChecksHtml(d) {
+    const current = DEAL_STAGES.indexOf(d.stage);
+    return `<div class="deal-stage-checks">` + DEAL_STAGES.map((stage, i) => {
+      const done = current >= 0 && i <= current;
+      return `<label class="deal-stage-check${done ? ' done' : ''}">
+        <input type="checkbox"${done ? ' checked' : ''} onchange="setPartnerDealStage(${d.id}, ${i}, this.checked)">
+        ${escapeAttr(stage)}
+      </label>`;
+    }).join('') + `</div>`;
+  }
+
+  function setPartnerDealStage(id, index, checked) {
+    // 체크하면 그 단계로, 해제하면 한 단계 앞으로. 첫 단계를 해제하면 바뀔 곳이 없어 그대로 둡니다.
+    const next = checked ? index : index - 1;
+    if (next < 0) { renderPartnerDealTable(); return; }
+    updatePartnerDealField(id, 'stage', DEAL_STAGES[next]);
+  }
+
   function renderPartnerDealTable() {
     const partnerName = (id) => (partnerRows.find((p) => String(p.id) === String(id)) || {}).name || '(삭제된 거래처)';
     document.getElementById('partnerDealTable').innerHTML = partnerDealRows.length ? partnerDealRows.map((d) => `
@@ -3612,25 +3642,13 @@
         </td>
         <td>${escapeAttr(partnerName(d.partner_id))}</td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(d.title || '')}" onchange="updatePartnerDealField(${d.id}, 'title', this.value)"></td>
-        <td>
-          <select class="inline-edit" onchange="updatePartnerDealField(${d.id}, 'stage', this.value)">
-            ${optionsHtml(DEAL_STAGES, d.stage)}
-          </select>
-        </td>
+        <td>${dealStageChecksHtml(d)}</td>
         <td class="num"><input type="number" class="inline-edit num" value="${d.expected_amount ?? ''}" onchange="updatePartnerDealField(${d.id}, 'expected_amount', this.value)"></td>
-        <td><input type="text" class="inline-edit" value="${escapeAttr(d.payment_terms || '')}" onchange="updatePartnerDealField(${d.id}, 'payment_terms', this.value)"></td>
-        <td>
-          <select class="inline-edit" onchange="updatePartnerDealField(${d.id}, 'collection_status', this.value)">
-            ${optionsHtml(DEAL_COLLECTION_STATUSES, d.collection_status)}
-          </select>
-        </td>
-        <td><input type="text" class="inline-edit" value="${escapeAttr(d.next_action || '')}" onchange="updatePartnerDealField(${d.id}, 'next_action', this.value)"></td>
         <td><input type="date" class="inline-edit" value="${escapeAttr(d.due_date || '')}" onchange="updatePartnerDealField(${d.id}, 'due_date', this.value)"></td>
-        <td><input type="text" class="inline-edit" value="${escapeAttr(d.assignee || '')}" onchange="updatePartnerDealField(${d.id}, 'assignee', this.value)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(d.memo || '')}" onchange="updatePartnerDealField(${d.id}, 'memo', this.value)"></td>
         <td><button class="btn-danger" onclick="deletePartnerDeal(${d.id})">삭제</button></td>
       </tr>
-    `).join('') : '<tr><td colspan="12" class="gs-empty">진행 중인 거래 건이 없습니다. 위에서 추가해보세요.</td></tr>';
+    `).join('') : '<tr><td colspan="8" class="gs-empty">진행 중인 거래 건이 없습니다. 위에서 추가해보세요.</td></tr>';
   }
 
   document.getElementById('partnerDealForm').addEventListener('submit', async (e) => {
