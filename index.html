@@ -209,6 +209,20 @@
     position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%;
     border: 0; padding: 0; cursor: pointer;
   }
+  /* 공동구매 정산일이 된 건이 있으면 뜨는 알림 배너 */
+  .jw-settle-banner {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #dc2626; border: 1px solid #dc2626; color: #fff;
+    border-radius: 999px; padding: 7px 14px; font-size: 12.5px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    transition: background .12s ease;
+  }
+  .jw-settle-banner:hover { background: #b91c1c; }
+  .jw-settle-banner .cnt {
+    background: rgba(255,255,255,.25); border-radius: 999px; padding: 1px 7px;
+    font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums;
+  }
+
   /* 긴급 업무를 그 날짜 목록 맨 끝(= 다음 스텝)에 추가하는 버튼 */
   .jw-urgent-add-btn {
     background: #fff; color: #dc2626; border: 1px solid rgba(220,38,38,.4);
@@ -2497,6 +2511,7 @@
             <input type="date" id="jwDateInput" onchange="setJwViewDate(this.value)">
           </div>
           <button type="button" class="jw-urgent-add-btn" onclick="openJwUrgentTask()" title="이 날짜 업무 맨 끝에 긴급 업무를 추가합니다">+ 긴급 업무</button>
+          <span id="jwSettleBanner"></span>
           <button type="button" class="jw-today-btn" id="jwTodayBtn" style="display:none" onclick="setJwViewDate('')">오늘로</button>
         </div>
         <section class="panel">
@@ -5604,6 +5619,7 @@
     currentTasks = (data || []).map(t => ({ ...t, status: normalizeStatus(t.status) }));
     await loadJwNotes();           // 상세보기의 목적·코멘트를 화면 그리기 전에 받아둡니다
     await loadJwInvoicePending();  // "계산서 발행" 배지에 쓸 입금 완료 건수
+    await loadJwSettleDue();       // 정산일이 된 공동구매 건 (상단 배너)
     renderTaskAssigneeNav();
     updateTaskViewHeader();
     populateTaskFilterOptions();
@@ -5691,6 +5707,40 @@
   // 그래서 담당자가 다우게시판을 확인하고 +/- 로 직접 건수를 기록하는 방식입니다.
   // 하루 단위로 저장되므로 다음 날에는 0에서 다시 시작합니다.
   const JW_LAUNCH_GROUP = '신제품 광고세팅';
+
+  // ---- 공동구매 정산 알림 배너 ----
+  // 프로모션 > 정산에 등록된 공동구매 건 중, 정산일이 오늘이거나 지났는데
+  // 아직 "대기"인 건을 세어 전휘원 화면 위쪽에 배너로 띄웁니다.
+  // 정산 상태를 "완료"로 바꾸면 자동으로 사라집니다.
+  let jwSettleDue = [];
+
+  async function loadJwSettleDue() {
+    const today = jwTodayKST();
+    const { data, error } = await client.from('settlements')
+      .select('id,partner,settlement_date,status')
+      .eq('category', '공동구매')
+      .eq('status', '대기')
+      .lte('settlement_date', today)
+      .order('settlement_date');
+    jwSettleDue = error ? [] : (data || []);
+  }
+
+  function renderJwSettleBanner() {
+    const box = document.getElementById('jwSettleBanner');
+    if (!box) return;
+    if (!jwSettleDue.length) { box.innerHTML = ''; return; }
+    const names = jwSettleDue.slice(0, 3).map((r) => r.partner || '(이름 없음)').join(', ');
+    const more = jwSettleDue.length > 3 ? ` 외 ${jwSettleDue.length - 3}건` : '';
+    const tip = `정산일이 된 공동구매: ${names}${more} — 누르면 정산 화면으로 갑니다`;
+    box.innerHTML = `<button type="button" class="jw-settle-banner" title="${escapeAttr(tip)}"
+      onclick="jwGoToSettlement()">공동구매 정산<span class="cnt">${jwSettleDue.length}</span></button>`;
+  }
+
+  // 배너를 누르면 프로모션 > 정산 화면으로 이동합니다.
+  function jwGoToSettlement() {
+    switchWorkspace('team');
+    switchView('team-schedule', 'settlement');
+  }
 
   // ---- "계산서 발행" 그룹의 빨간 +N 배지 ----
   // 거래처 운영현황에서 거래 건을 "입금 완료"로 표시하면 세금계산서를 끊어야 하므로,
@@ -5901,6 +5951,7 @@
     document.getElementById('jwDateLabel').textContent = `${date} (${day})${jwIsToday() ? ' 오늘' : ''}`;
     document.getElementById('jwDateInput').value = date;
     document.getElementById('jwTodayBtn').style.display = jwIsToday() ? 'none' : '';
+    renderJwSettleBanner();
   }
 
   // 선택한 날짜의 업무만 추립니다.
