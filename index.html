@@ -295,7 +295,6 @@
 
   /* ---- 댓글 · 대댓글 ---- */
   .jw-cmt-list { display: flex; flex-direction: column; gap: 6px; }
-  .jw-cmt-empty { font-size: 11.5px; color: #94a3b8; padding: 2px 0 4px; }
   .jw-cmt {
     background: #f8fafc; border: 1px solid rgba(15,23,42,.07); border-radius: 8px;
     padding: 7px 9px;
@@ -6434,9 +6433,7 @@
     const roots = all.filter(c => !c.parent_id);
     const repliesOf = (pid) => all.filter(c => c.parent_id === pid);
 
-    const listHtml = roots.length
-      ? roots.map(r => jwCommentRowHtml(r, false) + repliesOf(r.id).map(x => jwCommentRowHtml(x, true)).join('')).join('')
-      : '<div class="jw-cmt-empty">아직 댓글이 없습니다.</div>';
+    const listHtml = roots.map(r => jwCommentRowHtml(r, false) + repliesOf(r.id).map(x => jwCommentRowHtml(x, true)).join('')).join('');
 
     const replyingTo = jwReplyTarget[taskId]
       ? all.find(c => c.id === jwReplyTarget[taskId])
@@ -6444,7 +6441,6 @@
     const role = jwLastRole();
 
     return `
-      <div class="jw-detail-label">댓글${all.length ? ' ' + all.length : ''}</div>
       <div class="jw-cmt-list">${listHtml}</div>
       ${replyingTo ? `
         <div class="jw-cmt-replying">
