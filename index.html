@@ -3677,10 +3677,8 @@
     const title = form.title.value.trim();
     if (!partnerId) { alert('거래처를 먼저 추가해주세요.'); return; }
     if (!title) return;
-    // 입금 조건·수금 상태·다음 액션·예정일·담당자는 추가 폼에서 뺐습니다.
-    // 예정일은 등록한 날(서울 기준 오늘)로 자동 지정하고, 나머지는 비워둔 채 등록한 뒤
-    // 아래 표에서 바로 고쳐 넣으면 됩니다.
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    // 입금 조건·수금 상태·다음 액션·세금계산서 발행일·담당자는 추가 폼에서 뺐습니다.
+    // 세금계산서 발행일은 실제로 계산서를 끊은 날 표에서 직접 넣도록 비워둡니다.
     const { error } = await client.from('partner_deals').insert([{
       category: form.category.value,
       partner_id: Number(partnerId),
@@ -3690,7 +3688,7 @@
       payment_terms: null,
       collection_status: '미발생',
       next_action: null,
-      due_date: today,
+      due_date: null,
       assignee: null,
       memo: form.memo.value.trim() || null
     }]);
