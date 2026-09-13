@@ -222,6 +222,12 @@
     background: rgba(255,255,255,.25); border-radius: 999px; padding: 1px 7px;
     font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums;
   }
+  /* 인플루언서/거래처명 — 길면 말줄임 (전체 이름은 마우스를 올리면 보입니다) */
+  .jw-settle-banner .who {
+    max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding-left: 2px; border-left: 1px solid rgba(255,255,255,.35); padding-left: 8px; margin-left: 2px;
+  }
+  .jw-settle-banner .when { font-size: 11.5px; font-weight: 600; opacity: .9; }
 
   /* 긴급 업무를 그 날짜 목록 맨 끝(= 다음 스텝)에 추가하는 버튼 */
   .jw-urgent-add-btn {
@@ -5806,15 +5812,35 @@
     jwSettleDue = error ? [] : (data || []);
   }
 
+  // "9/13" 처럼 짧게. 정산일이 오늘보다 지났으면 얼마나 밀렸는지도 붙입니다.
+  function jwSettleDateLabel(dateStr) {
+    if (!dateStr) return '';
+    const [, m, d] = dateStr.split('-');
+    const label = `${Number(m)}/${Number(d)}`;
+    const today = jwTodayKST();
+    if (dateStr === today) return label + ' 오늘';
+    const days = Math.round((new Date(today + 'T00:00:00Z') - new Date(dateStr + 'T00:00:00Z')) / 86400000);
+    return days > 0 ? `${label} · ${days}일 지남` : label;
+  }
+
   function renderJwSettleBanner() {
     const box = document.getElementById('jwSettleBanner');
     if (!box) return;
     if (!jwSettleDue.length) { box.innerHTML = ''; return; }
-    const names = jwSettleDue.slice(0, 3).map((r) => r.partner || '(이름 없음)').join(', ');
-    const more = jwSettleDue.length > 3 ? ` 외 ${jwSettleDue.length - 3}건` : '';
-    const tip = `정산일이 된 공동구매: ${names}${more} — 누르면 정산 화면으로 갑니다`;
-    box.innerHTML = `<button type="button" class="jw-settle-banner" title="${escapeAttr(tip)}"
-      onclick="jwGoToSettlement()">공동구매 정산<span class="cnt">${jwSettleDue.length}</span></button>`;
+
+    // 어떤 정산인지 바로 알아볼 수 있게 인플루언서/거래처명과 정산일을 배너에 씁니다.
+    // 여러 건이면 가장 오래된 건을 쓰고 "외 N건"을 붙입니다(전체 목록은 마우스를 올리면 보입니다).
+    const first = jwSettleDue[0];
+    const name = first.partner || '(이름 없음)';
+    const date = jwSettleDateLabel(first.settlement_date);
+    const more = jwSettleDue.length > 1 ? `<span class="cnt">외 ${jwSettleDue.length - 1}건</span>` : '';
+    const tip = jwSettleDue
+      .map((r) => `${r.partner || '(이름 없음)'} — 정산일 ${r.settlement_date || '미정'}`)
+      .join('\n') + '\n\n누르면 정산 화면으로 갑니다';
+
+    box.innerHTML = `<button type="button" class="jw-settle-banner" title="${escapeAttr(tip)}" onclick="jwGoToSettlement()">
+      공동구매 정산<span class="who">${escapeAttr(name)}</span><span class="when">${escapeAttr(date)}</span>${more}
+    </button>`;
   }
 
   // 배너를 누르면 프로모션 > 정산 화면으로 이동합니다.
