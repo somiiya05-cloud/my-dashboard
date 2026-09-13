@@ -1,0 +1,43 @@
+name: 네이버 순위별 예상 입찰가 호출
+
+# api/sync-naver-bid-estimates.js 를 기기별로(모바일 → PC) 한 번씩 부른다.
+# 대시보드 키워드 표의 「예상 순위」 칸 — 입찰가를 바꾸면 몇 위쯤 되는지 — 가 이 데이터를 쓴다.
+# 시장 추정치라 하루 한 번이면 충분하다.
+
+on:
+  schedule:
+    # 매일 UTC 06:30 (KST 15:30) — 키워드 일별 동기화(05:30) 가 끝난 뒤. 대상 키워드를 그 표에서 고른다.
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: '처음 확인용 — 키워드 몇 개만 보내 보기(예: 10). 비워두면 전부.'
+        required: false
+        default: ''
+
+# 네이버 광고 API 호출 한도를 키워드 동기화와 같이 쓰므로 같은 그룹으로 묶어 절대 겹치지 않게 한다
+# (2026-09-12 429 사고 참고: ping-naver-keywords-daily-sync.yml 주석).
+concurrency:
+  group: naver-keywords-sync
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        device: ['MOBILE', 'PC']
+    steps:
+      - name: "Vercel 예상 입찰가 엔드포인트 호출 (${{ matrix.device }})"
+        run: |
+          URL="${{ secrets.VERCEL_APP_URL }}/api/sync-naver-bid-estimates?device=${{ matrix.device }}&debug=1"
+          LIMIT="${{ github.event.inputs.limit }}"
+          if [ -n "$LIMIT" ]; then URL="${URL}&limit=${LIMIT}"; fi
+          HTTP_CODE=$(curl -s --max-time 90 -o response.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "$URL")
+          echo "HTTP status: $HTTP_CODE"
+          cat response.json
+          echo
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then exit 1; fi
