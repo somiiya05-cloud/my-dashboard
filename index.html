@@ -2771,7 +2771,9 @@
       ['오프라인','명퉤 경주 황리단길 본점'],
     ]},
     { team: false, subtotalLabel: '합계', rows: [
-      ['컨텐츠팀','공동구매(컨텐츠팀)'],
+      // CONTENTS_DEAL은 공동구매(컨텐츠팀)의 옛 표기입니다. 여기 두지 않으면 미분류로 빠져
+      // 영업팀 매출에 잘못 섞입니다(대시보드 쪽 EXCLUDED_FROM_TEAM과 기준을 맞춥니다).
+      ['컨텐츠팀','공동구매(컨텐츠팀)'], ['컨텐츠팀','CONTENTS_DEAL'],
     ]},
     { team: true, subtotalLabel: '합계', rows: [
       ['자사몰','스토어팜(빠이러스_개인)'], ['자사몰','스토어팜(빠이러스_법인)'], ['자사몰','빠이러스(도착보장)'],
@@ -2810,12 +2812,36 @@
   const CHANNEL_TEMPLATE_VENDORS = new Set();
   CHANNEL_TEMPLATE.forEach(block => block.rows.forEach(([, vendor]) => CHANNEL_TEMPLATE_VENDORS.add(vendor)));
 
-  // 템플릿에 이름이 없어도, 판매처명에 이 키워드가 들어가면 해당 구분으로 자동 편입합니다.
-  // 수출 거래처는 "대만 VAULT VISION", "대만 SOFA SOCOOL"처럼 건마다 이름이 달라서
-  // 하나씩 등록하면 새 거래처가 생길 때마다 다시 기타로 새기 때문입니다.
-  const VENDOR_KEYWORD_GROUPS = [
-    { keyword: '대만', group: '수출' },
+  // 템플릿에 이름이 없는 판매처를 이름만 보고 구분에 배정하는 규칙입니다.
+  // 거래처 이름이 건마다 달라서(예: "대만 VAULT VISION", "대만 SOFA SOCOOL")
+  // 하나씩 등록하면 새 거래처가 생길 때마다 다시 기타로 새기 때문에 규칙으로 잡습니다.
+  //
+  // 판정 순서: 공동구매 → 수출 → 그 외 전부 직매입
+  const EXPORT_COUNTRY_KEYWORDS = [
+    '대만', '일본', '뉴질랜드', '중국', '홍콩', '싱가포르', '베트남', '태국',
+    '말레이시아', '인도네시아', '필리핀', '인도', '미국', '캐나다', '호주',
+    '영국', '독일', '프랑스', '유럽',
   ];
+  const VENDOR_KEYWORD_GROUPS = [
+    // 공동구매를 먼저 봅니다. "대만_공동구매"처럼 겹치면 판매 방식 쪽을 따릅니다.
+    { keyword: '공동구매', group: '공동구매' },
+    ...EXPORT_COUNTRY_KEYWORDS.map(keyword => ({ keyword, group: '수출' })),
+    // 마쿠아케는 일본 크라우드펀딩 플랫폼인데 이름에 국가가 없어 따로 적습니다.
+    { keyword: '마쿠아케', group: '수출' },
+    // 이미 템플릿에 있는 몰이 "신세계 면세점", "교보핫트랙스(개인)"처럼
+    // 조금씩 다른 이름으로 들어오는 경우를 같은 구분으로 붙잡습니다.
+    { keyword: '신세계', group: '종합몰' },
+    { keyword: '아트박스', group: '종합몰' },
+    { keyword: '교보핫트랙스', group: '종합몰' },
+    { keyword: '올리브영', group: '종합몰' },
+    { keyword: 'G마켓', group: '오픈마켓' },
+    { keyword: '지마켓', group: '오픈마켓' },
+    { keyword: '옥션', group: '오픈마켓' },
+    { keyword: '롯데ON', group: '오픈마켓' },
+    { keyword: '알리익스프레스', group: '오픈마켓' },
+  ];
+  // 위 어디에도 안 걸리면 직매입으로 봅니다.
+  const VENDOR_FALLBACK_GROUP = '직매입';
 
   // 이번 달에 실제로 매출이 있는 판매처 목록을 받아, 키워드에 걸리는 미등록 판매처를
   // 해당 구분 표에 끼워 넣은 블록 목록과, 끝내 분류되지 않은 판매처를 돌려줍니다.
@@ -2824,10 +2850,13 @@
     const byGroup = new Map();
     const leftovers = [];
     extras.forEach(v => {
+      // 이름이 깨진 판매처(예: "쿠팡(로��그로스)")는 규칙으로 짐작하면 엉뚱한 구분에
+      // 매출이 잡힙니다. 원본 데이터를 고쳐야 할 문제이므로 기타에 그대로 남겨 눈에 띄게 둡니다.
+      if (v.includes('�')) { leftovers.push(v); return; }
       const rule = VENDOR_KEYWORD_GROUPS.find(r => v.includes(r.keyword));
-      if (!rule) { leftovers.push(v); return; }
-      if (!byGroup.has(rule.group)) byGroup.set(rule.group, []);
-      byGroup.get(rule.group).push(v);
+      const group = rule ? rule.group : VENDOR_FALLBACK_GROUP;
+      if (!byGroup.has(group)) byGroup.set(group, []);
+      byGroup.get(group).push(v);
     });
     if (!byGroup.size) return { blocks: CHANNEL_TEMPLATE, leftovers };
 
