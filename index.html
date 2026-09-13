@@ -762,6 +762,12 @@
   }
   .gs-row-due td:first-child { box-shadow: inset 3px 0 0 #2f5ce4, inset 0 1px 0 #fff, inset 0 -1px 0 rgba(47,92,228,.22); }
   .gs-row-due .inline-edit { color: #1e3a8a; font-weight: 700; }
+  /* 배너로 넘어왔을 때 어느 줄인지 바로 알아보도록 잠깐 깜빡입니다 */
+  @keyframes gsRowFlash {
+    0%, 100% { background: linear-gradient(#f3f7ff, #dfeaff); }
+    50%      { background: linear-gradient(#cfe0ff, #a9c6ff); }
+  }
+  .gs-row-flash td { animation: gsRowFlash .6s ease-in-out 3; }
   .gs-cal-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
   .gs-cal-nav .gs-cal-month { font-size: 15px; font-weight: 700; flex: 1; }
   .gs-cal-nav .gs-cal-month .gs-muted { color: #64748b; font-weight: 500; font-size: 12.5px; }
@@ -2622,10 +2628,6 @@
       <section class="panel">
         <div class="panel-head">
           <h2>정산 목록</h2>
-          <div class="gs-toggle-row" style="margin:0;">
-            <label class="gs-toggle"><input type="checkbox" id="settlementFilterGroupbuy" checked onchange="renderSettlementTable()">공동구매</label>
-            <label class="gs-toggle"><input type="checkbox" id="settlementFilterExport" checked onchange="renderSettlementTable()">수출</label>
-          </div>
           <input type="text" id="settlementSearch" class="settlement-search" placeholder="인플루언서/거래처·메모 검색" oninput="renderSettlementTable()">
           <span class="panel-note" id="settlementListNote"></span>
         </div>
@@ -5828,10 +5830,34 @@
       onclick="jwGoToSettlement()">공동구매 정산<span class="cnt">${jwSettleDue.length}</span></button>`;
   }
 
-  // 배너를 누르면 프로모션 > 정산 화면으로 이동합니다.
+  // 배너를 누르면 프로모션 > 정산 화면으로 가서, 정산해야 할 첫 줄까지 스크롤해 보여줍니다.
   function jwGoToSettlement() {
     switchWorkspace('team');
     switchView('team-schedule', 'settlement');
+    jwScrollToDueSettlement();
+  }
+
+  // 정산 목록은 불러온 뒤에 그려지므로, 줄이 생길 때까지 잠깐 기다렸다 스크롤합니다.
+  function jwScrollToDueSettlement(tries) {
+    const n = tries || 0;
+    const row = document.querySelector('#settlementTable tr.gs-row-due');
+    if (!row) {
+      if (n < 20) setTimeout(() => jwScrollToDueSettlement(n + 1), 300);
+      return;
+    }
+    // 표는 자체 스크롤 상자 안에 있어서 scrollIntoView 가 먹지 않는 경우가 있습니다.
+    // 상자의 스크롤 위치를 직접 잡아 가운데로 보냅니다.
+    const box = row.closest('.scroll-box');
+    if (box) {
+      const target = row.offsetTop - (box.clientHeight / 2) + (row.offsetHeight / 2);
+      box.scrollTop = Math.max(0, target);
+    }
+    row.scrollIntoView({ block: 'center' });   // 패널 자체도 화면 안으로
+    // 어느 줄인지 놓치지 않도록 잠깐 깜빡여 줍니다.
+    row.classList.remove('gs-row-flash');
+    void row.offsetWidth;
+    row.classList.add('gs-row-flash');
+    setTimeout(() => row.classList.remove('gs-row-flash'), 2400);
   }
 
   // ---- "계산서 발행" 그룹의 빨간 +N 배지 ----
@@ -7879,11 +7905,9 @@
     const note = document.getElementById('settlementListNote');
     const table = document.getElementById('settlementTable');
     if (!note || !table) return;
-    const showGroupbuy = document.getElementById('settlementFilterGroupbuy').checked;
-    const showExport = document.getElementById('settlementFilterExport').checked;
+    // 구분(공동구매/수출) 체크박스는 없앴습니다. 검색어만 적용하고 전부 보여줍니다.
     const q = (document.getElementById('settlementSearch')?.value || '').trim().toLowerCase();
     const rows = gsSettlementRows
-      .filter((r) => (r.category === '공동구매' && showGroupbuy) || (r.category === '수출' && showExport))
       // 인플루언서/거래처명과 메모에서 찾습니다.
       .filter((r) => !q || [r.partner, r.memo].filter(Boolean).join(' ').toLowerCase().includes(q));
     note.textContent = rows.length + '건';
