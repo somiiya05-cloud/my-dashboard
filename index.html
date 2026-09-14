@@ -430,6 +430,20 @@
   .jw-regfail-head h3 { margin: 0; font-size: 15px; color: #0f172a; }
   .jw-regfail-sub { font-size: 11.5px; color: #64748b; margin-top: 3px; }
   .jw-regfail-close { border: none; background: none; font-size: 19px; line-height: 1; color: #64748b; cursor: pointer; padding: 0 2px; }
+  /* 사방넷 상품 상태 요약 — 팔 수 없는 상태로 멈춰 있는 상품 수 */
+  .jw-regfail-stat { display: flex; gap: 8px; margin-bottom: 16px; }
+  .jw-regfail-stat-cell {
+    flex: 1; background: #f8fafc; border: 1px solid rgba(15,23,42,.08);
+    border-radius: 8px; padding: 8px 10px;
+  }
+  .jw-regfail-stat-cell.warn { background: rgba(217,119,6,.08); border-color: rgba(217,119,6,.2); }
+  .jw-regfail-stat-cell.bad { background: #fef2f2; border-color: rgba(220,38,38,.2); }
+  .jw-regfail-stat-label { font-size: 11px; font-weight: 700; color: #64748b; }
+  .jw-regfail-stat-num { font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .jw-regfail-stat-cell.warn .jw-regfail-stat-num { color: #b45309; }
+  .jw-regfail-stat-cell.bad .jw-regfail-stat-num { color: #b91c1c; }
+  .jw-regfail-section-label { font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 2px; }
+
   .jw-regfail-mall { margin-top: 12px; }
   .jw-regfail-mall-head {
     display: flex; align-items: center; gap: 7px;
@@ -6072,7 +6086,7 @@
 
   async function loadJwRegCheck() {
     const { data, error } = await client.from('product_reg_checks')
-      .select('checked_at,period_days,fail_recent,fail_total,soldout_count,stopped_count,fails')
+      .select('checked_at,period_days,fail_recent,fail_total,soldout_count,stopped_count,total_products,fails')
       .order('checked_at', { ascending: false })
       .limit(1);
     jwRegCheck = (error || !data || !data.length) ? null : data[0];
@@ -6155,6 +6169,19 @@
           </div>`;
       }).join('');
 
+    const stat = [
+      { label: '전체 상품', n: jwRegCheck.total_products, cls: '' },
+      { label: '일시중지', n: jwRegCheck.soldout_count, cls: ' warn' },
+      { label: '완전품절', n: jwRegCheck.stopped_count, cls: ' bad' },
+    ].filter((x) => x.n != null);
+    const statHtml = stat.length
+      ? `<div class="jw-regfail-stat">${stat.map((x) => `
+          <div class="jw-regfail-stat-cell${x.cls}">
+            <div class="jw-regfail-stat-label">${escapeAttr(x.label)}</div>
+            <div class="jw-regfail-stat-num">${x.n.toLocaleString('ko-KR')}건</div>
+          </div>`).join('')}</div>`
+      : '';
+
     const days = jwRegCheck.period_days ? `최근 ${jwRegCheck.period_days}일` : '조회 기간 전체';
     const box = document.createElement('div');
     box.className = 'jw-regfail-overlay';
@@ -6168,6 +6195,8 @@
           </div>
           <button type="button" class="jw-regfail-close" title="닫기">✕</button>
         </div>
+        ${statHtml}
+        ${fails.length ? '<div class="jw-regfail-section-label">등록 실패 내역</div>' : ''}
         ${sections || '<div class="jw-regfail-noreason">실패 내역이 저장되어 있지 않습니다.</div>'}
       </div>`;
     box.querySelector('.jw-regfail-close').onclick = () => box.remove();
