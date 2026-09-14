@@ -6757,23 +6757,25 @@
 
   // ---- 상세보기 아코디언: 업무 목적 · 파트장 코멘트 · 담당자 답글 ----
   // 저장 위치는 브라우저 localStorage 입니다 (Supabase에는 쓰지 않습니다).
-  //  · 업무 목적  : 업무명 기준으로 저장 — 루틴 업무는 매일 새 행으로 만들어지므로
-  //                 id로 저장하면 매일 다시 써야 해서 업무명에 붙입니다.
+  //  · 업무 목적  : (업무명 + 날짜) 기준으로 저장 — 그날 이 업무를 왜 하는지 적는 칸이라
+  //                 날짜가 바뀌면 빈칸으로 시작하고, 전날 적은 내용은 전날에 그대로 남습니다.
   //  · 코멘트/답글: 업무 id 기준으로 저장 — 그날 그 업무에 대한 이야기라서 날짜별로 남습니다.
   const jwOpenDetailIds = new Set();
 
-  // 목적/코멘트는 team_task_purposes · team_task_notes 테이블에 저장합니다.
+  // 업무 목적은 team_task_daily_purposes(업무명+날짜), 업무 기준은 team_task_purposes.criteria(업무명),
+  // 코멘트는 team_task_comments 에 저장합니다.
   // 화면을 그릴 때마다 조회하면 느리므로, 업무 목록을 불러올 때 한 번에 받아 여기 담아두고
   // 그리기는 이 메모리 값만 보고 합니다 (저장하면 이 값도 같이 갱신).
-  let jwTaskPurposes = {};   // { 업무명: 업무 목적 }
+  let jwTaskPurposes = {};   // { '업무명|날짜': 업무 목적 }
   let jwTaskCriteria = {};   // { 업무명: 업무 기준 }
   let jwTaskComments = {};   // { 업무id: [댓글 행, ...] }
   let jwNotesLoadError = ''; // 테이블이 아직 없을 때 안내에 씁니다
 
   async function loadJwNotes() {
     jwNotesLoadError = '';
-    let [purposeRes, cmtRes] = await Promise.all([
+    let [purposeRes, dailyRes, cmtRes] = await Promise.all([
       client.from('team_task_purposes').select('title,purpose,criteria'),
+      client.from('team_task_daily_purposes').select('title,due_date,purpose'),
       client.from('team_task_comments').select('id,task_id,parent_id,author,body,created_at').order('created_at'),
     ]);
     // 업무 기준(criteria) 칸을 아직 만들지 않았을 수 있습니다. 그 경우 칸 없이 다시 조회해서
@@ -6782,9 +6784,15 @@
       const retry = await client.from('team_task_purposes').select('title,purpose');
       if (!retry.error) purposeRes = retry;
     }
-    if (purposeRes.error || cmtRes.error) {
+    // 날짜별 업무 목적 표를 아직 만들지 않았어도(team_task_daily_purposes.sql 미실행)
+    // 업무 기준과 코멘트는 그대로 보이게 합니다. 목적 칸만 비어 보이고 안내가 뜹니다.
+    if (dailyRes.error && !purposeRes.error && !cmtRes.error) {
+      jwNotesLoadError = dailyRes.error.message;
+      dailyRes = { data: [] };
+    }
+    if (purposeRes.error || dailyRes.error || cmtRes.error) {
       // 보통은 team_task_notes.sql / team_task_comments.sql 을 아직 실행하지 않은 경우입니다.
-      jwNotesLoadError = (purposeRes.error || cmtRes.error).message;
+      jwNotesLoadError = (purposeRes.error || dailyRes.error || cmtRes.error).message;
       jwTaskPurposes = {};
       jwTaskCriteria = {};
       jwTaskComments = {};
@@ -6792,9 +6800,13 @@
     }
     jwTaskPurposes = {};
     jwTaskCriteria = {};
+    // 업무 기준(criteria)은 날짜와 무관한 고정 규칙이라 업무명 기준 표에 그대로 둡니다.
     (purposeRes.data || []).forEach(r => {
-      jwTaskPurposes[r.title] = r.purpose || '';
       jwTaskCriteria[r.title] = r.criteria || '';
+    });
+    // 업무 목적은 (업무명 + 날짜) 조합으로 하나씩 들고 있습니다.
+    (dailyRes.data || []).forEach(r => {
+      jwTaskPurposes[jwPurposeKey(r.title, r.due_date)] = r.purpose || '';
     });
     jwTaskComments = {};
     (cmtRes.data || []).forEach(r => {
@@ -6802,8 +6814,13 @@
     });
   }
 
+  // 업무 목적을 찾는 열쇠. 날짜는 team_tasks.due_date(YYYY-MM-DD)를 그대로 씁니다.
+  function jwPurposeKey(title, dueDate) {
+    return title + '|' + (dueDate || '').slice(0, 10);
+  }
+
   function jwPurposeOf(t) {
-    const saved = jwTaskPurposes[t.title];
+    const saved = jwTaskPurposes[jwPurposeKey(t.title, t.due_date)];
     if (saved != null) return saved;
     // 예전에 세부내용에 적어둔 내용이 있으면 첫 값으로 씁니다 ("그룹:..." 은 화면 묶음용 표시라 제외).
     const detail = t.detail || '';
@@ -6849,10 +6866,10 @@
       <div class="jw-task-detail" id="jwDetail${t.id}"${open ? '' : ' hidden'}>
         <div>
           <div class="jw-detail-label">업무 목적</div>
-          <textarea class="jw-detail-input" rows="1" id="jwPurpose${t.id}" placeholder="이 업무를 왜 하는지 적어두면 같은 업무에 매일 그대로 보입니다."
+          <textarea class="jw-detail-input" rows="1" id="jwPurpose${t.id}" placeholder="오늘 이 업무를 왜 하는지 적어주세요. 날짜별로 따로 저장됩니다."
             oninput="autoGrowTextarea(this); jwAutoSave(${t.id})" onblur="jwSaveNow(${t.id})">${escapeAttr(jwPurposeOf(t))}</textarea>
           <div class="jw-detail-saved" id="jwSaved${t.id}">${jwNotesLoadError
-            ? '저장용 테이블이 없습니다 — team_task_notes.sql 을 먼저 실행하세요'
+            ? '저장용 테이블이 없습니다 — team_task_notes.sql · team_task_daily_purposes.sql 을 먼저 실행하세요'
             : ''}</div>
         </div>
         <div id="jwCmtBox${t.id}">${jwCommentBoxHtml(t.id)}</div>
@@ -7016,15 +7033,19 @@
 
     // 아무것도 적지 않고 열었다 닫기만 한 경우에는 빈 행을 만들지 않습니다.
     // (이미 저장된 적이 있으면 내용을 지우는 것일 수 있으니 그대로 저장합니다.)
-    if (!purposeEl.value.trim() && jwTaskPurposes[task.title] == null) return;
+    const key = jwPurposeKey(task.title, task.due_date);
+    if (!purposeEl.value.trim() && jwTaskPurposes[key] == null) return;
 
     const nowIso = new Date().toISOString();
-    const failed = await client.from('team_task_purposes')
-      .upsert({ title: task.title, purpose: purposeEl.value, updated_at: nowIso }, { onConflict: 'title' })
+    // (업무명 + 날짜)로 저장합니다. 같은 업무라도 날짜가 다르면 다른 행이 되므로
+    // 오늘 적은 목적이 내일 칸에 따라오지 않고, 어제 적은 내용은 어제 날짜에 남습니다.
+    const failed = await client.from('team_task_daily_purposes')
+      .upsert({ title: task.title, due_date: (task.due_date || '').slice(0, 10), purpose: purposeEl.value, updated_at: nowIso },
+              { onConflict: 'title,due_date' })
       .then(r => (r.error ? r : null));
 
     // 화면이 보고 있는 메모리 값도 같이 갱신해야 내용이 바로 맞습니다.
-    if (!failed) jwTaskPurposes[task.title] = purposeEl.value;
+    if (!failed) jwTaskPurposes[key] = purposeEl.value;
 
     const savedEl = document.getElementById('jwSaved' + id);
     if (!savedEl) return;
