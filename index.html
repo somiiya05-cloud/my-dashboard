@@ -2800,8 +2800,16 @@
   // ---- 목표 매출 (매월 동일 적용) ----
   const COMPANY_MONTHLY_TARGET = 9000000000; // 전사 월 90억원
   const COMPANY_DAILY_TARGET = 900000000;    // 전사 일 9억원
-  const TEAM_MONTHLY_TARGET = 1500000000;    // 영업팀 월 15억원
-  const TEAM_DAILY_TARGET = 30000000;        // 영업팀 일 3천만원
+  const TEAM_MONTHLY_TARGET = 1200000000;    // 영업팀 월 12억원
+
+  // 영업팀 일 목표는 월 목표를 그 달의 달력 일수로 나눠 씁니다.
+  // 따로 숫자를 적어두면 월 목표를 바꿀 때 한쪽만 바뀌어, 일·주 목표를 다 더해도
+  // 월 목표와 맞지 않게 됩니다(전에 일 3천만원 × 30일 = 9억이라 월 목표와 어긋났습니다).
+  function teamDailyTargetOf(monthStr) {
+    const [y, m] = (monthStr || '').split('-').map(Number);
+    const days = y && m ? new Date(y, m, 0).getDate() : 30;
+    return TEAM_MONTHLY_TARGET / days;
+  }
 
   // 목표 금액을 "15억"처럼 짧게 적기 위한 표기. 목표를 바꾸면 화면 문구도 같이 따라갑니다
   // (예전에는 문구에 "9억"이 직접 적혀 있어 목표만 고치면 숫자가 어긋났습니다).
@@ -3278,8 +3286,9 @@
 
     const teamMonthlyPct = Math.min(999, (teamMonthlyActual / TEAM_MONTHLY_TARGET) * 100);
     const teamMonthlyRemain = Math.max(0, TEAM_MONTHLY_TARGET - teamMonthlyActual);
-    const teamDailyPct = Math.min(999, (teamDailyAvgActual / TEAM_DAILY_TARGET) * 100);
-    const teamTodayPct = Math.min(999, (teamTodayAmount / TEAM_DAILY_TARGET) * 100);
+    const teamDailyTarget = teamDailyTargetOf(monthStr);
+    const teamDailyPct = Math.min(999, (teamDailyAvgActual / teamDailyTarget) * 100);
+    const teamTodayPct = Math.min(999, (teamTodayAmount / teamDailyTarget) * 100);
 
     // ---- KPI 카드 ----
     const monthNum = monthStr ? Number(monthStr.split('-')[1]) : null;
@@ -3306,7 +3315,7 @@
       : `영업팀 ${monthLabelPrefix}매출 합계`;
     const teamTodayCardValue = isViewingCurrentMonth ? teamTodayAmount : teamMonthlyActual;
     const teamTodayCardSub = isViewingCurrentMonth
-      ? `일매출 목표 3천만원 대비 <span class="pct-red">${teamTodayPct.toFixed(1)}%</span>`
+      ? `일매출 목표 ${wonUnit(teamDailyTarget)} 대비 <span class="pct-red">${teamTodayPct.toFixed(1)}%</span>`
       : `목표 ${targetLabel(TEAM_MONTHLY_TARGET)} 대비 <span class="pct-red">${teamMonthlyPct.toFixed(1)}%</span> · ${won(teamMonthlyRemain)} 남음`;
     const teamTodayCardPct = isViewingCurrentMonth ? teamTodayPct : teamMonthlyPct;
 
@@ -3332,7 +3341,7 @@
       <div class="kpi-card">
         <div class="kpi-label kpi-label-team">영업팀 일매출 평균</div>
         <div class="kpi-value">${wonUnit(teamDailyAvgActual)}</div>
-        <div class="kpi-sub">일매출 목표 3천만원 대비 <span class="pct-red">${teamDailyPct.toFixed(1)}%</span></div>
+        <div class="kpi-sub">일매출 목표 ${wonUnit(teamDailyTarget)} 대비 <span class="pct-red">${teamDailyPct.toFixed(1)}%</span></div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, teamDailyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
@@ -3362,7 +3371,8 @@
       const i = weekNos.indexOf(weekNoOfMonth(r.sale_date));
       if (i >= 0) weekBuckets[i] += Number(r.amount);
     });
-    const weekTargets = weekNos.map(no => weekDays[no].length * TEAM_DAILY_TARGET);
+    const weekDailyTarget = TEAM_MONTHLY_TARGET / daysInSelectedMonth;
+    const weekTargets = weekNos.map(no => weekDays[no].length * weekDailyTarget);
     const maxWeek = Math.max(...weekBuckets, ...weekTargets, 1);
     const weekLabels = weekNos.map(no => {
       const ds = weekDays[no];
