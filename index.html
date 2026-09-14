@@ -7022,6 +7022,9 @@
 
   const TASK_PRIORITIES = ['높음', '보통', '낮음'];
   const TASK_CATEGORIES = ['채널 운영', '광고·마케팅', '프로모션·판매', '해외·B2B', '상품·콘텐츠', '계약·정산', '데이터·자동화', '내부·정기업무'];
+  // 전휘원 화면의 등록 폼은 오전/오후 둘 중 하나만 고르게 합니다.
+  // 화면에는 "오전"으로 보이지만 실제 저장값은 목록이 쓰는 category 값이어야 합니다.
+  const JW_TASK_CATEGORIES = [['오전', '오전 필수업무'], ['오후', '오후 필수업무']];
   function taskCategoryOptionsHtml(current) {
     const cur = current || '';
     const opts = cur && !TASK_CATEGORIES.includes(cur) ? [cur, ...TASK_CATEGORIES] : TASK_CATEGORIES;
@@ -7191,8 +7194,35 @@
     if (taskPanelMode === 'create') {
       const ps = taskPanelPreset || {};
       titleEl.textContent = ps.priority === '높음' ? '긴급 업무 등록' : '새 업무 등록';
+      const urgentHint = ps.priority === '높음'
+        ? '<div class="task-review-hint">등록하면 ' + escapeAttr(ps.dueDate || '') + ' 목록에서 이미 체크한 업무 바로 다음(= 다음에 할 일)에 놓입니다.</div>'
+        : '';
+
+      // 전휘원 화면에서 여는 등록 폼은 오전/오후 목록에 바로 꽂히는 형태로만 받습니다.
+      // 시작일·세부내용은 이 화면에서 쓰지 않아 빼고, 마감일은 지금 보고 있는 날짜로 자동 지정합니다
+      // (마감일이 없으면 그 업무가 어느 날짜 목록에 속하는지 정해지지 않습니다).
+      if ((ps.assignee || taskFilterAssignee) === JW_ASSIGNEE) {
+        const cat = ps.category || JW_TASK_CATEGORIES[0][1];
+        body.innerHTML = `
+          ${urgentHint}
+          <div class="task-panel-field"><label>구분</label><select id="tpCategory">
+            ${JW_TASK_CATEGORIES.map(([label, value]) => `<option value="${value}" ${value === cat ? 'selected' : ''}>${label}</option>`).join('')}
+          </select></div>
+          <div class="task-panel-field"><label>업무 내용 *</label><input id="tpTitle" type="text" placeholder="${escapeAttr(ps.titlePlaceholder || '업무 내용')}"></div>
+          <div class="task-panel-row">
+            <div class="task-panel-field"><label>우선순위</label><select id="tpPriority">
+              ${TASK_PRIORITIES.map(pr => `<option value="${pr}" ${pr === (ps.priority || '보통') ? 'selected' : ''}>${pr}</option>`).join('')}
+            </select></div>
+            <div class="task-panel-field"><label>담당자</label><input id="tpAssignee" type="text" value="${escapeAttr(ps.assignee || taskFilterAssignee || '')}"></div>
+          </div>
+          <input type="hidden" id="tpDueDate" value="${escapeAttr(ps.dueDate || jwSelectedDate())}">
+          <div class="task-panel-actions"><button type="button" class="btn-primary" onclick="saveNewTaskFromPanel()">등록</button></div>
+        `;
+        return;
+      }
+
       body.innerHTML = `
-        ${ps.priority === '높음' ? '<div class="task-review-hint">등록하면 ' + escapeAttr(ps.dueDate || '') + ' 목록에서 이미 체크한 업무 바로 다음(= 다음에 할 일)에 놓입니다.</div>' : ''}
+        ${urgentHint}
         <div class="task-panel-field"><label>구분</label><select id="tpCategory">${taskCategoryOptionsHtml(ps.category || '')}</select></div>
         <div class="task-panel-field"><label>업무 내용 *</label><input id="tpTitle" type="text" placeholder="${escapeAttr(ps.titlePlaceholder || '업무 내용')}"></div>
         <div class="task-panel-row">
@@ -7246,17 +7276,24 @@
     el.style.height = el.scrollHeight + 'px';
   }
 
+  // 화면에 따라 없는 입력칸이 있어(전휘원 등록 폼은 시작일·세부내용을 안 받습니다)
+  // 있을 때만 값을 읽습니다.
+  function taskPanelValue(id) {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  }
+
   async function saveNewTaskFromPanel() {
-    const title = document.getElementById('tpTitle').value.trim();
+    const title = taskPanelValue('tpTitle');
     if (!title) { alert('업무 내용을 입력해주세요.'); return; }
     const payload = {
-      category: document.getElementById('tpCategory').value.trim() || null,
+      category: taskPanelValue('tpCategory') || null,
       title,
-      priority: document.getElementById('tpPriority').value || '보통',
-      assignee: document.getElementById('tpAssignee').value.trim() || null,
-      start_date: document.getElementById('tpStartDate').value || null,
-      due_date: document.getElementById('tpDueDate').value || null,
-      detail: document.getElementById('tpDetail').value.trim() || null,
+      priority: taskPanelValue('tpPriority') || '보통',
+      assignee: taskPanelValue('tpAssignee') || null,
+      start_date: taskPanelValue('tpStartDate') || null,
+      due_date: taskPanelValue('tpDueDate') || null,
+      detail: taskPanelValue('tpDetail') || null,
       status: '할일',
     };
     const { error } = await client.from('team_tasks').insert([payload]);
