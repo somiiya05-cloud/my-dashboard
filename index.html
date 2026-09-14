@@ -1161,6 +1161,13 @@
   }
   .channel-total-all td.num { color: #0891b2; }
   .channel-total-team td.num { color: #b45309; }
+  /* 영업팀 월 목표까지 남은 금액 — 실적 숫자와 헷갈리지 않게 배경을 깔고 색을 달리 씁니다 */
+  .channel-summary td.channel-remain { background: rgba(220,38,38,.06); color: #dc2626; font-weight: 800; }
+  .channel-summary td.channel-remain.done { background: rgba(22,163,74,.08); color: #15803d; }
+  /* 표가 table-layout:fixed라 칸을 똑같이 나눠 갖습니다. 남은 금액은 10자리라 잘리므로 폭을 따로 줍니다 */
+  .channel-summary th:nth-last-child(2),
+  .channel-summary td.channel-remain { width: 160px; }
+  .channel-summary th:nth-last-child(2) { background: rgba(220,38,38,.05); }
 
   /* ---- 영업팀: B2B 파이프라인 (수출 서브탭) ---- */
   .exp-badge-direct { color: #1d4ed8; }
@@ -2793,8 +2800,14 @@
   // ---- 목표 매출 (매월 동일 적용) ----
   const COMPANY_MONTHLY_TARGET = 9000000000; // 전사 월 90억원
   const COMPANY_DAILY_TARGET = 900000000;    // 전사 일 9억원
-  const TEAM_MONTHLY_TARGET = 900000000;     // 영업팀 월 9억원
+  const TEAM_MONTHLY_TARGET = 1500000000;    // 영업팀 월 15억원
   const TEAM_DAILY_TARGET = 30000000;        // 영업팀 일 3천만원
+
+  // 목표 금액을 "15억"처럼 짧게 적기 위한 표기. 목표를 바꾸면 화면 문구도 같이 따라갑니다
+  // (예전에는 문구에 "9억"이 직접 적혀 있어 목표만 고치면 숫자가 어긋났습니다).
+  function targetLabel(amount) {
+    return (amount / 100000000).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + '억';
+  }
 
   // 영업팀 매출 실적 (엑셀 월별 탭 기준 고정값, 월별로 다르게 입력)
   // 여기에 없는 달은 자동 계산값(EXCLUDED_FROM_TEAM 기준)을 사용합니다.
@@ -3294,7 +3307,7 @@
     const teamTodayCardValue = isViewingCurrentMonth ? teamTodayAmount : teamMonthlyActual;
     const teamTodayCardSub = isViewingCurrentMonth
       ? `일매출 목표 3천만원 대비 <span class="pct-red">${teamTodayPct.toFixed(1)}%</span>`
-      : `목표 9억 대비 <span class="pct-red">${teamMonthlyPct.toFixed(1)}%</span> · ${won(teamMonthlyRemain)} 남음`;
+      : `목표 ${targetLabel(TEAM_MONTHLY_TARGET)} 대비 <span class="pct-red">${teamMonthlyPct.toFixed(1)}%</span> · ${won(teamMonthlyRemain)} 남음`;
     const teamTodayCardPct = isViewingCurrentMonth ? teamTodayPct : teamMonthlyPct;
 
     document.getElementById('cards').innerHTML = `
@@ -4356,14 +4369,22 @@
     // ---- 영업팀 총합계 / 전체 총합계 요약 (페이지 맨 위 channelSummary에 표시) ----
     const outsideColTotals = columns.map((c, i) => teamColTotals[i] - coupangColTotals[i]);
     const outsideGrandTotal = teamGrandTotal - coupangGrandTotal;
+    // 영업팀 월 목표까지 얼마가 더 필요한지. 이 표에 나온 주차 합계 기준이라
+    // 옆의 "합계"와 더하면 정확히 목표 금액이 됩니다.
+    const teamRemain = TEAM_MONTHLY_TARGET - teamGrandTotal;
+    const remainCell = teamRemain > 0
+      ? `<td class="num channel-remain">${won(teamRemain)}</td>`
+      : `<td class="num channel-remain done">목표 달성 (+${won(-teamRemain)})</td>`;
+    const blankRemain = '<td class="num channel-remain"></td>';
+
     const summaryHtml = `
       <table class="channel-table channel-summary">
-        <thead><tr><th>구분</th><th>판매처</th>${columns.map(c => `<th class="num">${c.label}</th>`).join('')}<th class="num">합계</th></tr></thead>
+        <thead><tr><th>구분</th><th>판매처</th>${columns.map(c => `<th class="num">${c.label}</th>`).join('')}<th class="num">목표까지<span class="col-sub">영업팀 월 ${targetLabel(TEAM_MONTHLY_TARGET)}</span></th><th class="num">합계</th></tr></thead>
         <tbody>
-          <tr class="channel-total-row channel-total-all"><td colspan="2">전체 총합계</td>${allColTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(allGrandTotal)}</td></tr>
-          <tr class="channel-total-row channel-total-team"><td colspan="2">영업팀 총합계</td>${teamColTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(teamGrandTotal)}</td></tr>
-          <tr><td colspan="2">└ 쿠팡</td>${coupangColTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(coupangGrandTotal)}</td></tr>
-          <tr><td colspan="2">└ 외부몰</td>${outsideColTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}<td class="num">${won(outsideGrandTotal)}</td></tr>
+          <tr class="channel-total-row channel-total-all"><td colspan="2">전체 총합계</td>${allColTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}${blankRemain}<td class="num">${won(allGrandTotal)}</td></tr>
+          <tr class="channel-total-row channel-total-team"><td colspan="2">영업팀 총합계</td>${teamColTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}${remainCell}<td class="num">${won(teamGrandTotal)}</td></tr>
+          <tr><td colspan="2">└ 쿠팡</td>${coupangColTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}${blankRemain}<td class="num">${won(coupangGrandTotal)}</td></tr>
+          <tr><td colspan="2">└ 외부몰</td>${outsideColTotals.map(t => `<td class="num">${won(t)}</td>`).join('')}${blankRemain}<td class="num">${won(outsideGrandTotal)}</td></tr>
         </tbody>
       </table>
     `;
