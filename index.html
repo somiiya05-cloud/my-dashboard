@@ -262,6 +262,10 @@
      그룹이든 단일 업무든 같은 단계로 읽히게 합니다. (하위 1-1 줄은 흰 바탕 유지)
      아래 상태 색(진행중·완료·지연)이 뒤에 와서 그때는 상태 색이 이깁니다. */
   .jw-task-row.top { background: #eef2fb; border-color: rgba(77,124,254,.28); }
+  /* 매일 자동으로 생기는 루틴 업무는 파랑, 사람이 직접 추가한 업무는 보라로 구분합니다.
+     진행중·완료·지연 상태 색이 아래에 와서, 그때는 상태 색이 이깁니다. */
+  .jw-task-row.added { background: #f6f4ff; border-color: rgba(124,58,237,.3); border-left-color: #7c3aed; }
+  .jw-task-row.added:hover { border-color: rgba(124,58,237,.5); border-left-color: #6d28d9; }
   .jw-task-row-title { font-size: 13.5px; font-weight: 700; color: #0f172a; min-width: 0; }
   /* 업무명을 눌러도 업무목적 상세가 열립니다 */
   .jw-task-row-title.clickable { cursor: pointer; }
@@ -6296,7 +6300,11 @@
   }
 
   function renderJwTaskList(bodyId, category) {
-    const items = jwArrangeUrgent(jwScopedTasks(category).sort((a, b) => a.id - b.id));
+    // 오후와 같은 방식 — 루틴 업무를 정해진 순서로 먼저 깔고, 직접 추가한 업무는 그 뒤에 붙입니다.
+    const scoped = jwScopedTasks(category);
+    const ordered = AM_TASK_ORDER.map(title => scoped.find(t => t.title === title)).filter(Boolean);
+    const extras = scoped.filter(t => !AM_TASK_ORDER.includes(t.title)).sort((a, b) => a.id - b.id);
+    const items = jwArrangeUrgent(ordered.concat(extras));
     document.getElementById(bodyId).innerHTML = items.length
       ? `<div class="jw-task-list">${jwTaskListHtml(items)}</div>`
       : `<div class="jw-task-empty">${jwEmptyMessage()}</div>`;
@@ -6337,6 +6345,18 @@
     'B2B 세금계산서 발행',
     '해외/수출 영세율 계산서 발행',
   ];
+
+  // 오전 필수업무도 매일 같은 자리에 오도록 순서를 고정합니다.
+  // 여기 없는 업무(직접 추가한 건)는 이 아래에 붙습니다.
+  const AM_TASK_ORDER = [
+    '카카오 명퉤 오행염주 일자수정',
+    '공동구매 발주서 전달 (scm팀)',
+    '광고보고 / 매출마감',
+  ];
+
+  // 매일 자동으로 생기는 루틴 업무 이름 모음. 여기 없으면 사람이 직접 추가한 업무로 보고
+  // 목록에서 다른 색으로 구분합니다 (api/refresh-daily-tasks.js가 만드는 업무들과 같은 목록).
+  const JW_ROUTINE_TITLES = new Set([...AM_TASK_ORDER, ...PM_TASK_ORDER]);
 
   function renderJwPmChecklist() {
     const items = jwScopedTasks('오후 필수업무');
@@ -6497,7 +6517,7 @@
            onclick="toggleJwGroupbuy()">오늘 공구 ${jwGroupbuyLoaded ? jwGroupbuyRows.length + '건' : '···'} ${jwGroupbuyOpen ? '접기' : '보기'}</button>`
       : '';
     const row = `
-      <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}">
+      <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}${!indented && !JW_ROUTINE_TITLES.has(t.title) ? ' added' : ''}">
         <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwHasComment(t.id) ? '<span class="jw-comment-tag">코멘트 있음</span>' : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}</div>
         <div class="jw-task-row-checks">
           ${gbBtn}
