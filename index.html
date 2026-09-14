@@ -343,22 +343,22 @@
   }
   .jw-detail-input:focus { outline: none; border-color: rgba(77,124,254,.55); }
   /* 저장 버튼 없이 자동 저장이라, 저장 상태만 오른쪽 아래에 작게 표시합니다 */
-  .jw-detail-saved { font-size: 11px; color: #94a3b8; text-align: right; min-height: 14px; }
+  /* 내용이 없을 때는 자리를 차지하지 않게 둡니다 (아래 댓글이 붕 떠 보이지 않도록) */
+  .jw-detail-saved { font-size: 11px; color: #94a3b8; text-align: right; }
+  .jw-detail-saved:empty { display: none; }
 
   /* ---- 댓글 · 대댓글 ---- */
-  .jw-cmt-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
-  .jw-cmt {
-    background: #f8fafc; border: 1px solid rgba(15,23,42,.07); border-radius: 8px;
-    padding: 10px 12px;
-  }
-  .jw-cmt.reply { background: #fff; margin-left: 18px; border-left: 2px solid rgba(77,124,254,.3); }
-  /* 글쓴이 줄과 본문이 붙어 보여서 한 줄 정도 띄웁니다 */
-  .jw-cmt-head { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+  .jw-cmt-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 4px; }
+  /* 상자 없이 글만 — "파트장 : 내용" 한 줄로 읽히게 합니다 */
+  .jw-cmt { display: flex; align-items: baseline; gap: 6px; padding: 1px 0; }
+  .jw-cmt.reply { margin-left: 16px; padding-left: 8px; border-left: 2px solid rgba(77,124,254,.25); }
   .jw-cmt-who {
-    font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 1px 7px;
-    background: #eef2fb; color: #3b63d4;
+    font-size: 12.5px; font-weight: 800; color: #3b63d4; flex-shrink: 0;
   }
-  .jw-cmt-who.staff { background: #ecfdf5; color: #15803d; }
+  .jw-cmt-who.staff { color: #15803d; }
+  .jw-cmt-who::after { content: " :"; }
+  /* 시간·답글·삭제는 본문 뒤에 작게 따라붙습니다 */
+  .jw-cmt-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
   .jw-cmt-time { font-size: 10.5px; color: #94a3b8; }
   .jw-cmt-act {
     background: none; border: none; padding: 0 2px; cursor: pointer; font-family: inherit;
@@ -366,7 +366,7 @@
   }
   .jw-cmt-act:hover { color: #475569; text-decoration: underline; }
   .jw-cmt-act.danger:hover { color: #dc2626; }
-  .jw-cmt-body { font-size: 12.5px; color: #0f172a; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .jw-cmt-body { flex: 1; min-width: 0; font-size: 12.5px; color: #0f172a; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
   .jw-cmt-form { display: flex; align-items: center; gap: 6px; }
   .jw-cmt-form select {
     border: 1px solid rgba(15,23,42,.14); border-radius: 7px; padding: 6px 6px;
@@ -7264,13 +7264,13 @@
   function jwCommentRowHtml(c, isReply) {
     return `
       <div class="jw-cmt${isReply ? ' reply' : ''}">
-        <div class="jw-cmt-head">
-          <span class="jw-cmt-who${c.author === '담당자' ? ' staff' : ''}">${escapeAttr(c.author)}</span>
+        <span class="jw-cmt-who${c.author === '담당자' ? ' staff' : ''}">${escapeAttr(c.author)}</span>
+        <span class="jw-cmt-body">${escapeAttr(c.body)}</span>
+        <span class="jw-cmt-meta">
           <span class="jw-cmt-time">${escapeAttr(jwCmtTime(c.created_at))}</span>
           ${isReply ? '' : `<button type="button" class="jw-cmt-act" onclick="jwSetReplyTarget(${c.task_id}, ${c.id})">답글</button>`}
           <button type="button" class="jw-cmt-act danger" onclick="jwDeleteComment(${c.task_id}, ${c.id})">삭제</button>
-        </div>
-        <div class="jw-cmt-body">${escapeAttr(c.body)}</div>
+        </span>
       </div>`;
   }
 
