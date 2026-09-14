@@ -413,6 +413,44 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .jw-invoice-badge.clickable { border: none; cursor: pointer; font-family: inherit; }
+  .jw-invoice-badge.clickable:hover { background: #b91c1c; }
+
+  /* 배지를 누르면 뜨는 "상품등록 실패" 목록 */
+  .jw-regfail-overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 1300;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .jw-regfail-box {
+    background: #fff; border-radius: 12px; width: 100%; max-width: 620px;
+    max-height: 84vh; overflow: auto; padding: 18px 20px 20px;
+    box-shadow: 0 18px 48px rgba(15,23,42,.25);
+  }
+  .jw-regfail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .jw-regfail-head h3 { margin: 0; font-size: 15px; color: #0f172a; }
+  .jw-regfail-sub { font-size: 11.5px; color: #64748b; margin-top: 3px; }
+  .jw-regfail-close { border: none; background: none; font-size: 19px; line-height: 1; color: #64748b; cursor: pointer; padding: 0 2px; }
+  .jw-regfail-mall { margin-top: 12px; }
+  .jw-regfail-mall-head {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12.5px; font-weight: 800; color: #0f172a;
+    padding-bottom: 5px; border-bottom: 2px solid #e2e8f0;
+  }
+  .jw-regfail-mall-head span {
+    background: #fee2e2; color: #b91c1c; font-size: 11px; font-weight: 800;
+    border-radius: 999px; padding: 1px 8px;
+  }
+  .jw-regfail-item { padding: 9px 2px 10px; border-bottom: 1px solid #f1f5f9; }
+  .jw-regfail-name { font-size: 12.5px; font-weight: 700; color: #0f172a; line-height: 1.5; }
+  .jw-regfail-code { font-size: 11px; font-weight: 600; color: #64748b; margin-left: 6px; }
+  .jw-regfail-retry {
+    font-size: 10.5px; font-weight: 700; color: #b45309;
+    background: rgba(217,119,6,.12); border-radius: 999px; padding: 1px 7px; margin-left: 6px;
+  }
+  .jw-regfail-reasons { margin: 5px 0 0; padding-left: 17px; font-size: 12px; line-height: 1.65; color: #b91c1c; }
+  .jw-regfail-noreason { font-size: 11.5px; color: #94a3b8; margin-top: 5px; }
+  .jw-regfail-when { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+
   /* SCM 미출 메일 배지는 알림 표시일 뿐이라 누를 곳이 없습니다 */
   .jw-launch-num.scm { cursor: default; margin-left: 4px; }
   .jw-launch-num.scm:hover { background: #dc2626; box-shadow: none; }
@@ -6025,17 +6063,92 @@
     jwRegCheck = (error || !data || !data.length) ? null : data[0];
   }
 
+  function jwRegCheckedText() {
+    if (!jwRegCheck) return '';
+    return new Date(jwRegCheck.checked_at)
+      .toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' });
+  }
+
   function jwRegBadgeHtml() {
     if (!jwRegCheck || !jwRegCheck.fail_recent) return '';
-    const when = new Date(jwRegCheck.checked_at)
-      .toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' });
-    const reasons = (jwRegCheck.fails || [])
-      .slice(0, 5)
-      .map((f) => '· ' + [f.상품코드, f.실패사유 || '사유 미표시'].filter(Boolean).join(' — '))
-      .join('\n');
-    const tip = `사방넷 상품등록 실패 ${jwRegCheck.fail_recent}건 (최근 7일)\n${reasons}\n\n검수 시각 ${when}`;
-    return `<span class="jw-invoice-badge" title="${escapeAttr(tip)}">+${jwRegCheck.fail_recent}</span>`;
+    const days = jwRegCheck.period_days ? `최근 ${jwRegCheck.period_days}일` : '조회 기간';
+    const tip = `사방넷 상품등록 실패 ${jwRegCheck.fail_recent}건 (${days})\n누르면 어느 상품이 어느 몰에서 실패했는지 보입니다.\n\n검수 시각 ${jwRegCheckedText()}`;
+    return `<button type="button" class="jw-invoice-badge clickable" title="${escapeAttr(tip)}"
+      onclick="event.stopPropagation(); jwOpenRegFails()">+${jwRegCheck.fail_recent}</button>`;
   }
+
+  // ---- 배지를 누르면 뜨는 "어느 상품이 어느 몰에서 실패했나" 목록 ----
+  // fails 한 줄이 사방넷 송신 시도 한 번입니다. 같은 상품을 여러 번 시도하면 여러 줄이 됩니다.
+  function jwOpenRegFails() {
+    if (!jwRegCheck) return;
+    const fails = jwRegCheck.fails || [];
+
+    // 몰별로 묶고, 몰 안에서는 상품별로 다시 묶습니다.
+    const byMall = new Map();
+    fails.forEach((f) => {
+      const mall = f.몰 || '몰 미상';
+      if (!byMall.has(mall)) byMall.set(mall, new Map());
+      const byItem = byMall.get(mall);
+      const key = (f.품번 || '') + '|' + (f.상품명 || '');
+      if (!byItem.has(key)) byItem.set(key, []);
+      byItem.get(key).push(f);
+    });
+
+    const sections = [...byMall.entries()]
+      .sort((a, b) => b[1].size - a[1].size)
+      .map(([mall, byItem]) => {
+        const cnt = [...byItem.values()].reduce((n, arr) => n + arr.length, 0);
+        const items = [...byItem.values()].map((tries) => {
+          const first = tries[0];
+          const when = tries.map(t => t.시각).filter(Boolean);
+          // 사유는 한 줄일 수도, 여러 줄(배열)일 수도 있습니다.
+          const reasons = [...new Set(tries.flatMap(t => Array.isArray(t.사유) ? t.사유 : (t.사유 ? [t.사유] : [])))];
+          return `
+            <div class="jw-regfail-item">
+              <div class="jw-regfail-name">
+                ${escapeAttr(first.상품명 || '(상품명 없음)')}
+                ${first.품번 ? `<span class="jw-regfail-code">품번 ${escapeAttr(first.품번)}</span>` : ''}
+                ${tries.length > 1 ? `<span class="jw-regfail-retry">${tries.length}회 시도</span>` : ''}
+              </div>
+              ${reasons.length
+                ? '<ul class="jw-regfail-reasons">' + reasons.map(r => `<li>${escapeAttr(r)}</li>`).join('') + '</ul>'
+                : '<div class="jw-regfail-noreason">사방넷에 실패 사유가 표시되지 않았습니다. 사방넷에서 직접 확인해야 합니다.</div>'}
+              ${when.length ? `<div class="jw-regfail-when">${escapeAttr(when.join(' · '))}</div>` : ''}
+            </div>`;
+        }).join('');
+        return `
+          <div class="jw-regfail-mall">
+            <div class="jw-regfail-mall-head">${escapeAttr(mall)}<span>${cnt}건</span></div>
+            ${items}
+          </div>`;
+      }).join('');
+
+    const days = jwRegCheck.period_days ? `최근 ${jwRegCheck.period_days}일` : '조회 기간 전체';
+    const box = document.createElement('div');
+    box.className = 'jw-regfail-overlay';
+    box.onclick = (e) => { if (e.target === box) box.remove(); };
+    box.innerHTML = `
+      <div class="jw-regfail-box">
+        <div class="jw-regfail-head">
+          <div>
+            <h3>사방넷 상품등록 실패 ${fails.length || jwRegCheck.fail_recent}건</h3>
+            <div class="jw-regfail-sub">${days} 기준 · 검수 ${escapeAttr(jwRegCheckedText())}</div>
+          </div>
+          <button type="button" class="jw-regfail-close" title="닫기">✕</button>
+        </div>
+        ${sections || '<div class="jw-regfail-noreason">실패 내역이 저장되어 있지 않습니다.</div>'}
+      </div>`;
+    box.querySelector('.jw-regfail-close').onclick = () => box.remove();
+    document.body.appendChild(box);
+
+    const onEsc = (e) => {
+      if (e.key !== 'Escape') return;
+      box.remove();
+      document.removeEventListener('keydown', onEsc);
+    };
+    document.addEventListener('keydown', onEsc);
+  }
+  window.jwOpenRegFails = jwOpenRegFails;
 
   // ---- "계산서 발행" 그룹의 빨간 +N 배지 ----
   // 거래처 운영현황에서 거래 건을 "입금 완료"로 표시하면 세금계산서를 끊어야 하므로,
@@ -6336,11 +6449,12 @@
     '파워링크 세팅',
     '카페침투 세팅',
     'GFA 세팅',
+    '외부몰 상품등록',
     '다우게시판 공유',
     '리뷰 작업 요청 (cx팀)',
     '이지어드민 연동(scm팀)',
-    '쿠팡 재고 입고',
-    '쿠팡 뱃지 확인',
+    '쿠팡 로켓그로스 재고 입고',
+    '쿠팡 로켓그로스 뱃지 확인',
     'SCM팀 미출 메일 확인',
     'B2B 세금계산서 발행',
     '해외/수출 영세율 계산서 발행',
@@ -6397,11 +6511,12 @@
     '네이버 GFA / 미니멀룸스토어 (법인)': '광고비 충전',
     '네이버 GFA / selflow (지점)': '광고비 충전',
     '네이버 쇼핑 파트너센터': '광고비 충전',
+    '외부몰 상품등록': '상품등록',
     '다우게시판 공유': '상품등록',
     '리뷰 작업 요청 (cx팀)': '상품등록',
     '이지어드민 연동(scm팀)': '상품등록',
-    '쿠팡 재고 입고': '쿠팡',
-    '쿠팡 뱃지 확인': '쿠팡',
+    '쿠팡 로켓그로스 재고 입고': '쿠팡',
+    '쿠팡 로켓그로스 뱃지 확인': '쿠팡',
     'B2B 세금계산서 발행': '계산서 발행',
     '해외/수출 영세율 계산서 발행': '계산서 발행',
     '올리브영 월마감': '월마감',
