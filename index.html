@@ -941,6 +941,40 @@
   .gs-ev-card-filled.gs-accent-blue .gs-ev-card-meta { color: #2563eb; }
   .gs-ev-card-filled.gs-accent-blue .gs-ev-card-tags .gs-tag { background: rgba(37,99,235,.16); color: #1d4ed8; }
 
+  /* ---- 외부몰 등록 현황 ---- */
+  .mr-stat { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .mr-stat-cell {
+    flex: 1; min-width: 120px; background: #f8fafc;
+    border: 1px solid rgba(15,23,42,.08); border-radius: 8px; padding: 9px 12px;
+  }
+  .mr-stat-cell.ok { background: rgba(37,99,235,.06); border-color: rgba(37,99,235,.18); }
+  .mr-stat-cell.bad { background: #fef2f2; border-color: rgba(220,38,38,.2); }
+  .mr-stat-label { font-size: 11px; font-weight: 700; color: #64748b; }
+  .mr-stat-num { font-size: 18px; font-weight: 800; color: #0f172a; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .mr-stat-cell.ok .mr-stat-num { color: #1d4ed8; }
+  .mr-stat-cell.bad .mr-stat-num { color: #b91c1c; }
+
+  .mr-check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #475569; cursor: pointer; }
+  .mr-lead { font-size: 12px; color: #64748b; margin-bottom: 8px; line-height: 1.6; }
+  .mr-empty { font-size: 12.5px; color: #94a3b8; padding: 14px 2px; }
+  .mr-more { font-size: 11.5px; color: #94a3b8; padding: 10px 2px 2px; }
+
+  .mr-item { padding: 11px 2px 12px; border-bottom: 1px solid #f1f5f9; }
+  .mr-item-head { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+  .mr-name { font-size: 13px; font-weight: 700; color: #0f172a; }
+  .mr-code { font-size: 11px; font-weight: 600; color: #64748b; }
+  .mr-brand { font-size: 11px; color: #94a3b8; }
+  .mr-state {
+    font-size: 10.5px; font-weight: 700; color: #b45309;
+    background: rgba(217,119,6,.12); border-radius: 999px; padding: 1px 7px;
+  }
+  .mr-warn { font-size: 12px; font-weight: 700; color: #b91c1c; margin-top: 6px; }
+  .mr-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .mr-chips-label { font-size: 11px; font-weight: 700; color: #64748b; margin-right: 2px; }
+  .mr-chip { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 9px; }
+  .mr-chip.on { background: rgba(37,99,235,.1); color: #1d4ed8; }
+  .mr-chip.off { background: #f1f5f9; color: #94a3b8; }
+
   /* 외부몰 행사: 몰마다 다른 색상 (스마트스토어=연두, 오늘의집=하늘, 쿠팡=호박, 톡딜=보라) */
   .gs-ev-card-filled.gs-accent-green { background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.3); }
   .gs-ev-card-filled.gs-accent-green .gs-ev-card-title { color: #15803d; }
@@ -1994,6 +2028,21 @@
           <div class="subtitle">외부몰(SK MALL, 오늘의집 등)에 등록한 상품별 판매가를 관리합니다.</div>
         </div>
       </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>외부몰 등록 현황</h2>
+          <span class="panel-note" id="mrSyncNote"></span>
+        </div>
+        <div class="mr-stat" id="mrStat"></div>
+        <div class="filter-group" style="margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+          <input type="text" id="mrSearch" class="vendor-select" style="flex:1; min-width:240px;"
+            placeholder="런칭 상품명 또는 품번으로 검색 (예: 코드니처 자켓세탁망, 100814)"
+            autocomplete="off" oninput="renderMallRegResult()">
+          <label class="mr-check"><input type="checkbox" id="mrOnlyMissing" onchange="renderMallRegResult()">미등록만 보기</label>
+        </div>
+        <div id="mrResult"></div>
+      </section>
 
       <section class="panel">
         <div class="panel-head"><h2>판매가 등록</h2></div>
@@ -4146,7 +4195,7 @@
     if (view === 'logistics') { loadLogisticsData(); loadEzadminInventory(); }
     if (view === 'sample-sync') { loadSampleRequests(); setupSampleProductSelect(); loadSampleProductList(); }
     if (view === 'codenit-products') loadCodenitProducts();
-    if (view === 'mall-prices') loadMallPrices();
+    if (view === 'mall-prices') { loadMallPrices(); loadMallRegistrations(); }
     if (view === 'review-alerts') loadReviewAlerts();
     if (view === 'team-tasks') {
       taskFilterAssignee = brandChannel || '';
@@ -5593,6 +5642,113 @@
     form.reset();
     loadCodenitProducts();
   });
+
+  // ==================== 외부몰 등록 현황 (사방넷에서 읽어온 스냅샷) ====================
+  // 대시보드는 사방넷에 직접 접속할 수 없어서(로그인 + 다른 도메인), 사방넷 화면을 읽어
+  // mall_registrations 표에 넣어둔 결과를 그대로 보여줍니다. 실시간이 아니라 "읽어온 시점" 기준입니다.
+  let mallRegSnap = null;
+  let mallRegIndex = null;   // 품번 -> { 상품명, 브랜드, 상태, 몰: [...] }
+
+  async function loadMallRegistrations() {
+    const { data, error } = await client.from('mall_registrations')
+      .select('synced_at,malls,products,registrations,product_count,registration_count')
+      .order('synced_at', { ascending: false })
+      .limit(1);
+    mallRegSnap = (error || !data || !data.length) ? null : data[0];
+    buildMallRegIndex();
+    renderMallRegStat();
+    renderMallRegResult();
+  }
+
+  function buildMallRegIndex() {
+    mallRegIndex = new Map();
+    if (!mallRegSnap) return;
+    (mallRegSnap.products || []).forEach((x) => {
+      mallRegIndex.set(x.품번, { 품번: x.품번, 상품명: x.상품명 || '', 브랜드: x.브랜드 || '', 상태: x.상태 || '', 몰: [] });
+    });
+    (mallRegSnap.registrations || []).forEach((r) => {
+      // 상품 목록에 없는 품번이 등록돼 있을 수도 있어(단종 등) 그때는 줄을 새로 만듭니다.
+      if (!mallRegIndex.has(r.품번)) mallRegIndex.set(r.품번, { 품번: r.품번, 상품명: '', 브랜드: '', 상태: '', 몰: [] });
+      const item = mallRegIndex.get(r.품번);
+      if (!item.몰.includes(r.몰)) item.몰.push(r.몰);
+    });
+  }
+
+  function renderMallRegStat() {
+    const note = document.getElementById('mrSyncNote');
+    const box = document.getElementById('mrStat');
+    if (!note || !box) return;
+    if (!mallRegSnap) {
+      note.textContent = '';
+      box.innerHTML = '<div class="mr-empty">사방넷에서 읽어온 등록 현황이 아직 없습니다.</div>';
+      return;
+    }
+    note.textContent = '사방넷 기준 ' + new Date(mallRegSnap.synced_at)
+      .toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' });
+
+    const items = [...mallRegIndex.values()];
+    const supply = items.filter((x) => x.상태 === '공급중');
+    const missing = supply.filter((x) => !x.몰.length);
+    box.innerHTML = [
+      { label: '등록 건수', n: mallRegSnap.registration_count, unit: '건', cls: '' },
+      { label: '등록된 상품', n: items.filter((x) => x.몰.length).length, unit: '개', cls: ' ok' },
+      { label: '미등록 (공급중)', n: missing.length, unit: '개', cls: ' bad' },
+      { label: '연결된 몰', n: (mallRegSnap.malls || []).length, unit: '곳', cls: '' },
+    ].map((x) => `
+      <div class="mr-stat-cell${x.cls}">
+        <div class="mr-stat-label">${escapeAttr(x.label)}</div>
+        <div class="mr-stat-num">${(x.n || 0).toLocaleString('ko-KR')}${x.unit}</div>
+      </div>`).join('');
+  }
+
+  function renderMallRegResult() {
+    const box = document.getElementById('mrResult');
+    if (!box || !mallRegIndex) return;
+    const q = (document.getElementById('mrSearch')?.value || '').trim().toLowerCase();
+    const onlyMissing = !!document.getElementById('mrOnlyMissing')?.checked;
+    const allMalls = mallRegSnap ? (mallRegSnap.malls || []) : [];
+
+    let items = [...mallRegIndex.values()];
+    if (q) items = items.filter((x) => (x.상품명 || '').toLowerCase().includes(q) || String(x.품번).includes(q));
+    if (onlyMissing) items = items.filter((x) => !x.몰.length);
+    // 검색어가 없으면 "지금 손봐야 할 것"부터 보여줍니다: 공급중인데 어디에도 안 올라간 상품.
+    if (!q && !onlyMissing) items = items.filter((x) => x.상태 === '공급중' && !x.몰.length);
+
+    items.sort((a, b) => (b.몰.length - a.몰.length) || String(a.상품명).localeCompare(String(b.상품명), 'ko'));
+
+    if (!items.length) {
+      box.innerHTML = `<div class="mr-empty">${q ? '검색 결과가 없습니다. 사방넷에 등록된 상품명인지 확인해 주세요.' : '공급중인 상품이 모두 어딘가에는 등록돼 있습니다.'}</div>`;
+      return;
+    }
+
+    const LIMIT = 40;
+    const shown = items.slice(0, LIMIT);
+    const head = !q && !onlyMissing
+      ? `<div class="mr-lead">공급중인데 <b>어느 몰에도 등록되지 않은 상품</b> ${items.length}개입니다. 런칭 상품명을 위에서 검색하면 그 상품의 등록 현황만 볼 수 있습니다.</div>`
+      : `<div class="mr-lead">${items.length}개를 찾았습니다.</div>`;
+
+    box.innerHTML = head + shown.map((x) => {
+      const on = x.몰.slice().sort((a, b) => a.localeCompare(b, 'ko'));
+      const off = allMalls.filter((m) => !x.몰.includes(m));
+      return `
+        <div class="mr-item${on.length ? '' : ' none'}">
+          <div class="mr-item-head">
+            <span class="mr-name">${escapeAttr(x.상품명 || '(상품명 없음)')}</span>
+            <span class="mr-code">품번 ${escapeAttr(x.품번)}</span>
+            ${x.브랜드 ? `<span class="mr-brand">${escapeAttr(x.브랜드)}</span>` : ''}
+            ${x.상태 && x.상태 !== '공급중' ? `<span class="mr-state">${escapeAttr(x.상태)}</span>` : ''}
+          </div>
+          ${on.length
+            ? `<div class="mr-chips"><span class="mr-chips-label">등록됨</span>${on.map((m) => `<span class="mr-chip on">${escapeAttr(m)}</span>`).join('')}</div>`
+            : '<div class="mr-warn">어느 몰에도 등록되어 있지 않습니다 — 등록을 진행해야 합니다.</div>'}
+          ${off.length
+            ? `<div class="mr-chips"><span class="mr-chips-label">미등록</span>${off.map((m) => `<span class="mr-chip off">${escapeAttr(m)}</span>`).join('')}</div>`
+            : ''}
+        </div>`;
+    }).join('') + (items.length > LIMIT
+      ? `<div class="mr-more">${items.length - LIMIT}개 더 있습니다. 검색어를 넣으면 좁혀서 볼 수 있습니다.</div>`
+      : '');
+  }
 
   // ==================== 외부몰 판매가 ====================
   let mallPriceRows = [];
