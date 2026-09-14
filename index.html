@@ -6024,6 +6024,7 @@
     await loadJwInvoicePending();  // "계산서 발행" 배지에 쓸 입금 완료 건수
     await loadJwSettleDue();       // 정산일이 된 공동구매 건 (상단 배너)
     await loadJwRegCheck();        // "상품등록" 배지에 쓸 사방넷 등록 실패 건수
+    await loadJwMallRegs();        // 그중 이미 등록에 성공한 건을 빼기 위한 등록 현황
     renderTaskAssigneeNav();
     updateTaskViewHeader();
     populateTaskFilterOptions();
@@ -6144,7 +6145,7 @@
 
   async function refreshJwAlerts() {
     if (!jwIsViewingJw()) return;
-    await Promise.all([loadJwInvoicePending(), loadJwSettleDue(), loadJwRegCheck()]);
+    await Promise.all([loadJwInvoicePending(), loadJwSettleDue(), loadJwRegCheck(), loadJwMallRegs()]);
     jwRefreshInvoiceBadge();
     jwRefreshRegBadge();
     renderJwSettleBanner();
@@ -6300,6 +6301,47 @@
     jwRegCheck = (error || !data || !data.length) ? null : data[0];
   }
 
+  // 실패 기록은 "그때 실패했다"는 이력일 뿐입니다. 그 뒤 재시도해서 등록에 성공한 건이
+  // 많아서, 외부몰 등록 현황(mall_registrations)과 맞춰 보고 아직 안 올라간 것만 셉니다.
+  let jwMallRegs = null;   // { at, map: Map('품번|몰' -> 'YYYYMMDD') }
+
+  async function loadJwMallRegs() {
+    jwMallRegs = null;
+    const { data, error } = await client.from('mall_registrations')
+      .select('synced_at,registrations')
+      .order('synced_at', { ascending: false })
+      .limit(1);
+    if (error || !data || !data.length) return;
+    const map = new Map();
+    (data[0].registrations || []).forEach((r) => {
+      const key = String(r.품번) + '|' + r.몰;
+      const day = String(r.등록일 || '').replace(/[^0-9]/g, '').slice(0, 8);
+      const prev = map.get(key);
+      if (!prev || day > prev) map.set(key, day);
+    });
+    jwMallRegs = { at: data[0].synced_at, map };
+  }
+
+  // 같은 상품·몰이 지금 등록돼 있고, 그 등록이 실패한 날 이후라면 해결된 것으로 봅니다.
+  function jwFailResolved(f) {
+    if (!jwMallRegs) return false;
+    const day = jwMallRegs.map.get(String(f.품번) + '|' + f.몰);
+    if (!day) return false;
+    const failDay = String(f.시각 || '').replace(/[^0-9]/g, '').slice(0, 8);
+    return !failDay || day >= failDay;
+  }
+
+  function jwOpenFails() {
+    return (jwRegCheck && jwRegCheck.fails || []).filter((f) => !jwFailResolved(f));
+  }
+
+  // 배지 숫자는 시도 횟수가 아니라 "아직 올려야 할 상품×몰" 수입니다.
+  function jwOpenFailCount() {
+    if (!jwRegCheck) return 0;
+    if (!jwMallRegs) return jwRegCheck.fail_recent || 0;
+    return new Set(jwOpenFails().map((f) => String(f.품번) + '|' + f.몰)).size;
+  }
+
   function jwRegCheckedText() {
     if (!jwRegCheck) return '';
     return new Date(jwRegCheck.checked_at)
@@ -6307,18 +6349,21 @@
   }
 
   function jwRegBadgeHtml() {
-    if (!jwRegCheck || !jwRegCheck.fail_recent) return '';
-    const days = jwRegCheck.period_days ? `최근 ${jwRegCheck.period_days}일` : '조회 기간';
-    const tip = `사방넷 상품등록 실패 ${jwRegCheck.fail_recent}건 (${days})\n누르면 어느 상품이 어느 몰에서 실패했는지 보입니다.\n\n검수 시각 ${jwRegCheckedText()}`;
+    if (!jwRegCheck) return '';
+    const n = jwOpenFailCount();
+    if (!n) return '';
+    const done = (jwRegCheck.fails || []).length - jwOpenFails().length;
+    const tip = `아직 등록되지 않은 상품×몰 ${n}건\n${done > 0 ? `(재시도로 이미 해결된 ${done}건은 뺐습니다)\n` : ''}누르면 어느 상품이 어느 몰에 안 올라갔는지 보입니다.\n\n검수 시각 ${jwRegCheckedText()}`;
     return `<button type="button" class="jw-invoice-badge clickable" title="${escapeAttr(tip)}"
-      onclick="event.stopPropagation(); jwOpenRegFails()">+${jwRegCheck.fail_recent}</button>`;
+      onclick="event.stopPropagation(); jwOpenRegFails()">+${n}</button>`;
   }
 
   // ---- 배지를 누르면 뜨는 "어느 상품이 어느 몰에서 실패했나" 목록 ----
   // fails 한 줄이 사방넷 송신 시도 한 번입니다. 같은 상품을 여러 번 시도하면 여러 줄이 됩니다.
   function jwOpenRegFails() {
     if (!jwRegCheck) return;
-    const fails = jwRegCheck.fails || [];
+    const fails = jwOpenFails();
+    const resolved = (jwRegCheck.fails || []).length - fails.length;
 
     // 몰별로 묶고, 몰 안에서는 상품별로 다시 묶습니다.
     const byMall = new Map();
@@ -6398,14 +6443,14 @@
       <div class="jw-regfail-box">
         <div class="jw-regfail-head">
           <div>
-            <h3>사방넷 상품등록 실패 ${fails.length || jwRegCheck.fail_recent}건</h3>
-            <div class="jw-regfail-sub">${days} 기준 · 검수 ${escapeAttr(jwRegCheckedText())}</div>
+            <h3>아직 등록되지 않은 건 ${jwOpenFailCount()}건</h3>
+            <div class="jw-regfail-sub">${days} 기준 · 검수 ${escapeAttr(jwRegCheckedText())}${resolved > 0 ? ` · 재시도로 해결된 ${resolved}건은 숨김` : ''}</div>
           </div>
           <button type="button" class="jw-regfail-close" title="닫기">✕</button>
         </div>
         ${statHtml}
         ${fails.length ? '<div class="jw-regfail-section-label">등록 실패 내역</div>' : ''}
-        ${sections || '<div class="jw-regfail-noreason">실패 내역이 저장되어 있지 않습니다.</div>'}
+        ${fails.length ? sections : '<div class="jw-regfail-noreason">실패했던 건이 모두 재시도로 등록됐습니다.</div>'}
       </div>`;
     box.querySelector('.jw-regfail-close').onclick = () => box.remove();
     document.body.appendChild(box);
