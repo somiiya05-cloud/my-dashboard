@@ -2980,10 +2980,16 @@
     return { blocks, leftovers };
   }
 
-  // 영업팀 매출 = team:false 블록(자사몰 본사몰 / 카카오 / 오프라인 / 컨텐츠팀)을 제외한 매출
+  // team:false 표(자사몰 본사몰 / 카카오 / 오프라인 / 컨텐츠팀)에 있어도
+  // 영업팀 매출로는 잡아야 하는 판매처. 카카오는 선물하기만 빼고 톡스토어는 영업팀 실적입니다.
+  const TEAM_INCLUDED_EXCEPTIONS = ['카카오톡스토어', '카카오톡스토어(법인)'];
+
+  // 영업팀 매출 = team:false 표의 판매처를 뺀 매출 (위 예외는 도로 포함)
   const EXCLUDED_FROM_TEAM = [];
   CHANNEL_TEMPLATE.forEach(block => {
-    if (!block.team) block.rows.forEach(([, vendor]) => EXCLUDED_FROM_TEAM.push(vendor));
+    if (!block.team) block.rows.forEach(([, vendor]) => {
+      if (!TEAM_INCLUDED_EXCEPTIONS.includes(vendor)) EXCLUDED_FROM_TEAM.push(vendor);
+    });
   });
   EXCLUDED_FROM_TEAM.push('CONTENTS_DEAL'); // 구DB에 남아있을 수 있는 옛 표기(공동구매(컨텐츠팀)와 동일 채널)
 
@@ -4357,12 +4363,8 @@
     channelBlocks.forEach(block => {
       const result = renderBlockTable(block.rows, block.subtotalLabel);
       html += result.html;
-      result.colTotals.forEach((t, i) => {
-        allColTotals[i] += t;
-        if (block.team) teamColTotals[i] += t;
-      });
+      result.colTotals.forEach((t, i) => { allColTotals[i] += t; });
       allGrandTotal += result.grandTotal;
-      if (block.team) teamGrandTotal += result.grandTotal;
       if (block.subtotalLabel === '쿠팡 총합계') {
         result.colTotals.forEach((t, i) => { coupangColTotals[i] += t; });
         coupangGrandTotal += result.grandTotal;
@@ -4374,10 +4376,20 @@
       const extraRows = extraVendors.map(v => ['기타', v]);
       const result = renderBlockTable(extraRows, '합계');
       html += result.html;
-      result.colTotals.forEach((t, i) => { allColTotals[i] += t; teamColTotals[i] += t; });
+      result.colTotals.forEach((t, i) => { allColTotals[i] += t; });
       allGrandTotal += result.grandTotal;
-      teamGrandTotal += result.grandTotal;
     }
+
+    // 영업팀 합계는 표 단위가 아니라 판매처 단위로 계산합니다.
+    // 카카오톡스토어처럼 "카카오 표에는 있지만 영업팀 실적"인 판매처가 있어서,
+    // 위쪽 대시보드 KPI와 똑같이 EXCLUDED_FROM_TEAM만 빼는 방식으로 기준을 맞춥니다.
+    Object.entries(byVendorDay).forEach(([vendor, dayMap]) => {
+      if (EXCLUDED_FROM_TEAM.includes(vendor)) return;
+      columns.forEach((col, i) => {
+        teamColTotals[i] += col.days.reduce((s, d) => s + (dayMap[d] || 0), 0);
+      });
+      days.forEach(d => { teamGrandTotal += (dayMap[d] || 0); });
+    });
 
     // ---- 영업팀 총합계 / 전체 총합계 요약 (페이지 맨 위 channelSummary에 표시) ----
     const outsideColTotals = columns.map((c, i) => teamColTotals[i] - coupangColTotals[i]);
