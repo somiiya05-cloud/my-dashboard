@@ -2799,7 +2799,7 @@
 
   // ---- 목표 매출 (매월 동일 적용) ----
   const COMPANY_MONTHLY_TARGET = 9000000000; // 전사 월 90억원
-  const COMPANY_DAILY_TARGET = 900000000;    // 전사 일 9억원
+  const COMPANY_DAILY_TARGET = 900000000;    // 전사 일 9억원 (현재 화면에는 표시하지 않음)
   const TEAM_MONTHLY_TARGET = 1200000000;    // 영업팀 월 12억원
 
   // 영업팀 일 목표는 월 목표를 그 달의 달력 일수로 나눠 씁니다.
@@ -3266,7 +3266,6 @@
       }
     });
     const todayDate = maxDate;
-    const todayAmount = byDate[todayDate] || 0;
     const teamTodayAmount = byDateTeam[todayDate] || 0;
 
     // 해당 월의 고정 실적값이 있으면 그 값을, 없으면 Supabase 거래 데이터 합계(totalAmount)를 사용
@@ -3275,7 +3274,6 @@
 
     const companyMonthlyPct = Math.min(999, (companyMonthlyActual / COMPANY_MONTHLY_TARGET) * 100);
     const companyMonthlyRemain = Math.max(0, COMPANY_MONTHLY_TARGET - companyMonthlyActual);
-    const companyDailyPct = Math.min(999, (todayAmount / COMPANY_DAILY_TARGET) * 100);
 
     // 해당 월의 고정 실적값이 있으면 그 값을, 없으면 자동 계산값(teamAmount)을 사용
     const teamOverride = monthStr && TEAM_ACTUALS_BY_MONTH[monthStr];
@@ -3301,14 +3299,19 @@
     const isViewingCurrentMonth = !monthStr || monthStr === currentMonthStr;
     // 카드2(전체 매출)와 카드3(영업팀 매출): 이번 달이면 "오늘" 실적을, 지난(마감된) 달이면
     // 그 달의 전체 합계를 보여줍니다 (마감된 달은 "오늘"이 의미가 없으므로).
+    // 이번 달 카드2는 "영업팀이 이번 달 지금까지 얼마를 했나"를 봅니다.
+    // (하루치 전사 매출보다, 월 목표까지 얼마 남았는지가 매일 볼 값이라서)
+    // 영업팀 매출 = 자사몰(본사몰)·카카오·오프라인·컨텐츠팀을 뺀 금액 — 몰별 화면의 영업팀 총합계와 같습니다.
+    const teamToDatePct = Math.min(999, (teamAmount / TEAM_MONTHLY_TARGET) * 100);
+    const teamToDateRemain = Math.max(0, TEAM_MONTHLY_TARGET - teamAmount);
     const companyTodayCardLabel = isViewingCurrentMonth
-      ? `오늘 전체 매출 (${todayDate || '-'})`
+      ? `영업팀 매출 (${todayDate || '-'}까지)`
       : `${monthLabelPrefix}전체 매출`;
-    const companyTodayCardValue = isViewingCurrentMonth ? todayAmount : companyMonthlyActual;
+    const companyTodayCardValue = isViewingCurrentMonth ? teamAmount : companyMonthlyActual;
     const companyTodayCardSub = isViewingCurrentMonth
-      ? `일매출 목표 9억 대비 <span class="pct-red">${companyDailyPct.toFixed(1)}%</span>`
-      : `목표 90억 대비 <span class="pct-red">${companyMonthlyPct.toFixed(1)}%</span> · ${won(companyMonthlyRemain)} 남음`;
-    const companyTodayCardPct = isViewingCurrentMonth ? companyDailyPct : companyMonthlyPct;
+      ? `목표 ${targetLabel(TEAM_MONTHLY_TARGET)} 대비 <span class="pct-red">${teamToDatePct.toFixed(1)}%</span> · ${won(teamToDateRemain)} 남음`
+      : `목표 ${targetLabel(COMPANY_MONTHLY_TARGET)} 대비 <span class="pct-red">${companyMonthlyPct.toFixed(1)}%</span> · ${won(companyMonthlyRemain)} 남음`;
+    const companyTodayCardPct = isViewingCurrentMonth ? teamToDatePct : companyMonthlyPct;
 
     const teamTodayCardLabel = isViewingCurrentMonth
       ? '영업팀 오늘 매출'
@@ -3323,11 +3326,11 @@
       <div class="kpi-card">
         <div class="kpi-label">${monthLabelPrefix}전체 매출</div>
         <div class="kpi-value">${wonUnit(companyMonthlyActual)}</div>
-        <div class="kpi-sub">목표 90억 대비 <span class="pct-red">${companyMonthlyPct.toFixed(1)}%</span> · ${won(companyMonthlyRemain)} 남음</div>
+        <div class="kpi-sub">목표 ${targetLabel(COMPANY_MONTHLY_TARGET)} 대비 <span class="pct-red">${companyMonthlyPct.toFixed(1)}%</span> · ${won(companyMonthlyRemain)} 남음</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyMonthlyPct).toFixed(1)}%"></div></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">${companyTodayCardLabel}</div>
+        <div class="kpi-label${isViewingCurrentMonth ? ' kpi-label-team' : ''}">${companyTodayCardLabel}</div>
         <div class="kpi-value">${wonUnit(companyTodayCardValue)}</div>
         <div class="kpi-sub">${companyTodayCardSub}</div>
         <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100, companyTodayCardPct).toFixed(1)}%"></div></div>
