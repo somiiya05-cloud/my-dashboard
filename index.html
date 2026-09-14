@@ -346,13 +346,14 @@
   .jw-detail-saved { font-size: 11px; color: #94a3b8; text-align: right; min-height: 14px; }
 
   /* ---- 댓글 · 대댓글 ---- */
-  .jw-cmt-list { display: flex; flex-direction: column; gap: 6px; }
+  .jw-cmt-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
   .jw-cmt {
     background: #f8fafc; border: 1px solid rgba(15,23,42,.07); border-radius: 8px;
-    padding: 7px 9px;
+    padding: 10px 12px;
   }
   .jw-cmt.reply { background: #fff; margin-left: 18px; border-left: 2px solid rgba(77,124,254,.3); }
-  .jw-cmt-head { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+  /* 글쓴이 줄과 본문이 붙어 보여서 한 줄 정도 띄웁니다 */
+  .jw-cmt-head { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
   .jw-cmt-who {
     font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 1px 7px;
     background: #eef2fb; color: #3b63d4;
