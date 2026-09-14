@@ -447,7 +447,22 @@
     font-size: 10.5px; font-weight: 700; color: #b45309;
     background: rgba(217,119,6,.12); border-radius: 999px; padding: 1px 7px; margin-left: 6px;
   }
-  .jw-regfail-reasons { margin: 5px 0 0; padding-left: 17px; font-size: 12px; line-height: 1.65; color: #b91c1c; }
+  /* 송신 시도 한 번이 한 칸입니다. 마지막 시도만 빨갛게 남겨 지금 남은 문제를 드러냅니다. */
+  .jw-regfail-try {
+    margin-top: 7px; padding: 6px 10px 7px;
+    border-left: 3px solid #e2e8f0; background: #f8fafc; border-radius: 0 6px 6px 0;
+  }
+  .jw-regfail-try.last { border-left-color: #dc2626; background: #fef2f2; }
+  .jw-regfail-try-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .jw-regfail-try-no { font-size: 11px; font-weight: 800; color: #475569; }
+  .jw-regfail-try.last .jw-regfail-try-no { color: #b91c1c; }
+  .jw-regfail-try-when { font-size: 11px; color: #94a3b8; font-variant-numeric: tabular-nums; }
+  .jw-regfail-try-tag {
+    font-size: 10.5px; font-weight: 700; color: #b91c1c;
+    background: rgba(220,38,38,.1); border-radius: 999px; padding: 1px 7px;
+  }
+  .jw-regfail-reasons { margin: 4px 0 0; padding-left: 17px; font-size: 12px; line-height: 1.65; color: #64748b; }
+  .jw-regfail-try.last .jw-regfail-reasons { color: #b91c1c; }
   .jw-regfail-noreason { font-size: 11.5px; color: #94a3b8; margin-top: 5px; }
   .jw-regfail-when { font-size: 11px; color: #94a3b8; margin-top: 4px; }
 
@@ -6100,11 +6115,29 @@
       .sort((a, b) => jwRegMallCount(b[1]) - jwRegMallCount(a[1]))
       .map(([mall, byItem]) => {
         const cnt = jwRegMallCount(byItem);
-        const items = [...byItem.values()].map((tries) => {
+        const items = [...byItem.values()].map((rawTries) => {
+          // 시도한 순서대로(빠른 시각이 1차) 늘어놓습니다.
+          const tries = [...rawTries].sort((a, b) => String(a.시각 || '').localeCompare(String(b.시각 || '')));
           const first = tries[0];
-          const when = tries.map(t => t.시각).filter(Boolean);
           // 사유는 한 줄일 수도, 여러 줄(배열)일 수도 있습니다.
-          const reasons = [...new Set(tries.flatMap(t => Array.isArray(t.사유) ? t.사유 : (t.사유 ? [t.사유] : [])))];
+          const reasonsOf = (t) => (Array.isArray(t.사유) ? t.사유 : (t.사유 ? [t.사유] : []));
+
+          const steps = tries.map((t, i) => {
+            const reasons = reasonsOf(t);
+            const last = i === tries.length - 1;
+            return `
+              <div class="jw-regfail-try${last ? ' last' : ''}">
+                <div class="jw-regfail-try-head">
+                  <span class="jw-regfail-try-no">${i + 1}차</span>
+                  <span class="jw-regfail-try-when">${escapeAttr(t.시각 || '시각 미상')}</span>
+                  ${last && tries.length > 1 ? '<span class="jw-regfail-try-tag">마지막 시도 — 아직 남은 문제</span>' : ''}
+                </div>
+                ${reasons.length
+                  ? '<ul class="jw-regfail-reasons">' + reasons.map(r => `<li>${escapeAttr(r)}</li>`).join('') + '</ul>'
+                  : '<div class="jw-regfail-noreason">사방넷에 실패 사유가 표시되지 않았습니다.</div>'}
+              </div>`;
+          }).join('');
+
           return `
             <div class="jw-regfail-item">
               <div class="jw-regfail-name">
@@ -6112,10 +6145,7 @@
                 ${first.품번 ? `<span class="jw-regfail-code">품번 ${escapeAttr(first.품번)}</span>` : ''}
                 ${tries.length > 1 ? `<span class="jw-regfail-retry">${tries.length}회 시도</span>` : ''}
               </div>
-              ${reasons.length
-                ? '<ul class="jw-regfail-reasons">' + reasons.map(r => `<li>${escapeAttr(r)}</li>`).join('') + '</ul>'
-                : '<div class="jw-regfail-noreason">사방넷에 실패 사유가 표시되지 않았습니다. 사방넷에서 직접 확인해야 합니다.</div>'}
-              ${when.length ? `<div class="jw-regfail-when">${escapeAttr(when.join(' · '))}</div>` : ''}
+              ${steps}
             </div>`;
         }).join('');
         return `
