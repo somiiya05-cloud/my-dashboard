@@ -104,6 +104,9 @@
   .topbar h1 { font-size: 20px; margin: 0 0 4px 0; }
   .subtitle { font-size: 12px; color: #475569; }
   .topbar-right { display: flex; align-items: center; gap: 8px; }
+  .topbar-right-row { display: flex; align-items: center; gap: 8px; }
+  /* 할일 관리 화면만 버튼을 두 줄로 쌓습니다 (새 업무 등록 아래에 순서 편집) */
+  #taskTopbarActions { flex-direction: column; align-items: flex-end; }
   .live-badge {
     display: inline-flex; align-items: center; gap: 6px;
     background: rgba(34,197,94,.12); color: #15803d;
@@ -2622,8 +2625,15 @@
           <div class="subtitle" id="taskViewSubtitle">팀원별 업무를 등록하고 진행 상태를 관리합니다.</div>
         </div>
         <div class="topbar-right" id="taskTopbarActions">
-          <button type="button" class="btn-ghost" onclick="closeTodayTasks()">오늘 업무 확인 완료</button>
-          <button type="button" class="btn-primary" onclick="openTaskPanel()">+ 새 업무 등록</button>
+          <div class="topbar-right-row">
+            <button type="button" class="btn-ghost" onclick="closeTodayTasks()">오늘 업무 확인 완료</button>
+            <button type="button" class="btn-primary" onclick="openTaskPanel()">+ 새 업무 등록</button>
+          </div>
+          <!-- 순서 편집은 전휘원 화면에서만 보입니다 (renderTaskView에서 켜고 끔) -->
+          <div class="topbar-right-row" id="jwOrderRow" style="display:none">
+            <span class="jw-order-hint" id="jwOrderHint" style="display:none">추가된 업무를 끌어서 순서를 바꿀 수 있습니다</span>
+            <button type="button" class="jw-order-btn" id="jwOrderBtn" onclick="toggleJwOrderEdit()"></button>
+          </div>
         </div>
       </div>
 
@@ -2704,8 +2714,6 @@
           <span id="jwSettleBanner"></span>
           <button type="button" class="jw-urgent-add-btn" onclick="openJwUrgentTask()" title="이 날짜 업무 맨 끝에 긴급 업무를 추가합니다">+ 긴급 업무</button>
           <button type="button" class="jw-today-btn" id="jwTodayBtn" style="display:none" onclick="setJwViewDate('')">오늘로</button>
-          <button type="button" class="jw-order-btn" id="jwOrderBtn" onclick="toggleJwOrderEdit()"></button>
-          <span class="jw-order-hint" id="jwOrderHint" style="display:none">추가된 업무를 끌어서 순서를 바꿀 수 있습니다</span>
         </div>
         <section class="panel">
           <div id="jwPaneAmpm" class="jw-pane">
@@ -6074,6 +6082,7 @@
     document.getElementById('taskTopbarActions').style.display = isPersonal ? '' : 'none';
     document.getElementById('personalTaskArea').style.display = (isPersonal && !isJw) ? '' : 'none';
     document.getElementById('jwPersonalTaskArea').style.display = (isPersonal && isJw) ? '' : 'none';
+    document.getElementById('jwOrderRow').style.display = (isPersonal && isJw) ? '' : 'none';
     document.getElementById('teamSummaryArea').style.display = isPersonal ? 'none' : '';
     if (isPersonal && isJw) {
       document.getElementById('dailyChecklistPanel').style.display = 'none';
