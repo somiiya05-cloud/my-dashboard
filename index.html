@@ -1002,6 +1002,11 @@
   .mr-name { font-size: 13px; font-weight: 700; color: #0f172a; }
   .mr-code { font-size: 11px; font-weight: 600; color: #64748b; }
   .mr-brand { font-size: 11px; color: #94a3b8; }
+  /* 사방넷에 브랜드를 안 넣어서 상품명으로 묶은 상품 */
+  .mr-brand-warn {
+    font-size: 10.5px; font-weight: 700; color: #b45309;
+    background: rgba(217,119,6,.12); border-radius: 999px; padding: 1px 7px; cursor: help;
+  }
   .mr-state {
     font-size: 10.5px; font-weight: 700; color: #b45309;
     background: rgba(217,119,6,.12); border-radius: 999px; padding: 1px 7px;
@@ -5674,8 +5679,22 @@
   function buildMallRegIndex() {
     mallRegIndex = new Map();
     if (!mallRegSnap) return;
-    (mallRegSnap.products || []).forEach((x) => {
-      mallRegIndex.set(x.품번, { 품번: x.품번, 상품명: x.상품명 || '', 브랜드: x.브랜드 || '', 상태: x.상태 || '', 몰: [] });
+    const products = mallRegSnap.products || [];
+
+    // 사방넷에 브랜드를 안 넣은 상품이 있습니다. 그 상품도 상품명은 브랜드로 시작하기 때문에
+    // 이미 쓰고 있는 브랜드 이름과 앞머리가 맞으면 그 브랜드로 묶어 줍니다(추정 표시를 남깁니다).
+    // 근본 해결은 사방넷 상품에 브랜드를 입력하는 것입니다 — 오늘의집처럼 브랜드가 필수인 몰은
+    // 비어 있으면 등록 자체가 실패합니다.
+    const knownBrands = [...new Set(products.map((x) => x.브랜드).filter(Boolean))]
+      .sort((a, b) => b.length - a.length);
+    const guessBrand = (name) => knownBrands.find((b) => String(name || '').trim().startsWith(b)) || '';
+
+    products.forEach((x) => {
+      const guessed = x.브랜드 ? '' : guessBrand(x.상품명);
+      mallRegIndex.set(x.품번, {
+        품번: x.품번, 상품명: x.상품명 || '', 브랜드: x.브랜드 || guessed,
+        브랜드추정: !!guessed, 상태: x.상태 || '', 몰: [],
+      });
     });
     (mallRegSnap.registrations || []).forEach((r) => {
       // 상품 목록에 없는 품번이 등록돼 있을 수도 있어(단종 등) 그때는 줄을 새로 만듭니다.
@@ -5821,6 +5840,7 @@
             <span class="mr-name">${escapeAttr(x.상품명 || '(상품명 없음)')}</span>
             <span class="mr-code">품번 ${escapeAttr(x.품번)}</span>
             ${x.브랜드 ? `<span class="mr-brand">${escapeAttr(x.브랜드)}</span>` : ''}
+            ${x.브랜드추정 ? '<span class="mr-brand-warn" title="사방넷 상품에 브랜드가 비어 있어 상품명으로 묶었습니다. 사방넷에 브랜드를 입력해 주세요.">브랜드 미입력</span>' : ''}
             ${x.상태 && x.상태 !== '공급중' ? `<span class="mr-state">${escapeAttr(x.상태)}</span>` : ''}
           </div>
           ${on.length
