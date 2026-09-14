@@ -266,6 +266,20 @@
     user-select: none;
   }
   .jw-drag-grip:active { cursor: grabbing; }
+  /* 업무를 끌기 시작하면 화면 아래에 떠오르는 휴지통. 여기에 놓으면 삭제됩니다 */
+  .jw-trash {
+    position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 24px);
+    display: none; align-items: center; gap: 10px;
+    background: #fff; border: 2px dashed rgba(220,38,38,.45); border-radius: 14px;
+    padding: 14px 26px; color: #dc2626; font-size: 13px; font-weight: 800;
+    box-shadow: 0 10px 28px rgba(15,23,42,.16); z-index: 60;
+    opacity: 0; pointer-events: none;
+    transition: opacity .14s ease, transform .14s ease, background .12s ease;
+  }
+  .jw-trash.on { display: flex; opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  .jw-trash .icon { font-size: 20px; line-height: 1; }
+  /* 휴지통 위로 끌고 오면 빨갛게 차올라 놓아도 되는 상태임을 알려줍니다 */
+  .jw-trash.hot { background: #dc2626; border-color: #dc2626; border-style: solid; color: #fff; }
   .jw-task-row-wrap.jw-dragging { opacity: .45; }
   /* 놓을 자리를 보라색 선으로 미리 보여줍니다 */
   .jw-task-row-wrap.jw-drop-before > .jw-task-row { box-shadow: 0 -3px 0 -1px #7c3aed; }
@@ -2632,7 +2646,7 @@
           </div>
           <!-- 순서 편집은 전휘원 화면에서만 보입니다 (renderTaskView에서 켜고 끔) -->
           <div class="topbar-right-row" id="jwOrderRow" style="display:none">
-            <span class="jw-order-hint" id="jwOrderHint" style="display:none">추가된 업무를 끌어서 순서를 바꿀 수 있습니다</span>
+            <span class="jw-order-hint" id="jwOrderHint" style="display:none">추가된 업무를 끌어서 순서를 바꾸거나, 아래 휴지통에 놓아 지울 수 있습니다</span>
             <button type="button" class="jw-order-btn" id="jwOrderBtn" onclick="toggleJwOrderEdit()"></button>
           </div>
         </div>
@@ -2705,6 +2719,10 @@
         </section>
       </div>
 
+      <!-- 순서 편집 중 업무를 끌면 나타나는 휴지통 (jwDragStart/jwDragEnd에서 켜고 끔) -->
+      <div class="jw-trash" id="jwTrash" ondragover="jwTrashOver(event)" ondragleave="jwTrashLeave()" ondrop="jwTrashDrop(event)">
+        <span class="icon">🗑️</span><span>여기에 놓으면 이 업무가 삭제됩니다</span>
+      </div>
       <div id="jwPersonalTaskArea" style="display:none">
         <div class="jw-toolbar">
           <div class="jw-date-btn" onclick="openJwDatePicker()" title="다른 날짜의 업무를 봅니다">
@@ -6740,11 +6758,14 @@
     e.dataTransfer.effectAllowed = 'move';
     try { e.dataTransfer.setData('text/plain', String(id)); } catch (err) {}
     e.currentTarget.classList.add('jw-dragging');
+    document.getElementById('jwTrash').classList.add('on');
   }
 
   function jwDragEnd() {
     jwDragArmed = false;
     jwDragId = null;
+    const trash = document.getElementById('jwTrash');
+    trash.classList.remove('on', 'hot');
     document.querySelectorAll('.jw-dragging').forEach(el => el.classList.remove('jw-dragging'));
     jwClearDropMarks();
   }
@@ -6800,6 +6821,34 @@
         return;
       }
     }
+  }
+
+  function jwTrashOver(e) {
+    if (jwDragId == null) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('hot');
+    jwClearDropMarks();
+  }
+
+  function jwTrashLeave() {
+    const trash = document.getElementById('jwTrash');
+    if (trash) trash.classList.remove('hot');
+  }
+
+  // 지우는 건 되돌릴 수 없어서, 놓은 뒤에 업무명을 보여주며 한 번 더 물어봅니다.
+  async function jwTrashDrop(e) {
+    if (jwDragId == null) return;
+    e.preventDefault();
+    const id = jwDragId;
+    jwDragEnd();
+    const task = currentTasks.find(t => t.id === id);
+    if (!task) return;
+    const msg = (task.title || '') + ' 업무를 삭제할까요? 지운 뒤에는 되돌릴 수 없습니다.';
+    if (!confirm(msg)) return;
+    const { error } = await client.from('team_tasks').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadTeamTasks();
   }
 
   function jwSelectedDate() { return jwViewDate || jwTodayKST(); }
