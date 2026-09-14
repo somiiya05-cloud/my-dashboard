@@ -960,6 +960,17 @@
   .mr-stat-cell.ok.active { border-color: #1d4ed8; box-shadow: inset 0 0 0 1px #1d4ed8; }
   .mr-stat-cell.bad.active { border-color: #b91c1c; box-shadow: inset 0 0 0 1px #b91c1c; }
 
+  .mr-brands { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; min-width: 200px; }
+  .mr-brand-btn {
+    background: #f1f5f9; border: 1px solid transparent; color: #475569;
+    font-family: inherit; font-size: 11.5px; font-weight: 600;
+    border-radius: 999px; padding: 4px 11px; cursor: pointer;
+  }
+  .mr-brand-btn span { color: #94a3b8; font-weight: 700; margin-left: 3px; }
+  .mr-brand-btn:hover { background: #e2e8f0; }
+  .mr-brand-btn.active { background: #0f172a; color: #fff; border-color: #0f172a; }
+  .mr-brand-btn.active span { color: rgba(255,255,255,.65); }
+
   .mr-mall-row {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
     width: 100%; background: none; border: none; border-bottom: 1px solid #f1f5f9;
@@ -2051,10 +2062,11 @@
           <span class="panel-note" id="mrSyncNote"></span>
         </div>
         <div class="mr-stat" id="mrStat"></div>
-        <div class="filter-group" style="margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
-          <input type="text" id="mrSearch" class="vendor-select" style="flex:1; min-width:240px;"
-            placeholder="런칭 상품명 또는 품번으로 검색 (예: 코드니처 자켓세탁망, 100814)"
+        <div class="filter-group" style="margin-bottom: 12px; gap: 10px; flex-wrap: wrap; align-items: center;">
+          <input type="text" id="mrSearch" class="vendor-select" style="flex: 0 1 300px; min-width: 200px;"
+            placeholder="런칭 상품명 또는 품번으로 검색"
             autocomplete="off" oninput="renderMallRegResult()">
+          <div class="mr-brands" id="mrBrands"></div>
         </div>
         <div id="mrResult"></div>
       </section>
@@ -5679,6 +5691,14 @@
   }
   window.setMallRegCard = setMallRegCard;
 
+  let mallRegBrand = '';
+
+  function setMallRegBrand(brand) {
+    mallRegBrand = brand;
+    renderMallRegResult();
+  }
+  window.setMallRegBrand = setMallRegBrand;
+
   function setMallRegMall(mall) {
     mallRegMall = mall;
     renderMallRegResult();
@@ -5719,8 +5739,11 @@
     const allMalls = mallRegSnap ? (mallRegSnap.malls || []) : [];
     const mode = MR_CARD_MODE[mallRegCard] || 'missing';
 
+    const brandBox = document.getElementById('mrBrands');
+
     // "연결된 몰"을 골랐고 아직 몰을 고르지 않았으면 몰 목록을 보여줍니다.
     if (!q && mode === 'byMall' && !mallRegMall) {
+      if (brandBox) brandBox.innerHTML = '';
       const cnt = {};
       (mallRegSnap && mallRegSnap.registrations || []).forEach((r) => { cnt[r.몰] = (cnt[r.몰] || 0) + 1; });
       const rows = allMalls.slice().sort((a, b) => (cnt[b] || 0) - (cnt[a] || 0));
@@ -5748,6 +5771,24 @@
     } else {
       items = items.filter((x) => x.상태 === '공급중' && !x.몰.length);
       head = `<div class="mr-lead">공급중인데 <b>어느 몰에도 등록되지 않은 상품</b> ${items.length}개입니다. 런칭 상품명을 위에서 검색하면 그 상품의 등록 현황만 볼 수 있습니다.</div>`;
+    }
+
+    // 지금 목록에 실제로 들어 있는 브랜드만 버튼으로 보여줍니다.
+    const brandCount = {};
+    items.forEach((x) => { const b = x.브랜드 || '(브랜드 없음)'; brandCount[b] = (brandCount[b] || 0) + 1; });
+    if (mallRegBrand && !brandCount[mallRegBrand]) mallRegBrand = '';
+    if (brandBox) {
+      const brands = Object.keys(brandCount).sort((a, b) => brandCount[b] - brandCount[a]);
+      brandBox.innerHTML = [{ name: '', label: '전체', n: items.length }]
+        .concat(brands.map((b) => ({ name: b, label: b, n: brandCount[b] })))
+        .map((b) => `
+          <button type="button" class="mr-brand-btn${mallRegBrand === b.name ? ' active' : ''}"
+            onclick="setMallRegBrand('${escapeAttr(b.name)}')">${escapeAttr(b.label)} <span>${b.n}</span></button>`)
+        .join('');
+    }
+    if (mallRegBrand) {
+      items = items.filter((x) => (x.브랜드 || '(브랜드 없음)') === mallRegBrand);
+      head += `<div class="mr-lead"><b>${escapeAttr(mallRegBrand)}</b> ${items.length}개만 보고 있습니다.</div>`;
     }
 
     items.sort((a, b) => (b.몰.length - a.몰.length) || String(a.상품명).localeCompare(String(b.상품명), 'ko'));
