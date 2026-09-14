@@ -6094,10 +6094,12 @@
       byItem.get(key).push(f);
     });
 
+    const jwRegMallCount = (byItem) => [...byItem.values()].reduce((n, arr) => n + arr.length, 0);
     const sections = [...byMall.entries()]
-      .sort((a, b) => b[1].size - a[1].size)
+      // 실패가 많은 몰부터 위에 보여줍니다.
+      .sort((a, b) => jwRegMallCount(b[1]) - jwRegMallCount(a[1]))
       .map(([mall, byItem]) => {
-        const cnt = [...byItem.values()].reduce((n, arr) => n + arr.length, 0);
+        const cnt = jwRegMallCount(byItem);
         const items = [...byItem.values()].map((tries) => {
           const first = tries[0];
           const when = tries.map(t => t.시각).filter(Boolean);
