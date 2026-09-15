@@ -349,6 +349,7 @@
   /* display:flex 가 브라우저 기본 [hidden] 규칙을 이기므로 직접 숨겨줍니다 */
   .jw-task-detail[hidden] { display: none; }
   .jw-detail-label { font-size: 11px; font-weight: 800; color: #475569; margin-bottom: 3px; }
+  .jw-detail-hint { font-size: 10.5px; color: #94a3b8; margin-top: 3px; }
   /* 업무 기준 — 고칠 수 없는 내용이라 입력칸이 아니라 글로 보여줍니다 */
   .jw-criteria-text {
     background: #f8fafc; border: 1px solid rgba(15,23,42,.1); border-radius: 7px;
@@ -7701,8 +7702,10 @@
       <div class="jw-task-detail" id="jwDetail${t.id}"${open ? '' : ' hidden'}>
         <div>
           <div class="jw-detail-label">업무 목적</div>
-          <textarea class="jw-detail-input" rows="1" id="jwPurpose${t.id}" placeholder="오늘 이 업무를 왜 하는지 적어주세요. 날짜별로 따로 저장됩니다."
-            oninput="autoGrowTextarea(this); jwAutoSave(${t.id})" onblur="jwSaveNow(${t.id})">${escapeAttr(jwPurposeOf(t))}</textarea>
+          <textarea class="jw-detail-input" rows="1" id="jwPurpose${t.id}" placeholder="오늘 이 업무를 왜 하는지 적어주세요. 엔터를 치면 담당자 댓글로도 남습니다."
+            oninput="autoGrowTextarea(this); jwAutoSave(${t.id})" onblur="jwSaveNow(${t.id})"
+            onkeydown="jwPurposeKey(event, ${t.id})">${escapeAttr(jwPurposeOf(t))}</textarea>
+          <div class="jw-detail-hint">엔터를 치면 지금 적은 내용이 아래에 담당자 댓글로 남습니다. 줄을 바꾸려면 Shift+Enter.</div>
           <div class="jw-detail-saved" id="jwSaved${t.id}">${jwNotesLoadError
             ? '저장용 테이블이 없습니다 — team_task_notes.sql · team_task_daily_purposes.sql 을 먼저 실행하세요'
             : ''}</div>
@@ -7710,6 +7713,40 @@
         <div id="jwCmtBox${t.id}">${jwCommentBoxHtml(t.id)}</div>
       </div>`;
   }
+
+  // 업무 목적 칸에서 엔터를 치면, 적은 내용을 담당자 댓글로도 남겨 둡니다.
+  // 파트장이 물어본 것에 목적 칸을 고쳐서 답하면 언제 답했는지가 남지 않아서,
+  // 같은 내용을 댓글로도 쌓아 시간 순서가 보이게 합니다.
+  function jwPurposeKey(e, taskId) {
+    if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;   // Shift+Enter 는 줄바꿈
+    e.preventDefault();
+    jwPurposeToComment(taskId);
+  }
+  window.jwPurposeKey = jwPurposeKey;
+
+  async function jwPurposeToComment(taskId) {
+    const el = document.getElementById('jwPurpose' + taskId);
+    if (!el) return;
+    const body = el.value.trim();
+    if (!body) return;
+
+    // 같은 내용을 연달아 올리지 않도록, 담당자가 마지막에 남긴 댓글과 같으면 넘어갑니다.
+    const mine = (jwTaskComments[taskId] || []).filter((c) => c.author === '담당자');
+    const last = mine[mine.length - 1];
+    if (last && (last.body || '').trim() === body) { await jwSaveNow(taskId); return; }
+
+    await jwSaveNow(taskId);   // 목적 자체도 그대로 저장해 둡니다
+    const { data, error } = await client.from('team_task_comments')
+      .insert({ task_id: taskId, parent_id: null, author: '담당자', body })
+      .select()
+      .single();
+    if (error) { alert('댓글로 남기지 못했습니다: ' + error.message); return; }
+
+    jwTaskComments[taskId] = (jwTaskComments[taskId] || []).concat(data);
+    jwRenderCommentBox(taskId);
+    jwRefreshCommentTag(taskId);
+  }
+  window.jwPurposeToComment = jwPurposeToComment;
 
   // ---- 댓글 · 대댓글 ----
   // 저장은 team_task_comments 한 줄에 댓글 하나씩. parent_id 가 있으면 대댓글입니다.
