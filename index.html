@@ -525,6 +525,16 @@
     font-size: 10.5px; font-weight: 700; color: #b91c1c;
     background: rgba(220,38,38,.1); border-radius: 999px; padding: 1px 7px;
   }
+  .jw-regfail-skip {
+    border: 1px solid #e2e8f0; background: #fff; color: #64748b;
+    font-family: inherit; font-size: 10.5px; font-weight: 700;
+    border-radius: 999px; padding: 1px 8px; margin-left: 6px; cursor: pointer;
+  }
+  .jw-regfail-skip:hover { border-color: #94a3b8; color: #0f172a; }
+  .jw-regfail-undo {
+    border: none; background: none; color: #1d4ed8; font-family: inherit;
+    font-size: 11px; font-weight: 700; cursor: pointer; padding: 0 2px;
+  }
   .jw-regfail-reasons { margin: 4px 0 0; padding-left: 17px; font-size: 12px; line-height: 1.65; color: #64748b; }
   .jw-regfail-try.last .jw-regfail-reasons { color: #b91c1c; }
   .jw-regfail-noreason { font-size: 11.5px; color: #94a3b8; margin-top: 5px; }
@@ -6367,7 +6377,7 @@
 
   async function loadJwRegCheck() {
     const { data, error } = await client.from('product_reg_checks')
-      .select('checked_at,period_days,fail_recent,fail_total,soldout_count,stopped_count,total_products,fails')
+      .select('id,checked_at,period_days,fail_recent,fail_total,soldout_count,stopped_count,total_products,fails')
       .order('checked_at', { ascending: false })
       .limit(1);
     jwRegCheck = (error || !data || !data.length) ? null : data[0];
@@ -6404,8 +6414,40 @@
   }
 
   function jwOpenFails() {
-    return (jwRegCheck && jwRegCheck.fails || []).filter((f) => !jwFailResolved(f));
+    return (jwRegCheck && jwRegCheck.fails || [])
+      .filter((f) => !f.제외 && !jwFailResolved(f));
   }
+
+  function jwExcludedFails() {
+    return (jwRegCheck && jwRegCheck.fails || []).filter((f) => f.제외);
+  }
+
+  // 단종·삭제 예정이라 더 올릴 일이 없는 상품을 목록에서 빼둡니다.
+  // 사방넷 기록을 고치는 게 아니라, 저장해 둔 검수 결과에 "제외" 표시만 남깁니다.
+  async function jwExcludeFail(prd, mall, on) {
+    if (!jwRegCheck || !jwRegCheck.id) return;
+    const fails = (jwRegCheck.fails || []).map((f) =>
+      (String(f.품번) === String(prd) && f.몰 === mall) ? { ...f, 제외: !!on } : f);
+    const { error } = await client.from('product_reg_checks').update({ fails }).eq('id', jwRegCheck.id);
+    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
+    jwRegCheck.fails = fails;
+    jwRefreshRegBadge();
+    const open = document.querySelector('.jw-regfail-overlay');
+    if (open) { open.remove(); jwOpenRegFails(); }
+  }
+  window.jwExcludeFail = jwExcludeFail;
+
+  async function jwUndoExcludes() {
+    if (!jwRegCheck || !jwRegCheck.id) return;
+    const fails = (jwRegCheck.fails || []).map((f) => ({ ...f, 제외: false }));
+    const { error } = await client.from('product_reg_checks').update({ fails }).eq('id', jwRegCheck.id);
+    if (error) { alert('되돌리지 못했습니다: ' + error.message); return; }
+    jwRegCheck.fails = fails;
+    jwRefreshRegBadge();
+    const open = document.querySelector('.jw-regfail-overlay');
+    if (open) { open.remove(); jwOpenRegFails(); }
+  }
+  window.jwUndoExcludes = jwUndoExcludes;
 
   // 배지 숫자는 시도 횟수가 아니라 "아직 올려야 할 상품×몰" 수입니다.
   function jwOpenFailCount() {
@@ -6435,7 +6477,8 @@
   function jwOpenRegFails() {
     if (!jwRegCheck) return;
     const fails = jwOpenFails();
-    const resolved = (jwRegCheck.fails || []).length - fails.length;
+    const skipped = jwExcludedFails().length;
+    const resolved = (jwRegCheck.fails || []).length - fails.length - skipped;
 
     // 몰별로 묶고, 몰 안에서는 상품별로 다시 묶습니다.
     const byMall = new Map();
@@ -6483,6 +6526,9 @@
                 ${escapeAttr(first.상품명 || '(상품명 없음)')}
                 ${first.품번 ? `<span class="jw-regfail-code">품번 ${escapeAttr(first.품번)}</span>` : ''}
                 ${tries.length > 1 ? `<span class="jw-regfail-retry">${tries.length}회 시도</span>` : ''}
+                <button type="button" class="jw-regfail-skip"
+                  title="단종·삭제 예정이라 더 올릴 일이 없으면 목록에서 뺍니다"
+                  onclick="jwExcludeFail('${escapeAttr(String(first.품번 || ''))}', '${escapeAttr(mall)}', true)">제외</button>
               </div>
               ${steps}
             </div>`;
@@ -6516,13 +6562,13 @@
         <div class="jw-regfail-head">
           <div>
             <h3>아직 등록되지 않은 건 ${jwOpenFailCount()}건</h3>
-            <div class="jw-regfail-sub">${days} 기준 · 검수 ${escapeAttr(jwRegCheckedText())}${resolved > 0 ? ` · 재시도로 해결된 ${resolved}건은 숨김` : ''}</div>
+            <div class="jw-regfail-sub">${days} 기준 · 검수 ${escapeAttr(jwRegCheckedText())}${resolved > 0 ? ` · 재시도로 해결된 ${resolved}건은 숨김` : ''}${skipped > 0 ? ` · 제외 ${skipped}건 <button type="button" class="jw-regfail-undo" onclick="jwUndoExcludes()">되돌리기</button>` : ''}</div>
           </div>
           <button type="button" class="jw-regfail-close" title="닫기">✕</button>
         </div>
         ${statHtml}
         ${fails.length ? '<div class="jw-regfail-section-label">등록 실패 내역</div>' : ''}
-        ${fails.length ? sections : '<div class="jw-regfail-noreason">실패했던 건이 모두 재시도로 등록됐습니다.</div>'}
+        ${fails.length ? sections : '<div class="jw-regfail-noreason">더 올려야 할 건이 없습니다.</div>'}
       </div>`;
     box.querySelector('.jw-regfail-close').onclick = () => box.remove();
     document.body.appendChild(box);
