@@ -275,22 +275,6 @@
   }
   .jw-row-del:hover { background: #fef2f2; border-color: rgba(220,38,38,.6); }
   .jw-row-del.armed { background: #dc2626; border-color: #dc2626; color: #fff; }
-  /* 업무를 끌기 시작하면 화면 아래에 떠오르는 휴지통. 여기에 놓으면 삭제됩니다 */
-  .jw-trash {
-    position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 24px);
-    display: none; align-items: center; gap: 10px;
-    background: #fff; border: 2px dashed rgba(220,38,38,.45); border-radius: 14px;
-    padding: 18px 34px; color: #dc2626; font-size: 13.5px; font-weight: 800;
-    box-shadow: 0 10px 28px rgba(15,23,42,.16); z-index: 60;
-    opacity: 0; pointer-events: none;
-    transition: opacity .14s ease, transform .14s ease, background .12s ease;
-  }
-  .jw-trash.on { display: flex; opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
-  .jw-trash .icon { font-size: 20px; line-height: 1; }
-  /* 휴지통 위로 끌고 오면 빨갛게 차올라 놓아도 되는 상태임을 알려줍니다 */
-  /* 목록 맨 아래 업무를 끌 때 휴지통이 그 줄을 덮어버리지 않도록 잠깐 바닥을 넓혀 둡니다 */
-  body.jw-dragging-now { padding-bottom: 140px; }
-  .jw-trash.hot { background: #dc2626; border-color: #dc2626; border-style: solid; color: #fff; }
   .jw-task-row-wrap.jw-dragging { opacity: .45; }
   /* 놓을 자리를 보라색 선으로 미리 보여줍니다 */
   .jw-task-row-wrap.jw-drop-before > .jw-task-row { box-shadow: 0 -3px 0 -1px #7c3aed; }
@@ -2753,10 +2737,6 @@
         </section>
       </div>
 
-      <!-- 순서 편집 중 업무를 끌면 나타나는 휴지통 (jwDragStart/jwDragEnd에서 켜고 끔) -->
-      <div class="jw-trash" id="jwTrash">
-        <span class="icon">🗑️</span><span>여기에 놓으면 이 업무가 삭제됩니다</span>
-      </div>
       <div id="jwPersonalTaskArea" style="display:none">
         <div class="jw-toolbar">
           <div class="jw-date-btn" onclick="openJwDatePicker()" title="다른 날짜의 업무를 봅니다">
@@ -6816,7 +6796,6 @@
 
   let jwDragId = null;
   let jwDragArmed = false;    // 끌어도 되는 곳을 눌렀는지 (글 입력칸 안에서는 끌리지 않게)
-  let jwDragPoint = null;     // 끄는 동안의 마지막 커서 위치 — 휴지통 판정에 씁니다
 
   // 손잡이뿐 아니라 줄 아무 데나 잡아도 끌립니다. 다만 입력칸·버튼 위에서는
   // 글자 선택과 클릭이 우선이라 끌기를 시작하지 않습니다.
@@ -6836,49 +6815,13 @@
     e.dataTransfer.effectAllowed = 'move';
     try { e.dataTransfer.setData('text/plain', String(id)); } catch (err) {}
     e.currentTarget.classList.add('jw-dragging');
-    document.getElementById('jwTrash').classList.add('on');
-    document.body.classList.add('jw-dragging-now');
-    // 놓는 자리를 휴지통 엘리먼트의 drop 이벤트에 맡기면 브라우저에 따라 안 잡힐 때가 있어,
-    // 문서 전체에서 커서 위치를 기억해 두고 끌기가 끝날 때 휴지통 안이었는지로 판정합니다.
-    jwDragPoint = null;
-    document.addEventListener('dragover', jwDocDragOver);
-    document.addEventListener('drop', jwDocDrop);
   }
-
-  function jwPointInTrash(pt) {
-    const trash = document.getElementById('jwTrash');
-    if (!pt || !trash || !trash.classList.contains('on')) return false;
-    const r = trash.getBoundingClientRect();
-    return pt.x >= r.left && pt.x <= r.right && pt.y >= r.top && pt.y <= r.bottom;
-  }
-
-  function jwDocDragOver(e) {
-    if (jwDragId == null) return;
-    e.preventDefault();   // 어디에 놓아도 받도록 — 휴지통 위에서도 놓기가 막히지 않습니다
-    jwDragPoint = { x: e.clientX, y: e.clientY };
-    const trash = document.getElementById('jwTrash');
-    const over = jwPointInTrash(jwDragPoint);
-    trash.classList.toggle('hot', over);
-    if (over) jwClearDropMarks();
-  }
-
-  // 브라우저 기본 동작(텍스트를 주소창처럼 다루는 것)을 막습니다
-  function jwDocDrop(e) { e.preventDefault(); }
 
   function jwDragEnd() {
-    const droppedOnTrash = jwDragId != null && jwPointInTrash(jwDragPoint);
-    const id = jwDragId;
     jwDragArmed = false;
     jwDragId = null;
-    jwDragPoint = null;
-    document.removeEventListener('dragover', jwDocDragOver);
-    document.removeEventListener('drop', jwDocDrop);
-    const trash = document.getElementById('jwTrash');
-    trash.classList.remove('on', 'hot');
-    document.body.classList.remove('jw-dragging-now');
     document.querySelectorAll('.jw-dragging').forEach(el => el.classList.remove('jw-dragging'));
     jwClearDropMarks();
-    if (droppedOnTrash) jwDeleteTask(id);
   }
 
   // 위쪽 절반에 올리면 그 줄 앞, 아래쪽 절반이면 그 줄 뒤에 놓입니다.
@@ -6932,17 +6875,6 @@
         return;
       }
     }
-  }
-
-  // 지우는 건 되돌릴 수 없어서, 놓은 뒤에 업무명을 보여주며 한 번 더 물어봅니다.
-  async function jwDeleteTask(id) {
-    const task = currentTasks.find(t => t.id === id);
-    if (!task) return;
-    const msg = (task.title || '') + ' 업무를 삭제할까요? 지운 뒤에는 되돌릴 수 없습니다.';
-    if (!confirm(msg)) return;
-    const { error } = await client.from('team_tasks').delete().eq('id', id);
-    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
-    loadTeamTasks();
   }
 
   function jwSelectedDate() { return jwViewDate || jwTodayKST(); }
@@ -7282,7 +7214,7 @@
     const isAdded = !indented && !JW_ROUTINE_TITLES.has(t.title);
     const row = `
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}${isAdded ? ' added' : ''}">
-        <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${movable ? '<span class="jw-drag-grip" onclick="event.stopPropagation()" title="끌어서 순서를 바꾸거나 휴지통에 놓아 지웁니다">⠿</span>' : ''}${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwHasComment(t.id) ? '<span class="jw-comment-tag">코멘트 있음</span>' : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}${isAdded ? `<button type="button" class="jw-title-edit-btn" title="업무명 수정" onclick="event.stopPropagation(); jwEditTitle(${t.id})">&#9998;</button>` : ''}</div>
+        <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${movable ? '<span class="jw-drag-grip" onclick="event.stopPropagation()" title="끌어서 순서를 바꿉니다">⠿</span>' : ''}${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwHasComment(t.id) ? '<span class="jw-comment-tag">코멘트 있음</span>' : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}${isAdded ? `<button type="button" class="jw-title-edit-btn" title="업무명 수정" onclick="event.stopPropagation(); jwEditTitle(${t.id})">&#9998;</button>` : ''}</div>
         <div class="jw-task-row-checks">
           ${movable ? `<button type="button" class="jw-row-del" onmousedown="event.stopPropagation()" onclick="jwRowDeleteClick(event, ${t.id})" title="두 번 누르면 이 업무를 지웁니다">삭제</button>` : ''}
           ${gbBtn}
