@@ -279,6 +279,8 @@
   .jw-trash.on { display: flex; opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
   .jw-trash .icon { font-size: 20px; line-height: 1; }
   /* 휴지통 위로 끌고 오면 빨갛게 차올라 놓아도 되는 상태임을 알려줍니다 */
+  /* 목록 맨 아래 업무를 끌 때 휴지통이 그 줄을 덮어버리지 않도록 잠깐 바닥을 넓혀 둡니다 */
+  body.jw-dragging-now { padding-bottom: 140px; }
   .jw-trash.hot { background: #dc2626; border-color: #dc2626; border-style: solid; color: #fff; }
   .jw-task-row-wrap.jw-dragging { opacity: .45; }
   /* 놓을 자리를 보라색 선으로 미리 보여줍니다 */
@@ -6823,6 +6825,7 @@
     try { e.dataTransfer.setData('text/plain', String(id)); } catch (err) {}
     e.currentTarget.classList.add('jw-dragging');
     document.getElementById('jwTrash').classList.add('on');
+    document.body.classList.add('jw-dragging-now');
     // 놓는 자리를 휴지통 엘리먼트의 drop 이벤트에 맡기면 브라우저에 따라 안 잡힐 때가 있어,
     // 문서 전체에서 커서 위치를 기억해 두고 끌기가 끝날 때 휴지통 안이었는지로 판정합니다.
     jwDragPoint = null;
@@ -6860,6 +6863,7 @@
     document.removeEventListener('drop', jwDocDrop);
     const trash = document.getElementById('jwTrash');
     trash.classList.remove('on', 'hot');
+    document.body.classList.remove('jw-dragging-now');
     document.querySelectorAll('.jw-dragging').forEach(el => el.classList.remove('jw-dragging'));
     jwClearDropMarks();
     if (droppedOnTrash) jwDeleteTask(id);
