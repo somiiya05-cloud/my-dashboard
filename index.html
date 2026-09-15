@@ -6992,13 +6992,14 @@
   // 제목이 "2026년 9월 15일 신규 미출고 현황..."처럼 날짜까지 들어 있어 그 메일만 걸립니다.
   function scmMailUrl(subject) {
     if (!subject) return JW_DAOU_MAIL_URL;
-    // "…공유드립니다." 같은 맺음말은 어느 메일에나 붙어 있어 검색에 도움이 안 됩니다.
-    // 날짜와 "미출고"가 들어간 앞부분만 남기면 그 메일 하나만 걸립니다.
-    const q = String(subject)
-      .replace(/\s*공유\s*(드립니다|합니다)\s*[.。]?\s*$/, '')
-      .replace(/[.。]\s*$/, '')
-      .trim();
-    return `${JW_DAOU_SEARCH_URL}?q=${encodeURIComponent(q || subject)}`;
+    // 제목을 통째로 넣으면 검색어가 길어 잘 안 걸립니다.
+    // "9월 15일 신규 미출고" 정도면 날짜가 들어 있어 그날 메일 하나만 나옵니다.
+    const m = String(subject).match(/(\d{1,2})월\s*(\d{1,2})일/);
+    const q = m
+      ? `${Number(m[1])}월 ${Number(m[2])}일 신규 미출고`
+      // 제목 모양이 달라 날짜를 못 찾으면 앞부분만 잘라 씁니다.
+      : String(subject).replace(/\s*공유\s*(드립니다|합니다)\s*[.。]?\s*$/, '').trim().slice(0, 40);
+    return `${JW_DAOU_SEARCH_URL}?q=${encodeURIComponent(q)}`;
   }
 
   function jwScmBadgeHtml() {
