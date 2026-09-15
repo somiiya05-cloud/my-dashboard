@@ -35,6 +35,8 @@ const DAILY_TASKS = [
   { title: '카카오 명퉤 오행염주 일자수정', category: '오전 필수업무' },
   { title: '공동구매 발주서 전달 (scm팀)', category: '오전 필수업무' },
   { title: '광고보고 / 매출마감', category: '오전 필수업무' },
+  // 화요일에만 생기는 업무
+  { title: '인사팀 광고비 공유', category: '오후 필수업무', weekdays: [2] },
   // 수·목에만 생기는 올리브영 업무 (오후 업무 맨 위에 표시)
   { title: '올리브영 발주서 마감', category: '오후 필수업무', weekdays: [3, 4] },
   { title: '올리브영 매출 보고', category: '오후 필수업무', weekdays: [3, 4] },
