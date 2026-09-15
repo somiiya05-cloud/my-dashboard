@@ -1,13 +1,16 @@
-name: 자사몰 검수 호출
+name: 자사몰 검수
 
-# Vercel Hobby 플랜의 cron 한도를 이미 다 쓰고 있어서(sync-meta-ads 등),
-# 다른 동기화들과 마찬가지로 GitHub Actions가 매일 엔드포인트를 호출해 실행합니다.
-# 실제 로직은 전부 api/sync-mall-audit.js 안에 있고, 여기서는 깨우기만 합니다.
-#
-# 하는 일: 자사몰 9곳의 sitemap.xml 을 읽어
+# 자사몰 9곳의 sitemap.xml 을 읽어
 #   · 어제 없던 상품이 생겼는지 (신규 상품 알림)
 #   · 숨어 있어야 할 히든링크가 공개 목록에 떴는지 (노출 사고)
 # 를 확인해 Supabase의 mall_audits 표에 넣습니다.
+#
+# 다른 동기화들과 달리 Vercel 엔드포인트를 부르지 않고 여기서 직접 돕니다.
+# Vercel 무료 플랜은 배포당 서버리스 함수가 12개까지인데 이미 12개를 다 쓰고 있어서,
+# 함수를 하나 더 추가하면 배포 자체가 실패하기 때문입니다.
+# 이 검수는 "사이트 읽기 + Supabase 저장"뿐이라 러너에서 그냥 돌리면 됩니다.
+#
+# 실제 로직은 전부 scripts/mall-audit.js 안에 있습니다.
 
 on:
   schedule:
@@ -33,40 +36,24 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - name: Vercel 검수 엔드포인트 호출
-        run: |
-          URL="${{ secrets.VERCEL_APP_URL }}/api/sync-mall-audit"
-          MODE="${{ github.event.inputs.mode }}"
-          BRAND="${{ github.event.inputs.brand }}"
-          SEP="?"
-          # 스케줄 실행은 mode가 비어 있으므로 항상 검수(저장) 모드로 돕니다.
-          case "$MODE" in
-            확인만*)        URL="${URL}${SEP}debug=1";    SEP="&" ;;
-            히든링크*)      URL="${URL}${SEP}discover=1"; SEP="&" ;;
-          esac
-          if [ -n "$BRAND" ]; then
-            ENCODED=$(printf '%s' "$BRAND" | od -An -tx1 | tr -d ' \n' | sed 's/../%&/g')
-            URL="${URL}${SEP}brand=${ENCODED}"
-          fi
-          HTTP_CODE=$(curl -s --max-time 120 -o response.json -w "%{http_code}" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "$URL")
-          echo "HTTP status: $HTTP_CODE"
-          cat response.json
-          echo
-          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then exit 1; fi
+      - uses: actions/checkout@v4
 
-      - name: 노출 사고가 있으면 실행 요약에 크게 띄우기
-        if: always()
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 자사몰 검수 실행
+        env:
+          # 스케줄 실행은 inputs 가 비어 있으므로 기본값 audit 으로 돕니다.
+          MODE_LABEL: ${{ github.event.inputs.mode }}
+          MALL_AUDIT_BRAND: ${{ github.event.inputs.brand }}
+          # 없으면 스크립트가 대시보드와 같은 공개 키를 씁니다(mall_* 표는 공개 정책).
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          EXPOSED=$(grep -oE '"exposed_total":[0-9]+' response.json | grep -oE '[0-9]+' || echo 0)
-          NEW=$(grep -oE '"new_total":[0-9]+' response.json | grep -oE '[0-9]+' || echo 0)
-          {
-            echo "## 자사몰 검수 결과"
-            echo ""
-            echo "- 새로 등록된 상품: **${NEW}건**"
-            echo "- 히든링크 노출: **${EXPOSED}건**"
-            echo ""
-            if [ "${EXPOSED:-0}" -gt 0 ]; then
-              echo "> ⚠️ 숨어 있어야 할 상품이 공개 목록에 떠 있습니다. 대시보드에서 확인하세요."
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          case "$MODE_LABEL" in
+            확인만*)   export MALL_AUDIT_MODE=debug ;;
+            히든링크*) export MALL_AUDIT_MODE=discover ;;
+            *)         export MALL_AUDIT_MODE=audit ;;
+          esac
+          echo "실행 방식: $MALL_AUDIT_MODE"
+          node scripts/mall-audit.js
