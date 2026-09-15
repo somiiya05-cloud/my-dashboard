@@ -115,6 +115,24 @@ function looksHiddenByName(name) {
   return HIDDEN_NAME_MARKERS.filter((marker) => lowered.includes(marker.toLowerCase()));
 }
 
+// 카페24 사이트맵은 바로바로 다시 만들어지지 않습니다.
+// 그래서 관리자에서 상품을 숨겨도 사이트맵에는 하루쯤 그대로 남아 있습니다.
+// 그 사이에 "아직 노출 중"이라고 잘못 알리면 배지를 믿을 수 없게 되므로,
+// 사이트맵에서 걸린 건은 상세페이지를 한 번 더 열어 확인합니다.
+//   · noindex 가 붙어 있다 → 이미 숨겼고 사이트맵만 옛날 것 (경고하지 않음)
+//   · noindex 가 없다     → 진짜로 공개 중 (경고함)
+// 걸린 건에 대해서만 요청하므로 평소에는 요청이 거의 늘지 않습니다.
+async function isNoindexed(url) {
+  try {
+    const html = await fetchText(url, 15000);
+    const tags = html.match(/<meta[^>]+name=["']robots["'][^>]*>/gi) || [];
+    return tags.some((tag) => /noindex/i.test(tag));
+  } catch (e) {
+    // 못 읽으면 판단을 보류하고 "노출 중"으로 둡니다. 놓치는 것보다 낫습니다.
+    return false;
+  }
+}
+
 // 상세페이지가 살아 있는지 봅니다. 없는 상품은 카페24가 기본 제목("카페24")만 돌려줍니다.
 async function probeProduct(origin, productNo) {
   try {
@@ -233,7 +251,20 @@ async function main() {
         }
       }
 
-      const status = exposed.length ? 'warn' : 'ok';
+      // ── 6-1. 걸린 건이 진짜인지 상세페이지로 한 번 더 확인 ──────────────
+      // 이미 숨겼는데 사이트맵만 안 바뀐 건은 여기서 걸러집니다.
+      const confirmed = [];
+      let pendingSitemap = 0;
+      for (const e of exposed) {
+        if (await isNoindexed(e.url)) {
+          pendingSitemap++;
+          console.log(`      · ${e.product_name} — 이미 숨김 처리됨 (사이트맵 갱신 대기, 경고 안 함)`);
+        } else {
+          confirmed.push(e);
+        }
+      }
+
+      const status = confirmed.length ? 'warn' : 'ok';
       rowsToInsert.push({
         check_date: checkDate,
         brand: site.brand,
@@ -241,9 +272,9 @@ async function main() {
         status,
         product_count: publicList.length,
         new_count: newProducts.length,
-        exposed_count: exposed.length,
+        exposed_count: confirmed.length,
         new_products: newProducts,
-        exposed_hidden: exposed,
+        exposed_hidden: confirmed,
         products: publicList.map((p) => ({ product_no: p.product_no, name: p.name, url: p.url }))
       });
 
@@ -251,8 +282,9 @@ async function main() {
         brand: site.brand, status, firstRun: isFirstRun,
         productCount: publicList.length,
         newCount: newProducts.length,
-        exposedCount: exposed.length,
-        newProducts, exposed
+        exposedCount: confirmed.length,
+        pendingSitemap,
+        newProducts, exposed: confirmed
       });
     } catch (err) {
       const message = String(err && err.message ? err.message : err);
@@ -276,6 +308,7 @@ async function main() {
       `${mark}${r.brand.padEnd(9)} 공개 ${String(r.productCount).padStart(4)}개` +
       `  신규 ${r.newCount}  노출 ${r.exposedCount}${r.firstRun ? '  (첫 검수 — 기준선만 잡음)' : ''}`
     );
+    if (r.pendingSitemap) console.log(`      · 이미 숨긴 상품 ${r.pendingSitemap}건 — 사이트맵 갱신만 기다리는 중`);
     r.exposed.forEach((e) => console.log(`      ⚠ ${e.product_name} — ${e.reason}`));
     r.newProducts.forEach((p) => console.log(`      🆕 ${p.name}`));
   }
