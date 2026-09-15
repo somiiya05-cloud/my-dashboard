@@ -266,6 +266,15 @@
     user-select: none;
   }
   .jw-drag-grip:active { cursor: grabbing; }
+  /* 순서 편집 중에만 보이는 삭제 버튼 — 한 번 누르면 "삭제?"로 바뀌고 다시 눌러야 지워집니다 */
+  .jw-row-del {
+    background: #fff; border: 1px solid rgba(220,38,38,.35); color: #dc2626;
+    font-size: 11.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px;
+    cursor: pointer; font-family: inherit; flex-shrink: 0;
+    transition: background .12s ease, border-color .12s ease, color .12s ease;
+  }
+  .jw-row-del:hover { background: #fef2f2; border-color: rgba(220,38,38,.6); }
+  .jw-row-del.armed { background: #dc2626; border-color: #dc2626; color: #fff; }
   /* 업무를 끌기 시작하면 화면 아래에 떠오르는 휴지통. 여기에 놓으면 삭제됩니다 */
   .jw-trash {
     position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 24px);
@@ -1593,7 +1602,8 @@
             <span class="dot dot-task"></span>할일 관리
           </div>
           <div id="navTeamAssignees"></div>
-          <div class="nav-item" id="navTeamWeekly" onclick="switchView('team-weekly')"><span class="dot dot-task"></span>주차별 진행 업무</div>
+          <!-- 주차별 진행 업무 메뉴는 잠시 내렸습니다. 되살리려면 아래 한 줄을 다시 넣으면 됩니다.
+               <div class="nav-item" id="navTeamWeekly" onclick="switchView('team-weekly')"><span class="dot dot-task"></span>주차별 진행 업무</div> -->
           <!-- 상품 화면들 — 상품등록 업무와 같이 보는 화면이라 업무관리에 둡니다 -->
           <div class="nav-item" id="navCodenitProducts" onclick="switchView('codenit-products')"><span class="dot dot-task"></span>코드니처 자사몰</div>
           <div class="nav-item" id="navMallPrices" onclick="switchView('mall-prices')"><span class="dot dot-task"></span>외부몰</div>
@@ -2670,7 +2680,7 @@
           </div>
           <!-- 순서 편집은 전휘원 화면에서만 보입니다 (renderTaskView에서 켜고 끔) -->
           <div class="topbar-right-row" id="jwOrderRow" style="display:none">
-            <span class="jw-order-hint" id="jwOrderHint" style="display:none">추가된 업무를 끌어서 순서를 바꾸거나, 아래 휴지통에 놓아 지울 수 있습니다</span>
+            <span class="jw-order-hint" id="jwOrderHint" style="display:none">추가된 업무는 끌어서 순서를 바꾸고, 삭제 버튼을 두 번 눌러 지웁니다</span>
             <button type="button" class="jw-order-btn" id="jwOrderBtn" onclick="toggleJwOrderEdit()"></button>
           </div>
         </div>
@@ -4251,7 +4261,9 @@
     document.getElementById('navReviewAlerts').classList.toggle('active', view === 'review-alerts');
     document.getElementById('navTeamProcess').classList.toggle('active', view === 'team-process');
     document.getElementById('navTeamTasks').classList.toggle('active', view === 'team-tasks');
-    document.getElementById('navTeamWeekly').classList.toggle('active', view === 'team-weekly');
+    // 주차별 진행 업무 메뉴는 지금 화면에 없습니다(되살리면 다시 동작).
+    const weeklyNav = document.getElementById('navTeamWeekly');
+    if (weeklyNav) weeklyNav.classList.toggle('active', view === 'team-weekly');
     document.getElementById('navTeamSchedule').classList.toggle('active', view === 'team-schedule');
     document.querySelectorAll('#navTeamAssignees .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'team-tasks' && el.dataset.assignee === brandChannel);
@@ -7222,6 +7234,37 @@
     loadTeamTasks();
   }
 
+  // 실수로 지우지 않도록 한 번 누르면 "삭제?"로 바뀌고, 3초 안에 다시 눌러야 지워집니다.
+  // (긴급 배지 삭제와 같은 방식이라 별도 확인창은 띄우지 않습니다)
+  let jwRowDelArmedId = null;
+  let jwRowDelTimer = null;
+
+  function jwDisarmRowDelete() {
+    clearTimeout(jwRowDelTimer);
+    jwRowDelArmedId = null;
+    document.querySelectorAll('.jw-row-del.armed').forEach(el => {
+      el.classList.remove('armed');
+      el.textContent = '삭제';
+    });
+  }
+
+  async function jwRowDeleteClick(e, id) {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    if (jwRowDelArmedId !== id) {
+      jwDisarmRowDelete();
+      jwRowDelArmedId = id;
+      btn.classList.add('armed');
+      btn.textContent = '삭제?';
+      jwRowDelTimer = setTimeout(jwDisarmRowDelete, 3000);
+      return;
+    }
+    jwDisarmRowDelete();
+    const { error } = await client.from('team_tasks').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadTeamTasks();
+  }
+
   function jwTaskRowHtml(t, indented, no) {
     // 그룹 하위 항목(1-1 같은 줄)은 그룹 안에서 순서가 정해져 있어 옮기지 않습니다.
     const movable = !indented && jwMovable(t);
@@ -7241,6 +7284,7 @@
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}${isAdded ? ' added' : ''}">
         <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${movable ? '<span class="jw-drag-grip" onclick="event.stopPropagation()" title="끌어서 순서를 바꾸거나 휴지통에 놓아 지웁니다">⠿</span>' : ''}${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwHasComment(t.id) ? '<span class="jw-comment-tag">코멘트 있음</span>' : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}${isAdded ? `<button type="button" class="jw-title-edit-btn" title="업무명 수정" onclick="event.stopPropagation(); jwEditTitle(${t.id})">&#9998;</button>` : ''}</div>
         <div class="jw-task-row-checks">
+          ${movable ? `<button type="button" class="jw-row-del" onmousedown="event.stopPropagation()" onclick="jwRowDeleteClick(event, ${t.id})" title="두 번 누르면 이 업무를 지웁니다">삭제</button>` : ''}
           ${gbBtn}
           <button type="button" class="jw-detail-btn${jwOpenDetailIds.has(t.id) ? ' open' : ''}"
             onclick="jwToggleDetail(${t.id})">업무목적</button>
