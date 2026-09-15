@@ -1608,13 +1608,14 @@
           <div id="navTeamAssignees"></div>
           <!-- 주차별 진행 업무 메뉴는 잠시 내렸습니다. 되살리려면 아래 한 줄을 다시 넣으면 됩니다.
                <div class="nav-item" id="navTeamWeekly" onclick="switchView('team-weekly')"><span class="dot dot-task"></span>주차별 진행 업무</div> -->
-          <!-- 상품 화면들 — 상품등록 업무와 같이 보는 화면이라 업무관리에 둡니다 -->
-          <div class="nav-item" id="navCodenitProducts" onclick="switchView('codenit-products')"><span class="dot dot-task"></span>코드니처 자사몰</div>
-          <div class="nav-item" id="navMallPrices" onclick="switchView('mall-prices')"><span class="dot dot-task"></span>외부몰</div>
+          <!-- 상품 화면들 — 상품등록 업무와 같이 보는 화면이라 업무관리에 둡니다.
+               자사몰 검수는 매일 아침 확인하는 화면이라 상품 화면들보다 위에 둡니다. -->
           <div class="nav-item" id="navMallAudit" onclick="switchView('mall-audit')">
             <span class="dot dot-task"></span>자사몰 검수
             <span class="nav-count-badge" id="mallAuditBadge" style="display:none;"></span>
           </div>
+          <div class="nav-item" id="navCodenitProducts" onclick="switchView('codenit-products')"><span class="dot dot-task"></span>코드니처 자사몰</div>
+          <div class="nav-item" id="navMallPrices" onclick="switchView('mall-prices')"><span class="dot dot-task"></span>외부몰</div>
         </div>
       </div>
 
