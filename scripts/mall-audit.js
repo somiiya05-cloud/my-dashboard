@@ -11,11 +11,15 @@
 // 자사몰 9곳은 전부 카페24입니다. 카페24는 "진열함" 상태인 상품만 sitemap.xml 에 넣습니다.
 // 그래서 로그인 없이도 sitemap.xml 한 번만 읽으면 "지금 공개된 상품 전부"를 알 수 있습니다.
 //
-//   · 신규 상품    : 어제 사이트맵에 없던 상품번호가 오늘 생겼다 → 새로 등록된 것
+//   · 신규 상품    : 어제 사이트맵에 없던 상품번호가 오늘 생겼다 → 새로 진열된 것
+//   · 신규 코드    : 알던 최대 상품번호 위에 새 번호가 생겼다 → 미진열로 만든 상품까지 잡힘
 //   · 히든링크 노출 : 숨어 있어야 할 상품(mall_hidden_links)이 사이트맵에 떴다 → 사고
 //   · 이름 의심    : 공개된 상품 이름에 "비밀링크·공동구매" 같은 표시가 있다 → 사람이 확인
 //
-// 몰 하나당 요청 1번이라 9번이면 끝나고, 몇 초 안에 돌아옵니다.
+// 사이트맵은 진열한 상품만 담기 때문에, 미진열로 만든 상품은 사이트맵만 봐서는 못 찾습니다.
+// 카페24 상품번호는 자동 증가라 새 상품은 늘 기존 최대 번호보다 위에 생깁니다.
+// 그래서 최대 번호 위쪽만 몇십 번 찍어보면 진열 여부와 관계없이 당일에 잡힙니다.
+// 몰당 사이트맵 1번 + 번호 20여 번이라, 다 합쳐도 200번 남짓이면 끝납니다.
 //
 // ── 환경변수 ─────────────────────────────────────────────────────────────
 //   MALL_AUDIT_MODE  - 'audit'(기본) | 'debug'(저장 안 함) | 'discover'(히든링크 재탐색)
@@ -44,6 +48,15 @@ const HIDDEN_NAME_MARKERS = [
 // 히든링크 재탐색은 상품번호를 1번부터 전부 찍어봅니다.
 // Actions 에는 실행시간 제한이 넉넉해서, 범위를 좁히지 않고 정확하게 봅니다.
 const DISCOVER_CONCURRENCY = 15;
+
+// 매일 검수에서 "새 상품코드"를 찾을 때, 알고 있는 최대 번호 위로
+// 이만큼 연속으로 빈 번호가 나오면 더 없다고 보고 멈춥니다.
+// 상품을 여러 개 만들었다 일부 지운 경우를 감안해 넉넉히 잡았습니다.
+const PROBE_AHEAD_MISSES = 20;
+
+// 혹시 판정이 잘못돼 계속 "있음"이 나와도 무한정 돌지 않게 막는 상한입니다.
+// 20개씩 10묶음 = 한 몰에서 하루 최대 200번까지만 봅니다.
+const PROBE_AHEAD_MAX_ROUNDS = 10;
 
 const MODE = process.env.MALL_AUDIT_MODE || 'audit';
 const ONLY_BRAND = (process.env.MALL_AUDIT_BRAND || '').trim();
@@ -133,17 +146,35 @@ async function isNoindexed(url) {
   }
 }
 
-// 상세페이지가 살아 있는지 봅니다. 없는 상품은 카페24가 기본 제목("카페24")만 돌려줍니다.
-async function probeProduct(origin, productNo) {
+async function productTitle(origin, productNo) {
   try {
     const html = await fetchText(`${origin}/product/detail.html?product_no=${productNo}`, 15000);
     const m = html.match(/<title>([^<]*)<\/title>/i);
-    const title = m ? m[1].trim() : '';
-    if (!title || title === '카페24') return null;
-    return { product_no: String(productNo), name: title };
+    return m ? m[1].trim() : '';
   } catch (e) {
     return null;
   }
+}
+
+// 없는 상품번호를 넣었을 때 그 몰이 뭐라고 답하는지 미리 알아 둡니다.
+// 대부분은 "카페24"지만, 가게 이름을 그대로 돌려주는 몰도 있습니다(그로우뮤즈).
+// 이걸 몰마다 직접 재보지 않으면 "없는 상품"을 전부 "있는 상품"으로 잘못 세게 됩니다.
+async function learnNotFoundTitle(origin) {
+  const marks = new Set(['카페24']);
+  for (const sentinel of [99999001, 99999002]) {
+    const title = await productTitle(origin, sentinel);
+    if (title) marks.add(title);
+  }
+  return marks;
+}
+
+// 상세페이지가 살아 있는지 봅니다.
+// notFound 는 learnNotFoundTitle 이 알아낸 "없음" 제목 모음입니다.
+async function probeProduct(origin, productNo, notFound) {
+  const title = await productTitle(origin, productNo);
+  if (!title) return null;
+  if (notFound && notFound.has(title)) return null;
+  return { product_no: String(productNo), name: title };
 }
 
 async function mapWithConcurrency(items, limit, worker) {
@@ -219,7 +250,70 @@ async function main() {
       // 첫 검수는 기준선만 잡습니다. 기존 상품 전부를 "신규"로 알리면 안 되기 때문입니다.
       const newProducts = isFirstRun
         ? []
-        : publicList.filter((p) => !prevNos.has(String(p.product_no)));
+        : publicList
+            .filter((p) => !prevNos.has(String(p.product_no)))
+            .map((p) => ({ ...p, kind: '공개' }));
+
+      // ── 4-1. 새로 만들어진 상품코드 찾기 ────────────────────────────────
+      // 사이트맵만 보면 "진열함"으로 올린 상품밖에 못 봅니다.
+      // 미진열로 만든 상품(공구·제휴 전용)은 사이트맵에 안 뜨니 그대로 지나갑니다.
+      // 카페24 상품번호는 자동 증가라 새 상품은 항상 기존 최대 번호보다 위에 생깁니다.
+      // 그래서 "알고 있는 최대 번호 위쪽"만 훑으면 진열 여부와 관계없이 당일에 잡힙니다.
+      // 몰당 20여 번만 조회하면 되어서 전수 탐색(몰당 수백~1,500번)보다 훨씬 가볍습니다.
+      const knownNos = [
+        ...publicMap.keys(),
+        ...(hiddenByBrand.get(site.brand) || []).map((l) => l.product_code),
+        ...(isFirstRun ? [] : (prevRows[0].products || []).map((p) => p.product_no))
+      ].map(Number).filter(Number.isFinite);
+      const maxKnown = knownNos.length ? Math.max(...knownNos) : 0;
+
+      // 한 번에 PROBE_AHEAD_MISSES 개씩 묶어서 동시에 찍어봅니다.
+      // 묶음이 통째로 비면 그 위로는 더 없다고 보고 멈춥니다.
+      // 하나라도 걸리면 그만큼 더 만들었다는 뜻이라 다음 묶음도 확인합니다.
+      const notFound = await learnNotFoundTitle(origin);
+      const createdCodes = [];
+      let cursor = maxKnown + 1;
+      for (let round = 0; round < PROBE_AHEAD_MAX_ROUNDS; round++) {
+        const batch = Array.from({ length: PROBE_AHEAD_MISSES }, (_, i) => cursor + i);
+        const hits = (await mapWithConcurrency(batch, DISCOVER_CONCURRENCY, (n) => probeProduct(origin, n, notFound)))
+          .filter(Boolean);
+        for (const hit of hits) {
+          createdCodes.push({
+            product_no: hit.product_no,
+            name: hit.name,
+            url: publicMap.has(hit.product_no)
+              ? publicMap.get(hit.product_no).url
+              : `${origin}/product/detail.html?product_no=${hit.product_no}`,
+            // 진열 안 한 채로 만든 상품도 "새로 생긴 코드"로 알립니다.
+            kind: publicMap.has(hit.product_no) ? '공개' : '미진열'
+          });
+        }
+        cursor += PROBE_AHEAD_MISSES;
+        if (!hits.length) break;
+      }
+
+      // 사이트맵 비교에서 이미 잡힌 번호는 빼서 두 번 세지 않습니다.
+      const alreadyNew = new Set(newProducts.map((p) => String(p.product_no)));
+      for (const c of createdCodes) {
+        if (!alreadyNew.has(String(c.product_no))) newProducts.push(c);
+      }
+
+      // 새로 생긴 미진열 상품은 곧 히든링크이므로 감시 목록에 바로 등록해 둡니다.
+      // 나중에 실수로 공개되면 이름에 표시가 없어도 잡히게 하기 위해서입니다.
+      const freshHidden = createdCodes
+        .filter((c) => c.kind === '미진열')
+        .map((c) => ({
+          brand: site.brand,
+          product_code: c.product_no,
+          product_name: c.name,
+          url: c.url,
+          memo: `자동 등록 ${checkDate}`
+        }));
+      if (freshHidden.length && MODE !== 'debug') {
+        await sbInsert('mall_hidden_links?on_conflict=brand,product_code', freshHidden, {
+          Prefer: 'resolution=ignore-duplicates'
+        });
+      }
 
       // ── 5. 히든링크가 공개 목록에 떴는지 ────────────────────────────────
       const exposed = [];
@@ -310,7 +404,7 @@ async function main() {
     );
     if (r.pendingSitemap) console.log(`      · 이미 숨긴 상품 ${r.pendingSitemap}건 — 사이트맵 갱신만 기다리는 중`);
     r.exposed.forEach((e) => console.log(`      ⚠ ${e.product_name} — ${e.reason}`));
-    r.newProducts.forEach((p) => console.log(`      🆕 ${p.name}`));
+    r.newProducts.forEach((p) => console.log(`      🆕 [${p.kind || '공개'}] ${p.name}`));
   }
 
   // ── 8. 저장 ────────────────────────────────────────────────────────────
@@ -337,7 +431,8 @@ async function main() {
         for (let n = 1; n <= maxNo + 20; n++) {
           if (!publicMap.has(String(n))) candidates.push(n);
         }
-        const found = (await mapWithConcurrency(candidates, DISCOVER_CONCURRENCY, (n) => probeProduct(origin, n)))
+        const notFound = await learnNotFoundTitle(origin);
+        const found = (await mapWithConcurrency(candidates, DISCOVER_CONCURRENCY, (n) => probeProduct(origin, n, notFound)))
           .filter(Boolean)
           .map((p) => ({
             brand: site.brand,
@@ -385,7 +480,7 @@ async function main() {
     if (newTotal) {
       lines.push('### 새로 등록된 상품', '');
       results.forEach((r) => (r.newProducts || []).forEach((p) => {
-        lines.push(`- **${r.brand}** · ${p.name}`);
+        lines.push(`- **${r.brand}** · ${p.name}  `, `  - ${p.kind === '미진열' ? '미진열로 등록됨 (히든링크)' : '공개 진열 중'} — ${p.url}`);
       }));
       lines.push('');
     }
