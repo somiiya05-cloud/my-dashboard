@@ -307,6 +307,17 @@
   .jw-task-row-title { font-size: 13.5px; font-weight: 700; color: #0f172a; min-width: 0; }
   /* 업무명을 눌러도 업무목적 상세가 열립니다 */
   .jw-task-row-title.clickable { cursor: pointer; }
+  /* 직접 추가한 업무 줄의 이름 수정 버튼 */
+  .jw-title-edit-btn {
+    border: none; background: none; color: #c4b5fd; cursor: pointer;
+    font-size: 12px; line-height: 1; padding: 0 5px; vertical-align: 1px;
+  }
+  .jw-title-edit-btn:hover { color: #7c3aed; }
+  .jw-title-edit {
+    width: 100%; max-width: 460px; font-family: inherit; font-size: 13.5px; font-weight: 700;
+    color: #0f172a; border: 1.5px solid #7c3aed; border-radius: 6px; padding: 3px 8px;
+    background: #fff; outline: none;
+  }
   .jw-task-row-title.clickable:hover { color: #2f5ce4; }
   /* 업무명 앞 번호 배지 — inline-flex라 완료 시 제목에 걸리는 취소선이 번호까지 번지지 않고,
      고정 너비라 자릿수가 달라져도 업무명 시작 위치가 흐트러지지 않음 */
@@ -7170,9 +7181,11 @@
       ? `<button type="button" class="jw-gb-toggle${jwGroupbuyLoaded && !jwGroupbuyRows.length ? ' empty' : ''}"
            onclick="toggleJwGroupbuy()">오늘 공구 ${jwGroupbuyLoaded ? jwGroupbuyRows.length + '건' : '···'} ${jwGroupbuyOpen ? '접기' : '보기'}</button>`
       : '';
+    // 루틴이 아닌, 중간에 직접 넣은 업무만 줄에서 바로 이름을 고칠 수 있습니다.
+    const isAdded = !indented && !JW_ROUTINE_TITLES.has(t.title);
     const row = `
-      <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}${!indented && !JW_ROUTINE_TITLES.has(t.title) ? ' added' : ''}">
-        <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${movable ? '<span class="jw-drag-grip" onclick="event.stopPropagation()" title="끌어서 순서를 바꾸거나 휴지통에 놓아 지웁니다">⠿</span>' : ''}${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwHasComment(t.id) ? '<span class="jw-comment-tag">코멘트 있음</span>' : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}</div>
+      <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}${isAdded ? ' added' : ''}">
+        <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${movable ? '<span class="jw-drag-grip" onclick="event.stopPropagation()" title="끌어서 순서를 바꾸거나 휴지통에 놓아 지웁니다">⠿</span>' : ''}${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwHasComment(t.id) ? '<span class="jw-comment-tag">코멘트 있음</span>' : ''}${jwIsToday() && (t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}${isAdded ? `<button type="button" class="jw-title-edit-btn" title="업무명 수정" onclick="event.stopPropagation(); jwEditTitle(${t.id})">&#9998;</button>` : ''}</div>
         <div class="jw-task-row-checks">
           ${gbBtn}
           <button type="button" class="jw-detail-btn${jwOpenDetailIds.has(t.id) ? ' open' : ''}"
@@ -7190,6 +7203,55 @@
       : '';
     return `<div class="jw-task-row-wrap" data-taskid="${t.id}"${dragAttrs}>${row}${isGroupbuy ? jwGroupbuyBannerHtml() : ''}${jwTaskCriteriaHtml(t)}${jwTaskDetailHtml(t)}</div>`;
   }
+
+  // ---- 직접 추가한 업무의 이름을 줄에서 바로 고치기 ----
+  function jwEditTitle(id) {
+    const el = document.querySelector('.jw-task-row-wrap[data-taskid="' + id + '"] .jw-task-row-title');
+    const task = currentTasks.find((x) => x.id === id);
+    if (!el || !task) return;
+    // 고치는 동안에는 업무 기준이 열리지 않게 클릭을 떼어 둡니다.
+    el.classList.remove('clickable');
+    el.onclick = null;
+    el.innerHTML = `<input type="text" class="jw-title-edit" id="jwTitleEdit${id}"
+      value="${escapeAttr(task.title || '')}"
+      onkeydown="jwTitleKey(event, ${id})" onblur="jwSaveTitle(${id})">`;
+    const input = document.getElementById('jwTitleEdit' + id);
+    input.focus();
+    input.select();
+  }
+  window.jwEditTitle = jwEditTitle;
+
+  function jwTitleKey(e, id) {
+    if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
+    else if (e.key === 'Escape') { e.target.dataset.cancel = '1'; e.target.blur(); }
+  }
+  window.jwTitleKey = jwTitleKey;
+
+  let jwTitleSaving = false;
+  async function jwSaveTitle(id) {
+    const input = document.getElementById('jwTitleEdit' + id);
+    if (!input || jwTitleSaving) return;
+    const task = currentTasks.find((x) => x.id === id);
+    const next = input.value.trim();
+    // 취소했거나, 비웠거나, 그대로면 아무것도 바꾸지 않고 화면만 되돌립니다.
+    if (input.dataset.cancel === '1' || !task || !next || next === task.title) { renderJwView(); return; }
+
+    jwTitleSaving = true;
+    const { error } = await client.from('team_tasks').update({ title: next }).eq('id', id);
+    jwTitleSaving = false;
+    if (error) { alert('이름을 바꾸지 못했습니다: ' + error.message); renderJwView(); return; }
+
+    // 업무 목적·기준은 업무명으로 묶여 있어서, 이름만 바꾸면 적어둔 내용을 잃습니다. 같이 옮겨 줍니다.
+    const purpose = jwTaskPurposes[task.title];
+    const criteria = jwTaskCriteria[task.title];
+    if (purpose || criteria) {
+      await client.from('team_task_purposes').upsert(
+        { title: next, purpose: purpose || null, criteria: criteria || null, updated_at: new Date().toISOString() },
+        { onConflict: 'title' });
+    }
+    loadTeamTasks();
+  }
+  window.jwSaveTitle = jwSaveTitle;
 
   // ---- 상세보기 아코디언: 업무 목적 · 파트장 코멘트 · 담당자 답글 ----
   // 저장 위치는 브라우저 localStorage 입니다 (Supabase에는 쓰지 않습니다).
