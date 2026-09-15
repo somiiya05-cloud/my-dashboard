@@ -1251,6 +1251,13 @@
     border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
   }
   .btn-primary:hover { opacity: .9; }
+  .btn-add-partner {
+    border: 1.5px solid #cbd5e1; background: #fff; color: #334155;
+    font-family: inherit; font-size: 13px; font-weight: 700;
+    border-radius: 8px; padding: 0 12px; cursor: pointer; white-space: nowrap;
+  }
+  .btn-add-partner:hover { border-color: #2f5ce4; color: #2f5ce4; }
+  .partner-new-input { width: 150px; }
   .btn-danger {
     background: rgba(239,68,68,.12); color: #dc2626; border: 1px solid rgba(239,68,68,.3);
     border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
@@ -2556,6 +2563,10 @@
               <option value="특판">특판</option>
             </select>
             <select name="partnerId" id="partnerDealFormPartner" required style="flex:1; min-width:130px;"></select>
+            <input type="text" id="partnerNewName" class="partner-new-input" placeholder="새 거래처명" hidden
+              autocomplete="off" onkeydown="partnerNewKey(event)">
+            <button type="button" class="btn-add-partner" id="partnerAddBtn"
+              title="목록에 없는 거래처를 추가합니다" onclick="partnerAddToggle()">+ 거래처</button>
             <input type="text" name="title" placeholder="거래 건명" required style="flex:1; min-width:140px;">
             <input type="text" inputmode="numeric" name="expectedAmount" placeholder="예상 매출액(원)" style="width:140px;" oninput="gsFormatMoneyInput(this)">
             <input type="text" name="memo" placeholder="특이사항(선택)" style="flex:1; min-width:120px;">
@@ -4055,6 +4066,67 @@
     const opts = partnerRows.map((p) => `<option value="${p.id}">${escapeAttr(p.name)}</option>`).join('');
     document.getElementById('partnerDealFormPartner').innerHTML = opts || '<option value="">거래처를 먼저 추가하세요</option>';
   }
+
+  // ---- 거래처를 목록에서 바로 추가하기 ----
+  // 거래처 목록 패널을 없앤 뒤로 새 거래처를 넣을 곳이 없어서, 고르는 칸 옆에서 바로 넣습니다.
+  function partnerAddToggle() {
+    const input = document.getElementById('partnerNewName');
+    const btn = document.getElementById('partnerAddBtn');
+    if (!input || !btn) return;
+    if (input.hidden) {
+      input.hidden = false;
+      input.value = '';
+      input.focus();
+      btn.textContent = '저장';
+    } else if (input.value.trim()) {
+      partnerAddSave();
+    } else {
+      input.hidden = true;
+      btn.textContent = '+ 거래처';
+    }
+  }
+  window.partnerAddToggle = partnerAddToggle;
+
+  function partnerNewKey(e) {
+    if (e.key === 'Enter') { e.preventDefault(); partnerAddSave(); }
+    else if (e.key === 'Escape') {
+      e.preventDefault();
+      const input = document.getElementById('partnerNewName');
+      input.hidden = true;
+      input.value = '';
+      document.getElementById('partnerAddBtn').textContent = '+ 거래처';
+    }
+  }
+  window.partnerNewKey = partnerNewKey;
+
+  let partnerAdding = false;
+  async function partnerAddSave() {
+    const input = document.getElementById('partnerNewName');
+    const btn = document.getElementById('partnerAddBtn');
+    if (!input || partnerAdding) return;
+    const name = input.value.trim();
+    if (!name) return;
+    // 같은 이름이 이미 있으면 새로 만들지 않고 그 거래처를 고릅니다.
+    const same = partnerRows.find((x) => (x.name || '').trim() === name);
+    if (same) {
+      document.getElementById('partnerDealFormPartner').value = same.id;
+      input.hidden = true; input.value = ''; btn.textContent = '+ 거래처';
+      alert('이미 있는 거래처라 그 거래처를 골랐습니다: ' + name);
+      return;
+    }
+
+    partnerAdding = true;
+    const { data, error } = await client.from('partners').insert([{ name }]).select('id,name');
+    partnerAdding = false;
+    if (error) { alert('거래처를 추가하지 못했습니다: ' + error.message); return; }
+
+    input.hidden = true; input.value = ''; btn.textContent = '+ 거래처';
+    const added = data && data[0];
+    if (added) partnerRows = [added].concat(partnerRows);
+    renderPartnerDealFormOptions();
+    if (added) document.getElementById('partnerDealFormPartner').value = added.id;
+  }
+  window.partnerAddSave = partnerAddSave;
 
   // 진행 단계는 추가 폼에서 고르지 않고, 등록하면 첫 단계(문의 접수)로 시작합니다.
   // 이후 진행은 아래 표의 진행 단계 체크박스로 표시합니다.
