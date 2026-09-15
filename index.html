@@ -6058,6 +6058,7 @@
       switchView('dashboard');
     } else if (ws === 'task') {
       switchView('team-overview');
+      ensureTaskAssigneeNav();
     } else {
       switchView('team-schedule', 'main');
     }
@@ -7810,15 +7811,34 @@
     openTaskPanel(id);
   }
 
-  function renderTaskAssigneeNav() {
+  // 페이지를 열 때 이미 업무관리 화면이면(뒤로가기·새로고침) 담당자 줄을 채워 둡니다.
+  document.addEventListener('DOMContentLoaded', () => {
+    if (currentWorkspace === 'task') ensureTaskAssigneeNav();
+  });
+
+  function renderAssigneeNavFrom(names) {
     const container = document.getElementById('navTeamAssignees');
     if (!container) return;
-    const assignees = Array.from(new Set(currentTasks.map(t => t.assignee).filter(Boolean))).sort();
-    container.innerHTML = assignees.map(name => `
+    container.innerHTML = names.map(name => `
       <div class="nav-subitem" data-assignee="${escapeAttr(name)}" onclick="switchView('team-tasks', '${escapeAttr(name)}')">
         <span class="sub-dot"></span>${escapeAttr(name)}
       </div>
     `).join('');
+  }
+
+  function renderTaskAssigneeNav() {
+    renderAssigneeNavFrom(Array.from(new Set(currentTasks.map(t => t.assignee).filter(Boolean))).sort());
+  }
+
+  // 업무관리로 들어오면 "할일 관리" 아래 담당자 줄이 바로 보이게 합니다.
+  // 업무 목록 전체를 불러오면 무거워서 담당자 이름만 가져옵니다.
+  async function ensureTaskAssigneeNav() {
+    const container = document.getElementById('navTeamAssignees');
+    if (!container || container.children.length) return;
+    const { data, error } = await client.from('team_tasks').select('assignee').limit(2000);
+    if (error || !data) return;
+    const names = Array.from(new Set(data.map(r => r.assignee).filter(Boolean))).sort();
+    if (names.length && !container.children.length) renderAssigneeNavFrom(names);
   }
 
   // 담당자만 기준으로 범위를 좁히는 헬퍼 — KPI 카드와 주차별 리포트가 공통으로 사용합니다.
