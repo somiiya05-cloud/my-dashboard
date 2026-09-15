@@ -536,9 +536,8 @@
   .jw-regfail-noreason { font-size: 11.5px; color: #94a3b8; margin-top: 5px; }
   .jw-regfail-when { font-size: 11px; color: #94a3b8; margin-top: 4px; }
 
-  /* SCM 미출 메일 배지는 알림 표시일 뿐이라 누를 곳이 없습니다 */
-  .jw-launch-num.scm { cursor: default; margin-left: 4px; }
-  .jw-launch-num.scm:hover { background: #dc2626; box-shadow: none; }
+  /* SCM 미출 메일 배지 — 누르면 다우오피스에서 그 메일을 엽니다 */
+  .jw-launch-num.scm { margin-left: 4px; text-decoration: none; }
   .jw-launch-warn {
     background: rgba(217,119,6,.1); color: #b45309;
     font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 10px;
@@ -6934,6 +6933,8 @@
   // SCM 미출 메일이 오면 이 업무 옆에도 같은 방식으로 배지를 붙입니다.
   const JW_SCM_TASK_KEYWORD = 'SCM팀 미출';
   const JW_LAUNCH_BOARD_URL = 'https://selfdiylab.daouoffice.com/search?q=%EB%9F%B0%EC%B9%AD&app=dop-employee-board';
+  const JW_DAOU_SEARCH_URL = 'https://selfdiylab.daouoffice.com/search';
+  const JW_DAOU_MAIL_URL = 'https://selfdiylab.daouoffice.com/app/mail';
   let jwLaunchRow = null;
   let jwLaunchError = '';
 
@@ -6986,15 +6987,31 @@
   }
 
   // SCM 미출 현황 메일이 오늘 도착했으면 배지를 붙입니다. 안 왔으면 아무것도 그리지 않습니다.
+  // 배지를 누르면 다우오피스에서 그 메일을 바로 엽니다.
+  // 메일 고유 주소는 저장해 두지 않아서(IMAP으로 제목만 읽어옵니다) 제목으로 검색해 들어갑니다.
+  // 제목이 "2026년 9월 15일 신규 미출고 현황..."처럼 날짜까지 들어 있어 그 메일만 걸립니다.
+  function scmMailUrl(subject) {
+    if (!subject) return JW_DAOU_MAIL_URL;
+    // "…공유드립니다." 같은 맺음말은 어느 메일에나 붙어 있어 검색에 도움이 안 됩니다.
+    // 날짜와 "미출고"가 들어간 앞부분만 남기면 그 메일 하나만 걸립니다.
+    const q = String(subject)
+      .replace(/\s*공유\s*(드립니다|합니다)\s*[.。]?\s*$/, '')
+      .replace(/[.。]\s*$/, '')
+      .trim();
+    return `${JW_DAOU_SEARCH_URL}?q=${encodeURIComponent(q || subject)}`;
+  }
+
   function jwScmBadgeHtml() {
     if (!jwLaunchRow || !jwLaunchRow.scm_mail_count) return '';
     const label = scmMailDateLabel(jwLaunchRow.scm_mail_subject);
     const tip = jwLaunchRow.scm_mail_subject
-      ? `오늘 도착한 SCM 미출 메일입니다 — ${jwLaunchRow.scm_mail_subject}`
-      : '오늘 SCM 미출 메일이 도착했습니다.';
+      ? `누르면 다우오피스에서 이 메일을 엽니다 — ${jwLaunchRow.scm_mail_subject}`
+      : '누르면 다우오피스 메일함을 엽니다.';
     return `
       <span class="jw-launch" onclick="event.stopPropagation()">
-        <span class="jw-launch-num scm" title="${escapeAttr(tip)}">미출 ${label ? escapeAttr(label) : '도착'}</span>
+        <a class="jw-launch-num scm" href="${escapeAttr(scmMailUrl(jwLaunchRow.scm_mail_subject))}"
+           target="_blank" rel="noopener"
+           title="${escapeAttr(tip)}">미출 ${label ? escapeAttr(label) : '도착'}</a>
       </span>`;
   }
 
