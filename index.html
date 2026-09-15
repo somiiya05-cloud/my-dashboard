@@ -5887,15 +5887,40 @@
   let mallRegIndex = null;   // 품번 -> { 상품명, 브랜드, 상태, 몰: [...] }
 
   // ==================== 자사몰 검수 ====================
-  // 데이터 원본: mall_audits 표. api/sync-mall-audit.js 가 매일 아침 한 줄씩 넣어줍니다.
-  // 이 화면은 몰별 "가장 최근 한 줄"만 씁니다.
+  // 데이터 원본: mall_audits 표. scripts/mall-audit.js 가 하루 여러 번(09:10·11:00·14:00·17:00)
+  // 몰당 한 줄씩 넣어줍니다.
+  //
+  // 상품 수·노출은 "가장 최근 줄"을 쓰지만, 신규 상품만은 오늘 하루치를 모아서 씁니다.
+  // 검수는 "직전 실행과 비교"라서, 11시에 잡힌 신규 상품이 14시 줄에는 안 들어갑니다.
+  // 최신 줄만 보면 오전에 올라온 상품을 오후에 놓치게 됩니다.
   let mallAuditRows = [];
 
-  // 몰별 최신 줄만 남깁니다. checked_at 내림차순으로 받아오므로 먼저 만난 게 최신입니다.
+  function todayInSeoul() {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+  }
+
+  // 몰별 최신 줄만 남기되, 오늘 올라온 신규 상품은 하루치를 합쳐 붙여 줍니다.
+  // checked_at 내림차순으로 받아오므로 먼저 만난 게 최신입니다.
   function latestAuditPerBrand(rows) {
+    const today = todayInSeoul();
     const seen = new Map();
+    const todayNew = new Map();
+
     for (const row of rows) {
-      if (!seen.has(row.brand)) seen.set(row.brand, row);
+      if (!seen.has(row.brand)) seen.set(row.brand, { ...row });
+      if (row.check_date !== today) continue;
+      if (!todayNew.has(row.brand)) todayNew.set(row.brand, new Map());
+      const bucket = todayNew.get(row.brand);
+      for (const p of row.new_products || []) {
+        // 같은 상품이 여러 줄에 걸쳐 있으면 한 번만 셉니다.
+        if (!bucket.has(String(p.product_no))) bucket.set(String(p.product_no), p);
+      }
+    }
+
+    for (const row of seen.values()) {
+      const bucket = todayNew.get(row.brand);
+      row.new_products = bucket ? Array.from(bucket.values()) : [];
+      row.new_count = row.new_products.length;
     }
     return Array.from(seen.values());
   }
@@ -6022,7 +6047,8 @@
     const badge = document.getElementById('mallAuditBadge');
     if (!badge) return;
     const { data, error } = await client.from('mall_audits')
-      .select('brand,checked_at,new_count,exposed_count')
+      // check_date·new_products 는 latestAuditPerBrand 가 "오늘 신규"를 합칠 때 씁니다.
+      .select('brand,checked_at,check_date,new_count,exposed_count,new_products')
       .order('checked_at', { ascending: false })
       .limit(300);
     if (error || !data || !data.length) {
@@ -7579,13 +7605,27 @@
     jwTitleSaving = false;
     if (error) { alert('이름을 바꾸지 못했습니다: ' + error.message); renderJwView(); return; }
 
-    // 업무 목적·기준은 업무명으로 묶여 있어서, 이름만 바꾸면 적어둔 내용을 잃습니다. 같이 옮겨 줍니다.
-    const purpose = jwTaskPurposes[task.title];
+    // 적어둔 내용은 업무명을 열쇠로 저장돼 있어서, 이름만 바꾸면 옛 이름에 남아 사라진 것처럼 보입니다.
+    // 그래서 새 이름으로 같이 옮깁니다.
+    const nowIso = new Date().toISOString();
+    const day = String(task.due_date || '').slice(0, 10);
+
+    // 업무 목적은 (업무명 + 날짜)로 저장됩니다. 그날 것만 옮깁니다.
+    // 옛 행은 지우지 않습니다 — 같은 이름의 다른 업무가 있을 수 있어서 건드리면 위험합니다.
+    const purpose = jwTaskPurposes[jwPurposeKey(task.title, day)];
+    if (day && purpose && purpose.trim()) {
+      await client.from('team_task_daily_purposes').upsert(
+        { title: next, due_date: day, purpose, updated_at: nowIso },
+        { onConflict: 'title,due_date' });
+      jwTaskPurposes[jwPurposeKey(next, day)] = purpose;
+    }
+
+    // 업무 기준은 날짜와 무관한 고정 규칙이라 업무명만으로 저장됩니다.
     const criteria = jwTaskCriteria[task.title];
-    if (purpose || criteria) {
+    if (criteria && criteria.trim()) {
       await client.from('team_task_purposes').upsert(
-        { title: next, purpose: purpose || null, criteria: criteria || null, updated_at: new Date().toISOString() },
-        { onConflict: 'title' });
+        { title: next, criteria, updated_at: nowIso }, { onConflict: 'title' });
+      jwTaskCriteria[next] = criteria;
     }
     loadTeamTasks();
   }
@@ -7704,7 +7744,7 @@
           <div class="jw-detail-label">업무 목적</div>
           <textarea class="jw-detail-input" rows="1" id="jwPurpose${t.id}" placeholder="오늘 이 업무를 왜 하는지 적어주세요. 엔터를 치면 담당자 댓글로도 남습니다."
             oninput="autoGrowTextarea(this); jwAutoSave(${t.id})" onblur="jwSaveNow(${t.id})"
-            onkeydown="jwPurposeKey(event, ${t.id})">${escapeAttr(jwPurposeOf(t))}</textarea>
+            onkeydown="jwPurposeEnterKey(event, ${t.id})">${escapeAttr(jwPurposeOf(t))}</textarea>
           <div class="jw-detail-hint">엔터를 치면 지금 적은 내용이 아래에 담당자 댓글로 남습니다. 줄을 바꾸려면 Shift+Enter.</div>
           <div class="jw-detail-saved" id="jwSaved${t.id}">${jwNotesLoadError
             ? '저장용 테이블이 없습니다 — team_task_notes.sql · team_task_daily_purposes.sql 을 먼저 실행하세요'
@@ -7717,12 +7757,12 @@
   // 업무 목적 칸에서 엔터를 치면, 적은 내용을 담당자 댓글로도 남겨 둡니다.
   // 파트장이 물어본 것에 목적 칸을 고쳐서 답하면 언제 답했는지가 남지 않아서,
   // 같은 내용을 댓글로도 쌓아 시간 순서가 보이게 합니다.
-  function jwPurposeKey(e, taskId) {
+  function jwPurposeEnterKey(e, taskId) {
     if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;   // Shift+Enter 는 줄바꿈
     e.preventDefault();
     jwPurposeToComment(taskId);
   }
-  window.jwPurposeKey = jwPurposeKey;
+  window.jwPurposeEnterKey = jwPurposeEnterKey;
 
   async function jwPurposeToComment(taskId) {
     const el = document.getElementById('jwPurpose' + taskId);
