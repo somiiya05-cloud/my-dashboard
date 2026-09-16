@@ -7015,19 +7015,12 @@
     const wrap = board && board.closest('.jw-memo-wrap');
     if (!board || !wrap) return;
 
-    // 메모가 하나도 없으면 영역째 접어 둡니다. 다만 잠금을 푼 사람에게는
-    // "붙이기" 버튼이 보여야 하므로 머리줄만 남깁니다.
-    const unlocked = sessionStorage.getItem('jwMemoUnlocked') === '1';
-    if (!jwUrgentNotes.length && !unlocked) {
-      // 내용까지 비웁니다. 안 비우면 지운 메모가 DOM에 남아 있다가
-      // 나중에 잠금을 풀 때 잠깐 보입니다.
-      board.innerHTML = '';
-      wrap.style.display = 'none';
-      return;
-    }
+    // 머리줄("+ 메모 붙이기")은 항상 보여야 합니다.
+    // 메모가 없을 때 영역째 숨기면 첫 메모를 붙일 방법이 없어집니다.
     wrap.style.display = '';
 
     if (!jwUrgentNotes.length) {
+      // 메모가 없으면 안내문 한 줄만 둡니다. 빈 메모지를 그리지 않아 화면이 조용합니다.
       board.innerHTML = '<div class="jw-memo-empty">급히 알아봐야 할 게 있으면 메모를 붙여두세요.</div>';
       return;
     }
