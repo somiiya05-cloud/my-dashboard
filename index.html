@@ -6938,16 +6938,22 @@
   let jwLaunchRow = null;
   let jwLaunchError = '';
 
+  // 오늘이 아니라 "지금 보고 있는 날짜"의 집계를 읽습니다.
+  // 다음 날 전일자를 열어도 그날의 런칭 건수와 SCM 미출 메일 배지가 그대로 보입니다.
+  // (배지를 누르면 그날 메일로 가야 하므로, 날짜가 바뀌면 배지도 같이 바뀌어야 합니다)
   async function loadJwLaunchCount() {
-    const today = jwTodayKST();
+    const date = jwSelectedDate();
     jwLaunchRow = null;
     jwLaunchError = '';
     const { data, error } = await client.from('launch_post_counts')
-      .select('*').eq('assignee', JW_ASSIGNEE).eq('check_date', today).maybeSingle();
+      .select('*').eq('assignee', JW_ASSIGNEE).eq('check_date', date).maybeSingle();
     if (error) { jwLaunchError = error.message; return; }
     if (data) { jwLaunchRow = data; return; }
+    // 지난 날짜에 행이 없으면 그날은 메일이 없었던 것입니다. 빈 행을 새로 만들지 않습니다.
+    // (과거 날짜를 열어볼 때마다 빈 기록이 쌓이는 걸 막습니다)
+    if (date !== jwTodayKST()) return;
     const { data: inserted, error: insErr } = await client.from('launch_post_counts')
-      .insert({ assignee: JW_ASSIGNEE, check_date: today }).select('*').single();
+      .insert({ assignee: JW_ASSIGNEE, check_date: date }).select('*').single();
     if (insErr) { jwLaunchError = insErr.message; return; }
     jwLaunchRow = inserted;
   }
