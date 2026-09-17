@@ -797,6 +797,11 @@
   .wr-big { font-size: 38px; font-weight: 800; color: #1d4ed8; line-height: 1; font-variant-numeric: tabular-nums; }
   .wr-big span { font-size: 18px; margin-left: 2px; }
   .wr-h { font-size: 12.5px; font-weight: 800; color: #475569; margin: 18px 0 8px; }
+  /* 누르면 접히고 펴지는 제목 */
+  .wr-h-toggle { cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; }
+  .wr-h-toggle:hover { color: #1d4ed8; }
+  .wr-caret { font-size: 10px; color: #94a3b8; width: 10px; }
+  .wr-h-toggle:hover .wr-caret { color: #1d4ed8; }
   .wr-list { margin: 0; padding-left: 0; list-style: none; }
   .wr-list li { padding: 7px 2px; border-bottom: 1px solid #f1f5f9; font-size: 12.5px; color: #0f172a; }
   .wr-item-date { font-size: 11px; font-weight: 700; color: #94a3b8; margin-right: 7px; font-variant-numeric: tabular-nums; }
@@ -6026,6 +6031,16 @@
     return total ? Math.round((done / total) * 100) : 0;
   }
 
+  // 긴급·직접 추가한 업무는 평소엔 접어 둡니다. 주로 보는 건 업무별 기록이라
+  // 목록이 길면 아래로 밀립니다. 누르면 펴지고, 주차를 바꿔도 그대로 둡니다.
+  const wrOpenSections = { urgent: false, added: false };
+
+  function wrToggleSection(key) {
+    wrOpenSections[key] = !wrOpenSections[key];
+    renderWeeklyReport();
+  }
+  window.wrToggleSection = wrToggleSection;
+
   function renderWeeklyReport() {
     const body = document.getElementById('wrBody');
     if (!body) return;
@@ -6096,11 +6111,15 @@
         <div class="mr-stat-cell bad"><div class="mr-stat-label">미완료</div><div class="mr-stat-num">${전체.건수 - 전체.완료 - (전체.담당자만완료 || 0)}건</div></div>
       </div>
 
-      <h3 class="wr-h">긴급 업무 ${(sp.긴급 || []).length}건</h3>
-      ${itemList(sp.긴급 || [], '이번 주에는 긴급 업무가 없었습니다.')}
+      <h3 class="wr-h wr-h-toggle" onclick="wrToggleSection('urgent')">
+        <span class="wr-caret">${wrOpenSections.urgent ? '▾' : '▸'}</span>긴급 업무 ${(sp.긴급 || []).length}건
+      </h3>
+      ${wrOpenSections.urgent ? itemList(sp.긴급 || [], '이번 주에는 긴급 업무가 없었습니다.') : ''}
 
-      <h3 class="wr-h">직접 추가한 업무 ${(sp.직접추가 || []).length}건</h3>
-      ${itemList(sp.직접추가 || [], '이번 주에는 따로 추가한 업무가 없었습니다.')}
+      <h3 class="wr-h wr-h-toggle" onclick="wrToggleSection('added')">
+        <span class="wr-caret">${wrOpenSections.added ? '▾' : '▸'}</span>직접 추가한 업무 ${(sp.직접추가 || []).length}건
+      </h3>
+      ${wrOpenSections.added ? itemList(sp.직접추가 || [], '이번 주에는 따로 추가한 업무가 없었습니다.') : ''}
 
       <h3 class="wr-h">업무별 기록 ${taskGroups.length}개 업무</h3>
       ${noteList}`;
