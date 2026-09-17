@@ -6851,6 +6851,9 @@
   // "오늘"이 아니라 "가장 최근 검수한 날" 기준입니다. 검수가 하루에 여러 번 돌지만
   // 늦어지거나 거를 수 있어서, 오늘로 못 박으면 검수가 안 돈 날에는 배지가 통째로 사라집니다.
   // 그날 잡힌 상품은 아직 외부몰에 올리지 않았을 수 있으니 계속 보여주는 게 맞습니다.
+  // 외부몰에 올릴 대상이 아닌 상품은 배지에서 뺍니다.
+  const JW_NEW_PRODUCT_SKIP = /공동\s*구매|비밀\s*링크/;
+
   let jwNewProducts = [];
   let jwNewProductDate = '';
 
@@ -6872,6 +6875,8 @@
     withNew.forEach((row) => {
       if (row.check_date !== jwNewProductDate) return;
       (row.new_products || []).forEach((x) => {
+        // 공동구매·비밀링크 상품은 그 자사몰에서만 파는 건이라 외부몰에 올리지 않습니다.
+        if (JW_NEW_PRODUCT_SKIP.test(x.name || '')) return;
         const key = row.brand + '|' + x.product_no;
         if (seen.has(key)) return;   // 같은 상품이 여러 번 실행에 걸쳐 잡히면 한 번만 셉니다
         seen.add(key);
