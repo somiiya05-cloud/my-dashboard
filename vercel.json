@@ -5,6 +5,7 @@
     { "path": "/api/refresh-daily-tasks", "schedule": "0 23 * * *" }
   ],
   "functions": {
+    "api/sync-launch-posts.js": { "maxDuration": 60 },
     "api/sync-naver-keywords.js": { "maxDuration": 60 },
     "api/sync-naver-ads.js": { "maxDuration": 60 },
     "api/sync-naver-bid-estimates.js": { "maxDuration": 60 }
