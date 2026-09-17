@@ -709,6 +709,7 @@
   .task-panel-row { display: flex; gap: 10px; }
   .task-panel-row .task-panel-field { flex: 1; }
   .task-panel-status-block { background: #f8fafc; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .task-panel-hint { font-size: 11px; color: #94a3b8; margin-top: 4px; line-height: 1.5; }
   .task-panel-actions { display: flex; gap: 8px; margin-top: 8px; }
   .task-panel-actions .btn-primary { flex: 1; text-align: center; }
   .task-review-hint { font-size: 12px; color: #94a3b8; }
@@ -8879,6 +8880,11 @@
             <div class="task-panel-field"><label>담당자</label><input id="tpAssignee" type="text" value="${escapeAttr(ps.assignee || taskFilterAssignee || '')}"></div>
           </div>
           <input type="hidden" id="tpDueDate" value="${escapeAttr(ps.dueDate || jwSelectedDate())}">
+          <div class="task-panel-field">
+            <label>며칠까지 (선택)</label>
+            <input id="tpRepeatUntil" type="date" min="${escapeAttr(ps.dueDate || jwSelectedDate())}">
+            <div class="task-panel-hint">며칠 이어지는 업무면 마지막 날짜를 고르세요. 그 날까지 날짜마다 한 줄씩 생기고 날짜별로 따로 체크합니다. 비워두면 ${escapeAttr(ps.dueDate || jwSelectedDate())} 하루만 생깁니다.</div>
+          </div>
           <div class="task-panel-actions"><button type="button" class="btn-primary" onclick="saveNewTaskFromPanel()">등록</button></div>
         `;
         return;
@@ -8946,20 +8952,44 @@
     return el ? el.value.trim() : '';
   }
 
+  // 날짜 문자열에 며칠 더하기 (시차 영향을 없애려고 UTC 자정으로 읽습니다)
+  function jwAddDays(dateStr, n) {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+
   async function saveNewTaskFromPanel() {
     const title = taskPanelValue('tpTitle');
     if (!title) { alert('업무 내용을 입력해주세요.'); return; }
-    const payload = {
+    const base = {
       category: taskPanelValue('tpCategory') || null,
       title,
       priority: taskPanelValue('tpPriority') || '보통',
       assignee: taskPanelValue('tpAssignee') || null,
       start_date: taskPanelValue('tpStartDate') || null,
-      due_date: taskPanelValue('tpDueDate') || null,
       detail: taskPanelValue('tpDetail') || null,
       status: '할일',
     };
-    const { error } = await client.from('team_tasks').insert([payload]);
+    const from = taskPanelValue('tpDueDate') || null;
+
+    // "며칠까지"를 골랐으면 그 날까지 날짜마다 한 줄씩 만듭니다.
+    // 화면이 날짜별 한 줄 구조라, 여러 날 떠야 하는 업무는 날짜마다 줄이 있어야
+    // 그날그날 따로 체크되고 주간 리포트에도 제대로 잡힙니다.
+    const until = taskPanelValue('tpRepeatUntil') || '';
+    let rows = [{ ...base, due_date: from }];
+    if (from && until && until > from) {
+      const MAX_DAYS = 60;   // 실수로 먼 날짜를 골랐을 때 수백 줄이 생기지 않도록
+      rows = [];
+      for (let d = from; d <= until && rows.length < MAX_DAYS; d = jwAddDays(d, 1)) {
+        rows.push({ ...base, due_date: d });
+      }
+      if (rows.length >= MAX_DAYS) {
+        alert('기간이 너무 깁니다. ' + MAX_DAYS + '일까지만 만듭니다.');
+      }
+    }
+
+    const { error } = await client.from('team_tasks').insert(rows);
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
     closeTaskPanel();
     loadTeamTasks();
