@@ -6845,23 +6845,32 @@
   }
 
   // ---- "상품등록" 그룹의 자사몰 신규 상품 배지 ----
-  // 자사몰 검수(mall_audits)가 오늘 새로 잡아낸 상품 수입니다. 자사몰에 올라온 신제품은
+  // 자사몰 검수(mall_audits)가 새로 잡아낸 상품입니다. 자사몰에 올라온 신제품은
   // 외부몰에도 올려야 하므로, 검수 화면까지 들어가지 않아도 여기서 바로 보이게 합니다.
-  // 자사몰 검수 화면과 같은 기준(오늘 하루치를 몰별로 모음)을 씁니다.
+  //
+  // "오늘"이 아니라 "가장 최근 검수한 날" 기준입니다. 검수가 하루에 여러 번 돌지만
+  // 늦어지거나 거를 수 있어서, 오늘로 못 박으면 검수가 안 돈 날에는 배지가 통째로 사라집니다.
+  // 그날 잡힌 상품은 아직 외부몰에 올리지 않았을 수 있으니 계속 보여주는 게 맞습니다.
   let jwNewProducts = [];
+  let jwNewProductDate = '';
 
   async function loadJwNewProducts() {
     jwNewProducts = [];
+    jwNewProductDate = '';
     const { data, error } = await client.from('mall_audits')
       .select('brand,checked_at,check_date,new_products')
       .order('checked_at', { ascending: false })
       .limit(300);
-    if (error || !data) return;
+    if (error || !data || !data.length) return;
 
-    const today = jwTodayKST();
+    // 신규 상품이 하나라도 잡힌 가장 최근 날짜를 씁니다.
+    const withNew = data.filter((r) => (r.new_products || []).length);
+    if (!withNew.length) return;
+    jwNewProductDate = withNew[0].check_date;
+
     const seen = new Set();
-    data.forEach((row) => {
-      if (row.check_date !== today) return;
+    withNew.forEach((row) => {
+      if (row.check_date !== jwNewProductDate) return;
       (row.new_products || []).forEach((x) => {
         const key = row.brand + '|' + x.product_no;
         if (seen.has(key)) return;   // 같은 상품이 여러 번 실행에 걸쳐 잡히면 한 번만 셉니다
@@ -6872,9 +6881,17 @@
     jwNewProducts.sort((a, b) => String(a.몰).localeCompare(String(b.몰), 'ko'));
   }
 
+  // "9월 16일" 처럼 읽기 좋게. 오늘이면 "오늘"이라고 씁니다.
+  function jwNewProductDateText() {
+    if (!jwNewProductDate) return '';
+    if (jwNewProductDate === jwTodayKST()) return '오늘';
+    const [, m, d] = jwNewProductDate.split('-');
+    return Number(m) + '월 ' + Number(d) + '일';
+  }
+
   function jwNewProductBadgeHtml() {
     if (!jwNewProducts.length) return '';
-    const tip = `자사몰에 오늘 새로 올라온 상품 ${jwNewProducts.length}건\n누르면 어떤 상품인지 보입니다.`;
+    const tip = `자사몰에 새로 올라온 상품 ${jwNewProducts.length}건 (${jwNewProductDateText()} 검수)\n누르면 어떤 상품인지 보입니다.`;
     return `<button type="button" class="jw-new-badge" title="${escapeAttr(tip)}"
       onclick="event.stopPropagation(); jwOpenNewProducts()">신규 ${jwNewProducts.length}</button>`;
   }
@@ -6909,7 +6926,7 @@
         <div class="jw-regfail-head">
           <div>
             <h3>자사몰 신규 상품 ${jwNewProducts.length}건</h3>
-            <div class="jw-regfail-sub">오늘 검수에서 새로 잡힌 상품입니다 · 외부몰에도 등록할지 확인해 주세요</div>
+            <div class="jw-regfail-sub">${escapeAttr(jwNewProductDateText())} 검수에서 새로 잡힌 상품입니다 · 외부몰에도 등록할지 확인해 주세요</div>
           </div>
           <button type="button" class="jw-regfail-close" title="닫기">✕</button>
         </div>
