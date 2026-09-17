@@ -1171,9 +1171,11 @@
   .mr-warn { font-size: 12px; font-weight: 700; color: #b91c1c; margin-top: 6px; }
   .mr-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
   .mr-chips-label { font-size: 11px; font-weight: 700; color: #64748b; margin-right: 2px; }
+  .mr-chips-label.off { color: #b91c1c; }
   .mr-chip { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 9px; }
   .mr-chip.on { background: rgba(37,99,235,.1); color: #1d4ed8; }
-  .mr-chip.off { background: #f1f5f9; color: #94a3b8; }
+  /* 아직 안 올린 몰은 빨갛게 — 해야 할 일이라는 게 바로 보이도록 */
+  .mr-chip.off { background: #fef2f2; color: #b91c1c; }
 
   /* 외부몰 행사: 몰마다 다른 색상 (스마트스토어=연두, 오늘의집=하늘, 쿠팡=호박, 톡딜=보라) */
   .gs-ev-card-filled.gs-accent-green { background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.3); }
@@ -6486,7 +6488,7 @@
             ? `<div class="mr-chips"><span class="mr-chips-label">등록됨</span>${on.map((m) => `<span class="mr-chip on">${escapeAttr(m)}</span>`).join('')}</div>`
             : '<div class="mr-warn">어느 몰에도 등록되어 있지 않습니다 — 등록을 진행해야 합니다.</div>'}
           ${off.length
-            ? `<div class="mr-chips"><span class="mr-chips-label">미등록</span>${off.map((m) => `<span class="mr-chip off">${escapeAttr(m)}</span>`).join('')}</div>`
+            ? `<div class="mr-chips"><span class="mr-chips-label off">미등록</span>${off.map((m) => `<span class="mr-chip off">${escapeAttr(m)}</span>`).join('')}</div>`
             : ''}
         </div>`;
     }).join('') + (items.length > LIMIT
