@@ -796,16 +796,7 @@
   .wr-sub { font-size: 11.5px; color: #94a3b8; margin-top: 3px; }
   .wr-big { font-size: 38px; font-weight: 800; color: #1d4ed8; line-height: 1; font-variant-numeric: tabular-nums; }
   .wr-big span { font-size: 18px; margin-left: 2px; }
-  .wr-cols { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; }
-  .wr-cols > div { flex: 1; min-width: 260px; }
   .wr-h { font-size: 12.5px; font-weight: 800; color: #475569; margin: 18px 0 8px; }
-  .wr-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  .wr-table td { padding: 6px 4px; border-bottom: 1px solid #f1f5f9; color: #0f172a; }
-  .wr-table td:first-child { width: 110px; color: #475569; font-weight: 600; }
-  .wr-bar-cell { display: flex; align-items: center; gap: 8px; }
-  .wr-bar { flex: 1; height: 7px; background: #eef2f7; border-radius: 999px; overflow: hidden; }
-  .wr-bar-fill { height: 100%; background: #1d4ed8; border-radius: 999px; }
-  .wr-bar-text { font-size: 11px; color: #64748b; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .wr-list { margin: 0; padding-left: 0; list-style: none; }
   .wr-list li { padding: 7px 2px; border-bottom: 1px solid #f1f5f9; font-size: 12.5px; color: #0f172a; }
   .wr-item-date { font-size: 11px; font-weight: 700; color: #94a3b8; margin-right: 7px; font-variant-numeric: tabular-nums; }
@@ -6035,12 +6026,6 @@
     return total ? Math.round((done / total) * 100) : 0;
   }
 
-  function wrBar(done, total) {
-    const pct = wrPct(done, total);
-    return `<div class="wr-bar"><div class="wr-bar-fill" style="width:${pct}%"></div></div>
-      <span class="wr-bar-text">${done}/${total} · ${pct}%</span>`;
-  }
-
   function renderWeeklyReport() {
     const body = document.getElementById('wrBody');
     if (!body) return;
@@ -6053,15 +6038,6 @@
     const sum = r.summary || {};
     const sp = r.special || {};
     const notes = r.notes || [];
-
-    const 일자별 = (sum.일자별 || []).map((d) => {
-      const dow = ['일', '월', '화', '수', '목', '금', '토'][new Date(d.날짜 + 'T00:00:00Z').getUTCDay()];
-      const [, m, dd] = d.날짜.split('-');
-      return `<tr><td>${Number(m)}/${Number(dd)} (${dow})</td><td class="wr-bar-cell">${wrBar(d.done, d.total)}</td></tr>`;
-    }).join('');
-
-    const 그룹별 = (sum.그룹별 || []).map((g) =>
-      `<tr><td>${escapeAttr(g.그룹)}</td><td class="wr-bar-cell">${wrBar(g.done, g.total)}</td></tr>`).join('');
 
     const itemList = (list, empty) => list.length
       ? '<ul class="wr-list">' + list.map((x) => `<li>
@@ -6118,17 +6094,6 @@
         <div class="mr-stat-cell ok"><div class="mr-stat-label">확인완료</div><div class="mr-stat-num">${전체.완료}건</div></div>
         <div class="mr-stat-cell"><div class="mr-stat-label">담당자만 완료</div><div class="mr-stat-num">${전체.담당자만완료 || 0}건</div></div>
         <div class="mr-stat-cell bad"><div class="mr-stat-label">미완료</div><div class="mr-stat-num">${전체.건수 - 전체.완료 - (전체.담당자만완료 || 0)}건</div></div>
-      </div>
-
-      <div class="wr-cols">
-        <div>
-          <h3 class="wr-h">일자별</h3>
-          <table class="wr-table"><tbody>${일자별}</tbody></table>
-        </div>
-        <div>
-          <h3 class="wr-h">그룹별</h3>
-          <table class="wr-table"><tbody>${그룹별}</tbody></table>
-        </div>
       </div>
 
       <h3 class="wr-h">긴급 업무 ${(sp.긴급 || []).length}건</h3>
