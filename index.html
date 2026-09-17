@@ -789,6 +789,36 @@
     border-radius: 8px; padding: 6px 10px; font-size: 13px; max-width: 220px;
   }
 
+  /* ---- 주간 리포트 ---- */
+  .wr-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+  .wr-title { font-size: 16px; font-weight: 800; color: #0f172a; }
+  .wr-sub { font-size: 11.5px; color: #94a3b8; margin-top: 3px; }
+  .wr-big { font-size: 38px; font-weight: 800; color: #1d4ed8; line-height: 1; font-variant-numeric: tabular-nums; }
+  .wr-big span { font-size: 18px; margin-left: 2px; }
+  .wr-cols { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; }
+  .wr-cols > div { flex: 1; min-width: 260px; }
+  .wr-h { font-size: 12.5px; font-weight: 800; color: #475569; margin: 18px 0 8px; }
+  .wr-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .wr-table td { padding: 6px 4px; border-bottom: 1px solid #f1f5f9; color: #0f172a; }
+  .wr-table td:first-child { width: 110px; color: #475569; font-weight: 600; }
+  .wr-bar-cell { display: flex; align-items: center; gap: 8px; }
+  .wr-bar { flex: 1; height: 7px; background: #eef2f7; border-radius: 999px; overflow: hidden; }
+  .wr-bar-fill { height: 100%; background: #1d4ed8; border-radius: 999px; }
+  .wr-bar-text { font-size: 11px; color: #64748b; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .wr-list { margin: 0; padding-left: 0; list-style: none; }
+  .wr-list li { padding: 7px 2px; border-bottom: 1px solid #f1f5f9; font-size: 12.5px; color: #0f172a; }
+  .wr-item-date { font-size: 11px; font-weight: 700; color: #94a3b8; margin-right: 7px; font-variant-numeric: tabular-nums; }
+  .wr-item-state { font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 8px; margin-left: 7px; background: #f1f5f9; color: #64748b; }
+  .wr-item-state.done { background: rgba(21,128,61,.1); color: #15803d; }
+  .wr-item-state.open { background: #fef2f2; color: #b91c1c; }
+  .wr-empty { font-size: 12px; color: #94a3b8; padding: 8px 2px; }
+  .wr-note { padding: 9px 2px 10px; border-bottom: 1px solid #f1f5f9; }
+  .wr-note-head { font-size: 12.5px; font-weight: 700; color: #0f172a; }
+  .wr-note-purpose { font-size: 12px; color: #475569; margin-top: 4px; line-height: 1.6; }
+  .wr-cmt { font-size: 12px; color: #3b63d4; margin-top: 4px; line-height: 1.6; }
+  .wr-cmt.lead { color: #be185d; }
+  .wr-cmt b { margin-right: 5px; }
+
   /* ---- 자사몰 검수 ---- */
   .ma-table { width: 100%; border-collapse: collapse; font-size: 13px; color: #1e293b; min-width: 720px; }
   .ma-table th, .ma-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(15,23,42,.07); }
@@ -1660,6 +1690,9 @@
             <span class="dot dot-task"></span>할일 관리
           </div>
           <div id="navTeamAssignees"></div>
+          <div class="nav-item" id="navWeeklyReport" onclick="switchView('weekly-report')">
+            <span class="dot dot-task"></span>주간 리포트
+          </div>
           <!-- 주차별 진행 업무 메뉴는 잠시 내렸습니다. 되살리려면 아래 한 줄을 다시 넣으면 됩니다.
                <div class="nav-item" id="navTeamWeekly" onclick="switchView('team-weekly')"><span class="dot dot-task"></span>주차별 진행 업무</div> -->
           <!-- 상품 화면들 — 상품등록 업무와 같이 보는 화면이라 업무관리에 둡니다.
@@ -2906,6 +2939,21 @@
 
         </section>
       </div>
+    </main>
+
+    <main class="main" id="weeklyReportView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>주간 리포트</h1>
+          <div class="subtitle">매주 금요일 19:10에 그 주(월~금) 업무를 정리해 발행합니다.</div>
+        </div>
+        <div class="topbar-right">
+          <select id="wrWeekSelect" class="month-select" onchange="renderWeeklyReport()"></select>
+        </div>
+      </div>
+      <section class="panel">
+        <div id="wrBody"><div class="gs-empty">불러오는 중...</div></div>
+      </section>
     </main>
 
     <main class="main" id="teamWeeklyView" style="display:none">
@@ -4432,6 +4480,7 @@
     document.getElementById('teamProcessView').style.display = view === 'team-process' ? '' : 'none';
     document.getElementById('teamTasksView').style.display = view === 'team-tasks' ? '' : 'none';
     document.getElementById('teamWeeklyView').style.display = view === 'team-weekly' ? '' : 'none';
+    document.getElementById('weeklyReportView').style.display = view === 'weekly-report' ? '' : 'none';
     document.getElementById('teamScheduleView').style.display = view === 'team-schedule' ? '' : 'none';
     document.getElementById('teamAccountingView').style.display = view === 'team-accounting' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
@@ -4451,6 +4500,8 @@
     // 주차별 진행 업무 메뉴는 지금 화면에 없습니다(되살리면 다시 동작).
     const weeklyNav = document.getElementById('navTeamWeekly');
     if (weeklyNav) weeklyNav.classList.toggle('active', view === 'team-weekly');
+    const wrNav = document.getElementById('navWeeklyReport');
+    if (wrNav) wrNav.classList.toggle('active', view === 'weekly-report');
     document.getElementById('navTeamSchedule').classList.toggle('active', view === 'team-schedule');
     document.querySelectorAll('#navTeamAssignees .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'team-tasks' && el.dataset.assignee === brandChannel);
@@ -4494,6 +4545,7 @@
       loadTeamTasks();
     }
     if (view === 'team-weekly') loadTeamTasks();
+    if (view === 'weekly-report') loadWeeklyReports();
     if (view === 'team-schedule') loadTeamSchedule();
     if (view === 'team-accounting') loadTeamAccounting();
   }
@@ -5938,6 +5990,130 @@
   // mall_registrations 표에 넣어둔 결과를 그대로 보여줍니다. 실시간이 아니라 "읽어온 시점" 기준입니다.
   let mallRegSnap = null;
   let mallRegIndex = null;   // 품번 -> { 상품명, 브랜드, 상태, 몰: [...] }
+
+  // ==================== 주간 리포트 ====================
+  // 데이터 원본: weekly_task_reports 표. scripts/weekly-task-report.js 가 매주 금요일
+  // 19:10(KST)에 그 주(월~금)를 정리해 한 줄씩 넣습니다. 화면은 읽기만 합니다.
+  let weeklyReports = [];
+
+  async function loadWeeklyReports() {
+    const body = document.getElementById('wrBody');
+    const { data, error } = await client.from('weekly_task_reports')
+      .select('*')
+      .eq('assignee', '전휘원')
+      .order('week_start', { ascending: false })
+      .limit(52);
+    if (error) {
+      body.innerHTML = '<div class="gs-empty error">리포트를 불러오지 못했습니다: ' + escapeAttr(error.message)
+        + '<br>weekly_task_reports.sql 을 먼저 실행해 주세요.</div>';
+      return;
+    }
+    weeklyReports = data || [];
+
+    const sel = document.getElementById('wrWeekSelect');
+    sel.innerHTML = weeklyReports.map((r, i) =>
+      `<option value="${i}">${wrWeekLabel(r)}</option>`).join('');
+    renderWeeklyReport();
+  }
+
+  function wrWeekLabel(r) {
+    const [, m1, d1] = r.week_start.split('-');
+    const [, m2, d2] = r.week_end.split('-');
+    return `${Number(m1)}월 ${Number(d1)}일 ~ ${Number(m2)}월 ${Number(d2)}일`;
+  }
+
+  function wrPct(done, total) {
+    return total ? Math.round((done / total) * 100) : 0;
+  }
+
+  function wrBar(done, total) {
+    const pct = wrPct(done, total);
+    return `<div class="wr-bar"><div class="wr-bar-fill" style="width:${pct}%"></div></div>
+      <span class="wr-bar-text">${done}/${total} · ${pct}%</span>`;
+  }
+
+  function renderWeeklyReport() {
+    const body = document.getElementById('wrBody');
+    if (!body) return;
+    if (!weeklyReports.length) {
+      body.innerHTML = '<div class="gs-empty">아직 발행된 리포트가 없습니다. 매주 금요일 19:10에 자동으로 만들어집니다.</div>';
+      return;
+    }
+    const idx = Number(document.getElementById('wrWeekSelect').value || 0);
+    const r = weeklyReports[idx] || weeklyReports[0];
+    const sum = r.summary || {};
+    const sp = r.special || {};
+    const notes = r.notes || [];
+
+    const 일자별 = (sum.일자별 || []).map((d) => {
+      const dow = ['일', '월', '화', '수', '목', '금', '토'][new Date(d.날짜 + 'T00:00:00Z').getUTCDay()];
+      const [, m, dd] = d.날짜.split('-');
+      return `<tr><td>${Number(m)}/${Number(dd)} (${dow})</td><td class="wr-bar-cell">${wrBar(d.done, d.total)}</td></tr>`;
+    }).join('');
+
+    const 그룹별 = (sum.그룹별 || []).map((g) =>
+      `<tr><td>${escapeAttr(g.그룹)}</td><td class="wr-bar-cell">${wrBar(g.done, g.total)}</td></tr>`).join('');
+
+    const itemList = (list, empty) => list.length
+      ? '<ul class="wr-list">' + list.map((x) => `<li>
+          <span class="wr-item-date">${x.날짜.slice(5).replace('-', '/')}</span>
+          ${escapeAttr(x.업무)}
+          <span class="wr-item-state${x.완료 === '확인완료' ? ' done' : (x.완료 === '미완료' ? ' open' : '')}">${escapeAttr(x.완료)}</span>
+        </li>`).join('') + '</ul>'
+      : `<div class="wr-empty">${empty}</div>`;
+
+    const noteList = notes.length
+      ? notes.map((n) => `
+          <div class="wr-note">
+            <div class="wr-note-head">
+              <span class="wr-item-date">${n.날짜.slice(5).replace('-', '/')}</span>
+              ${escapeAttr(n.업무)}
+            </div>
+            ${n.업무목적 ? `<div class="wr-note-purpose">${escapeAttr(n.업무목적)}</div>` : ''}
+            ${(n.댓글 || []).map((c) => `
+              <div class="wr-cmt${c.글쓴이 === '파트장' ? ' lead' : ''}">
+                <b>${escapeAttr(c.글쓴이)}</b> ${escapeAttr(c.내용)}
+              </div>`).join('')}
+          </div>`).join('')
+      : '<div class="wr-empty">이번 주에는 업무 목적이나 댓글이 없었습니다.</div>';
+
+    const 전체 = sum.전체 || { 건수: r.total_count, 완료: r.done_count, 담당자만완료: 0 };
+    body.innerHTML = `
+      <div class="wr-head">
+        <div>
+          <div class="wr-title">${wrWeekLabel(r)} · 전휘원</div>
+          <div class="wr-sub">발행 ${new Date(r.created_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' })}</div>
+        </div>
+        <div class="wr-big">${wrPct(전체.완료, 전체.건수)}<span>%</span></div>
+      </div>
+
+      <div class="mr-stat">
+        <div class="mr-stat-cell"><div class="mr-stat-label">전체 업무</div><div class="mr-stat-num">${전체.건수}건</div></div>
+        <div class="mr-stat-cell ok"><div class="mr-stat-label">확인완료</div><div class="mr-stat-num">${전체.완료}건</div></div>
+        <div class="mr-stat-cell"><div class="mr-stat-label">담당자만 완료</div><div class="mr-stat-num">${전체.담당자만완료 || 0}건</div></div>
+        <div class="mr-stat-cell bad"><div class="mr-stat-label">미완료</div><div class="mr-stat-num">${전체.건수 - 전체.완료 - (전체.담당자만완료 || 0)}건</div></div>
+      </div>
+
+      <div class="wr-cols">
+        <div>
+          <h3 class="wr-h">일자별</h3>
+          <table class="wr-table"><tbody>${일자별}</tbody></table>
+        </div>
+        <div>
+          <h3 class="wr-h">그룹별</h3>
+          <table class="wr-table"><tbody>${그룹별}</tbody></table>
+        </div>
+      </div>
+
+      <h3 class="wr-h">긴급 업무 ${(sp.긴급 || []).length}건</h3>
+      ${itemList(sp.긴급 || [], '이번 주에는 긴급 업무가 없었습니다.')}
+
+      <h3 class="wr-h">직접 추가한 업무 ${(sp.직접추가 || []).length}건</h3>
+      ${itemList(sp.직접추가 || [], '이번 주에는 따로 추가한 업무가 없었습니다.')}
+
+      <h3 class="wr-h">업무 목적 · 댓글 ${notes.length}건</h3>
+      ${noteList}`;
+  }
 
   // ==================== 자사몰 검수 ====================
   // 데이터 원본: mall_audits 표. scripts/mall-audit.js 가 하루 여러 번(09:10·11:00·14:00·17:00)

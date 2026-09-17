@@ -1,0 +1,51 @@
+name: 주간 업무 리포트 발행
+
+# 전휘원의 한 주(월~금) 할일 관리를 정리해 Supabase의 weekly_task_reports 표에 넣습니다.
+# 대시보드 > 업무관리 > 주간 리포트 화면이 이 값을 읽습니다.
+#
+# 자사몰 검수와 마찬가지로 Vercel 엔드포인트를 부르지 않고 여기서 직접 돕니다.
+# Vercel 무료 플랜은 배포당 서버리스 함수가 12개까지인데 이미 12개를 다 쓰고 있어서,
+# 함수를 하나 더 추가하면 배포 자체가 실패하기 때문입니다.
+#
+# 실제 로직은 전부 scripts/weekly-task-report.js 안에 있습니다.
+
+on:
+  schedule:
+    # 매주 금요일 19:10 (KST). GitHub Actions 는 UTC로 도니 -9시간 해서 10:10 로 적었습니다.
+    - cron: '10 10 * * 5'
+  workflow_dispatch:
+    inputs:
+      week_of:
+        description: '다시 뽑을 주 (그 날짜가 속한 주, 예: 2026-09-14). 평소에는 비워두세요.'
+        required: false
+        default: ''
+      mode:
+        description: '실행 방식'
+        required: true
+        type: choice
+        default: '발행 (대시보드에 반영)'
+        options:
+          - '발행 (대시보드에 반영)'
+          - '확인만 (저장 안 함)'
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: 주간 리포트 발행
+        env:
+          MODE_LABEL: ${{ github.event.inputs.mode }}
+          WEEK_OF: ${{ github.event.inputs.week_of }}
+          # 없으면 스크립트가 대시보드와 같은 공개 키를 씁니다(weekly_task_reports 는 공개 정책).
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          case "$MODE_LABEL" in
+            확인만*) export DRY_RUN=1 ;;
+          esac
+          node scripts/weekly-task-report.js

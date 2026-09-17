@@ -205,3 +205,7 @@ module.exports = async function handler(req, res) {
     inserted_by_date: insertedByDate
   });
 };
+
+// 주간 리포트(scripts/weekly-task-report.js)가 "직접 추가한 업무"를 가려낼 때 이 목록을 씁니다.
+// 목록을 여기 한 곳에만 두어, 베껴 쓰다 한쪽만 바뀌는 일이 없게 합니다.
+module.exports.DAILY_TASKS = DAILY_TASKS;
