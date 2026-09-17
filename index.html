@@ -462,6 +462,15 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* 자사몰 신규 상품 배지 — 등록 실패(빨강)와 구분되도록 초록색입니다 */
+  .jw-new-badge {
+    display: inline-block; margin-left: 7px; border: none; cursor: pointer; font-family: inherit;
+    background: #047857; color: #fff; font-size: 11px; font-weight: 800;
+    border-radius: 999px; padding: 2px 9px; vertical-align: 1px;
+    font-variant-numeric: tabular-nums;
+  }
+  .jw-new-badge:hover { background: #065f46; }
+
   .jw-invoice-badge.clickable { border: none; cursor: pointer; font-family: inherit; }
   .jw-invoice-badge.clickable:hover { background: #b91c1c; }
 
@@ -6479,6 +6488,7 @@
     await loadJwInvoicePending();  // "계산서 발행" 배지에 쓸 입금 완료 건수
     await loadJwSettleDue();       // 정산일이 된 공동구매 건 (상단 배너)
     await loadJwRegCheck();        // "상품등록" 배지에 쓸 사방넷 등록 실패 건수
+    await loadJwNewProducts();     // 자사몰에 오늘 새로 올라온 상품
     await loadJwMallRegs();        // 그중 이미 등록에 성공한 건을 빼기 위한 등록 현황
     renderTaskAssigneeNav();
     updateTaskViewHeader();
@@ -6603,9 +6613,10 @@
 
   async function refreshJwAlerts() {
     if (!jwIsViewingJw()) return;
-    await Promise.all([loadJwInvoicePending(), loadJwSettleDue(), loadJwRegCheck(), loadJwMallRegs()]);
+    await Promise.all([loadJwInvoicePending(), loadJwSettleDue(), loadJwRegCheck(), loadJwMallRegs(), loadJwNewProducts()]);
     jwRefreshInvoiceBadge();
     jwRefreshRegBadge();
+    jwRefreshNewProductBadge();
     renderJwSettleBanner();
   }
 
@@ -6630,6 +6641,7 @@
       .on('postgres_changes', { event: '*', schema: 'public', table: 'partner_deals' }, scheduleJwAlertRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settlements' }, scheduleJwAlertRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'product_reg_checks' }, scheduleJwAlertRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mall_audits' }, scheduleJwAlertRefresh)
       .subscribe((status) => { jwRealtimeStatus = status; });
   }
 
@@ -6830,6 +6842,103 @@
     if (!jwRegCheck) return 0;
     if (!jwMallRegs) return jwRegCheck.fail_recent || 0;
     return new Set(jwOpenFails().map((f) => String(f.품번) + '|' + f.몰)).size;
+  }
+
+  // ---- "상품등록" 그룹의 자사몰 신규 상품 배지 ----
+  // 자사몰 검수(mall_audits)가 오늘 새로 잡아낸 상품 수입니다. 자사몰에 올라온 신제품은
+  // 외부몰에도 올려야 하므로, 검수 화면까지 들어가지 않아도 여기서 바로 보이게 합니다.
+  // 자사몰 검수 화면과 같은 기준(오늘 하루치를 몰별로 모음)을 씁니다.
+  let jwNewProducts = [];
+
+  async function loadJwNewProducts() {
+    jwNewProducts = [];
+    const { data, error } = await client.from('mall_audits')
+      .select('brand,checked_at,check_date,new_products')
+      .order('checked_at', { ascending: false })
+      .limit(300);
+    if (error || !data) return;
+
+    const today = jwTodayKST();
+    const seen = new Set();
+    data.forEach((row) => {
+      if (row.check_date !== today) return;
+      (row.new_products || []).forEach((x) => {
+        const key = row.brand + '|' + x.product_no;
+        if (seen.has(key)) return;   // 같은 상품이 여러 번 실행에 걸쳐 잡히면 한 번만 셉니다
+        seen.add(key);
+        jwNewProducts.push({ 몰: row.brand, 품번: String(x.product_no || ''), 상품명: x.name || '', 상태: x.kind || '', url: x.url || '' });
+      });
+    });
+    jwNewProducts.sort((a, b) => String(a.몰).localeCompare(String(b.몰), 'ko'));
+  }
+
+  function jwNewProductBadgeHtml() {
+    if (!jwNewProducts.length) return '';
+    const tip = `자사몰에 오늘 새로 올라온 상품 ${jwNewProducts.length}건\n누르면 어떤 상품인지 보입니다.`;
+    return `<button type="button" class="jw-new-badge" title="${escapeAttr(tip)}"
+      onclick="event.stopPropagation(); jwOpenNewProducts()">신규 ${jwNewProducts.length}</button>`;
+  }
+
+  function jwOpenNewProducts() {
+    if (!jwNewProducts.length) return;
+    const byMall = new Map();
+    jwNewProducts.forEach((x) => {
+      if (!byMall.has(x.몰)) byMall.set(x.몰, []);
+      byMall.get(x.몰).push(x);
+    });
+
+    const sections = [...byMall.entries()].map(([mall, list]) => `
+      <div class="jw-regfail-mall">
+        <div class="jw-regfail-mall-head">${escapeAttr(mall)}<span>${list.length}건</span></div>
+        ${list.map((x) => `
+          <div class="jw-regfail-item">
+            <div class="jw-regfail-name">
+              ${escapeAttr(x.상품명 || '(상품명 없음)')}
+              ${x.품번 ? `<span class="jw-regfail-code">품번 ${escapeAttr(x.품번)}</span>` : ''}
+              ${x.상태 ? `<span class="jw-regfail-retry">${escapeAttr(x.상태)}</span>` : ''}
+            </div>
+            ${x.url ? `<div class="jw-regfail-when"><a href="${escapeAttr(x.url)}" target="_blank" rel="noopener">자사몰에서 보기</a></div>` : ''}
+          </div>`).join('')}
+      </div>`).join('');
+
+    const box = document.createElement('div');
+    box.className = 'jw-regfail-overlay';
+    box.onclick = (e) => { if (e.target === box) box.remove(); };
+    box.innerHTML = `
+      <div class="jw-regfail-box">
+        <div class="jw-regfail-head">
+          <div>
+            <h3>자사몰 신규 상품 ${jwNewProducts.length}건</h3>
+            <div class="jw-regfail-sub">오늘 검수에서 새로 잡힌 상품입니다 · 외부몰에도 등록할지 확인해 주세요</div>
+          </div>
+          <button type="button" class="jw-regfail-close" title="닫기">✕</button>
+        </div>
+        ${sections}
+      </div>`;
+    box.querySelector('.jw-regfail-close').onclick = () => box.remove();
+    document.body.appendChild(box);
+
+    const onEsc = (e) => {
+      if (e.key !== 'Escape') return;
+      box.remove();
+      document.removeEventListener('keydown', onEsc);
+    };
+    document.addEventListener('keydown', onEsc);
+  }
+  window.jwOpenNewProducts = jwOpenNewProducts;
+
+  // 그룹 제목의 신규 배지만 넣고 빼고 숫자를 고칩니다.
+  function jwRefreshNewProductBadge() {
+    const arrow = document.getElementById(jwGroupElId(JW_REG_GROUP) + '-arrow');
+    const title = arrow && arrow.closest('.jw-task-group-title');
+    if (!title) return;
+    const existing = title.querySelector('.jw-new-badge');
+    const html = jwNewProductBadgeHtml();
+    if (!html) { if (existing) existing.remove(); return; }
+    if (existing) { existing.outerHTML = html; return; }
+    const cnt = title.querySelector('.jw-task-group-count');
+    if (cnt) cnt.insertAdjacentHTML('beforebegin', html);
+    else title.insertAdjacentHTML('beforeend', html);
   }
 
   function jwRegCheckedText() {
@@ -7599,7 +7708,7 @@
         parts.push(`
           <div class="jw-task-group-title" onclick="toggleJwGroup('${id}')">
             <span class="jw-task-group-arrow" id="${id}-arrow">▾</span>
-            <span class="jw-task-no">${groupNo}.</span>${escapeAttr(group)}${jwIsToday() && group === JW_LAUNCH_GROUP ? jwLaunchBadgeHtml() : ''}${group === JW_INVOICE_GROUP ? jwInvoiceBadgeHtml() : ''}${group === JW_REG_GROUP ? jwRegBadgeHtml() : ''}
+            <span class="jw-task-no">${groupNo}.</span>${escapeAttr(group)}${jwIsToday() && group === JW_LAUNCH_GROUP ? jwLaunchBadgeHtml() : ''}${group === JW_INVOICE_GROUP ? jwInvoiceBadgeHtml() : ''}${group === JW_REG_GROUP ? jwNewProductBadgeHtml() + jwRegBadgeHtml() : ''}
             <span class="jw-task-group-count${groupDone === groupItems.length ? ' all-done' : ''}">${groupDone}/${groupItems.length} 완료</span>
           </div>
           <div class="jw-task-group-items" id="${id}">
