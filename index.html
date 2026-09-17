@@ -7146,8 +7146,9 @@
   }
 
   // ---- 공동구매 발주서 전달 업무: 오늘 진행 중인 공구 일정 배너 ----
-  // 프로모션 > 공구 일정과 같은 소스(groupbuy_schedule)를 쓰되, 그 화면의 "공구 일정(영업팀)"
-  // 체크박스와 동일한 기준(department에 '콘텐츠'가 들어가면 콘텐츠팀)으로 영업팀 건만 남깁니다.
+  // 프로모션 > 공구 일정과 같은 소스(groupbuy_schedule)를 쓰되,
+  // 부서가 "영업팀"이라고 적힌 건만 남깁니다. 부서가 비어 있으면 담당이 정해지지 않은 건이라
+  // 여기에 넣지 않습니다 (예전에는 "콘텐츠가 아니면 영업팀"이라 빈 건이 섞여 들어왔습니다).
   const JW_GROUPBUY_TASK_KEYWORD = '공동구매 발주서';
   let jwGroupbuyRows = [];
   let jwGroupbuyChecks = [];
@@ -7162,7 +7163,9 @@
       .lte('start_date', today)
       .gte('end_date', today)
       .order('start_date', { ascending: true });
-    jwGroupbuyRows = error ? [] : (data || []).filter(r => !(r.department || '').includes('콘텐츠'));
+    // 부서가 "영업팀"이라고 적힌 건만 담당 업무로 봅니다.
+    // (비어 있는 건까지 영업팀으로 잡으면 콘텐츠팀 공구가 전휘원 배너에 섞입니다)
+    jwGroupbuyRows = error ? [] : (data || []).filter(r => gsIsSalesTeam(r.department));
     jwGroupbuyLoaded = !error;
     await loadJwGroupbuyChecks(today);
   }
@@ -9207,6 +9210,11 @@
     return weeks;
   }
 
+  // 공구 일정의 부서 판별. 지금까지는 "콘텐츠가 아니면 영업팀"이라 부서가 비어 있는 건까지
+  // 영업팀으로 잡혔습니다. 비어 있으면 어느 팀도 아닌 "미지정"으로 봅니다.
+  function gsIsContentTeam(dep) { return /콘텐츠|컨텐츠/.test(dep || ''); }
+  function gsIsSalesTeam(dep) { return /영업/.test(dep || ''); }
+
   function gsToRecords(rows) {
     return rows.map((r) => {
       const tags = [];
@@ -9361,8 +9369,9 @@
     let allRecords = [];
     if (gsFilters.groupbuyTeam || gsFilters.groupbuyContent) {
       const groupbuyRecords = gsToRecords(gsRows).filter((r) => {
-        const isContent = (r.department || '').includes('콘텐츠');
-        return isContent ? gsFilters.groupbuyContent : gsFilters.groupbuyTeam;
+        if (gsIsContentTeam(r.department)) return gsFilters.groupbuyContent;
+        if (gsIsSalesTeam(r.department)) return gsFilters.groupbuyTeam;
+        return true;   // 부서 미지정 — 어느 쪽 체크박스든 켜져 있으면 보입니다
       });
       allRecords = allRecords.concat(groupbuyRecords);
     }
