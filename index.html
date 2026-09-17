@@ -421,6 +421,16 @@
   .jw-task-row.pending { background: rgba(217,119,6,.06); border-color: rgba(217,119,6,.2); border-left-color: #d97706; }
   .jw-task-row.done { background: rgba(22,163,74,.06); border-color: rgba(22,163,74,.2); border-left-color: #16a34a; }
   .jw-task-row.done .jw-task-row-title { color: #15803d; text-decoration: line-through; }
+  /* 해당없음 — 완료(초록)와 헷갈리지 않게 회색으로 흐립니다 */
+  .jw-task-row.na { opacity: .55; }
+  .jw-task-row.na .jw-task-row-title { color: #94a3b8; text-decoration: line-through; }
+  .jw-na-btn {
+    border: 1px solid #e2e8f0; background: #fff; color: #94a3b8;
+    font-family: inherit; font-size: 11.5px; font-weight: 700;
+    border-radius: 999px; padding: 4px 10px; cursor: pointer; white-space: nowrap;
+  }
+  .jw-na-btn:hover { border-color: #94a3b8; color: #475569; }
+  .jw-na-btn.active { background: #64748b; border-color: #64748b; color: #fff; }
   .jw-task-row.late { background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.25); border-left-color: #dc2626; }
 
   /* 그룹 헤더는 일반 업무 줄과 헷갈리지 않도록 배경·테두리를 다르게 주고,
@@ -6101,7 +6111,7 @@
       <div class="wr-head">
         <div>
           <div class="wr-title">${wrWeekLabel(r)} · 전휘원</div>
-          <div class="wr-sub">발행 ${new Date(r.created_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' })}</div>
+          <div class="wr-sub">발행 ${new Date(r.created_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' })}${전체.해당없음 ? ` · 해당없음 ${전체.해당없음}건은 셈에서 제외` : ''}</div>
         </div>
         <div class="wr-big">${wrPct(전체.완료, 전체.건수)}<span>%</span></div>
       </div>
@@ -6637,7 +6647,11 @@
   // ==================== 영업팀 - 할일 관리 ====================
   // 상태 흐름: 할일 → 진행중 → (팀원이 완료 처리) 검수대기 → (파트장 확인) 확인완료
   // 과거 데이터의 '완료' 값은 normalizeStatus()가 '확인완료'로 자동 인식하므로 별도 마이그레이션 없이도 안전합니다.
-  const TASK_STATUSES = ['할일', '진행중', '검수대기', '확인완료'];
+  // '해당없음'은 "그날 그 일이 생기지 않아 할 게 없었다"는 뜻입니다.
+  // 계산서 발행처럼 건이 있어야 하는 업무가 매일 미완료로 쌓여 완료율을 깎는 걸 막습니다.
+  // 완료로 세지도, 미완료로 세지도 않고 분모에서 아예 빠집니다.
+  const TASK_STATUS_NA = '해당없음';
+  const TASK_STATUSES = ['할일', '진행중', '검수대기', '확인완료', TASK_STATUS_NA];
   const TASK_STATUS_LEGACY_MAP = { '완료': '확인완료' };
   function normalizeStatus(status) { return TASK_STATUS_LEGACY_MAP[status] || status || '할일'; }
   const TASK_STATUS_META = {
@@ -6645,6 +6659,7 @@
     '진행중': { cls: 'mid', label: '진행중' },
     '검수대기': { cls: 'review', label: '검수대기' },
     '확인완료': { cls: 'done', label: '확인완료' },
+    '해당없음': { cls: 'na', label: '해당없음' },
   };
   const TASK_STATUS_CHIPS = [{ key: 'ALL', label: '전체' }, ...TASK_STATUSES.map(s => ({ key: s, label: s }))];
 
@@ -7837,6 +7852,7 @@
 
   // 담당자 완료 체크 후 파트장 확인 체크까지 되어야 최종 확인완료로 집계됨 (team_tasks.status 재사용)
   function deriveTaskDualStatus(kind, value, cur) {
+    // 해당없음인 줄에서 담당자/파트장을 누르면 해당없음이 풀리고 보통 흐름으로 돌아갑니다.
     let staffDone = cur.status === '검수대기' || cur.status === '확인완료';
     let leadDone = cur.status === '확인완료';
     if (kind === 'staff') {
@@ -7848,6 +7864,14 @@
     }
     return leadDone ? '확인완료' : (staffDone ? '검수대기' : '할일');
   }
+
+  // 해당없음 켜고 끄기. 켜면 그날 그 업무는 완료율 계산에서 빠집니다.
+  function jwToggleNotApplicable(id) {
+    const t = currentTasks.find(x => x.id === id);
+    if (!t) return;
+    updateTaskStatus(id, t.status === TASK_STATUS_NA ? '할일' : TASK_STATUS_NA);
+  }
+  window.jwToggleNotApplicable = jwToggleNotApplicable;
 
   function updateTaskDualStatus(id, kind, value) {
     const t = currentTasks.find(x => x.id === id);
@@ -7914,12 +7938,15 @@
         no++;
         const groupNo = no;
         const id = jwGroupElId(group);
-        const groupDone = groupItems.filter(t => t.status === '확인완료').length;
+        // 해당없음인 줄은 셈에서 아예 빼서, 할 일이 없던 날 "0/4 완료"로 보이지 않게 합니다.
+        const groupCounted = groupItems.filter(t => t.status !== TASK_STATUS_NA);
+        const groupDone = groupCounted.filter(t => t.status === '확인완료').length;
+        const groupNa = groupItems.length - groupCounted.length;
         parts.push(`
           <div class="jw-task-group-title" onclick="toggleJwGroup('${id}')">
             <span class="jw-task-group-arrow" id="${id}-arrow">▾</span>
             <span class="jw-task-no">${groupNo}.</span>${escapeAttr(group)}${jwIsToday() && group === JW_LAUNCH_GROUP ? jwLaunchBadgeHtml() : ''}${group === JW_INVOICE_GROUP ? jwInvoiceBadgeHtml() : ''}${group === JW_REG_GROUP ? jwNewProductBadgeHtml() + jwRegBadgeHtml() : ''}
-            <span class="jw-task-group-count${groupDone === groupItems.length ? ' all-done' : ''}">${groupDone}/${groupItems.length} 완료</span>
+            <span class="jw-task-group-count${groupCounted.length && groupDone === groupCounted.length ? ' all-done' : ''}">${groupCounted.length ? `${groupDone}/${groupCounted.length} 완료` : '해당 없음'}${groupNa && groupCounted.length ? ` · 해당없음 ${groupNa}` : ''}</span>
           </div>
           <div class="jw-task-group-items" id="${id}">
             ${groupItems.map((t, k) => jwTaskRowHtml(t, true, `${groupNo}-${k + 1}`)).join('')}
@@ -8007,9 +8034,10 @@
   function jwTaskRowHtml(t, indented, no) {
     // 그룹 하위 항목(1-1 같은 줄)은 그룹 안에서 순서가 정해져 있어 옮기지 않습니다.
     const movable = !indented && jwMovable(t);
+    const notApplicable = t.status === TASK_STATUS_NA;
     const staffDone = t.status === '검수대기' || t.status === '확인완료';
     const leadDone = t.status === '확인완료';
-    const rowClass = leadDone ? 'done' : (staffDone ? 'pending' : '');
+    const rowClass = notApplicable ? 'na' : (leadDone ? 'done' : (staffDone ? 'pending' : ''));
     // 공동구매 발주서 전달 업무에만 "오늘 공구 N건" 버튼과 접히는 일정 배너를 붙임
     // (업무명이 바뀌어도 따라가도록 "공동구매 발주서"까지만 비교)
     const isGroupbuy = jwIsToday() && (t.title || '').includes(JW_GROUPBUY_TASK_KEYWORD);
@@ -8031,6 +8059,9 @@
             onclick="updateTaskDualStatus(${t.id}, 'staff', ${!staffDone})">담당자</button>
           <button type="button" class="jw-task-toggle-btn${leadDone ? ' active' : ''}" ${!staffDone ? 'disabled' : ''}
             onclick="updateTaskDualStatus(${t.id}, 'lead', ${!leadDone})">파트장</button>
+          <button type="button" class="jw-na-btn${notApplicable ? ' active' : ''}"
+            title="오늘 이 업무가 생기지 않았으면 눌러두세요. 완료율 계산에서 빠집니다."
+            onclick="jwToggleNotApplicable(${t.id})">해당없음</button>
         </div>
       </div>
     `;

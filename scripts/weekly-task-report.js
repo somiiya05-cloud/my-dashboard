@@ -65,13 +65,18 @@ async function main() {
   const weekStart = mondayOf(base);
   const weekEnd = addDays(weekStart, 4);   // 월~금
 
-  const tasks = await get(
+  let tasks = await get(
     'team_tasks?select=id,title,category,detail,status,priority,due_date' +
     '&assignee=eq.' + encodeURIComponent(ASSIGNEE) +
     '&due_date=gte.' + weekStart +
     '&due_date=lte.' + weekEnd +
     '&order=due_date.asc'
   );
+
+  // '해당없음'은 그날 그 일이 생기지 않았다는 뜻이라 완료율 셈에서 통째로 뺍니다.
+  // 남겨 두면 계산서 발행처럼 건이 있어야 하는 업무가 매일 미완료로 잡혀 수치를 왜곡합니다.
+  const naCount = tasks.filter((t) => t.status === '해당없음').length;
+  tasks = tasks.filter((t) => t.status !== '해당없음');
 
   if (!tasks.length) {
     console.log(`${weekStart} ~ ${weekEnd} 사이에 ${ASSIGNEE}의 업무가 없습니다.`);
@@ -100,7 +105,7 @@ async function main() {
   });
 
   const summary = {
-    전체: { 건수: total, 완료: done, 담당자만완료: staffOnly },
+    전체: { 건수: total, 완료: done, 담당자만완료: staffOnly, 해당없음: naCount },
     일자별: Object.entries(byDate).sort().map(([날짜, v]) => ({ 날짜, ...v })),
     그룹별: Object.entries(byGroup).sort((a, b) => b[1].total - a[1].total).map(([그룹, v]) => ({ 그룹, ...v })),
   };
@@ -159,6 +164,7 @@ async function main() {
   };
 
   console.log(`${weekStart} ~ ${weekEnd} · ${ASSIGNEE}`);
+  console.log(`  해당없음 ${naCount}건은 셈에서 뺐습니다`);
   console.log(`  전체 ${total}건 / 확인완료 ${done}건 (${Math.round((done / total) * 100)}%) / 담당자만 완료 ${staffOnly}건`);
   console.log(`  긴급 ${special.긴급.length}건 · 직접 추가 ${special.직접추가.length}건 · 목적·댓글 있는 업무 ${notes.length}건`);
 
