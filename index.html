@@ -814,7 +814,15 @@
   .wr-item-state.open { background: #fef2f2; color: #b91c1c; }
   .wr-empty { font-size: 12px; color: #94a3b8; padding: 8px 2px; }
   .wr-note { padding: 9px 2px 10px; border-bottom: 1px solid #f1f5f9; }
-  .wr-note-head { font-size: 12.5px; font-weight: 700; color: #0f172a; }
+  .wr-note-head { font-size: 13px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 7px; }
+  .wr-note-days {
+    font-size: 10.5px; font-weight: 700; color: #1d4ed8;
+    background: rgba(29,78,216,.1); border-radius: 999px; padding: 1px 8px;
+  }
+  /* 업무 하나 아래에 날짜별로 그날 적은 내용을 답니다 */
+  .wr-day { display: flex; gap: 8px; margin-top: 6px; padding-left: 2px; }
+  .wr-day .wr-item-date { flex: none; width: 40px; margin: 2px 0 0; }
+  .wr-day-body { flex: 1; min-width: 0; border-left: 2px solid #eef2f7; padding-left: 9px; }
   .wr-note-purpose { font-size: 12px; color: #475569; margin-top: 4px; line-height: 1.6; }
   .wr-cmt { font-size: 12px; color: #3b63d4; margin-top: 4px; line-height: 1.6; }
   .wr-cmt.lead { color: #be185d; }
@@ -6063,20 +6071,37 @@
         </li>`).join('') + '</ul>'
       : `<div class="wr-empty">${empty}</div>`;
 
-    const noteList = notes.length
-      ? notes.map((n) => `
+    // 같은 업무가 날짜마다 따로 나오면 한 주 흐름이 안 보입니다.
+    // 업무 이름으로 묶고, 그 아래에 날짜별로 그날 적은 내용을 답니다.
+    const byTask = new Map();
+    notes.forEach((n) => {
+      if (!byTask.has(n.업무)) byTask.set(n.업무, []);
+      byTask.get(n.업무).push(n);
+    });
+    const taskGroups = [...byTask.entries()]
+      .map(([업무, days]) => [업무, days.slice().sort((a, b) => String(a.날짜).localeCompare(String(b.날짜)))])
+      .sort((a, b) => (b[1].length - a[1].length) || String(a[0]).localeCompare(String(b[0]), 'ko'));
+
+    const noteList = taskGroups.length
+      ? taskGroups.map(([업무, days]) => `
           <div class="wr-note">
             <div class="wr-note-head">
-              <span class="wr-item-date">${n.날짜.slice(5).replace('-', '/')}</span>
-              ${escapeAttr(n.업무)}
+              ${escapeAttr(업무)}
+              ${days.length > 1 ? `<span class="wr-note-days">${days.length}일</span>` : ''}
             </div>
-            ${n.업무목적 ? `<div class="wr-note-purpose">${escapeAttr(n.업무목적)}</div>` : ''}
-            ${(n.댓글 || []).map((c) => `
-              <div class="wr-cmt${c.글쓴이 === '파트장' ? ' lead' : ''}">
-                <b>${escapeAttr(c.글쓴이)}</b> ${escapeAttr(c.내용)}
+            ${days.map((n) => `
+              <div class="wr-day">
+                <span class="wr-item-date">${n.날짜.slice(5).replace('-', '/')}</span>
+                <div class="wr-day-body">
+                  ${n.업무목적 ? `<div class="wr-note-purpose">${escapeAttr(n.업무목적)}</div>` : ''}
+                  ${(n.댓글 || []).map((c) => `
+                    <div class="wr-cmt${c.글쓴이 === '파트장' ? ' lead' : ''}">
+                      <b>${escapeAttr(c.글쓴이)}</b> ${escapeAttr(c.내용)}
+                    </div>`).join('')}
+                </div>
               </div>`).join('')}
           </div>`).join('')
-      : '<div class="wr-empty">이번 주에는 업무 목적이나 댓글이 없었습니다.</div>';
+      : '<div class="wr-empty">이번 주에는 적어둔 내용이 없었습니다.</div>';
 
     const 전체 = sum.전체 || { 건수: r.total_count, 완료: r.done_count, 담당자만완료: 0 };
     body.innerHTML = `
@@ -6112,7 +6137,7 @@
       <h3 class="wr-h">직접 추가한 업무 ${(sp.직접추가 || []).length}건</h3>
       ${itemList(sp.직접추가 || [], '이번 주에는 따로 추가한 업무가 없었습니다.')}
 
-      <h3 class="wr-h">업무 목적 · 댓글 ${notes.length}건</h3>
+      <h3 class="wr-h">업무별 기록 ${taskGroups.length}개 업무</h3>
       ${noteList}`;
   }
 
