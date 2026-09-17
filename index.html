@@ -7698,7 +7698,7 @@
     const isAdded = !indented && !JW_ROUTINE_TITLES.has(t.title);
     const row = `
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}${isAdded ? ' added' : ''}">
-        <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${movable ? '<span class="jw-drag-grip" onclick="event.stopPropagation()" title="끌어서 순서를 바꿉니다">⠿</span>' : ''}${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwHasComment(t.id) ? '<span class="jw-comment-tag">코멘트 있음</span>' : ''}${(t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}${isAdded ? `<button type="button" class="jw-title-edit-btn" title="업무명 수정" onclick="event.stopPropagation(); jwEditTitle(${t.id})">&#9998;</button>` : ''}</div>
+        <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${movable ? '<span class="jw-drag-grip" onclick="event.stopPropagation()" title="끌어서 순서를 바꿉니다">⠿</span>' : ''}${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwHasComment(t.id) ? '<span class="jw-comment-tag">의견작성</span>' : ''}${(t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}${isAdded ? `<button type="button" class="jw-title-edit-btn" title="업무명 수정" onclick="event.stopPropagation(); jwEditTitle(${t.id})">&#9998;</button>` : ''}</div>
         <div class="jw-task-row-checks">
           ${movable ? `<button type="button" class="jw-row-del" onmousedown="event.stopPropagation()" onclick="jwRowDeleteClick(event, ${t.id})" title="두 번 누르면 이 업무를 지웁니다">삭제</button>` : ''}
           ${gbBtn}
@@ -8069,7 +8069,7 @@
   }
 
   // 저장 후에 화면 전체를 다시 그리면 입력 중이던 칸의 포커스가 날아갑니다.
-  // 그래서 "코멘트 있음" 배지만 그 줄에서 직접 넣고 뺍니다.
+  // 그래서 "의견작성" 배지만 그 줄에서 직접 넣고 뺍니다.
   function jwRefreshCommentTag(id) {
     const titleEl = document.querySelector('.jw-task-row-wrap[data-taskid="' + id + '"] .jw-task-row-title');
     if (!titleEl) return;
@@ -8078,7 +8078,7 @@
       if (existing) return;
       const tag = document.createElement('span');
       tag.className = 'jw-comment-tag';
-      tag.textContent = '코멘트 있음';
+      tag.textContent = '의견작성';
       const scm = titleEl.querySelector('.jw-launch');   // SCM 배지가 있으면 그 앞에 둡니다
       if (scm) titleEl.insertBefore(tag, scm); else titleEl.appendChild(tag);
     } else if (existing) {
