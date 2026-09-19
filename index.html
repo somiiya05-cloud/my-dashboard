@@ -1356,6 +1356,104 @@
     background: rgba(239,68,68,.12); color: #dc2626; border: 1px solid rgba(239,68,68,.3);
     border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
   }
+  /* ---- 견적서 관리 ---- */
+  .qt-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+  .qt-toolbar input[type="search"] {
+    flex: 1; min-width: 160px; background: #f4f5f8; color: #0f172a;
+    border: 1px solid rgba(15,23,42,.12); border-radius: 8px; padding: 8px 10px; font-size: 13px;
+  }
+  .btn-ghost {
+    border: 1.5px solid #cbd5e1; background: #fff; color: #334155; font-family: inherit;
+    font-size: 13px; font-weight: 700; border-radius: 8px; padding: 7px 12px; cursor: pointer; white-space: nowrap;
+  }
+  .btn-ghost:hover { border-color: #2f5ce4; color: #2f5ce4; }
+  .btn-mini {
+    border: 1px solid rgba(15,23,42,.16); background: #fff; color: #334155; font-family: inherit;
+    font-size: 12px; font-weight: 600; border-radius: 6px; padding: 4px 9px; cursor: pointer; white-space: nowrap;
+  }
+  .btn-mini:hover { border-color: #2f5ce4; color: #2f5ce4; }
+  .qt-badge { display: inline-block; border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .qt-badge-draft { background: rgba(100,116,139,.14); color: #475569; }
+  .qt-badge-issued { background: rgba(77,124,254,.15); color: #1d4ed8; }
+  .qt-badge-won { background: rgba(34,197,94,.15); color: #15803d; }
+  .qt-badge-void { background: rgba(239,68,68,.12); color: #dc2626; }
+  .qt-badge-auto { background: rgba(250,204,21,.18); color: #a16207; margin-left: 5px; }
+  .qt-items-line { font-size: 12px; color: #64748b; }
+
+  /* 견적서 편집 모달 — 품목 줄이 많아 기본 모달보다 넓게 씁니다. */
+  .qt-modal { max-width: 900px; max-height: 88vh; overflow-y: auto; }
+  .qt-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+  .qt-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: #64748b; }
+  .qt-grid input, .qt-grid select, .qt-grid textarea {
+    padding: 7px 9px; border: 1px solid rgba(15,23,42,.14); border-radius: 7px;
+    font-size: 13px; font-family: inherit; color: #0f172a;
+  }
+  .qt-grid .qt-wide { grid-column: span 2; }
+  .qt-grid .qt-full { grid-column: 1 / -1; }
+  .qt-item-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 13px; }
+  .qt-item-table th {
+    background: #f4f5f8; color: #475569; font-size: 11px; font-weight: 700;
+    padding: 6px 6px; border: 1px solid rgba(15,23,42,.1); text-align: left; white-space: nowrap;
+  }
+  .qt-item-table td { border: 1px solid rgba(15,23,42,.1); padding: 2px 4px; }
+  .qt-item-table input {
+    width: 100%; border: none; background: transparent; padding: 6px 4px;
+    font-size: 13px; font-family: inherit; color: #0f172a;
+  }
+  .qt-item-table input:focus { outline: none; background: #eef2ff; border-radius: 4px; }
+  .qt-item-table input.num { text-align: right; }
+  .qt-item-table td.qt-amount { text-align: right; padding-right: 8px; color: #0f172a; font-weight: 600; white-space: nowrap; }
+  .qt-hint { font-size: 11px; color: #a16207; padding: 2px 4px 4px; }
+  .qt-total-row { display: flex; justify-content: flex-end; gap: 18px; margin-top: 10px; font-size: 13px; }
+  .qt-total-row b { font-size: 15px; color: #0f172a; }
+
+  /* ---- 견적서 인쇄 양식 (A4) ---- */
+  #quotePrintArea { display: none; }
+  .qp-sheet { width: 186mm; margin: 0 auto; color: #000; font-size: 11px; }
+  .qp-title { text-align: center; font-size: 26px; font-weight: 800; letter-spacing: 2px; margin: 4mm 0 10mm; }
+  .qp-head { display: flex; gap: 8mm; align-items: flex-start; margin-bottom: 6mm; }
+  .qp-head-left { flex: 1; line-height: 2.4; font-size: 12px; }
+  /* 공급자 칸 — 상호/소재지/전화번호가 줄바꿈되지 않도록 칸 폭을 고정합니다 (합 96mm). */
+  .qp-supplier { width: 96mm; border-collapse: collapse; table-layout: fixed; font-size: 10px; }
+  .qp-supplier col.qp-k1 { width: 21mm; }
+  .qp-supplier col.qp-v1 { width: 31mm; }
+  .qp-supplier col.qp-k2 { width: 16mm; }
+  .qp-supplier col.qp-v2 { width: 28mm; }
+  .qp-supplier td { border: 1px solid #000; padding: 3px 5px; height: 22px; word-break: keep-all; }
+  .qp-supplier td.qp-k { background: #fff; text-align: center; font-weight: 700; white-space: nowrap; }
+  .qp-sum { width: 100%; border-collapse: collapse; }
+  .qp-sum td { border: 1px solid #000; padding: 5px 8px; font-weight: 700; }
+  .qp-sum td.qp-sum-k { width: 56mm; text-align: center; background: #efefef; white-space: nowrap; }
+  .qp-sum td.qp-sum-v { background: #ffff00; color: #c00000; text-align: right; }
+  .qp-sum td.qp-sum-w { background: #ffff00; color: #c00000; width: 10mm; }
+  .qp-items { width: 100%; border-collapse: collapse; }
+  .qp-items th, .qp-items td { border: 1px solid #000; padding: 4px 6px; height: 22px; }
+  .qp-items th { background: #efefef; text-align: center; font-weight: 700; }
+  .qp-items td.qp-c { text-align: center; }
+  .qp-items td.qp-r { text-align: right; }
+  .qp-items col.qp-no { width: 12mm; }
+  .qp-items col.qp-name { width: 52mm; }
+  .qp-items col.qp-qty { width: 16mm; }
+  .qp-items col.qp-spec { width: 44mm; }
+  .qp-items col.qp-price { width: 24mm; }
+  .qp-foot { width: 100%; border-collapse: collapse; }
+  .qp-foot td { border: 1px solid #000; padding: 5px 8px; }
+  .qp-foot td.qp-foot-k { width: 46mm; text-align: center; background: #efefef; font-weight: 700; }
+  .qp-foot td.qp-note { height: 26mm; vertical-align: top; }
+
+  @media print {
+    /* 인쇄할 때는 견적서 영역만 남기고 나머지는 감춥니다. */
+    body * { visibility: hidden; }
+    #quotePrintArea, #quotePrintArea * { visibility: visible; }
+    #quotePrintArea {
+      display: block !important; position: absolute; left: 0; top: 0; width: 100%;
+      background: #fff; padding: 0; margin: 0;
+    }
+    .qp-sum td.qp-sum-v, .qp-sum td.qp-sum-w { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .qp-items th, .qp-sum td.qp-sum-k, .qp-foot td.qp-foot-k { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @page { size: A4 portrait; margin: 12mm; }
+  }
+
   .ra-filter-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
   .ra-filter-btn {
     background: #f4f5f8; color: #475569; border: 1px solid rgba(15,23,42,.12);
@@ -2650,7 +2748,7 @@
         <section class="panel">
           <div class="panel-head">
             <h2>진행 중 거래 건 관리</h2>
-            <span class="panel-note">B2B 직납 · 수출 · 해외펀딩 · 특판 영업 파이프라인</span>
+            <span class="panel-note">B2B 직납 · 수출 · 해외펀딩 · 특판 영업 파이프라인 · 상품명+수량을 넣으면 견적서 초안이 자동 생성됩니다</span>
           </div>
           <form class="deal-form" id="partnerDealForm">
             <select name="category" style="width:110px;">
@@ -2665,6 +2763,9 @@
             <button type="button" class="btn-add-partner" id="partnerAddBtn"
               title="목록에 없는 거래처를 추가합니다" onclick="partnerAddToggle()">+ 거래처</button>
             <input type="text" name="title" placeholder="거래 건명" required style="flex:1; min-width:140px;">
+            <input type="text" name="productName" placeholder="상품명(선택)" list="quoteProductList" style="flex:1; min-width:130px;"
+              title="상품명과 수량을 넣으면 과거 견적 단가로 견적서 초안이 자동으로 만들어집니다">
+            <input type="text" inputmode="numeric" name="quantity" placeholder="수량" style="width:80px;">
             <input type="text" inputmode="numeric" name="expectedAmount" placeholder="예상 매출액(원)" style="width:140px;" oninput="gsFormatMoneyInput(this)">
             <input type="text" name="memo" placeholder="특이사항(선택)" style="flex:1; min-width:120px;">
             <button type="submit" class="btn-primary">추가</button>
@@ -2673,9 +2774,32 @@
             <table>
               <thead><tr>
                 <th>구분</th><th>거래처명</th><th>거래 건명</th><th>진행 단계</th><th class="num">예상 매출액</th>
-                <th class="num">공급가</th><th class="num">세액</th><th>세금계산서 발행일</th><th>특이사항</th><th></th>
+                <th class="num">공급가</th><th class="num">세액</th><th>세금계산서 발행일</th><th>특이사항</th><th>견적서</th><th></th>
               </tr></thead>
               <tbody id="partnerDealTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>견적서 관리</h2>
+            <span class="panel-note">발행 이력 · 같은 상품이 다시 들어오면 과거 단가로 자동 발행</span>
+          </div>
+          <div class="qt-toolbar">
+            <button type="button" class="btn-primary" onclick="openQuoteEditor(null)">+ 견적서 발행</button>
+            <button type="button" class="btn-ghost" onclick="document.getElementById('quoteImportFile').click()">엑셀로 히스토리 넣기</button>
+            <button type="button" class="btn-ghost" onclick="downloadQuoteImportTemplate()">양식 내려받기</button>
+            <input type="file" id="quoteImportFile" accept=".xlsx,.xls,.csv" hidden onchange="importQuotesFromExcel(this)">
+            <input type="search" id="quoteSearch" placeholder="거래처명 · 건명 · 상품명으로 찾기" oninput="renderQuoteTable()">
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead><tr>
+                <th>견적번호</th><th>견적일</th><th>거래처명</th><th>건명 / 품목</th><th>과세구분</th>
+                <th class="num">합계금액</th><th>상태</th><th></th>
+              </tr></thead>
+              <tbody id="quoteTable"></tbody>
             </table>
           </div>
         </section>
@@ -3127,6 +3251,55 @@
     </main>
 
   </div>
+
+  <!-- 견적서 편집 모달 -->
+  <div class="gs-modal-overlay" id="quoteModalOverlay" style="display:none" onclick="if(event.target===this) closeQuoteEditor()">
+    <div class="gs-modal qt-modal">
+      <button type="button" class="gs-modal-close" onclick="closeQuoteEditor()">✕</button>
+      <div class="gs-modal-title" id="quoteModalTitle">견적서 발행</div>
+      <div class="qt-grid">
+        <label>견적일<input type="date" id="qfDate"></label>
+        <label>거래처<select id="qfPartner"></select></label>
+        <label>구분<select id="qfCategory">
+          <option value="B2B 직납">B2B 직납</option><option value="수출">수출</option>
+          <option value="해외펀딩">해외펀딩</option><option value="특판">특판</option>
+        </select></label>
+        <label>과세구분<select id="qfTaxType" onchange="renderQuoteTotals()">
+          <option value="과세">과세 (부가세 포함)</option><option value="영세율">영세율 (부가세 0원)</option>
+        </select></label>
+        <label class="qt-wide">건명 — "○○에 대하여 아래와 같이 견적합니다"<input type="text" id="qfSubject" placeholder="예) 제습서버"></label>
+        <label>담당자<input type="text" id="qfIssuer"></label>
+        <label>전화번호<input type="text" id="qfPhone"></label>
+        <label class="qt-wide">적요<input type="text" id="qfNote" placeholder="견적서 아래쪽에 들어갈 문구"></label>
+        <label>상태<select id="qfStatus">
+          <option value="초안">초안</option><option value="발행">발행</option>
+          <option value="수주">수주</option><option value="취소">취소</option>
+        </select></label>
+      </div>
+
+      <table class="qt-item-table">
+        <thead><tr>
+          <th style="width:38px;">도번</th><th>품명</th><th style="width:72px;">개수</th>
+          <th style="width:150px;">항목명</th><th style="width:96px;">단가</th>
+          <th style="width:110px;">금액</th><th style="width:34px;"></th>
+        </tr></thead>
+        <tbody id="qfItemBody"></tbody>
+      </table>
+      <div style="margin-top:8px;"><button type="button" class="btn-mini" onclick="addQuoteItemRow()">+ 품목 추가</button></div>
+
+      <div class="qt-total-row" id="qfTotals"></div>
+
+      <div class="gs-modal-actions">
+        <button type="button" class="btn-primary" onclick="saveQuote()">저장</button>
+        <button type="button" class="btn-ghost" onclick="saveQuote(true)">저장 후 인쇄</button>
+        <button type="button" class="btn-ghost" onclick="closeQuoteEditor()">닫기</button>
+        <button type="button" class="btn-danger" id="qfDeleteBtn" style="margin-left:auto" onclick="deleteQuoteFromEditor()">삭제</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 견적서 인쇄 양식 (평소에는 숨겨져 있고 인쇄할 때만 나옵니다) -->
+  <div id="quotePrintArea"></div>
 
 <script>
   // ---- Supabase 연결 정보 ----
@@ -4165,10 +4338,13 @@
     partnerRows = partnerRes.error ? [] : (partnerRes.data || []);
     partnerDealRows = dealRes.error ? [] : (dealRes.data || []);
     partnerPaymentRows = paymentRes.error ? [] : (paymentRes.data || []);
+    // 견적서는 거래 건 표의 "견적서" 칸에서도 쓰므로 함께 불러옵니다.
+    await loadQuotes();
     partnerOverviewLoaded = true;
     renderPartnerKpis();
     renderPartnerDealFormOptions();
     renderPartnerDealTable();
+    renderQuoteTable();
   }
 
   function renderPartnerKpis() {
@@ -4296,9 +4472,10 @@
           oninput="gsFormatMoneyInput(this)" onchange="updatePartnerDealField(${d.id}, 'tax_amount', this.value)"></td>
         <td><input type="date" class="inline-edit" value="${escapeAttr(d.due_date || '')}" onchange="updatePartnerDealField(${d.id}, 'due_date', this.value)"></td>
         <td><input type="text" class="inline-edit" value="${escapeAttr(d.memo || '')}" onchange="updatePartnerDealField(${d.id}, 'memo', this.value)"></td>
+        <td>${dealQuoteCellHtml(d)}</td>
         <td><button class="btn-danger" onclick="deletePartnerDeal(${d.id})">삭제</button></td>
       </tr>
-    `).join('') : '<tr><td colspan="10" class="gs-empty">진행 중인 거래 건이 없습니다. 위에서 추가해보세요.</td></tr>';
+    `).join('') : '<tr><td colspan="11" class="gs-empty">진행 중인 거래 건이 없습니다. 위에서 추가해보세요.</td></tr>';
   }
 
   document.getElementById('partnerDealForm').addEventListener('submit', async (e) => {
@@ -4310,9 +4487,17 @@
     if (!title) return;
     // 입금 조건·수금 상태·다음 액션·세금계산서 발행일·담당자는 추가 폼에서 뺐습니다.
     // 세금계산서 발행일은 실제로 계산서를 끊은 날 표에서 직접 넣도록 비워둡니다.
-    const dealFormAmount = dealMoneyNumber(form.expectedAmount.value);
+    // 상품명·수량을 같이 넣으면 과거 견적 단가를 찾아 견적서 초안까지 만듭니다.
+    const productName = form.productName.value.trim();
+    const quantity = Number(gsMoneyValue(form.quantity.value)) || null;
+    const priceHint = productName && quantity
+      ? suggestQuoteUnitPrice(productName, quantity, Number(partnerId), null) : null;
+
+    // 예상 매출액을 비워 뒀더라도 과거 단가를 찾았으면 수량 × 단가로 채워 둡니다.
+    let dealFormAmount = dealMoneyNumber(form.expectedAmount.value);
+    if (dealFormAmount == null && priceHint) dealFormAmount = quantity * priceHint.unitPrice;
     const dealFormSplit = dealTaxSplit(dealFormAmount, form.category.value);
-    const { error } = await client.from('partner_deals').insert([{
+    const { data: dealData, error } = await client.from('partner_deals').insert([{
       category: form.category.value,
       partner_id: Number(partnerId),
       title,
@@ -4326,10 +4511,23 @@
       due_date: null,
       assignee: null,
       memo: form.memo.value.trim() || null
-    }]);
+    }]).select('id,partner_id,category');
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
     form.reset();
-    loadPartnerOverview();
+
+    // 같은 상품이 다시 들어온 경우 — 과거 단가로 견적서 초안을 자동 발행합니다.
+    let quoteMsg = '';
+    if (productName && quantity && dealData && dealData[0]) {
+      const made = await autoCreateQuoteForDeal(dealData[0], productName, quantity);
+      quoteMsg = made.made
+        ? `견적서 ${made.quoteNo} 초안을 만들었습니다.\n` +
+          `단가 ${quoteNumText(made.unitPrice)}원 × ${quoteNumText(quantity)}개 = ${quoteNumText(made.total)}원\n` +
+          `기준으로 삼은 과거 견적: ${made.from}\n\n금액을 확인한 뒤 "견적서 관리"에서 발행으로 바꿔주세요.`
+        : `거래 건은 등록했지만 견적서는 만들지 않았습니다 — ${made.reason}.\n` +
+          `"+ 견적서 발행"에서 단가를 직접 넣어 발행해주세요.`;
+    }
+    await loadPartnerOverview();
+    if (quoteMsg) alert(quoteMsg);
   });
 
   const DEAL_NUMBER_FIELDS = new Set(['expected_amount', 'supply_amount', 'tax_amount']);
@@ -4386,6 +4584,635 @@
     if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
     loadPartnerOverview();
   }
+
+
+  // ==================== 견적서 관리 ====================
+  // 견적서 한 장(partner_quotes) + 그 안의 품목 줄(partner_quote_items)을 다룹니다.
+  // 금액 규칙은 거래 건 관리와 같습니다 — 과세면 단가·금액이 부가세 포함, 영세율이면 세액 0.
+
+  // 견적서에 찍히는 공급자(우리 회사) 정보. 바뀌면 여기만 고치면 됩니다.
+  const QUOTE_SUPPLIER = {
+    bizNo: '887-87-01839',
+    company: '주식회사 셀디랩',
+    ceo: '김영우, 문은주',
+    address: '서울특별시 강서구 마곡중앙6로 21, 315,316,222호',
+    bizType: '제조업',
+    bizItem: '침구 및 관련제품',
+    manager: '윤효선',
+    phone: '010-4434-6844'
+  };
+  // 인쇄 양식에서 품목 칸을 최소 몇 줄까지 빈 줄로 채울지 (양식이 허전해 보이지 않도록)
+  const QUOTE_PRINT_MIN_ROWS = 16;
+
+  let quoteRows = [];
+  let quoteItemRows = [];
+  let quoteEditingId = null;
+  // 거래 건에서 만든 견적서일 때 어느 거래 건에 붙일지 기억해 둡니다.
+  let quoteEditorDealId = null;
+
+  // 같은 상품인지 비교할 때 쓰는 이름입니다. 띄어쓰기·괄호·기호를 떼고 소문자로 맞춥니다.
+  // "스트롱 제습 서버" 와 "스트롱제습서버" 를 같은 상품으로 봅니다.
+  function quoteProductKey(name) {
+    return String(name || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+  }
+
+  function quoteNumText(v) {
+    return v == null || v === '' ? '' : Number(v).toLocaleString('ko-KR');
+  }
+
+  async function loadQuotes() {
+    const [qRes, iRes] = await Promise.all([
+      client.from('partner_quotes').select('*').order('quote_date', { ascending: false }).order('id', { ascending: false }),
+      client.from('partner_quote_items').select('*').order('line_no', { ascending: true })
+    ]);
+    // 표를 아직 안 만들었을 때도 화면이 죽지 않도록 빈 배열로 둡니다.
+    quoteRows = qRes.error ? [] : (qRes.data || []);
+    quoteItemRows = iRes.error ? [] : (iRes.data || []);
+    if (qRes.error) console.warn('견적서를 불러오지 못했습니다 (partner_quotes.sql 실행 필요):', qRes.error.message);
+  }
+
+  // ---- 과거 견적에서 이번 수량에 맞는 단가 찾기 ----
+  // 수량이 많을수록 단가가 내려갑니다 (스트롱제습서버: 51개 9,500원 / 500개 8,000원 / 1,000개 7,800원).
+  // 그래서 이번 수량 "이하"의 과거 건 중 수량이 가장 큰 건을 기준으로 삼고,
+  // 그런 건이 없으면(이번이 제일 적은 수량) 과거 중 가장 적은 수량 건의 단가를 씁니다.
+  function quoteBestTier(list, wanted) {
+    // 수량 오름차순, 같은 수량이면 최근 견적이 뒤로 오게 — 뒤에서부터 고르면 최근 것이 잡힙니다.
+    const sorted = list.slice().sort((a, b) =>
+      (Number(a.item.qty) || 0) - (Number(b.item.qty) || 0) ||
+      String(a.quote.quote_date).localeCompare(String(b.quote.quote_date)));
+    let pick = null;
+    if (Number.isFinite(wanted) && wanted > 0) {
+      for (const h of sorted) if ((Number(h.item.qty) || 0) <= wanted) pick = h;
+    }
+    return pick || sorted[0] || null;
+  }
+
+  function suggestQuoteUnitPrice(productName, qty, partnerId, excludeQuoteId) {
+    const key = quoteProductKey(productName);
+    if (!key) return null;
+    const quoteById = new Map(quoteRows.map((q) => [q.id, q]));
+    const hits = quoteItemRows
+      .filter((i) => i.product_key === key && Number(i.unit_price) > 0 && i.quote_id !== excludeQuoteId)
+      .map((i) => ({ item: i, quote: quoteById.get(i.quote_id) }))
+      .filter((h) => h.quote && h.quote.status !== '취소');
+    if (!hits.length) return null;
+
+    const wanted = Number(qty);
+    const samePartner = partnerId ? hits.filter((h) => String(h.quote.partner_id) === String(partnerId)) : [];
+    const anyTier = quoteBestTier(hits, wanted);
+    const myTier = samePartner.length ? quoteBestTier(samePartner, wanted) : null;
+
+    // 수량 구간이 먼저입니다. 같은 거래처 단가는 "같은 수량대"일 때만 씁니다.
+    // (51개를 9,500원에 사 간 거래처가 이번에 600개를 주문하면, 거래처 단가가 아니라
+    //  500개 구간 단가를 써야 물량 할인이 반영됩니다.)
+    const useMine = myTier && anyTier && Number(myTier.item.qty) === Number(anyTier.item.qty);
+    const pick = useMine ? myTier : (anyTier || myTier);
+    if (!pick) return null;
+
+    return {
+      unitPrice: Number(pick.item.unit_price),
+      spec: pick.item.spec || '',
+      taxType: pick.quote.tax_type,
+      from: `${pick.quote.partner_name} · ${pick.quote.quote_date} · ${quoteNumText(pick.item.qty)}개 ${quoteNumText(pick.item.unit_price)}원`,
+      samePartner: !!useMine
+    };
+  }
+
+  // 견적번호 Q-YYMMDD-01. 같은 날 여러 장이면 뒤 번호가 올라갑니다.
+  function nextQuoteNo(dateStr) {
+    const prefix = 'Q-' + (dateStr || '').replace(/-/g, '').slice(2) + '-';
+    let max = 0;
+    for (const q of quoteRows) {
+      if (!String(q.quote_no || '').startsWith(prefix)) continue;
+      const n = Number(String(q.quote_no).slice(prefix.length));
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+    return prefix + String(max + 1).padStart(2, '0');
+  }
+
+  // ---- 목록 ----
+  const QUOTE_STATUS_CLASS = { '초안': 'draft', '발행': 'issued', '수주': 'won', '취소': 'void' };
+
+  function renderQuoteTable() {
+    const body = document.getElementById('quoteTable');
+    if (!body) return;
+    const searchEl = document.getElementById('quoteSearch');
+    const q = ((searchEl && searchEl.value) || '').trim().toLowerCase();
+    const itemsOf = (id) => quoteItemRows.filter((i) => i.quote_id === id).sort((a, b) => a.line_no - b.line_no);
+
+    const rows = quoteRows.filter((r) => {
+      if (!q) return true;
+      const hay = [r.quote_no, r.partner_name, r.subject, ...itemsOf(r.id).map((i) => i.product_name)].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+
+    body.innerHTML = rows.length ? rows.map((r) => {
+      const items = itemsOf(r.id);
+      const first = items[0];
+      const itemText = !first ? '품목 없음'
+        : items.length > 1 ? `${first.product_name} 외 ${items.length - 1}건` : first.product_name;
+      return `
+      <tr>
+        <td>${escapeAttr(r.quote_no || '')}${r.source === '자동' ? '<span class="qt-badge qt-badge-auto">자동</span>' : ''}</td>
+        <td>${escapeAttr(r.quote_date || '')}</td>
+        <td>${escapeAttr(r.partner_name || '')}</td>
+        <td>${escapeAttr(r.subject || '-')}<div class="qt-items-line">${escapeAttr(itemText)}</div></td>
+        <td>${escapeAttr(r.tax_type || '')}</td>
+        <td class="num">${quoteNumText(r.total_amount)}원</td>
+        <td><span class="qt-badge qt-badge-${QUOTE_STATUS_CLASS[r.status] || 'draft'}">${escapeAttr(r.status || '')}</span></td>
+        <td style="white-space:nowrap">
+          <button class="btn-mini" onclick="openQuoteEditor(${r.id})">열기</button>
+          <button class="btn-mini" onclick="printQuote(${r.id})">인쇄</button>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="8" class="gs-empty">견적서가 없습니다. "+ 견적서 발행"으로 만들거나 "엑셀로 히스토리 넣기"로 과거 견적을 올려보세요.</td></tr>`;
+
+    renderQuoteProductList();
+  }
+  window.renderQuoteTable = renderQuoteTable;
+
+  // 상품명 칸에서 과거에 견적 낸 상품을 고를 수 있게 목록을 만들어 둡니다.
+  function renderQuoteProductList() {
+    let dl = document.getElementById('quoteProductList');
+    if (!dl) {
+      dl = document.createElement('datalist');
+      dl.id = 'quoteProductList';
+      document.body.appendChild(dl);
+    }
+    const seen = new Map();
+    for (const i of quoteItemRows) {
+      if (i.product_name && !seen.has(i.product_key)) seen.set(i.product_key, i.product_name);
+    }
+    dl.innerHTML = [...seen.values()].map((n) => `<option value="${escapeAttr(n)}"></option>`).join('');
+  }
+
+  // ---- 편집 모달 ----
+  function openQuoteEditor(id) {
+    quoteEditingId = id;
+    const q = id ? quoteRows.find((x) => x.id === id) : null;
+    quoteEditorDealId = q ? (q.deal_id || null) : null;
+    const today = new Date().toISOString().slice(0, 10);
+
+    document.getElementById('quoteModalTitle').textContent = q ? `견적서 ${q.quote_no}` : '견적서 발행';
+    document.getElementById('qfDate').value = q ? (q.quote_date || today) : today;
+    document.getElementById('qfPartner').innerHTML = partnerRows.map((p) =>
+      `<option value="${p.id}">${escapeAttr(p.name)}</option>`).join('') || '<option value="">거래처를 먼저 추가하세요</option>';
+    if (q && q.partner_id) document.getElementById('qfPartner').value = q.partner_id;
+    document.getElementById('qfCategory').value = q ? (q.category || 'B2B 직납') : 'B2B 직납';
+    document.getElementById('qfTaxType').value = q ? (q.tax_type || '과세') : '과세';
+    document.getElementById('qfSubject').value = q ? (q.subject || '') : '';
+    document.getElementById('qfIssuer').value = q ? (q.issuer_name || '') : QUOTE_SUPPLIER.manager;
+    document.getElementById('qfPhone').value = q ? (q.issuer_phone || '') : QUOTE_SUPPLIER.phone;
+    document.getElementById('qfNote').value = q ? (q.note || '') : '';
+    document.getElementById('qfStatus').value = q ? (q.status || '초안') : '초안';
+    document.getElementById('qfDeleteBtn').style.display = q ? '' : 'none';
+
+    document.getElementById('qfItemBody').innerHTML = '';
+    const items = id ? quoteItemRows.filter((i) => i.quote_id === id).sort((a, b) => a.line_no - b.line_no) : [];
+    if (items.length) items.forEach((i) => addQuoteItemRow(i));
+    else addQuoteItemRow();
+
+    renderQuoteTotals();
+    document.getElementById('quoteModalOverlay').style.display = 'flex';
+  }
+  window.openQuoteEditor = openQuoteEditor;
+
+  function closeQuoteEditor() {
+    document.getElementById('quoteModalOverlay').style.display = 'none';
+    quoteEditingId = null;
+  }
+  window.closeQuoteEditor = closeQuoteEditor;
+
+  function addQuoteItemRow(item) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="text-align:center; color:#64748b;" class="qf-no"></td>
+      <td><input class="qf-name" list="quoteProductList" value="${escapeAttr((item && item.product_name) || '')}"
+            onchange="quoteItemChanged(this)" placeholder="품명"><div class="qt-hint"></div></td>
+      <td><input class="qf-qty num" inputmode="numeric" value="${escapeAttr((item && item.qty) != null ? item.qty : '')}" onchange="quoteItemChanged(this)"></td>
+      <td><input class="qf-spec" value="${escapeAttr((item && item.spec) || '')}" placeholder="선택"></td>
+      <td><input class="qf-price num" inputmode="numeric" value="${quoteNumText(item && item.unit_price)}"
+            oninput="gsFormatMoneyInput(this)" onchange="renderQuoteTotals()"></td>
+      <td class="qt-amount">-</td>
+      <td><button type="button" class="btn-mini" title="이 줄을 지웁니다"
+            onclick="this.closest('tr').remove(); renderQuoteTotals();">✕</button></td>`;
+    document.getElementById('qfItemBody').appendChild(tr);
+    renderQuoteTotals();
+  }
+  window.addQuoteItemRow = addQuoteItemRow;
+
+  // 품명이나 개수를 바꾸면 과거 견적 단가를 찾아 안내하고, 단가 칸이 비어 있으면 채워 넣습니다.
+  // (이미 적어 둔 단가는 덮어쓰지 않습니다.)
+  function quoteItemChanged(el) {
+    const tr = el.closest('tr');
+    const name = tr.querySelector('.qf-name').value.trim();
+    const qty = Number(gsMoneyValue(tr.querySelector('.qf-qty').value));
+    const priceEl = tr.querySelector('.qf-price');
+    const hint = tr.querySelector('.qt-hint');
+    const partnerId = document.getElementById('qfPartner').value;
+
+    const s = name ? suggestQuoteUnitPrice(name, qty, partnerId, quoteEditingId) : null;
+    if (s) {
+      if (!gsMoneyValue(priceEl.value)) {
+        priceEl.value = Number(s.unitPrice).toLocaleString('ko-KR');
+        if (!tr.querySelector('.qf-spec').value && s.spec) tr.querySelector('.qf-spec').value = s.spec;
+      }
+      hint.textContent = `과거 단가 ${quoteNumText(s.unitPrice)}원 (${s.from})${s.samePartner ? ' · 같은 거래처' : ''}`;
+    } else {
+      hint.textContent = name ? '과거 견적 이력이 없습니다. 단가를 직접 넣어주세요.' : '';
+    }
+    renderQuoteTotals();
+  }
+  window.quoteItemChanged = quoteItemChanged;
+
+  // 모달에 그려진 품목 줄을 읽어 옵니다. 품명이 비어 있는 줄은 버립니다.
+  function readQuoteItems() {
+    return [...document.querySelectorAll('#qfItemBody tr')].map((tr) => {
+      const name = tr.querySelector('.qf-name').value.trim();
+      const qtyRaw = gsMoneyValue(tr.querySelector('.qf-qty').value);
+      const priceRaw = gsMoneyValue(tr.querySelector('.qf-price').value);
+      const qty = qtyRaw === '' ? null : Number(qtyRaw);
+      const unitPrice = priceRaw === '' ? null : Number(priceRaw);
+      return {
+        product_name: name,
+        product_key: quoteProductKey(name),
+        qty: qty,
+        spec: tr.querySelector('.qf-spec').value.trim() || null,
+        unit_price: unitPrice,
+        amount: qty != null && unitPrice != null ? qty * unitPrice : null
+      };
+    }).filter((i) => i.product_name);
+  }
+
+  function renderQuoteTotals() {
+    const trs = [...document.querySelectorAll('#qfItemBody tr')];
+    let total = 0;
+    trs.forEach((tr, idx) => {
+      tr.querySelector('.qf-no').textContent = idx + 1;
+      const qtyRaw = gsMoneyValue(tr.querySelector('.qf-qty').value);
+      const priceRaw = gsMoneyValue(tr.querySelector('.qf-price').value);
+      const amount = qtyRaw !== '' && priceRaw !== '' ? Number(qtyRaw) * Number(priceRaw) : null;
+      tr.querySelector('.qt-amount').textContent = amount == null ? '-' : quoteNumText(amount);
+      total += amount || 0;
+    });
+    const taxType = document.getElementById('qfTaxType').value;
+    const split = dealTaxSplit(total, taxType === '영세율' ? DEAL_ZERO_TAX_CATEGORY : '기타');
+    document.getElementById('qfTotals').innerHTML =
+      `<span>공급가 ${quoteNumText(split.supply || 0)}원</span><span>세액 ${quoteNumText(split.tax || 0)}원</span>` +
+      `<span>합계 <b>${quoteNumText(total)}원</b></span>`;
+    return { total: total, supply: split.supply || 0, tax: split.tax || 0 };
+  }
+  window.renderQuoteTotals = renderQuoteTotals;
+
+  let quoteSaving = false;
+  async function saveQuote(alsoPrint) {
+    if (quoteSaving) return;
+    const partnerId = document.getElementById('qfPartner').value;
+    if (!partnerId) { alert('거래처를 먼저 추가해주세요.'); return; }
+    const items = readQuoteItems();
+    if (!items.length) { alert('품명이 들어간 품목을 한 줄 이상 넣어주세요.'); return; }
+
+    const totals = renderQuoteTotals();
+    const date = document.getElementById('qfDate').value || new Date().toISOString().slice(0, 10);
+    const partner = partnerRows.find((p) => String(p.id) === String(partnerId));
+    const existing = quoteEditingId ? quoteRows.find((x) => x.id === quoteEditingId) : null;
+
+    const payload = {
+      quote_no: existing ? existing.quote_no : nextQuoteNo(date),
+      quote_date: date,
+      partner_id: Number(partnerId),
+      partner_name: partner ? partner.name : '',
+      deal_id: quoteEditorDealId,
+      category: document.getElementById('qfCategory').value,
+      subject: document.getElementById('qfSubject').value.trim() || null,
+      tax_type: document.getElementById('qfTaxType').value,
+      total_amount: totals.total,
+      supply_amount: totals.supply,
+      tax_amount: totals.tax,
+      note: document.getElementById('qfNote').value.trim() || null,
+      issuer_name: document.getElementById('qfIssuer').value.trim() || null,
+      issuer_phone: document.getElementById('qfPhone').value.trim() || null,
+      status: document.getElementById('qfStatus').value,
+      source: existing ? existing.source : '수동'
+    };
+
+    quoteSaving = true;
+    let quoteId = quoteEditingId;
+    if (quoteEditingId) {
+      const { error } = await client.from('partner_quotes').update(payload).eq('id', quoteEditingId);
+      if (error) { quoteSaving = false; alert('저장하지 못했습니다: ' + error.message); return; }
+      // 품목은 통째로 다시 넣습니다. 줄을 지우거나 순서를 바꿔도 그대로 반영됩니다.
+      await client.from('partner_quote_items').delete().eq('quote_id', quoteEditingId);
+    } else {
+      const { data, error } = await client.from('partner_quotes').insert([payload]).select('id');
+      if (error) { quoteSaving = false; alert('저장하지 못했습니다: ' + error.message); return; }
+      quoteId = data[0].id;
+    }
+
+    const { error: itemErr } = await client.from('partner_quote_items')
+      .insert(items.map((i, idx) => Object.assign({}, i, { quote_id: quoteId, line_no: idx + 1 })));
+    quoteSaving = false;
+    if (itemErr) { alert('품목을 저장하지 못했습니다: ' + itemErr.message); return; }
+
+    closeQuoteEditor();
+    await loadQuotes();
+    renderQuoteTable();
+    renderPartnerDealTable();
+    if (alsoPrint) printQuote(quoteId);
+  }
+  window.saveQuote = saveQuote;
+
+  async function deleteQuoteFromEditor() {
+    if (!quoteEditingId) return;
+    if (!confirm('이 견적서를 삭제할까요? 품목 줄도 함께 지워집니다.')) return;
+    const { error } = await client.from('partner_quotes').delete().eq('id', quoteEditingId);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    closeQuoteEditor();
+    await loadQuotes();
+    renderQuoteTable();
+    renderPartnerDealTable();
+  }
+  window.deleteQuoteFromEditor = deleteQuoteFromEditor;
+
+  // ---- 인쇄 (A4 제품견적서 양식) ----
+  function quoteDateKo(d) {
+    if (!d) return '';
+    const parts = String(d).split('-');
+    return `${Number(parts[0])}년 ${Number(parts[1])}월 ${Number(parts[2])}일`;
+  }
+
+  function buildQuoteSheetHtml(q, items) {
+    const rows = items.map((i, idx) => `
+      <tr>
+        <td class="qp-c">${idx + 1}</td>
+        <td>${escapeAttr(i.product_name || '')}</td>
+        <td class="qp-r">${quoteNumText(i.qty)}</td>
+        <td class="qp-c">${escapeAttr(i.spec || '')}</td>
+        <td class="qp-r">${quoteNumText(i.unit_price)}</td>
+        <td class="qp-r">${quoteNumText(i.amount)}</td>
+      </tr>`).join('');
+    const filler = Array.from({ length: Math.max(0, QUOTE_PRINT_MIN_ROWS - items.length) },
+      () => '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>').join('');
+    const sumLabel = q.tax_type === '영세율' ? '합계금액 (영세율 · 부가세 0원)' : '합계금액 (부가세 포함)';
+    const note = q.note || (q.tax_type === '영세율'
+      ? `영세율 적용 (공급가액 ${quoteNumText(q.supply_amount)}원 / 부가가치세 0원)` : '');
+
+    return `
+    <div class="qp-sheet">
+      <div class="qp-title">제품견적서</div>
+      <div class="qp-head">
+        <div class="qp-head-left">
+          <div>${escapeAttr(q.subject || q.partner_name || '')}에 대하여</div>
+          <div>아래와 같이 견적합니다</div>
+          <div>${quoteDateKo(q.quote_date)}</div>
+          <div>${escapeAttr(q.partner_name || '')} 귀중</div>
+        </div>
+        <table class="qp-supplier">
+          <colgroup><col class="qp-k1"><col class="qp-v1"><col class="qp-k2"><col class="qp-v2"></colgroup>
+          <tr><td class="qp-k">사업자 번호</td><td colspan="3">${escapeAttr(QUOTE_SUPPLIER.bizNo)}</td></tr>
+          <tr><td class="qp-k">상호</td><td>${escapeAttr(QUOTE_SUPPLIER.company)}</td>
+              <td class="qp-k">대표자</td><td>${escapeAttr(QUOTE_SUPPLIER.ceo)}</td></tr>
+          <tr><td class="qp-k">소재지</td><td colspan="3">${escapeAttr(QUOTE_SUPPLIER.address)}</td></tr>
+          <tr><td class="qp-k">업태</td><td>${escapeAttr(QUOTE_SUPPLIER.bizType)}</td>
+              <td class="qp-k">종목</td><td>${escapeAttr(QUOTE_SUPPLIER.bizItem)}</td></tr>
+          <tr><td class="qp-k">담당자</td><td>${escapeAttr(q.issuer_name || '')}</td>
+              <td class="qp-k">전화번호</td><td>${escapeAttr(q.issuer_phone || '')}</td></tr>
+        </table>
+      </div>
+      <table class="qp-sum">
+        <tr>
+          <td class="qp-sum-k">${escapeAttr(sumLabel)}</td>
+          <td class="qp-sum-w">₩</td>
+          <td class="qp-sum-v">${quoteNumText(q.total_amount)}</td>
+        </tr>
+      </table>
+      <table class="qp-items">
+        <colgroup><col class="qp-no"><col class="qp-name"><col class="qp-qty"><col class="qp-spec"><col class="qp-price"><col></colgroup>
+        <thead><tr><th>도번</th><th>품명</th><th>개수</th><th>항목명</th><th>단가</th><th>금액</th></tr></thead>
+        <tbody>${rows}${filler}</tbody>
+      </table>
+      <table class="qp-foot">
+        <tr><td class="qp-foot-k">합계</td><td style="width:10mm;">₩</td><td style="text-align:right; font-weight:700;">${quoteNumText(q.total_amount)}</td></tr>
+        <tr><td class="qp-foot-k">적요</td><td class="qp-note" colspan="2">${escapeAttr(note)}</td></tr>
+      </table>
+    </div>`;
+  }
+
+  function printQuote(id) {
+    const q = quoteRows.find((x) => x.id === id);
+    if (!q) { alert('견적서를 찾지 못했습니다.'); return; }
+    const items = quoteItemRows.filter((i) => i.quote_id === id).sort((a, b) => a.line_no - b.line_no);
+    document.getElementById('quotePrintArea').innerHTML = buildQuoteSheetHtml(q, items);
+    window.print();
+  }
+  window.printQuote = printQuote;
+
+  // ---- 거래 건을 넣을 때 견적서 초안을 자동으로 만들기 ----
+  // 상품명·수량이 들어왔고 그 상품의 과거 견적이 있으면, 그 단가로 초안을 한 장 만들어 둡니다.
+  // 과거 이력이 없으면 만들지 않고 알려만 줍니다 (단가를 지어내지 않습니다).
+  async function autoCreateQuoteForDeal(deal, productName, qty) {
+    const s = suggestQuoteUnitPrice(productName, qty, deal.partner_id, null);
+    if (!s) return { made: false, reason: '과거 견적 이력 없음' };
+
+    const date = new Date().toISOString().slice(0, 10);
+    const partner = partnerRows.find((p) => String(p.id) === String(deal.partner_id));
+    const taxType = deal.category === DEAL_ZERO_TAX_CATEGORY ? '영세율' : '과세';
+    const total = (Number(qty) || 0) * s.unitPrice;
+    const split = dealTaxSplit(total, deal.category);
+
+    const { data, error } = await client.from('partner_quotes').insert([{
+      quote_no: nextQuoteNo(date),
+      quote_date: date,
+      partner_id: deal.partner_id,
+      partner_name: partner ? partner.name : '',
+      deal_id: deal.id,
+      category: deal.category,
+      subject: productName,
+      tax_type: taxType,
+      total_amount: total,
+      supply_amount: split.supply,
+      tax_amount: split.tax,
+      note: taxType === '영세율' ? `영세율 적용 (공급가액 ${quoteNumText(split.supply)}원 / 부가가치세 0원)` : null,
+      issuer_name: QUOTE_SUPPLIER.manager,
+      issuer_phone: QUOTE_SUPPLIER.phone,
+      status: '초안',
+      source: '자동'
+    }]).select('id,quote_no');
+    if (error) return { made: false, reason: error.message };
+
+    const { error: itemErr } = await client.from('partner_quote_items').insert([{
+      quote_id: data[0].id,
+      line_no: 1,
+      product_name: productName,
+      product_key: quoteProductKey(productName),
+      qty: Number(qty),
+      spec: s.spec || null,
+      unit_price: s.unitPrice,
+      amount: total
+    }]);
+    if (itemErr) return { made: false, reason: itemErr.message };
+    return { made: true, quoteNo: data[0].quote_no, unitPrice: s.unitPrice, total: total, from: s.from };
+  }
+
+  // ---- 거래 건 표의 "견적서" 칸 ----
+  // 그 거래 건으로 만들어진 견적서가 있으면 번호와 인쇄 버튼을, 없으면 발행 버튼을 보여줍니다.
+  function dealQuoteCellHtml(d) {
+    const linked = quoteRows.filter((q) => String(q.deal_id) === String(d.id))
+      .sort((a, b) => String(b.quote_date).localeCompare(String(a.quote_date)));
+    if (!linked.length) {
+      return `<button class="btn-mini" onclick="openQuoteEditorForDeal(${d.id})">+ 발행</button>`;
+    }
+    const q = linked[0];
+    const more = linked.length > 1 ? ` <span class="qt-items-line">외 ${linked.length - 1}장</span>` : '';
+    return `<span class="qt-items-line">${escapeAttr(q.quote_no)}</span>${more}
+      <div style="margin-top:3px; white-space:nowrap;">
+        <button class="btn-mini" onclick="openQuoteEditor(${q.id})">열기</button>
+        <button class="btn-mini" onclick="printQuote(${q.id})">인쇄</button>
+      </div>`;
+  }
+
+  // 거래 건에서 바로 견적서를 만들 때 — 거래처·구분·건명을 미리 채워 둡니다.
+  function openQuoteEditorForDeal(dealId) {
+    const d = partnerDealRows.find((x) => x.id === dealId);
+    if (!d) return;
+    openQuoteEditor(null);
+    if (d.partner_id) document.getElementById('qfPartner').value = d.partner_id;
+    document.getElementById('qfCategory').value = d.category || 'B2B 직납';
+    document.getElementById('qfTaxType').value = d.category === DEAL_ZERO_TAX_CATEGORY ? '영세율' : '과세';
+    document.getElementById('qfSubject').value = d.title || '';
+    // 저장할 때 이 거래 건에 붙이도록 표시해 둡니다.
+    quoteEditorDealId = dealId;
+    renderQuoteTotals();
+  }
+  window.openQuoteEditorForDeal = openQuoteEditorForDeal;
+
+  // ---- 엑셀로 과거 견적서 한 번에 넣기 ----
+  const QUOTE_IMPORT_COLUMNS = ['견적일', '거래처명', '구분', '건명', '과세구분', '품명', '항목명', '개수', '단가', '적요', '담당자', '전화번호', '상태'];
+
+  function downloadQuoteImportTemplate() {
+    const sample = [
+      { 견적일: '2026-07-13', 거래처명: '까르멘기프트', 구분: 'B2B 직납', 건명: '제습서버', 과세구분: '과세',
+        품명: '스트롱 제습 서버', 항목명: '', 개수: 51, 단가: 9500, 적요: '', 담당자: '윤효선', 전화번호: '010-4434-6844', 상태: '발행' },
+      { 견적일: '', 거래처명: '', 구분: '', 건명: '', 과세구분: '',
+        품명: '같은 견적서에 품목을 더 넣을 때는 왼쪽 칸들을 비워 두세요', 항목명: '', 개수: '', 단가: '', 적요: '', 담당자: '', 전화번호: '', 상태: '' }
+    ];
+    const ws = XLSX.utils.json_to_sheet(sample, { header: QUOTE_IMPORT_COLUMNS });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '견적서 히스토리');
+    XLSX.writeFile(wb, '견적서_히스토리_양식.xlsx');
+  }
+  window.downloadQuoteImportTemplate = downloadQuoteImportTemplate;
+
+  // 엑셀 날짜는 "2026-07-13", "2026/7/13", "2026.7.13", 또는 엑셀 일련번호로 올 수 있습니다.
+  function quoteParseDate(v) {
+    if (v == null || v === '') return null;
+    const s = String(v).trim();
+    const m = s.match(/^(\d{4})[-./\s]+(\d{1,2})[-./\s]+(\d{1,2})/);
+    if (m) return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+    const serial = Number(s);
+    if (Number.isFinite(serial) && serial > 20000 && serial < 80000) {
+      // 엑셀 일련번호 기준일 1899-12-30
+      return new Date(Date.UTC(1899, 11, 30) + serial * 86400000).toISOString().slice(0, 10);
+    }
+    return null;
+  }
+
+  async function importQuotesFromExcel(input) {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    let rows;
+    try {
+      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false });
+    } catch (err) {
+      alert('엑셀을 읽지 못했습니다: ' + err.message); return;
+    }
+    if (!rows.length) { alert('내용이 없는 파일입니다.'); return; }
+    const missing = ['거래처명', '품명', '개수', '단가'].filter((c) => !(c in rows[0]));
+    if (missing.length) {
+      alert('칸 이름이 맞지 않습니다. 빠진 칸: ' + missing.join(', ') +
+        '\n"양식 내려받기"로 받은 파일에 내용을 채워서 올려주세요.');
+      return;
+    }
+
+    // 거래처명이 비어 있는 줄은 바로 위 견적서에 딸린 품목으로 봅니다(병합 셀처럼 쓰는 경우).
+    const groups = [];
+    for (const r of rows) {
+      const partnerName = String(r['거래처명'] || '').trim();
+      const productName = String(r['품명'] || '').trim();
+      if (!partnerName && !productName) continue;
+      if (partnerName) {
+        groups.push({
+          date: quoteParseDate(r['견적일']) || new Date().toISOString().slice(0, 10),
+          partnerName: partnerName,
+          category: String(r['구분'] || '').trim() || 'B2B 직납',
+          subject: String(r['건명'] || '').trim() || null,
+          taxType: String(r['과세구분'] || '').trim() === '영세율' ? '영세율' : '과세',
+          note: String(r['적요'] || '').trim() || null,
+          issuer: String(r['담당자'] || '').trim() || null,
+          phone: String(r['전화번호'] || '').trim() || null,
+          status: String(r['상태'] || '').trim() || '발행',
+          items: []
+        });
+      }
+      const g = groups[groups.length - 1];
+      if (!g || !productName) continue;
+      const qty = Number(gsMoneyValue(String(r['개수'] == null ? '' : r['개수'])));
+      const unitPrice = Number(gsMoneyValue(String(r['단가'] == null ? '' : r['단가'])));
+      g.items.push({
+        product_name: productName,
+        product_key: quoteProductKey(productName),
+        qty: Number.isFinite(qty) && qty ? qty : null,
+        spec: String(r['항목명'] || '').trim() || null,
+        unit_price: Number.isFinite(unitPrice) && unitPrice ? unitPrice : null,
+        amount: qty && unitPrice ? qty * unitPrice : null
+      });
+    }
+    const usable = groups.filter((g) => g.items.length);
+    if (!usable.length) { alert('넣을 수 있는 줄을 찾지 못했습니다. 거래처명과 품명이 채워져 있는지 확인해주세요.'); return; }
+    if (!confirm(`견적서 ${usable.length}장 (품목 ${usable.reduce((s, g) => s + g.items.length, 0)}줄)을 히스토리로 넣을까요?`)) return;
+
+    // 목록에 없는 거래처는 새로 만들어 둡니다.
+    const byName = new Map(partnerRows.map((p) => [(p.name || '').trim(), p.id]));
+    const newNames = [...new Set(usable.map((g) => g.partnerName).filter((n) => !byName.has(n)))];
+    if (newNames.length) {
+      const { data, error } = await client.from('partners').insert(newNames.map((name) => ({ name: name }))).select('id,name');
+      if (error) { alert('거래처를 추가하지 못했습니다: ' + error.message); return; }
+      (data || []).forEach((p) => byName.set((p.name || '').trim(), p.id));
+    }
+
+    // 같은 날 여러 장이 들어오므로 번호가 겹치지 않게 날짜별로 세어 가며 붙입니다.
+    const usedPerDay = new Map();
+    let ok = 0;
+    for (const g of usable) {
+      const seq = (usedPerDay.get(g.date) || 0) + 1;
+      usedPerDay.set(g.date, seq);
+      const base = nextQuoteNo(g.date);
+      const quoteNo = base.slice(0, -2) + String(Number(base.slice(-2)) + seq - 1).padStart(2, '0');
+
+      const total = g.items.reduce((s, i) => s + (i.amount || 0), 0);
+      const split = dealTaxSplit(total, g.taxType === '영세율' ? DEAL_ZERO_TAX_CATEGORY : '기타');
+      const { data, error } = await client.from('partner_quotes').insert([{
+        quote_no: quoteNo, quote_date: g.date,
+        partner_id: byName.get(g.partnerName) || null, partner_name: g.partnerName,
+        category: g.category, subject: g.subject, tax_type: g.taxType,
+        total_amount: total, supply_amount: split.supply, tax_amount: split.tax,
+        note: g.note, issuer_name: g.issuer, issuer_phone: g.phone,
+        status: g.status, source: '히스토리'
+      }]).select('id');
+      if (error) { alert(`"${g.partnerName}" 견적서를 넣지 못해 여기서 멈췄습니다: ${error.message}\n(앞의 ${ok}장은 들어갔습니다)`); break; }
+      const { error: itemErr } = await client.from('partner_quote_items')
+        .insert(g.items.map((i, idx) => Object.assign({}, i, { quote_id: data[0].id, line_no: idx + 1 })));
+      if (itemErr) { alert(`"${g.partnerName}" 품목을 넣지 못해 여기서 멈췄습니다: ${itemErr.message}`); break; }
+      ok++;
+    }
+
+    await loadQuotes();
+    renderQuoteTable();
+    alert(`견적서 ${ok}장을 히스토리에 넣었습니다.`);
+  }
+  window.importQuotesFromExcel = importQuotesFromExcel;
 
   // 거래처 목록(업체 마스터) 화면은 제거했습니다. partners 데이터 자체는 진행 건·수금/지급
   // 화면의 거래처 선택칸에서 계속 쓰므로 loadPartnerOverview()에서 그대로 불러옵니다.
