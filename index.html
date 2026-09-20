@@ -1771,6 +1771,7 @@
           <div class="nav-label">물류</div>
           <div class="nav-item" id="navLogistics" onclick="switchView('logistics')"><span class="dot dot-pl"></span>물류 대시보드</div>
           <div class="nav-item" id="navSampleSync" onclick="switchView('sample-sync')"><span class="dot dot-pl"></span>샘플연동</div>
+          <div class="nav-item" id="navRestock" onclick="switchView('restock')"><span class="dot dot-pl"></span>쿠팡 재고</div>
         </div>
         <div class="nav-group">
           <div class="nav-label">CS</div>
@@ -2217,6 +2218,48 @@
         </div>
       </section>
 
+    </main>
+
+    <main class="main" id="restockView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>쿠팡 재고</h1>
+          <div class="subtitle">쿠팡 로켓그로스 재고현황에서 품절·품절임박 상품을 읽어옵니다. 수집은 사무실 PC의 로컬 도구가 하고, 이 화면은 그 결과를 보여줍니다.</div>
+        </div>
+        <div class="topbar-right">
+          <span class="panel-note" id="rsUpdatedAt"></span>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>입고 신청 필요</h2>
+          <span class="panel-note" id="rsNeedNote"></span>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead>
+              <tr><th>상품</th><th>상태</th><th class="num">최근 7일</th><th class="num">최근 30일</th><th class="num">판매가능</th><th class="num">입고권장</th><th>권장입고일</th></tr>
+            </thead>
+            <tbody id="rsNeedTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>입고중 (도착 대기)</h2>
+          <span class="panel-note" id="rsIncomingNote"></span>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead>
+              <tr><th>상품</th><th>상태</th><th class="num">판매가능</th><th class="num">입고중</th><th>도착예정일</th></tr>
+            </thead>
+            <tbody id="rsIncomingTable"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
 
     <main class="main" id="sampleSyncView" style="display:none">
@@ -5316,6 +5359,7 @@
     document.getElementById('productCostView').style.display = view === 'product-cost' ? '' : 'none';
     document.getElementById('logisticsView').style.display = view === 'logistics' ? '' : 'none';
     document.getElementById('sampleSyncView').style.display = view === 'sample-sync' ? '' : 'none';
+    document.getElementById('restockView').style.display = view === 'restock' ? '' : 'none';
     document.getElementById('codenitProductsView').style.display = view === 'codenit-products' ? '' : 'none';
     document.getElementById('mallPricesView').style.display = view === 'mall-prices' ? '' : 'none';
     document.getElementById('mallAuditView').style.display = view === 'mall-audit' ? '' : 'none';
@@ -5335,6 +5379,7 @@
     document.getElementById('navProductCost').classList.toggle('active', view === 'product-cost');
     document.getElementById('navLogistics').classList.toggle('active', view === 'logistics');
     document.getElementById('navSampleSync').classList.toggle('active', view === 'sample-sync');
+    document.getElementById('navRestock').classList.toggle('active', view === 'restock');
     document.getElementById('navCodenitProducts').classList.toggle('active', view === 'codenit-products');
     document.getElementById('navMallPrices').classList.toggle('active', view === 'mall-prices');
     document.getElementById('navMallAudit').classList.toggle('active', view === 'mall-audit');
@@ -5378,6 +5423,7 @@
     if (view === 'product-cost') loadProductCostData();
     if (view === 'logistics') { loadLogisticsData(); loadEzadminInventory(); }
     if (view === 'sample-sync') { loadSampleRequests(); setupSampleProductSelect(); loadSampleProductList(); }
+    if (view === 'restock') loadRestock();
     if (view === 'codenit-products') loadCodenitProducts();
     if (view === 'mall-prices') loadMallRegistrations();
     if (view === 'mall-audit') loadMallAudit();
@@ -6400,6 +6446,95 @@
     form.reset();
     loadLogisticsData();
   });
+
+  // ==================== 재입고 타임라인 (쿠팡 로켓그로스) ====================
+  // 데이터는 사무실 PC의 로컬 도구(coupang-dashboard-tool)가 쿠팡 윙 화면을 읽어서
+  // coupang_restock 테이블에 올립니다. 이 화면은 읽기만 합니다.
+  const RESTOCK_BUFFER_DAYS = 2; // 소진예상일보다 며칠 앞당겨 권장할지
+
+  function restockRecommendDate(syncedAt, availableDays) {
+    if (!syncedAt || availableDays == null) return '-';
+    const days = parseInt(availableDays, 10);
+    if (Number.isNaN(days)) return '-';
+    if (days <= RESTOCK_BUFFER_DAYS) return '즉시';
+    const base = new Date(syncedAt);
+    base.setDate(base.getDate() + days - RESTOCK_BUFFER_DAYS);
+    return base.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' });
+  }
+
+  function restockNum(v) {
+    return v != null ? Number(v).toLocaleString('ko-KR') : '-';
+  }
+
+  function restockStatusBadge(filter) {
+    const color = filter === '품절' ? '#dc2626' : '#d97706';
+    return `<span style="color:${color};font-weight:600;">${filter || '-'}</span>`;
+  }
+
+  async function loadRestock() {
+    const updatedEl = document.getElementById('rsUpdatedAt');
+    const needNote = document.getElementById('rsNeedNote');
+    const incomingNote = document.getElementById('rsIncomingNote');
+    const { data, error } = await client.from('coupang_restock').select('*');
+
+    if (error) {
+      updatedEl.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
+      return;
+    }
+
+    const rows = data || [];
+    if (rows.length === 0) {
+      updatedEl.textContent = '';
+      needNote.textContent = '아직 수집된 데이터가 없습니다. 사무실 PC에서 로컬 도구를 실행해주세요.';
+      incomingNote.textContent = '';
+      document.getElementById('rsNeedTable').innerHTML = '';
+      document.getElementById('rsIncomingTable').innerHTML = '';
+      return;
+    }
+
+    // 수집 시각은 모든 행이 같지만, 혹시 섞여 있으면 가장 최근 것을 기준으로 삼는다
+    const syncedAt = rows.map(r => r.synced_at).filter(Boolean).sort().pop();
+    const hoursAgo = syncedAt ? (Date.now() - new Date(syncedAt).getTime()) / 36e5 : null;
+    const stale = hoursAgo != null && hoursAgo > 24;
+    updatedEl.innerHTML = syncedAt
+      ? `마지막 수집 ${new Date(syncedAt).toLocaleString('ko-KR')}` +
+        (stale ? ` <span class="error">(${Math.floor(hoursAgo / 24)}일 지남)</span>` : '')
+      : '';
+
+    const needRows = rows.filter(r => !(Number(r.incoming) > 0));
+    const incomingRows = rows.filter(r => Number(r.incoming) > 0);
+
+    needNote.textContent = `${needRows.length}개`;
+    document.getElementById('rsNeedTable').innerHTML = needRows.length
+      ? needRows.map(r => `
+        <tr>
+          <td>${r.label || r.option_id}</td>
+          <td>${restockStatusBadge(r.filter)}</td>
+          <td class="num">${restockNum(r.last_7d)}</td>
+          <td class="num">${restockNum(r.last_30d)}</td>
+          <td class="num">${restockNum(r.available)}${r.available_days ? ` (${r.available_days})` : ''}</td>
+          <td class="num">${r.recommend || '-'}</td>
+          <td>${restockRecommendDate(r.synced_at, r.available_days)}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="7">입고 신청이 필요한 상품이 없습니다.</td></tr>';
+
+    incomingNote.textContent = `${incomingRows.length}개`;
+    document.getElementById('rsIncomingTable').innerHTML = incomingRows.length
+      ? incomingRows.map(r => {
+          const arrival = r.arrival_date
+            ? r.arrival_date + (r.arrival_cancelled ? ' <span class="error">(취소된 건 — 확인필요)</span>' : '')
+            : '-';
+          return `
+        <tr>
+          <td>${r.label || r.option_id}</td>
+          <td>${restockStatusBadge(r.filter)}</td>
+          <td class="num">${restockNum(r.available)}${r.available_days ? ` (${r.available_days})` : ''}</td>
+          <td class="num">${restockNum(r.incoming)}</td>
+          <td>${arrival}</td>
+        </tr>`;
+        }).join('')
+      : '<tr><td colspan="5">입고중인 상품이 없습니다.</td></tr>';
+  }
 
   // ==================== 재고 연동 (이지어드민) ====================
   let allEzadminInventoryRows = [];
