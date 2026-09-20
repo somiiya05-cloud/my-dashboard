@@ -2156,7 +2156,6 @@
         </div>
       </div>
 
-      <section class="kpi-row" id="lgCards"></section>
 
       <section class="panel">
         <div class="panel-head">
@@ -6300,7 +6299,6 @@
     }
     allLogisticsRows = data || [];
     setupLgFilters();
-    renderLgCards();
     renderLgTable();
   }
 
@@ -6331,34 +6329,6 @@
     brandSelect.addEventListener('change', () => { lgBrandFilterValue = brandSelect.value; renderLgTable(); });
     centerSelect.addEventListener('change', () => { lgCenterFilterValue = centerSelect.value; renderLgTable(); });
     courierSelect.addEventListener('change', () => { lgCourierFilterValue = courierSelect.value; renderLgTable(); });
-  }
-
-  function renderLgCards() {
-    const total = allLogisticsRows.length;
-    const centers = new Set(allLogisticsRows.map(r => r.logistics_center).filter(Boolean));
-    const couriers = new Set(allLogisticsRows.map(r => r.courier).filter(Boolean));
-    const withFee = allLogisticsRows.filter(r => r.delivery_fee != null);
-    const avgFee = withFee.length ? withFee.reduce((s, r) => s + Number(r.delivery_fee), 0) / withFee.length : null;
-
-    document.getElementById('lgCards').innerHTML = `
-      <div class="kpi-card">
-        <div class="kpi-label">등록된 상품 수</div>
-        <div class="kpi-value">${total.toLocaleString('ko-KR')}개</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">물류지 수</div>
-        <div class="kpi-value">${centers.size.toLocaleString('ko-KR')}곳</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">택배사 수</div>
-        <div class="kpi-value">${couriers.size.toLocaleString('ko-KR')}개</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">평균 택배비</div>
-        <div class="kpi-value">${avgFee === null ? '-' : Math.round(avgFee).toLocaleString('ko-KR') + '원'}</div>
-        <div class="kpi-sub">택배비 입력된 ${withFee.length.toLocaleString('ko-KR')}개 기준</div>
-      </div>
-    `;
   }
 
   function renderLgTable() {
