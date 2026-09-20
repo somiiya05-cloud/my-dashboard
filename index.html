@@ -2228,6 +2228,7 @@
         </div>
         <div class="topbar-right">
           <span class="panel-note" id="rsUpdatedAt"></span>
+          <button type="button" class="btn-primary" id="rsRefreshBtn" onclick="loadRestock(true)">새로고침</button>
         </div>
       </div>
 
@@ -2237,7 +2238,13 @@
           <span class="panel-note" id="rsNeedNote"></span>
         </div>
         <div class="scroll-box">
-          <table>
+          <!-- 두 표의 전체 너비(860px)와 앞 세 칸 너비를 똑같이 맞춰, 세로줄이 어긋나지 않고
+               넓은 모니터에서도 값이 멀리 흩어지지 않게 한다 -->
+          <table style="width:860px; max-width:100%; table-layout:fixed">
+            <colgroup>
+              <col style="width:320px"><col style="width:80px"><col style="width:100px">
+              <col style="width:90px"><col style="width:110px"><col style="width:80px"><col style="width:80px">
+            </colgroup>
             <thead>
               <tr><th>상품</th><th>상태</th><th class="num">판매가능</th><th class="num">입고권장</th><th>권장입고일</th><th class="num">최근 7일</th><th class="num">최근 30일</th></tr>
             </thead>
@@ -2252,7 +2259,11 @@
           <span class="panel-note" id="rsIncomingNote"></span>
         </div>
         <div class="scroll-box">
-          <table>
+          <table style="width:860px; max-width:100%; table-layout:fixed">
+            <colgroup>
+              <col style="width:320px"><col style="width:80px"><col style="width:100px">
+              <col style="width:80px"><col style="width:280px">
+            </colgroup>
             <thead>
               <tr><th>상품</th><th>상태</th><th class="num">판매가능</th><th class="num">입고중</th><th>도착예정일</th></tr>
             </thead>
@@ -6471,11 +6482,25 @@
     return `<span style="color:${color};font-weight:600;">${filter || '-'}</span>`;
   }
 
-  async function loadRestock() {
+  async function loadRestock(manual) {
     const updatedEl = document.getElementById('rsUpdatedAt');
     const needNote = document.getElementById('rsNeedNote');
     const incomingNote = document.getElementById('rsIncomingNote');
+    const btn = document.getElementById('rsRefreshBtn');
+
+    // 이 버튼은 저장된 최신 수집 결과를 다시 읽어오는 것입니다.
+    // 쿠팡에서 새로 긁어오는 것은 사무실 PC의 로컬 도구가 합니다(평일 09:10 / 14:10 자동).
+    if (manual && btn) {
+      btn.disabled = true;
+      btn.textContent = '불러오는 중...';
+    }
+
     const { data, error } = await client.from('coupang_restock').select('*');
+
+    if (manual && btn) {
+      btn.disabled = false;
+      btn.textContent = '새로고침';
+    }
 
     if (error) {
       updatedEl.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
