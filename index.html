@@ -2239,7 +2239,7 @@
         <div class="scroll-box">
           <table>
             <thead>
-              <tr><th>상품</th><th>상태</th><th class="num">최근 7일</th><th class="num">최근 30일</th><th class="num">판매가능</th><th class="num">입고권장</th><th>권장입고일</th></tr>
+              <tr><th>상품</th><th>상태</th><th class="num">판매가능</th><th class="num">입고권장</th><th>권장입고일</th><th class="num">최근 7일</th><th class="num">최근 30일</th></tr>
             </thead>
             <tbody id="rsNeedTable"></tbody>
           </table>
@@ -6510,19 +6510,21 @@
         <tr>
           <td>${r.label || r.option_id}</td>
           <td>${restockStatusBadge(r.filter)}</td>
-          <td class="num">${restockNum(r.last_7d)}</td>
-          <td class="num">${restockNum(r.last_30d)}</td>
           <td class="num">${restockNum(r.available)}${r.available_days ? ` (${r.available_days})` : ''}</td>
           <td class="num">${r.recommend || '-'}</td>
           <td>${restockRecommendDate(r.synced_at, r.available_days)}</td>
+          <td class="num">${restockNum(r.last_7d)}</td>
+          <td class="num">${restockNum(r.last_30d)}</td>
         </tr>`).join('')
       : '<tr><td colspan="7">입고 신청이 필요한 상품이 없습니다.</td></tr>';
 
     incomingNote.textContent = `${incomingRows.length}개`;
     document.getElementById('rsIncomingTable').innerHTML = incomingRows.length
       ? incomingRows.map(r => {
+          // 앞으로 올 입고건이 없어 지난 날짜를 대신 보여주는 경우, 수집기가 "(지난 날짜)"를 붙여 보낸다
           const arrival = r.arrival_date
-            ? r.arrival_date + (r.arrival_cancelled ? ' <span class="error">(취소된 건 — 확인필요)</span>' : '')
+            ? r.arrival_date.replace('(지난 날짜)', '<span class="error">(지난 날짜 — 확인필요)</span>') +
+              (r.arrival_cancelled ? ' <span class="error">(취소된 건 — 확인필요)</span>' : '')
             : '-';
           return `
         <tr>
