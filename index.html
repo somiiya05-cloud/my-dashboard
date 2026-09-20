@@ -2220,6 +2220,15 @@
 
     </main>
 
+    <!-- 쿠팡 재고 화면만 글자를 키운다 (다른 화면 표에는 영향 없음) -->
+    <style>
+      #restockView table { font-size: 15px; }
+      #restockView th { font-size: 12px; }
+      #restockView th, #restockView td { padding: 12px 12px; }
+      #restockView .panel-head h2 { font-size: 18px; }
+      #restockView .panel-note { font-size: 13px; }
+    </style>
+
     <main class="main" id="restockView" style="display:none">
       <div class="topbar">
         <div>
@@ -2233,17 +2242,17 @@
       </div>
 
       <section class="panel">
-        <div class="panel-head" style="max-width:860px; margin-left:auto; margin-right:auto">
+        <div class="panel-head">
           <h2>입고 신청 필요</h2>
           <span class="panel-note" id="rsNeedNote"></span>
         </div>
         <div class="scroll-box">
           <!-- 두 표의 전체 너비(860px)와 앞 세 칸 너비를 똑같이 맞춰, 세로줄이 어긋나지 않고
                넓은 모니터에서도 값이 멀리 흩어지지 않게 한다 -->
-          <table style="width:860px; max-width:100%; table-layout:fixed; margin-left:auto; margin-right:auto">
+          <table style="width:100%; table-layout:fixed">
             <colgroup>
-              <col style="width:320px"><col style="width:80px"><col style="width:100px">
-              <col style="width:90px"><col style="width:110px"><col style="width:80px"><col style="width:80px">
+              <col><col style="width:90px"><col style="width:120px">
+              <col style="width:100px"><col style="width:130px"><col style="width:90px"><col style="width:90px">
             </colgroup>
             <thead>
               <tr><th>상품</th><th>상태</th><th class="num">판매가능</th><th class="num">입고권장</th><th>권장입고일</th><th class="num">최근 7일</th><th class="num">최근 30일</th></tr>
@@ -2254,15 +2263,15 @@
       </section>
 
       <section class="panel">
-        <div class="panel-head" style="max-width:860px; margin-left:auto; margin-right:auto">
+        <div class="panel-head">
           <h2>입고중 (도착 대기)</h2>
           <span class="panel-note" id="rsIncomingNote"></span>
         </div>
         <div class="scroll-box">
-          <table style="width:860px; max-width:100%; table-layout:fixed; margin-left:auto; margin-right:auto">
+          <table style="width:100%; table-layout:fixed">
             <colgroup>
-              <col style="width:320px"><col style="width:80px"><col style="width:100px">
-              <col style="width:80px"><col style="width:280px">
+              <col><col style="width:90px"><col style="width:120px">
+              <col style="width:90px"><col style="width:320px">
             </colgroup>
             <thead>
               <tr><th>상품</th><th>상태</th><th class="num">판매가능</th><th class="num">입고중</th><th>도착예정일</th></tr>
@@ -6483,7 +6492,7 @@
     const style = filter === '품절'
       ? 'background:#d03b3b;color:#fff'
       : 'background:#fab219;color:#231a00';
-    return `<span style="${style};font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;display:inline-block;white-space:nowrap;">${filter}</span>`;
+    return `<span style="${style};font-size:12px;font-weight:700;padding:4px 10px;border-radius:5px;display:inline-block;white-space:nowrap;">${filter}</span>`;
   }
 
   // "41개 (6일)" 형태로 보여준다
