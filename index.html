@@ -6477,9 +6477,18 @@
     return v != null ? Number(v).toLocaleString('ko-KR') : '-';
   }
 
+  // 로컬 도구 화면과 같은 배지 모양 (품절=빨강/흰글씨, 품절임박=노랑/검은글씨)
   function restockStatusBadge(filter) {
-    const color = filter === '품절' ? '#dc2626' : '#d97706';
-    return `<span style="color:${color};font-weight:600;">${filter || '-'}</span>`;
+    if (!filter) return '-';
+    const style = filter === '품절'
+      ? 'background:#d03b3b;color:#fff'
+      : 'background:#fab219;color:#231a00';
+    return `<span style="${style};font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;display:inline-block;white-space:nowrap;">${filter}</span>`;
+  }
+
+  // "41개 (6일)" 형태로 보여준다
+  function restockAvailable(r) {
+    return `${restockNum(r.available)}개${r.available_days ? ` (${r.available_days})` : ''}`;
   }
 
   async function loadRestock(manual) {
@@ -6535,7 +6544,7 @@
         <tr>
           <td>${r.label || r.option_id}</td>
           <td>${restockStatusBadge(r.filter)}</td>
-          <td class="num">${restockNum(r.available)}${r.available_days ? ` (${r.available_days})` : ''}</td>
+          <td class="num">${restockAvailable(r)}</td>
           <td class="num">${r.recommend || '-'}</td>
           <td>${restockRecommendDate(r.synced_at, r.available_days)}</td>
           <td class="num">${restockNum(r.last_7d)}</td>
@@ -6555,7 +6564,7 @@
         <tr>
           <td>${r.label || r.option_id}</td>
           <td>${restockStatusBadge(r.filter)}</td>
-          <td class="num">${restockNum(r.available)}${r.available_days ? ` (${r.available_days})` : ''}</td>
+          <td class="num">${restockAvailable(r)}</td>
           <td class="num">${restockNum(r.incoming)}</td>
           <td>${arrival}</td>
         </tr>`;
