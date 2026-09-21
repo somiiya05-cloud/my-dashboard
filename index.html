@@ -3417,29 +3417,17 @@
 
       <section class="panel" id="gbFeeUploadPanel" style="display:none">
         <div class="panel-head">
-          <h2>2단계 · 주문 내역 올리기</h2>
-          <span class="panel-note" id="gbFeeUploadNote">매일 받으시는 매출DB 파일을 그대로 올리면 됩니다. 여러 날이면 이어서 올리세요.</span>
+          <h2>2단계 · 정산 기간</h2>
+          <span class="panel-note" id="gbFeeUploadNote">주문은 매일 쌓이는 매출DB 에서 자동으로 불러옵니다.</span>
         </div>
         <form class="deal-form">
-          <input type="file" id="gbFeeRawInput" accept=".xlsx,.xls,.csv" multiple onchange="gbFeeReadRaw(this)" style="flex:2; min-width:260px;">
-          <button type="button" class="filter-reset-btn" onclick="gbFeeResetRaw()">올린 파일 전부 지우기</button>
-        </form>
-        <form class="deal-form">
-          <button type="button" class="btn-primary" onclick="gbFeeSaveOrderLines()">이 파일의 공구 주문 쌓아두기</button>
-          <button type="button" class="filter-reset-btn" onclick="gbFeeLoadFromDb()">쌓아둔 주문 불러오기</button>
-          <span class="panel-note" style="align-self:center;">매출DB 를 올릴 때마다 쌓아두면, 정산할 때는 파일 없이 불러오기만 하면 됩니다.</span>
-        </form>
-        <div id="gbFeeStoreResult"></div>
-        <form class="deal-form">
-          <span class="panel-note" style="align-self:center;">공구 기간</span>
           <input type="date" id="gbFeeFrom" onchange="gbFeeSetPeriod()" style="width:150px;">
           <span style="align-self:center;">~</span>
           <input type="date" id="gbFeeTo" onchange="gbFeeSetPeriod()" style="width:150px;">
           <button type="button" class="filter-reset-btn" onclick="gbFeeClearPeriod()">기간 지우기</button>
-          <span class="panel-note" style="align-self:center;">같은 셀러가 공구를 두 번 하면 기획전명이 같아 섞입니다. 그때 기간으로 자르세요.</span>
+          <span class="panel-note" style="align-self:center;">비워 두면 쌓인 주문 전부를 씁니다. 같은 셀러가 공구를 두 번 하면 기획전명이 같아 섞이니 그때 잘라 주세요.</span>
         </form>
-        <div id="gbFeeFileList"></div>
-        <div id="gbFeeCampaignPick"></div>
+        <div id="gbFeeStoreResult"></div>
         <div id="gbFeeWarnBox"></div>
       </section>
 
@@ -12458,17 +12446,12 @@
   let gbFeeDetail = [];     // RAW 에서 뽑아낸 과금 줄
   let gbFeeAgg = [];        // 옵션별 집계
   let gbFeeSkipped = { cancelled: 0, unmatched: [] };
-  let gbFeeFiles = [];          // 올린 주문 파일들 [{name, rows}]
-  let gbFeeFileCampaigns = [];  // 그 파일들에 들어 있던 공구(캠페인) 목록
-  let gbFeeFileCampaign = '';   // 그중 지금 정산할 공구의 키
+  let gbFeeLoadedNote = '';    // 불러온 주문 요약 (예: "쌓아둔 주문 191줄")
   // 같은 셀러가 공구를 두 번 하면 기획전명("코드니처 X  수아로움 공동구매")이 같아 한 덩어리로
   // 들어옵니다. 그때 주문일로 잘라 내려고 씁니다. 비어 있으면 자르지 않습니다.
   let gbFeeFrom = '';
   let gbFeeTo = '';
   let gbFeeOutOfPeriod = 0;     // 기간 밖이라 뺀 줄 수
-  // 컨텐츠팀 공구는 영업팀이 정산하는 건이 아닙니다. 판매처로 가립니다.
-  const GB_FEE_TEAM = '영업팀';
-  let gbFeeTeamKnown = false;   // 올린 파일에 팀 정보가 있었는지
   let gbFeeStoredCampaigns = [];  // groupbuy_order_lines 에 쌓여 있는 공구 목록(뷰)
 
   // RAW 는 "옵션=변기수조 세정서버 1+1세트 (12ea)" 처럼 들어오고 요율 표는 사람이 손으로 적습니다.
@@ -12541,12 +12524,8 @@
     gbFeePartner = (mine.find((r) => r.partner) || {}).partner || '';
     gbFeeResetRaw();
     renderGbFeeRateTable();
-    // 이미 쌓아둔 주문이 있는 공구면 바로 불러와 보여 줍니다. 대개 그걸 보려고 고르시니까요.
-    // (파일을 올리고 싶으면 그냥 올리면 덮어씁니다)
-    if (gbFeeCampaign && gbFeeCampaign !== GB_FEE_DEFAULT
-      && gbFeeStoredCampaigns.some((c) => c.campaign_key === gbFeeNameKey(gbFeeCampaign))) {
-      gbFeeLoadFromDb();
-    }
+    // 공구를 고르면 쌓아둔 주문을 바로 불러와 계산합니다. 정산할 때 할 일은 이게 전부입니다.
+    if (gbFeeCampaign && gbFeeCampaign !== GB_FEE_DEFAULT) gbFeeLoadFromDb();
   }
   window.gbFeeSelectCampaign = gbFeeSelectCampaign;
 
@@ -12723,74 +12702,6 @@
   }
   window.gbFeeImportRates = gbFeeImportRates;
 
-  // ---- 주문 RAW 읽기 ----
-  // 판매처마다 칸 이름이 조금씩 다르므로 후보를 여러 개 두고 먼저 찾히는 것을 씁니다.
-  // 매일 받는 매출DB 파일에는 공구가 여러 개 섞여 있습니다(9/9 하루에만 4개 캠페인, 127줄).
-  // "판매처 상품명" 이 "코드니처 X  로라도라홈 공동구매" 처럼 캠페인을 구분해 주므로 이 칸으로 갈라냅니다.
-  // 이 칸이 아예 없는 파일(옛날 CSV 등)은 전부 한 덩어리로 봅니다.
-  const GB_RAW_CAMPAIGN_COLS = ['판매처 상품명', '판매처상품명', '기획전명', '캠페인'];
-  const GB_RAW_VENDOR_COLS = ['판매처', '판매채널', '채널'];
-  const GB_RAW_PRODUCT_COLS = ['상품명', '제품명'];
-  const GB_RAW_OPTION_COLS = ['판매처 옵션', '판매처옵션', '옵션명', '옵션'];
-  const GB_RAW_AMOUNT_COLS = ['판매가', '판매금액', '결제금액', '금액'];
-  const GB_RAW_QTY_COLS = ['주문수량', '수량'];
-  const GB_RAW_DATE_COLS = ['주문일', '주문일자', '결제일'];
-  const GB_RAW_NO_COLS = ['주문번호'];
-  const GB_RAW_STATUS_COLS = ['CS', '주문상태', '상태'];
-
-  function gbFeePick(row, names) {
-    for (const n of names) if (row[n] !== undefined && String(row[n]).trim() !== '') return row[n];
-    return '';
-  }
-
-  // 머리글이 1행에 없는 파일(위에 제목 줄이 붙은 경우)도 있어서 위에서부터 훑어 찾습니다.
-  function gbFeeGridToRows(grid) {
-    const hit = (cells, names) => cells.some((c) => names.includes(c));
-    let h = -1;
-    for (let i = 0; i < Math.min(grid.length, 20); i++) {
-      const cells = grid[i].map((c) => String(c).trim());
-      if (hit(cells, GB_RAW_OPTION_COLS) && hit(cells, GB_RAW_AMOUNT_COLS)) { h = i; break; }
-    }
-    if (h < 0) return null;
-    const head = grid[h].map((c) => String(c).trim());
-    return grid.slice(h + 1).map((r) => {
-      const o = {};
-      head.forEach((k, i) => { if (k) o[k] = r[i] == null ? '' : String(r[i]).trim(); });
-      return o;
-    });
-  }
-
-  function gbFeeSheetToRows(ws) {
-    return gbFeeGridToRows(XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false }));
-  }
-
-  // 이지어드민 "확장주문검색" 내보내기는 확장자만 .xls 이고 속은 HTML <table> 입니다.
-  // 게다가 파일이 <meta ...> 로 시작해서 SheetJS 가 HTML 로 알아보지 못하고 그냥 글자로 읽어
-  // 버립니다(머리글을 못 찾아 통째로 실패합니다). 그래서 먼저 여기서 알아보고 브라우저의
-  // HTML 파서로 표를 읽습니다. 엑셀 파일이면 null 을 돌려주어 원래 경로로 넘깁니다.
-  function gbFeeHtmlRows(buf) {
-    const bytes = new Uint8Array(buf);
-    const head = new TextDecoder('utf-8', { fatal: false }).decode(bytes.slice(0, 4096)).toLowerCase();
-    if (!/<table|<html|<meta|<!doctype/.test(head)) return null;
-    // 내보내기에 따라 euc-kr 로 오기도 해서 파일이 적어 둔 charset 을 그대로 씁니다.
-    const cs = (head.match(/charset\s*=\s*["']?([\w-]+)/) || [])[1] || 'utf-8';
-    let text;
-    try { text = new TextDecoder(cs).decode(bytes); }
-    catch (err) { text = new TextDecoder('utf-8').decode(bytes); }
-    const doc = new DOMParser().parseFromString(text, 'text/html');
-    // 표가 여러 개면 줄이 가장 많은 것을 주문 내역으로 봅니다.
-    let table = null;
-    doc.querySelectorAll('table').forEach((t) => {
-      if (!table || t.rows.length > table.rows.length) table = t;
-    });
-    if (!table || table.rows.length < 2) return null;
-    const grid = [];
-    for (let i = 0; i < table.rows.length; i++) {
-      grid.push([...table.rows[i].cells].map((c) => (c.textContent || '').replace(/ /g, ' ').trim()));
-    }
-    return gbFeeGridToRows(grid);
-  }
-
   // 캠페인명도 "코드니처 X  로라도라홈" 처럼 공백이 두 칸씩 들어가는 등 표기가 흔들리므로
   // 옵션명과 같은 방식으로 비교용 키를 만들어 맞춰 봅니다.
   const gbFeeNameKey = gbFeeOptionKey;
@@ -12823,127 +12734,6 @@
     return cand[0];
   }
 
-  // 한 줄에서 필요한 값만 뽑아 둡니다. "합계" 줄과 세트 구성품 줄(판매가 0)은 여기서 빠집니다.
-  function gbFeeExtract(rows) {
-    const out = [];
-    for (const r of rows) {
-      const optRaw = String(gbFeePick(r, GB_RAW_OPTION_COLS) || '').trim();
-      const amount = Number(String(gbFeePick(r, GB_RAW_AMOUNT_COLS)).replace(/[^0-9.]/g, ''));
-      // 세트 상품은 구성품마다 한 줄씩 들어오고 둘째 줄부터 판매가가 0 입니다. 그 줄까지 세면
-      // 같은 주문을 두 번 계산하게 되므로 판매가가 있는 줄만 씁니다.
-      // 맨 아래 "합계" 줄은 옵션 칸이 비어 있어 여기서 같이 걸러집니다.
-      if (!optRaw || !Number.isFinite(amount) || amount <= 0) continue;
-      const qtyRaw = Number(String(gbFeePick(r, GB_RAW_QTY_COLS)).replace(/[^0-9.]/g, ''));
-      out.push({
-        campaign: String(gbFeePick(r, GB_RAW_CAMPAIGN_COLS) || '').trim(),
-        vendor: String(gbFeePick(r, GB_RAW_VENDOR_COLS) || '').trim(),
-        product: String(gbFeePick(r, GB_RAW_PRODUCT_COLS) || '').trim(),
-        optRaw: optRaw,
-        amount: amount,
-        qty: Number.isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1,
-        date: quoteParseDate(gbFeePick(r, GB_RAW_DATE_COLS)) || '',
-        no: String(gbFeePick(r, GB_RAW_NO_COLS) || ''),
-        status: String(gbFeePick(r, GB_RAW_STATUS_COLS) || '')
-      });
-    }
-    // "판매처 상품명" 은 공구뿐 아니라 모든 판매처 상품에 붙어 있어서, 매출DB 하루치를 그냥
-    // 갈라내면 기획전명이 100개 넘게 나옵니다(9/9: 1,819줄 중 공구는 127줄, 이름 116개).
-    // 판매처가 "공동구매(영업팀/컨텐츠팀)" 인 줄이 있으면 그 줄만 남겨 공구만 봅니다.
-    // 로라도라홈 건처럼 자사몰(코드니처) 판매처로 들어오는 공구 전용 파일에는 그런 줄이
-    // 없으므로, 그때는 파일 전체를 그대로 씁니다.
-    const onlyGb = out.filter((r) => /공동구매/.test(r.vendor));
-    return onlyGb.length ? onlyGb : out;
-  }
-
-  async function gbFeeReadRaw(input) {
-    const files = [...(input.files || [])];
-    input.value = '';
-    if (!files.length) return;
-    if (!gbFeeCampaign) { alert('먼저 공구를 고르세요.'); return; }
-    for (const file of files) {
-      let rows = null;
-      try {
-        const buf = await file.arrayBuffer();
-        // 이지어드민 내보내기(HTML 을 .xls 로 준 파일)를 먼저 걸러 냅니다.
-        rows = gbFeeHtmlRows(buf);
-        if (!rows) {
-          const wb = XLSX.read(buf, { type: 'array' });
-          // 요율 시트가 같이 들어 있는 파일도 있으므로 주문 칸이 있는 시트를 찾을 때까지 넘깁니다.
-          for (const name of wb.SheetNames) {
-            rows = gbFeeSheetToRows(wb.Sheets[name]);
-            if (rows) break;
-          }
-        }
-      } catch (err) { alert(`"${file.name}" 을 읽지 못했습니다: ` + err.message); continue; }
-      if (!rows) {
-        alert(`"${file.name}" 에서 주문 내역 시트를 찾지 못했습니다.\n"판매처 옵션"(또는 옵션명)과 "판매가" 칸이 있는 시트가 필요합니다.`);
-        continue;
-      }
-      gbFeeFiles.push({ name: file.name, rows: gbFeeExtract(rows) });
-    }
-    gbFeeRebuild();
-  }
-  window.gbFeeReadRaw = gbFeeReadRaw;
-
-  // 올린 파일들을 합치고(중복 제거), 캠페인을 갈라낸 뒤 고른 캠페인만 계산합니다.
-  function gbFeeRebuild() {
-    // 같은 날짜 파일을 실수로 두 번 올리는 일이 있어 중복을 걸러 냅니다. 다만 한 파일 안에
-    // 똑같은 줄이 정말 두 번 있을 수도 있으므로(같은 주문의 같은 옵션), 키마다 줄 수는
-    // "가장 많이 들어 있던 파일" 기준으로 잡습니다. 그래야 진짜 두 줄짜리를 한 줄로 깎지 않습니다.
-    const best = new Map();
-    for (const f of gbFeeFiles) {
-      const per = new Map();
-      for (const r of f.rows) {
-        const k = [r.no, gbFeeOptionKey(r.optRaw), r.amount, r.date].join('|');
-        if (!per.has(k)) per.set(k, []);
-        per.get(k).push(r);
-      }
-      for (const [k, list] of per) {
-        const cur = best.get(k);
-        if (!cur || list.length > cur.length) best.set(k, list);
-      }
-    }
-    const allRows = [].concat(...best.values());
-
-    // 캠페인별로 나눕니다.
-    const campMap = new Map();
-    for (const r of allRows) {
-      const key = gbFeeNameKey(r.campaign);
-      if (!campMap.has(key)) campMap.set(key, { key: key, name: r.campaign || '(기획전명 없음)', rows: [] });
-      campMap.get(key).rows.push(r);
-    }
-    gbFeeFileCampaigns = [...campMap.values()].sort((a, b) => b.rows.length - a.rows.length);
-
-    // 어느 공구가 우리(영업팀) 것인지 표시해 둡니다.
-    // 매출DB 는 판매처가 "공동구매(영업팀)" / "공동구매(컨텐츠팀)" 으로 갈려 있어 그걸로 가립니다.
-    // 이름으로는 못 가립니다 — 컨텐츠팀 건인데 "코드니처 X  헬룸 공동구매" 처럼 공동구매가
-    // 붙은 것도, "코드니처x마마홈 세정서버" 처럼 안 붙은 것도 있습니다.
-    // 확장주문검색은 판매처가 전부 "코드니처" 라 팀을 알 수 없어 이름으로만 고릅니다.
-    const hasTeam = allRows.some((r) => /공동구매/.test(r.vendor || ''));
-    gbFeeTeamKnown = hasTeam;
-    gbFeeFileCampaigns.forEach((c) => {
-      c.ours = hasTeam
-        ? c.rows.some((r) => (r.vendor || '').includes(GB_FEE_TEAM))
-        : /공동구매|공구/.test(c.name);
-    });
-
-    // 고른 공구와 이름이 맞는 캠페인을 먼저 찾고, 없으면 파일에 하나뿐일 때만 그것을 씁니다.
-    if (!gbFeeFileCampaigns.some((c) => c.key === gbFeeFileCampaign)) {
-      const matched = gbFeeFileCampaigns.find((c) => c.key === gbFeeNameKey(gbFeeCampaign));
-      gbFeeFileCampaign = matched ? matched.key
-        : (gbFeeFileCampaigns.length === 1 ? gbFeeFileCampaigns[0].key : '');
-    }
-    renderGbFeeFiles();
-    const picked = gbFeeFileCampaigns.find((c) => c.key === gbFeeFileCampaign);
-    let use = picked ? picked.rows : [];
-    // 기간을 적어 두면 그 밖의 주문은 뺍니다(주문일을 못 읽은 줄은 남겨 둡니다).
-    const before = use.length;
-    if (gbFeeFrom) use = use.filter((r) => !r.date || r.date >= gbFeeFrom);
-    if (gbFeeTo) use = use.filter((r) => !r.date || r.date <= gbFeeTo);
-    gbFeeOutOfPeriod = before - use.length;
-    gbFeeCompute(use);
-  }
-
   function gbFeeSetPeriod() {
     gbFeeFrom = document.getElementById('gbFeeFrom').value || '';
     gbFeeTo = document.getElementById('gbFeeTo').value || '';
@@ -12951,7 +12741,7 @@
       alert('시작일이 종료일보다 늦습니다. 다시 골라주세요.');
       return;
     }
-    gbFeeRebuild();
+    gbFeeLoadFromDb();
   }
   window.gbFeeSetPeriod = gbFeeSetPeriod;
 
@@ -12959,67 +12749,9 @@
     gbFeeFrom = ''; gbFeeTo = '';
     const a = document.getElementById('gbFeeFrom'), b = document.getElementById('gbFeeTo');
     if (a) a.value = ''; if (b) b.value = '';
-    gbFeeRebuild();
+    gbFeeLoadFromDb();
   }
   window.gbFeeClearPeriod = gbFeeClearPeriod;
-
-  // ---- 공구 주문줄 쌓아두기 / 불러오기 ----
-  // 매출DB 는 매일 보시는 파일이라, 올릴 때 공구 주문만 골라 쌓아 두면 정산할 때 파일이
-  // 필요 없습니다. sales_transactions 는 건드리지 않습니다(캠페인·옵션 칸이 없어 수수료를
-  // 계산할 수 없고, 매일 하시는 CSV 변환 흐름도 그대로 두는 편이 안전합니다).
-  async function gbFeeSaveOrderLines() {
-    if (!gbFeeFiles.length) { alert('먼저 주문 파일을 올려주세요.'); return; }
-    // 고른 공구만이 아니라 파일에 든 공구를 전부 쌓습니다. 매일 한 번 올리면 그날 돌아가던
-    // 공구가 다 들어가므로, 나중에 어느 공구를 정산하든 파일을 다시 찾지 않아도 됩니다.
-    // 일반 상품 기획전과 컨텐츠팀 공구는 뺍니다(c.ours 판정은 gbFeeRebuild 참고).
-    const mine = gbFeeFileCampaigns.filter((c) => c.ours);
-    const rows = [];
-    mine.forEach((c) => rows.push(...c.rows));
-    if (!rows.length) { alert(`이 파일에서 ${GB_FEE_TEAM} 공구 주문을 찾지 못했습니다.`); return; }
-
-    // 같은 주문·옵션·날짜에 줄이 둘 이상일 수 있어 1,2,3.. 을 붙입니다.
-    // 이 번호가 있어야 같은 파일을 다시 올려도 줄이 늘지 않습니다.
-    const seq = new Map();
-    const payload = [];
-    let noDate = 0;
-    for (const r of rows) {
-      if (!r.date) { noDate++; continue; }
-      const ok = gbFeeOptionKey(r.optRaw);
-      const g = [r.no, ok, r.date].join('|');
-      const n = (seq.get(g) || 0) + 1;
-      seq.set(g, n);
-      payload.push({
-        campaign: r.campaign, campaign_key: gbFeeNameKey(r.campaign),
-        order_no: r.no, order_date: r.date, vendor: r.vendor || null,
-        product_name: r.product || null, option_name: r.optRaw.replace(/^\s*옵션\s*=\s*/, ''),
-        option_key: ok, qty: r.qty, amount: r.amount, cs_status: r.status || null,
-        line_seq: n, updated_at: new Date().toISOString()
-      });
-    }
-    if (!confirm(`${GB_FEE_TEAM} 공구 ${mine.length}개 · 주문 ${payload.length}줄을 쌓아둡니다.\n이미 있는 줄은 새 내용으로 덮어씁니다(취소로 바뀐 건 반영).\n\n진행할까요?`)) return;
-
-    const box = document.getElementById('gbFeeStoreResult');
-    let done = 0;
-    // 한 번에 다 보내면 요청이 너무 커져서 나눠 보냅니다.
-    for (let i = 0; i < payload.length; i += 500) {
-      if (box) box.innerHTML = `<div class="gs-empty">쌓는 중... ${done} / ${payload.length}줄</div>`;
-      const { error } = await client.from('groupbuy_order_lines')
-        .upsert(payload.slice(i, i + 500), { onConflict: 'order_no,option_key,order_date,line_seq' });
-      if (error) {
-        if (box) box.innerHTML = '';
-        alert('쌓지 못했습니다: ' + error.message +
-          '\n\ngroupbuy_order_lines.sql 을 Supabase SQL Editor 에서 먼저 실행했는지 확인해주세요.');
-        return;
-      }
-      done += Math.min(500, payload.length - i);
-    }
-    if (box) {
-      box.innerHTML = `<div class="gs-empty">주문 ${payload.length}줄을 쌓았습니다.` +
-        (noDate ? ` (주문일을 못 읽은 ${noDate}줄은 뺐습니다)` : '') +
-        '<br>' + mine.map((c) => `· ${escapeAttr(c.name)} ${c.rows.length}줄`).join('<br>') + '</div>';
-    }
-  }
-  window.gbFeeSaveOrderLines = gbFeeSaveOrderLines;
 
   async function gbFeeLoadFromDb() {
     if (!gbFeeCampaign) { alert('먼저 공구를 고르세요.'); return; }
@@ -13042,55 +12774,26 @@
       from += 1000;
     }
     if (!all.length) {
-      if (box) box.innerHTML = `<div class="gs-empty">"${escapeAttr(gbFeeCampaign)}" 로 쌓아둔 주문이 없습니다. 주문 파일을 올린 뒤 "쌓아두기"를 먼저 해주세요.</div>`;
+      gbFeeLoadedNote = '';
+      gbFeeDetail = []; gbFeeAgg = [];
+      if (box) box.innerHTML = `<div class="gs-empty">"${escapeAttr(gbFeeCampaign)}" 로 쌓아둔 주문이 없습니다.` +
+        (gbFeeFrom || gbFeeTo ? ' 적어 두신 기간을 벗어났을 수 있습니다.' : ' 매출DB 적재를 먼저 해주세요.') + '</div>';
+      const panel = document.getElementById('gbFeeResultPanel');
+      if (panel) panel.style.display = 'none';
       return;
     }
-    // 파일에서 읽은 것과 같은 모양으로 맞춰 아래 계산을 그대로 씁니다.
     const rows = all.map((r) => ({
-      campaign: r.campaign, vendor: r.vendor || '', product: r.product_name || '',
-      optRaw: r.option_name, amount: Number(r.amount), qty: Number(r.qty) || 1,
+      product: r.product_name || '', optRaw: r.option_name,
+      amount: Number(r.amount), qty: Number(r.qty) || 1,
       date: r.order_date, no: r.order_no, status: r.cs_status || ''
     }));
-    gbFeeFiles = [{ name: '쌓아둔 주문 ' + rows.length + '줄', rows: rows }];
-    gbFeeFileCampaign = '';
-    gbFeeRebuild();
-    if (box) box.innerHTML = '';
+    gbFeeLoadedNote = '쌓아둔 주문 ' + rows.length + '줄';
+    // 기간은 조회할 때 이미 걸렀으므로 여기서 또 자르지 않습니다.
+    gbFeeOutOfPeriod = 0;
+    gbFeeCompute(rows);
+    if (box) box.innerHTML = `<div class="gs-empty">${gbFeeLoadedNote}${gbFeeFrom || gbFeeTo ? ` · 기간 ${gbFeeFrom || '처음'} ~ ${gbFeeTo || '끝'}` : ''}</div>`;
   }
   window.gbFeeLoadFromDb = gbFeeLoadFromDb;
-
-  function gbFeePickFileCampaign(key) {
-    gbFeeFileCampaign = key;
-    gbFeeRebuild();
-  }
-  window.gbFeePickFileCampaign = gbFeePickFileCampaign;
-
-  function renderGbFeeFiles() {
-    const list = document.getElementById('gbFeeFileList');
-    const pick = document.getElementById('gbFeeCampaignPick');
-    if (!list || !pick) return;
-    list.innerHTML = gbFeeFiles.length
-      ? `<div class="gs-empty">올린 파일 ${gbFeeFiles.length}개 · ${gbFeeFiles.map((f) => escapeAttr(f.name)).join(', ')}</div>`
-      : '';
-    // 파일에 공구가 하나뿐이고 고른 공구와 맞으면 굳이 고르게 하지 않습니다.
-    if (gbFeeFileCampaigns.length <= 1) { pick.innerHTML = ''; return; }
-    // 이지어드민 확장주문검색처럼 자사몰 주문이 통째로 들어온 파일은 기획전이 71개씩 나옵니다.
-    // 그중 공구가 아닌 일반 상품 기획전이 대부분이라, 이름에 공동구매/공구가 든 것만 보여 줍니다.
-    const gbLike = gbFeeFileCampaigns.filter((c) => c.ours);
-    const shown = (gbLike.length ? gbLike : gbFeeFileCampaigns).slice(0, 20);
-    const hidden = (gbLike.length ? gbLike : gbFeeFileCampaigns).length - shown.length;
-    pick.innerHTML = '<div class="gs-empty">이 파일에 공구가 ' + shown.length +
-      '개 들어 있습니다. 정산할 공구를 고르세요.' +
-      (gbLike.length && gbLike.length < gbFeeFileCampaigns.length
-        ? ` (${gbFeeTeamKnown ? GB_FEE_TEAM + ' 건이 아닌' : '공구가 아닌'} 기획전 ${gbFeeFileCampaigns.length - gbLike.length}개는 숨겼습니다)` : '') +
-      '<br>' +
-      shown.map((c) => {
-        const on = c.key === gbFeeFileCampaign;
-        return `<button type="button" class="${on ? 'btn-primary' : 'filter-reset-btn'}" style="margin:4px 4px 0 0;"
-          onclick="gbFeePickFileCampaign('${escapeAttr(c.key)}')">${escapeAttr(c.name)} (${c.rows.length}줄)</button>`;
-      }).join('') +
-      (hidden > 0 ? `<br><span style="opacity:.7">줄 수가 적은 ${hidden}개는 숨겼습니다. 공구명을 파일과 같게 적으면 자동으로 잡힙니다.</span>` : '') +
-      '</div>';
-  }
 
   function gbFeeCompute(rows) {
     const rateByKey = new Map(gbFeeRates.filter((r) => r.campaign === gbFeeCampaign).map((r) => [r.option_key, r]));
@@ -13205,16 +12908,14 @@
     if (!gbFeeDetail.length) {
       panel.style.display = 'none';
       // 공구를 아직 안 고른 상태면 위 선택 버튼이 이미 안내하고 있으므로 겹쳐 쓰지 않습니다.
-      const needPick = gbFeeFileCampaigns.length > 1 && !gbFeeFileCampaign;
-      if (!bits.length && !needPick && gbFeeFiles.length) {
+      if (!bits.length && gbFeeLoadedNote) {
         warn.innerHTML = '<div class="gs-empty">계산할 주문을 찾지 못했습니다.</div>';
       }
       return;
     }
     panel.style.display = '';
     const T = gbFeeTotals();
-    const picked = gbFeeFileCampaigns.find((c) => c.key === gbFeeFileCampaign);
-    note.textContent = (picked ? picked.name + ' · ' : '') +
+    note.textContent = (gbFeeCampaign ? gbFeeCampaign + ' · ' : '') +
       `${gbFeePeriod()} · 주문 ${new Set(gbFeeDetail.map((d) => d.no)).size}건`;
     kpi.innerHTML = `
       <div class="kpi-card"><div class="kpi-label">판매수량</div><div class="kpi-value">${T.qty.toLocaleString('ko-KR')}개</div></div>
@@ -13242,16 +12943,14 @@
 
   function gbFeeResetRaw() {
     gbFeeDetail = []; gbFeeAgg = []; gbFeeSkipped = { cancelled: 0, unmatched: [] };
-    gbFeeFiles = []; gbFeeFileCampaigns = []; gbFeeFileCampaign = '';
+    gbFeeLoadedNote = '';
     // 공구를 바꿀 때도 불리므로 기간도 같이 비웁니다. 앞 공구 기간이 남아 있으면 헷갈립니다.
     gbFeeFrom = ''; gbFeeTo = ''; gbFeeOutOfPeriod = 0;
     ['gbFeeFrom', 'gbFeeTo'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
-    const input = document.getElementById('gbFeeRawInput');
-    if (input) input.value = '';
-    ['gbFeeWarnBox', 'gbFeeFileList', 'gbFeeCampaignPick', 'gbFeeStoreResult'].forEach((id) => {
+    ['gbFeeWarnBox', 'gbFeeStoreResult'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = '';
     });
@@ -13259,6 +12958,15 @@
     if (panel) panel.style.display = 'none';
   }
   window.gbFeeResetRaw = gbFeeResetRaw;
+
+  // 정산서 수취인 이름. 1단계에서 "정산 대상 업체명" 을 적어 두었으면 그것을 쓰고,
+  // 쌓아둔 주문에서 바로 고른 공구는 적어 둔 값이 없으므로 공구명에서 뽑아냅니다.
+  // "코드니처 X  데이원 공동구매" → "데이원". 못 뽑으면 공구명을 그대로 씁니다.
+  function gbFeePartnerName() {
+    if (gbFeePartner) return gbFeePartner;
+    const m = String(gbFeeCampaign || "").match(/[xX×]s*(.+?)s*공동구매s*$/);
+    return (m && m[1].trim()) || gbFeeCampaign;
+  }
 
   // ---- 정산 목록(settlements)에 기록 ----
   // 요율을 고치고 다시 계산해서 또 누르는 일이 흔하므로, (구분·정산 대상·기간)이 같은 줄이
@@ -13275,7 +12983,7 @@
       !confirm(`요율이 없는 옵션 ${gbFeeSkipped.unmatched.length}개가 빠진 금액으로 기록됩니다. 그대로 기록할까요?`)) return;
 
     const T = gbFeeTotals();
-    const partner = gbFeePartner || gbFeeCampaign;
+    const partner = gbFeePartnerName();
     // 정산일은 정산 목록과 같은 규칙(종료일 + 14일)을 그대로 씁니다.
     const dueDate = settlementDueFromEnd(period.end);
 
@@ -13345,7 +13053,7 @@
     const T = gbFeeTotals();
     const period = gbFeePeriod();
     const orderCount = new Set(gbFeeDetail.map((d) => d.no)).size;
-    const partner = gbFeePartner || gbFeeCampaign;
+    const partner = gbFeePartnerName();
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 
     const NAVY = 'FF1F3864', LIGHT = 'FFEDF1F8', GREY = 'FFF7F7F9', LINE = 'FFE3E6EC';
