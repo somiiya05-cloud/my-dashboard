@@ -2849,6 +2849,28 @@
           </div>
         </section>
 
+        <section class="panel">
+          <div class="panel-head">
+            <h2>세금계산서 발행 요청</h2>
+            <span class="panel-note">거래 건을 "입금 완료"로 표시하면 여기에 쌓입니다 · 회계팀(tax@selfdiylab.com)에 보낼 요청서를 만듭니다</span>
+          </div>
+          <div class="qt-toolbar">
+            <button type="button" class="btn-primary" onclick="downloadTaxInvoiceSheet()">요청서 xlsx 내려받기</button>
+            <button type="button" class="btn-ghost" onclick="openTaxInvoiceMail()">메일 본문 만들기</button>
+            <span class="qt-items-line" id="taxInvoiceSummary"></span>
+          </div>
+          <div class="scroll-box">
+            <table>
+              <thead><tr>
+                <th style="width:34px;"></th><th>거래처</th><th>판매처 / 사업자등록번호</th><th>E-mail</th>
+                <th>품목 / 규격</th><th class="num">공급가액</th><th class="num">세액</th><th class="num">합계</th>
+                <th>신청자</th><th>비고</th>
+              </tr></thead>
+              <tbody id="taxInvoiceTable"></tbody>
+            </table>
+          </div>
+        </section>
+
       </div>
 
       <div id="processSubExport" style="display:none">
@@ -3403,6 +3425,35 @@
         <button type="button" class="btn-ghost" onclick="saveQuote(true)">저장 후 인쇄</button>
         <button type="button" class="btn-ghost" onclick="closeQuoteEditor()">닫기</button>
         <button type="button" class="btn-danger" id="qfDeleteBtn" style="margin-left:auto" onclick="deleteQuoteFromEditor()">삭제</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 세금계산서 발행 요청 메일 모달 -->
+  <div class="gs-modal-overlay" id="taxMailOverlay" style="display:none" onclick="if(event.target===this) closeTaxInvoiceMail()">
+    <div class="gs-modal qt-modal" style="max-width:720px;">
+      <button type="button" class="gs-modal-close" onclick="closeTaxInvoiceMail()">✕</button>
+      <div class="gs-modal-title">회계팀 메일 본문</div>
+      <div class="qt-items-line" style="margin-bottom:10px;">
+        내용을 고친 뒤 복사해서 다우오피스 메일에 붙여넣고, 요청서 xlsx를 첨부해 보내세요.
+      </div>
+      <div class="gs-modal-field">
+        <label>받는 사람</label>
+        <input type="text" id="taxMailTo" value="tax@selfdiylab.com">
+      </div>
+      <div class="gs-modal-field">
+        <label>제목</label>
+        <input type="text" id="taxMailSubject">
+      </div>
+      <div class="gs-modal-field">
+        <label>본문</label>
+        <textarea id="taxMailBody" rows="16" style="padding:9px; border:1px solid rgba(15,23,42,.14); border-radius:7px; font-size:13px; font-family:inherit; line-height:1.6; resize:vertical;"></textarea>
+      </div>
+      <div class="gs-modal-actions">
+        <button type="button" class="btn-primary" onclick="copyTaxInvoiceMail()">본문 복사</button>
+        <button type="button" class="btn-ghost" onclick="downloadTaxInvoiceSheet()">요청서 xlsx 내려받기</button>
+        <button type="button" class="btn-ghost" onclick="window.open('https://selfdiylab.daouoffice.com/app/mail','_blank','noopener')">다우오피스 메일 열기</button>
+        <button type="button" class="btn-ghost" onclick="closeTaxInvoiceMail()">닫기</button>
       </div>
     </div>
   </div>
@@ -4454,6 +4505,7 @@
     renderPartnerDealFormOptions();
     renderPartnerDealTable();
     renderQuoteTable();
+    renderTaxInvoiceTable();
   }
 
   function renderPartnerKpis() {
@@ -5257,6 +5309,237 @@
     renderQuoteTotals();
   }
   window.openQuoteEditorForDeal = openQuoteEditorForDeal;
+
+
+  // ==================== 세금계산서 발행 요청 ====================
+  // 거래 건을 "입금 완료"로 표시하면 여기에 쌓입니다.
+  // 회계팀에 보내는 월별 "세금계산서 발행 요청서.xlsx" 를 그 양식 그대로 만들고,
+  // 메일 본문 초안까지 만들어 줍니다. (발송은 다우오피스에서 직접 하십니다)
+
+  const TAX_MAIL_TO = 'tax@selfdiylab.com';
+  const TAX_DAOU_MAIL_URL = 'https://selfdiylab.daouoffice.com/app/mail';
+  // 요청서에서 쓰는 칸 순서 — 원본 엑셀과 열 위치를 맞춰야 그대로 복사해 붙일 수 있습니다.
+  // A는 비우고 B부터 M까지, N을 건너뛰고 O가 비고입니다.
+  const TAX_SHEET_COLS = ['', '순번', '신청일', '세금계산서\n작성일자', '사업자등록번호', '판매처', '매출처',
+    'E-mail 주소', '품목/규격', '공급가액', '세액', '합계', '신청자', '', '비고'];
+
+  let taxInvoiceRows = [];   // 화면에 그려진 줄 (사용자가 고친 값이 그대로 남습니다)
+
+  function taxToday() { return new Date().toISOString().slice(0, 10); }
+
+  // 거래 건 하나를 요청서 한 줄로 바꿉니다.
+  // 금액은 연결된 견적서를 먼저 보고, 없으면 거래 건에 적힌 공급가·세액을 씁니다.
+  function taxRowFromDeal(deal) {
+    const partner = partnerRows.find((p) => String(p.id) === String(deal.partner_id)) || {};
+    const linked = quoteRows.filter((q) => String(q.deal_id) === String(deal.id))
+      .sort((a, b) => String(b.quote_date).localeCompare(String(a.quote_date)));
+    const quote = linked[0] || null;
+    const items = quote ? quoteItemRows.filter((i) => i.quote_id === quote.id) : [];
+
+    const total = Number((quote ? quote.total_amount : deal.expected_amount) || 0);
+    const supply = quote && quote.supply_amount != null ? Number(quote.supply_amount)
+      : (deal.supply_amount != null ? Number(deal.supply_amount) : Math.round(total / 1.1));
+    const tax = quote && quote.tax_amount != null ? Number(quote.tax_amount)
+      : (deal.tax_amount != null ? Number(deal.tax_amount) : total - supply);
+
+    const itemText = items.length
+      ? (items.length > 1 ? `${items[0].product_name} 외 ${items.length - 1}건` : items[0].product_name)
+      : (quote && quote.subject) || deal.title || '';
+
+    return {
+      dealId: deal.id,
+      checked: true,
+      거래처: partner.name || '(삭제된 거래처)',
+      판매처: partner.invoice_name || partner.name || '',
+      매출처: partner.name || '',
+      사업자등록번호: partner.business_reg_no || '',
+      email: partner.email || '',
+      품목: itemText,
+      공급가액: supply,
+      세액: tax,
+      합계: total,
+      신청자: QUOTE_SUPPLIER.manager,
+      비고: deal.memo || '',
+      quoteNo: quote ? quote.quote_no : '',
+      // 사업자번호나 메일이 없으면 회계팀이 계산서를 못 끊으므로 표시해 둡니다.
+      missing: [!partner.business_reg_no ? '사업자등록번호' : null, !partner.email ? 'E-mail' : null].filter(Boolean),
+    };
+  }
+
+  function renderTaxInvoiceTable() {
+    const body = document.getElementById('taxInvoiceTable');
+    if (!body) return;
+    const waiting = partnerDealRows.filter((d) => d.stage === '입금 완료');
+
+    // 이미 그려 둔 줄의 수정 내용은 유지하고, 새로 들어온 건만 추가합니다.
+    const prev = new Map(taxInvoiceRows.map((r) => [r.dealId, r]));
+    taxInvoiceRows = waiting.map((d) => prev.get(d.id) || taxRowFromDeal(d));
+
+    body.innerHTML = taxInvoiceRows.length ? taxInvoiceRows.map((r, idx) => `
+      <tr${r.missing.length ? ' style="background:rgba(239,68,68,.04)"' : ''}>
+        <td style="text-align:center"><input type="checkbox" ${r.checked ? 'checked' : ''}
+          onchange="taxSetField(${idx}, 'checked', this.checked)"></td>
+        <td>${escapeAttr(r.거래처)}${r.quoteNo ? `<div class="qt-items-line">${escapeAttr(r.quoteNo)}</div>` : ''}</td>
+        <td>
+          <input type="text" class="inline-edit" value="${escapeAttr(r.판매처)}" onchange="taxSetField(${idx}, '판매처', this.value)">
+          <input type="text" class="inline-edit" value="${escapeAttr(r.사업자등록번호)}" placeholder="사업자등록번호"
+            onchange="taxSetField(${idx}, '사업자등록번호', this.value)">
+        </td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(r.email)}" placeholder="E-mail"
+          onchange="taxSetField(${idx}, 'email', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(r.품목)}" onchange="taxSetField(${idx}, '품목', this.value)"></td>
+        <td class="num">${quoteNumText(r.공급가액)}</td>
+        <td class="num">${quoteNumText(r.세액)}</td>
+        <td class="num"><b>${quoteNumText(r.합계)}</b></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(r.신청자)}" onchange="taxSetField(${idx}, '신청자', this.value)"></td>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(r.비고)}" onchange="taxSetField(${idx}, '비고', this.value)">
+          ${r.missing.length ? `<div class="qt-hint" style="color:#dc2626">${escapeAttr(r.missing.join('·'))} 없음 — 채워야 발행됩니다</div>` : ''}</td>
+      </tr>`).join('')
+      : '<tr><td colspan="10" class="gs-empty">입금 완료로 표시된 거래 건이 없습니다. 거래 건 관리에서 "입금 완료"를 눌러보세요.</td></tr>';
+
+    const on = taxInvoiceRows.filter((r) => r.checked);
+    const sum = (k) => on.reduce((s, r) => s + (Number(r[k]) || 0), 0);
+    document.getElementById('taxInvoiceSummary').textContent = on.length
+      ? `선택 ${on.length}건 · 공급가 ${quoteNumText(sum('공급가액'))}원 · 세액 ${quoteNumText(sum('세액'))}원 · 합계 ${quoteNumText(sum('합계'))}원`
+      : '';
+  }
+  window.renderTaxInvoiceTable = renderTaxInvoiceTable;
+
+  function taxSetField(idx, field, value) {
+    const r = taxInvoiceRows[idx];
+    if (!r) return;
+    r[field] = value;
+    if (field === '사업자등록번호' || field === 'email') {
+      r.missing = [!r.사업자등록번호 ? '사업자등록번호' : null, !r.email ? 'E-mail' : null].filter(Boolean);
+    }
+    renderTaxInvoiceTable();
+  }
+  window.taxSetField = taxSetField;
+
+  function taxSelected() {
+    const on = taxInvoiceRows.filter((r) => r.checked);
+    if (!on.length) { alert('요청서에 넣을 건을 하나 이상 선택해주세요.'); return null; }
+    return on;
+  }
+
+  // ---- 요청서 xlsx ----
+  // 회계팀이 쓰는 월별 양식과 열 위치를 똑같이 맞춥니다.
+  function downloadTaxInvoiceSheet() {
+    const on = taxSelected();
+    if (!on) return;
+    const now = new Date();
+    const title = `${now.getFullYear()}년 ${now.getMonth() + 1}월 세금계산서 발행 요청서`;
+    const today = taxToday();
+
+    const aoa = [];
+    aoa[0] = [];
+    aoa[1] = ['', title];
+    aoa[2] = [];
+    const head4 = []; head4[9] = '공급가합계'; head4[10] = '세액합계'; head4[11] = '총합계'; head4[12] = '비고';
+    aoa[3] = head4;
+    const sum = (k) => on.reduce((s, r) => s + (Number(r[k]) || 0), 0);
+    const head5 = []; head5[9] = sum('공급가액'); head5[10] = sum('세액'); head5[11] = sum('합계');
+    aoa[4] = head5;
+    aoa[5] = [];
+    aoa[6] = TAX_SHEET_COLS.slice();
+    on.forEach((r, i) => {
+      const row = [];
+      row[1] = i + 1;
+      row[2] = today;                 // 신청일
+      row[3] = today;                 // 세금계산서 작성일자
+      row[4] = r.사업자등록번호;
+      row[5] = r.판매처;
+      row[6] = r.매출처;
+      row[7] = r.email;
+      row[8] = r.품목;
+      row[9] = Number(r.공급가액) || 0;
+      row[10] = Number(r.세액) || 0;
+      row[11] = Number(r.합계) || 0;
+      row[12] = r.신청자;
+      row[14] = r.비고;
+      aoa.push(row);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 3 }, { wch: 5 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 22 }, { wch: 18 },
+      { wch: 26 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 8 }, { wch: 3 }, { wch: 30 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '발행요청');
+    XLSX.writeFile(wb, `${title}.xlsx`);
+  }
+  window.downloadTaxInvoiceSheet = downloadTaxInvoiceSheet;
+
+  // ---- 메일 본문 ----
+  function buildTaxInvoiceMailText(on) {
+    const now = new Date();
+    const ym = `${now.getFullYear()}년 ${now.getMonth() + 1}월`;
+    const sum = (k) => on.reduce((s, r) => s + (Number(r[k]) || 0), 0);
+    const lines = on.map((r, i) => {
+      const who = r.판매처 === r.매출처 ? r.판매처 : `${r.판매처} (매출처: ${r.매출처})`;
+      return `${i + 1}. ${who} / ${r.사업자등록번호 || '사업자등록번호 미확인'}\n` +
+        `   ${r.email || 'E-mail 미확인'}\n` +
+        `   ${r.품목} · 공급가 ${quoteNumText(r.공급가액)}원 / 세액 ${quoteNumText(r.세액)}원 / 합계 ${quoteNumText(r.합계)}원` +
+        (r.비고 ? `\n   비고: ${r.비고}` : '');
+    }).join('\n\n');
+
+    const subject = `[세금계산서 발행 요청] ${ym} · ${on.length}건 · 합계 ${quoteNumText(sum('합계'))}원`;
+    const body =
+      `안녕하세요, 영업팀 ${QUOTE_SUPPLIER.manager}입니다.\n\n` +
+      `아래 건 입금이 확인되어 세금계산서 발행을 요청드립니다.\n` +
+      `상세 내역은 첨부한 "${ym} 세금계산서 발행 요청서"를 확인 부탁드립니다.\n\n` +
+      `${lines}\n\n` +
+      `합계 — 공급가 ${quoteNumText(sum('공급가액'))}원 / 세액 ${quoteNumText(sum('세액'))}원 / 총 ${quoteNumText(sum('합계'))}원\n\n` +
+      `확인 후 발행 부탁드립니다. 감사합니다.`;
+    return { subject, body };
+  }
+
+  function openTaxInvoiceMail() {
+    const on = taxSelected();
+    if (!on) return;
+    const miss = on.filter((r) => r.missing.length);
+    if (miss.length && !confirm(
+      `${miss.length}건에 사업자등록번호나 E-mail이 없습니다.\n` +
+      `이대로 메일을 만들까요? (표에서 직접 채워 넣을 수 있습니다)`)) return;
+
+    const { subject, body } = buildTaxInvoiceMailText(on);
+    document.getElementById('taxMailTo').value = TAX_MAIL_TO;
+    document.getElementById('taxMailSubject').value = subject;
+    document.getElementById('taxMailBody').value = body;
+    document.getElementById('taxMailOverlay').style.display = 'flex';
+  }
+  window.openTaxInvoiceMail = openTaxInvoiceMail;
+
+  function closeTaxInvoiceMail() {
+    document.getElementById('taxMailOverlay').style.display = 'none';
+  }
+  window.closeTaxInvoiceMail = closeTaxInvoiceMail;
+
+  async function copyTaxInvoiceMail() {
+    const subject = document.getElementById('taxMailSubject').value;
+    const body = document.getElementById('taxMailBody').value;
+    const text = `제목: ${subject}\n\n${body}`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      // 클립보드 권한이 없으면 본문을 선택 상태로 만들어 직접 복사하게 합니다.
+      const el = document.getElementById('taxMailBody');
+      el.focus(); el.select();
+      alert('자동 복사가 막혀 있습니다. 본문을 선택해 두었으니 Ctrl+C 로 복사해주세요.');
+      return;
+    }
+    // 복사한 건은 "세금계산서" 단계로 넘겨 대기 목록에서 빠지게 합니다.
+    const on = taxInvoiceRows.filter((r) => r.checked);
+    if (confirm(`메일 본문을 복사했습니다.\n\n이 ${on.length}건을 "세금계산서" 단계로 넘길까요?\n(넘기면 위 대기 목록에서 빠집니다)`)) {
+      for (const r of on) {
+        const { error } = await client.from('partner_deals').update({ stage: '세금계산서' }).eq('id', r.dealId);
+        if (error) { alert('단계를 옮기지 못했습니다: ' + error.message); break; }
+      }
+      taxInvoiceRows = [];
+      closeTaxInvoiceMail();
+      await loadPartnerOverview();
+    }
+  }
+  window.copyTaxInvoiceMail = copyTaxInvoiceMail;
 
   // ---- 엑셀로 과거 견적서 한 번에 넣기 ----
   const QUOTE_IMPORT_COLUMNS = ['견적일', '거래처명', '구분', '건명', '과세구분', '품명', '항목명', '개수', '단가', '적요', '담당자', '전화번호', '상태'];
@@ -11625,9 +11908,13 @@
       });
     }
     detail.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.no < b.no ? -1 : 1)));
+    // 같은 옵션이 기간 중에 다른 값으로 팔리는 일이 있습니다(BEST 세트가 37,900 과 42,900 으로
+    // 섞여 들어온 공구가 있었습니다). 옵션명으로만 묶으면 정산서에서 공구판매가 × 수량이
+    // 판매금액과 안 맞아 업체가 검산할 수 없으므로, 값이 다르면 줄을 나눕니다.
     const map = {};
     detail.forEach((d) => {
-      const a = map[d.opt] = map[d.opt] || { opt: d.opt, unit: d.unit, rate: d.rate, qty: 0, amt: 0, fee: 0 };
+      const k = d.opt + '|' + d.unit + '|' + d.rate;
+      const a = map[k] = map[k] || { opt: d.opt, unit: d.unit, rate: d.rate, qty: 0, amt: 0, fee: 0 };
       a.qty += d.qty; a.amt += d.amt; a.fee += d.fee;
     });
     gbFeeDetail = detail;
