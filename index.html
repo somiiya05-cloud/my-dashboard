@@ -352,6 +352,25 @@
   /* display:flex 가 브라우저 기본 [hidden] 규칙을 이기므로 직접 숨겨줍니다 */
   .jw-task-detail[hidden] { display: none; }
   .jw-detail-label { font-size: 11px; font-weight: 800; color: #475569; margin-bottom: 3px; }
+  /* 이어가기 — 여러 날 걸리는 업무를 내일·모레로 늘리는 칸 */
+  .jw-carry-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .jw-carry-row input[type="date"] {
+    border: 1px solid rgba(15,23,42,.15); border-radius: 7px; padding: 5px 8px;
+    font-size: 12px; font-family: inherit; color: #0f172a; background: #fff;
+  }
+  .jw-carry-row input[type="date"]:focus { outline: 1px solid #4d7cfe; }
+  .jw-carry-quick {
+    border: 1px solid rgba(15,23,42,.15); background: #fff; color: #475569;
+    font-family: inherit; font-size: 11.5px; font-weight: 700;
+    border-radius: 999px; padding: 4px 10px; cursor: pointer; white-space: nowrap;
+  }
+  .jw-carry-quick:hover { border-color: rgba(77,124,254,.4); color: #3b63d4; }
+  .jw-carry-go {
+    border: 0; background: #4d7cfe; color: #fff; font-family: inherit;
+    font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 5px 13px; cursor: pointer;
+  }
+  .jw-carry-go:hover { background: #3b63d4; }
+  .jw-carry-go:disabled { background: #cbd5e1; cursor: default; }
   .jw-detail-hint { font-size: 10.5px; color: #94a3b8; margin-top: 3px; }
   /* 업무 기준 — 고칠 수 없는 내용이라 입력칸이 아니라 글로 보여줍니다 */
   .jw-criteria-text {
@@ -9962,6 +9981,9 @@
           ${gbBtn}
           <button type="button" class="jw-detail-btn${jwOpenDetailIds.has(t.id) ? ' open' : ''}"
             onclick="jwToggleDetail(${t.id})">업무목적</button>
+          ${isAdded ? `<button type="button" class="jw-detail-btn${jwOpenCarryIds.has(t.id) ? ' open' : ''}"
+            title="며칠에 걸쳐 하는 업무면 내일·모레까지 줄을 만들어 둡니다"
+            onclick="jwToggleCarry(${t.id})">이어가기</button>` : ''}
           <button type="button" class="jw-task-toggle-btn${staffDone ? ' active' : ''}"
             onclick="updateTaskDualStatus(${t.id}, 'staff', ${!staffDone})">담당자</button>
           <button type="button" class="jw-task-toggle-btn${leadDone ? ' active' : ''}" ${!staffDone ? 'disabled' : ''}
@@ -9976,7 +9998,7 @@
     const dragAttrs = movable
       ? ` draggable="true" onmousedown="jwDragArm(event)" ondragstart="jwDragStart(event, ${t.id})" ondragend="jwDragEnd()" ondragover="jwDragOver(event, ${t.id})" ondrop="jwDrop(event, ${t.id})"`
       : '';
-    return `<div class="jw-task-row-wrap" data-taskid="${t.id}"${dragAttrs}>${row}${isGroupbuy ? jwGroupbuyBannerHtml() : ''}${jwTaskCriteriaHtml(t)}${jwTaskDetailHtml(t)}</div>`;
+    return `<div class="jw-task-row-wrap" data-taskid="${t.id}"${dragAttrs}>${row}${isGroupbuy ? jwGroupbuyBannerHtml() : ''}${jwTaskCriteriaHtml(t)}${isAdded ? jwTaskCarryHtml(t) : ''}${jwTaskDetailHtml(t)}</div>`;
   }
 
   // ---- 직접 추가한 업무의 이름을 줄에서 바로 고치기 ----
@@ -10159,6 +10181,120 @@
     else jwOpenCriteriaIds.add(id);
     renderJwView();
   }
+
+  // ---- 이어가기 ----
+  // 며칠에 걸쳐 하는 업무를 내일·모레로 늘립니다. 이 화면은 "업무 한 줄 = 하루" 구조라
+  // 날짜마다 줄이 있어야 그날그날 따로 체크되고 주간 리포트에도 날짜별로 잡힙니다.
+  // 그래서 오늘 줄은 그대로 두고, 고른 날까지 같은 업무 줄을 새로 만듭니다.
+  const jwOpenCarryIds = new Set();
+
+  function jwCarryFrom(t) { return jwAddDays(t.due_date || jwSelectedDate(), 1); }
+
+  // 이미 같은 업무가 있는 날은 건너뜁니다 (한 날에 같은 줄이 두 개 생기면
+  // 할일 관리와 주간 리포트 숫자가 어긋납니다).
+  function jwCarryDates(t, until) {
+    const from = jwCarryFrom(t);
+    if (!until || until < from) return [];
+    const taken = new Set(currentTasks
+      .filter((x) => x.assignee === t.assignee && x.title === t.title)
+      .map((x) => x.due_date));
+    const out = [];
+    for (let d = from; d <= until && out.length < 60; d = jwAddDays(d, 1)) {
+      if (!taken.has(d)) out.push(d);
+    }
+    return out;
+  }
+
+  // 며칠 치가 새로 생기는지 누르기 전에 알려주는 한 줄.
+  function jwCarryHintText(t, until) {
+    const from = jwCarryFrom(t);
+    if (!until || until < from) return `${from} 이후 날짜를 골라주세요.`;
+    const dates = jwCarryDates(t, until);
+    if (!dates.length) return '고른 날짜에는 이미 같은 업무가 있습니다. 새로 만들 줄이 없습니다.';
+    return `${dates[0]} ~ ${dates[dates.length - 1]} · ${dates.length}일 치를 새로 만듭니다.`
+      + ' 오늘 줄은 그대로 두니, 오늘 한 만큼은 오늘 체크하세요.';
+  }
+
+  function jwTaskCarryHtml(t) {
+    const open = jwOpenCarryIds.has(t.id);
+    const from = jwCarryFrom(t);
+    // 화면이 주기적으로 다시 그려지므로(startJwLiveRefresh), 고른 날짜와 안내문을
+    // 그릴 때 값으로 넣습니다. JS로 나중에 채우면 다시 그릴 때 지워집니다.
+    const until = jwCarryUntil.get(t.id) || from;
+    return `
+      <div class="jw-task-detail" id="jwCarryBox${t.id}"${open ? '' : ' hidden'}>
+        <div>
+          <div class="jw-detail-label">이어가기</div>
+          <div class="jw-carry-row">
+            <span style="font-size:12px;color:#475569">며칠까지</span>
+            <input type="date" id="jwCarryUntil${t.id}" min="${escapeAttr(from)}"
+              value="${escapeAttr(until)}" oninput="jwCarryPick(${t.id}, this.value)">
+            <button type="button" class="jw-carry-quick" onclick="jwCarrySet(${t.id}, 1)">내일</button>
+            <button type="button" class="jw-carry-quick" onclick="jwCarrySet(${t.id}, 2)">모레</button>
+            <button type="button" class="jw-carry-go" id="jwCarryGo${t.id}" onclick="jwCarryTask(${t.id})"
+              ${jwCarryDates(t, until).length ? '' : 'disabled'}>이어가기</button>
+          </div>
+          <div class="jw-detail-hint" id="jwCarryHint${t.id}">${escapeAttr(jwCarryHintText(t, until))}</div>
+        </div>
+      </div>`;
+  }
+
+  function jwToggleCarry(id) {
+    if (jwOpenCarryIds.has(id)) jwOpenCarryIds.delete(id);
+    else jwOpenCarryIds.add(id);
+    renderJwView();
+  }
+  window.jwToggleCarry = jwToggleCarry;
+
+  // 고른 날짜는 여기 담아둡니다 — 화면을 다시 그려도 고른 값이 남게.
+  const jwCarryUntil = new Map();
+
+  function jwCarryPick(id, value) {
+    jwCarryUntil.set(id, value);
+    const t = currentTasks.find((x) => x.id === id);
+    const hint = document.getElementById('jwCarryHint' + id);
+    const go = document.getElementById('jwCarryGo' + id);
+    if (!t) return;
+    if (hint) hint.textContent = jwCarryHintText(t, value);
+    if (go) go.disabled = !jwCarryDates(t, value).length;
+  }
+  window.jwCarryPick = jwCarryPick;
+
+  function jwCarrySet(id, plus) {
+    const t = currentTasks.find((x) => x.id === id);
+    const el = document.getElementById('jwCarryUntil' + id);
+    if (!t || !el) return;
+    el.value = jwAddDays(t.due_date || jwSelectedDate(), plus);
+    jwCarryPick(id, el.value);
+  }
+  window.jwCarrySet = jwCarrySet;
+
+  async function jwCarryTask(id) {
+    const t = currentTasks.find((x) => x.id === id);
+    const el = document.getElementById('jwCarryUntil' + id);
+    if (!t || !el) return;
+    const dates = jwCarryDates(t, el.value);
+    if (!dates.length) return;
+    jwCarryUntil.delete(id);
+    // 그날 적은 메모·결과·댓글은 그날 것이라 가져오지 않습니다. 업무 자체만 옮깁니다.
+    const rows = dates.map((d) => ({
+      category: t.category, title: t.title, detail: t.detail,
+      priority: t.priority || '보통', assignee: t.assignee,
+      start_date: t.start_date || t.due_date, seq_no: t.seq_no,
+      status: '할일', due_date: d,
+    }));
+    const go = document.getElementById('jwCarryGo' + id);
+    if (go) { go.disabled = true; go.textContent = '만드는 중...'; }
+    const { error } = await client.from('team_tasks').insert(rows);
+    if (error) {
+      alert('이어가지 못했습니다: ' + error.message);
+      if (go) { go.disabled = false; go.textContent = '이어가기'; }
+      return;
+    }
+    jwOpenCarryIds.delete(id);
+    await loadTeamTasks();
+  }
+  window.jwCarryTask = jwCarryTask;
 
   function jwTaskDetailHtml(t) {
     const open = jwOpenDetailIds.has(t.id);
