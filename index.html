@@ -3388,6 +3388,7 @@
         <div class="panel-head">
           <h2>공구 현황</h2>
           <span class="panel-note" id="gbFeeOverviewNote"></span>
+          <button type="button" class="btn-primary" onclick="gbFeeFillSettlements()">끝난 공구 매출 정산 목록에 넣기</button>
           <button type="button" class="filter-reset-btn" onclick="gbFeeOpenDefaultRates()">영업팀 공통 기준표</button>
         </div>
         <div class="scroll-box">
@@ -12460,6 +12461,7 @@
   let gbFeeOutOfPeriod = 0;     // 기간 밖이라 뺀 줄 수
   let gbFeeSchedule = [];         // 공구 일정표(groupbuy_schedule) 중 우리 팀 건
   let gbFeeDays = [];             // 공구 × 날짜 매출 (뷰)
+  let gbFeeOverviewRows = [];     // 현황 표에 그린 줄 (일정 한 건 = 한 줄)
   // 컨텐츠팀 공구는 영업팀이 정산하는 건이 아닙니다. 일정표의 부서로 가립니다.
   const GB_FEE_TEAM = '영업팀';
 
@@ -12570,6 +12572,7 @@
         const qty = (a) => a.reduce((x, d) => x + Number(d.qty || 0), 0);
         rows.push({
           name: (inRange[0] || after[0] || {}).campaign || String(sc.influencer_name || '').split('/')[0].trim(),
+          who: w,   // 정산 목록의 "수아로움/루튼" 과 맞출 때 씁니다
           running: running, from: sc.start_date, to: sc.end_date,
           lines: cnt(inRange), qty: qty(inRange), amount: sum(inRange),
           afterLines: cnt(after), afterQty: qty(after), afterAmount: sum(after),
@@ -12593,6 +12596,7 @@
     rows.push(...left.values());
 
     rows.sort((a, b) => (b.running - a.running) || String(b.to).localeCompare(String(a.to)));
+    gbFeeOverviewRows = rows;   // 정산 목록 일괄 반영이 같은 줄을 씁니다
 
     const live = rows.filter((r) => r.running);
     const total = (r) => r.amount + r.afterAmount;
@@ -12938,8 +12942,11 @@
   }
   window.gbFeeLoadFromDb = gbFeeLoadFromDb;
 
-  function gbFeeCompute(rows) {
-    const rateByKey = new Map(gbFeeRates.filter((r) => gbFeeNameKey(r.campaign) === gbFeeNameKey(gbFeeCampaign)).map((r) => [r.option_key, r]));
+  // 어느 공구 요율로 계산할지 넘길 수 있게 해 둡니다. 화면은 지금 고른 공구로,
+  // 정산 목록 일괄 반영은 공구마다 돌려야 해서 필요합니다.
+  function gbFeeCompute(rows, campaign) {
+    const camp = campaign === undefined ? gbFeeCampaign : campaign;
+    const rateByKey = new Map(gbFeeRates.filter((r) => gbFeeNameKey(r.campaign) === gbFeeNameKey(camp)).map((r) => [r.option_key, r]));
     const detail = [];
     const unmatched = new Map();
     const fromDefault = new Map();  // 기준표에서 가져다 쓴 옵션
@@ -13110,6 +13117,78 @@
     const m = String(gbFeeCampaign || "").match(/[xX×]s*(.+?)s*공동구매s*$/);
     return (m && m[1].trim()) || gbFeeCampaign;
   }
+
+  // ---- 끝난 공구 매출을 정산 목록에 한 번에 넣기 ----
+  // 정산 목록에는 공구마다 줄이 이미 있습니다(일정에서 만들어집니다). 거기 매출·수수료만 채웁니다.
+  // 줄을 새로 만들지 않습니다 — 인플루언서명과 기간으로 찾아 그 줄에만 씁니다.
+  //
+  // 손으로 맞춰 둔 값을 덮으면 안 되므로, 매출이 이미 있거나 상태가 "완료" 인 줄은 건드리지
+  // 않고 따로 알려 줍니다. 계산이 다르면 사람이 보고 정해야 합니다.
+  async function gbFeeFillSettlements() {
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    const done = gbFeeOverviewRows.filter((r) => !r.running && !r.loose && (r.amount + r.afterAmount) > 0);
+    if (!done.length) { alert('끝난 공구가 없습니다.'); return; }
+
+    // 수수료까지 채우려면 주문줄이 필요합니다. 한 번만 가져와 공구별로 나눠 씁니다.
+    let lines = [], from = 0;
+    while (true) {
+      const { data, error } = await client.from('groupbuy_order_lines').select('*').order('id').range(from, from + 999);
+      if (error) { alert('주문을 불러오지 못했습니다: ' + error.message); return; }
+      lines = lines.concat(data || []);
+      if (!data || data.length < 1000) break;
+      from += 1000;
+    }
+    const st = await client.from('settlements').select('*').eq('category', '공동구매');
+    if (st.error) { alert('정산 목록을 불러오지 못했습니다: ' + st.error.message); return; }
+
+    const save = [gbFeeDetail, gbFeeAgg, gbFeeSkipped];
+    const plan = [], skip = [];
+    for (const r of done) {
+      // 현황에 보이는 기간(마감 후 물량까지)과 같은 범위로 셉니다.
+      const to = r.afterAmount ? r.afterTo : r.to;
+      const mine = lines
+        .filter((x) => gbFeeWhoOf(x.campaign) === r.who && x.order_date >= r.from && x.order_date <= to)
+        .map((x) => ({ product: x.product_name || '', optRaw: x.option_name, amount: Number(x.amount),
+          qty: Number(x.qty) || 1, date: x.order_date, no: x.order_no, status: x.cs_status || '' }));
+      gbFeeCompute(mine, r.name);
+      const fee = gbFeeAgg.reduce((s2, a) => s2 + a.fee, 0);
+      const rev = gbFeeAgg.reduce((s2, a) => s2 + a.amt, 0);
+      const unmatched = gbFeeSkipped.unmatched.length;
+
+      // 정산 목록에서 그 줄을 찾습니다. 인플루언서명은 "수아로움/루튼" 처럼 대행사가 붙습니다.
+      const hit = (st.data || []).filter((x) =>
+        gbFeeOptionKey(String(x.partner || '').split('/')[0]) === r.who && x.period_start === r.from);
+      if (!hit.length) { skip.push(`${r.name} — 정산 목록에 그 기간 줄이 없습니다`); continue; }
+      const row = hit[0];
+      if (row.status === '완료') { skip.push(`${r.name} — 이미 "완료" 라 두었습니다 (매출 ${Number(row.revenue || 0).toLocaleString('ko-KR')})`); continue; }
+      if (row.revenue != null) {
+        skip.push(`${r.name} — 매출이 이미 ${Number(row.revenue).toLocaleString('ko-KR')} 로 적혀 있습니다`
+          + (Number(row.revenue) === rev ? ' (계산과 같음)' : ` (계산은 ${rev.toLocaleString('ko-KR')})`));
+        continue;
+      }
+      plan.push({ id: row.id, name: r.name, partner: row.partner, rev: rev, fee: fee, unmatched: unmatched,
+        period: r.from + '~' + to, dup: hit.length > 1 });
+    }
+    gbFeeDetail = save[0]; gbFeeAgg = save[1]; gbFeeSkipped = save[2];
+
+    if (!plan.length) {
+      alert('새로 넣을 줄이 없습니다.\n\n' + (skip.join('\n') || '끝난 공구가 없습니다.'));
+      return;
+    }
+    const msg = plan.map((p) => `· ${p.partner} (${p.period})\n    매출 ${p.rev.toLocaleString('ko-KR')} / 수수료 ${p.fee.toLocaleString('ko-KR')}`
+      + (p.unmatched ? `  ⚠ 요율 없는 옵션 ${p.unmatched}개 빠짐` : '') + (p.dup ? '  ⚠ 같은 기간 줄이 여러 개' : '')).join('\n');
+    if (!confirm(`정산 목록 ${plan.length}줄에 매출·수수료를 넣습니다.\n\n${msg}\n\n`
+      + (skip.length ? `건너뜀 ${skip.length}건:\n${skip.join('\n')}\n\n` : '') + '넣을까요?')) return;
+
+    for (const p of plan) {
+      const { error } = await client.from('settlements')
+        .update({ revenue: p.rev, commission_amount: p.fee }).eq('id', p.id);
+      if (error) { alert('넣지 못했습니다: ' + error.message); return; }
+    }
+    alert(`정산 목록 ${plan.length}줄에 넣었습니다.` + (skip.length ? `\n\n건너뛴 ${skip.length}건:\n${skip.join('\n')}` : ''));
+    loadTeamSchedule();
+  }
+  window.gbFeeFillSettlements = gbFeeFillSettlements;
 
   // ---- 정산 목록(settlements)에 기록 ----
   // 요율을 고치고 다시 계산해서 또 누르는 일이 흔하므로, (구분·정산 대상·기간)이 같은 줄이
