@@ -13157,8 +13157,17 @@
       const ds = gbFeeDetail.map((d) => d.date).filter(Boolean).sort();
       const realFrom = ds[0] || r.from, realTo = ds[ds.length - 1] || to;
 
-      const hit = (st.data || []).filter((x) =>
-        gbFeeOptionKey(String(x.partner || '').split('/')[0]) === r.who && x.period_start === r.from);
+      // 인플루언서명으로 후보를 뽑고, 기간이 가장 많이 겹치는 줄을 고릅니다.
+      // 시작일이 똑같은지로 찾으면, 한 번 기간을 고친 뒤에는 다시 못 찾습니다
+      // (데이원 시작일을 08-26 → 08-27 로 고쳤더니 그 줄을 놓쳤습니다).
+      const ov = (a1, a2, b1, b2) => {
+        const s1 = a1 > b1 ? a1 : b1, s2 = a2 < b2 ? a2 : b2;
+        return s1 <= s2 ? (Date.parse(s2) - Date.parse(s1)) / 86400000 + 1 : 0;
+      };
+      const hit = (st.data || [])
+        .filter((x) => gbFeeOptionKey(String(x.partner || '').split('/')[0]) === r.who
+          && x.period_start && x.period_end && ov(r.from, to, x.period_start, x.period_end) > 0)
+        .sort((a, b) => ov(r.from, to, b.period_start, b.period_end) - ov(r.from, to, a.period_start, a.period_end));
       if (!hit.length) { skip.push(`${r.name} — 정산 목록에 그 기간 줄이 없습니다`); continue; }
       const row = hit[0];
       if (row.status === '완료') { skip.push(`${r.name} — 이미 "완료" 라 두었습니다 (매출 ${Number(row.revenue || 0).toLocaleString('ko-KR')})`); continue; }
@@ -13166,16 +13175,20 @@
       const patch = {};
       // 매출·수수료는 비어 있을 때만 씁니다. 손으로 맞춰 둔 값을 덮으면 안 됩니다.
       if (row.revenue == null) { patch.revenue = rev; patch.commission_amount = fee; }
-      // 기간은 실제 주문 기간으로 맞춥니다. 정산일은 계약으로 정한 날일 수 있어 두었습니다.
+      // 기간은 실제 주문 기간으로 맞춥니다.
       if (row.period_start !== realFrom) patch.period_start = realFrom;
       if (row.period_end !== realTo) patch.period_end = realTo;
+      // 정산일은 정산 목록과 같은 규칙(종료일 + 14일)으로 다시 셉니다.
+      const due = settlementDueFromEnd(realTo);
+      if (row.settlement_date !== due) patch.settlement_date = due;
 
       if (!Object.keys(patch).length) { skip.push(`${r.name} — 이미 맞게 들어 있습니다`); continue; }
       if (row.revenue != null && Number(row.revenue) !== rev) {
         skip.push(`${r.name} — 매출이 ${Number(row.revenue).toLocaleString('ko-KR')} 로 적혀 있는데 계산은 ${rev.toLocaleString('ko-KR')} 입니다 (기간만 고칩니다)`);
       }
       plan.push({ id: row.id, name: r.name, partner: row.partner, patch: patch, unmatched: unmatched,
-        was: row.period_start + '~' + row.period_end, now: realFrom + '~' + realTo, dup: hit.length > 1 });
+        was: row.period_start + '~' + row.period_end, now: realFrom + '~' + realTo,
+        wasDue: row.settlement_date || '(없음)', dup: hit.length > 1 });
     }
     gbFeeDetail = save[0]; gbFeeAgg = save[1]; gbFeeSkipped = save[2];
 
@@ -13187,11 +13200,12 @@
       const bits = [];
       if (p.patch.revenue != null) bits.push(`매출 ${p.patch.revenue.toLocaleString('ko-KR')} / 수수료 ${p.patch.commission_amount.toLocaleString('ko-KR')}`);
       if (p.patch.period_start || p.patch.period_end) bits.push(`기간 ${p.was} → ${p.now}`);
+      if (p.patch.settlement_date) bits.push(`정산일 ${p.wasDue} → ${p.patch.settlement_date} (종료일+14일)`);
       return `· ${p.partner}\n    ${bits.join('\n    ')}`
         + (p.unmatched ? `\n    ⚠ 요율 없는 옵션 ${p.unmatched}개 빠짐` : '')
         + (p.dup ? '\n    ⚠ 같은 기간 줄이 여러 개' : '');
     }).join('\n');
-    if (!confirm(`정산 목록 ${plan.length}줄을 고칩니다. 정산일은 그대로 둡니다.\n\n${msg}\n\n`
+    if (!confirm(`정산 목록 ${plan.length}줄을 고칩니다.\n\n${msg}\n\n`
       + (skip.length ? `건너뜀 ${skip.length}건:\n${skip.join('\n')}\n\n` : '') + '진행할까요?')) return;
 
     for (const p of plan) {
