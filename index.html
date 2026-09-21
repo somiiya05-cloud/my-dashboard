@@ -12610,9 +12610,9 @@
         <td>${r.running ? '<b style="color:#dc2626">진행 중</b>' : (r.loose ? '일정 없음' : '종료')}</td>
         <td style="text-align:left">${escapeAttr(r.name)}</td>
         <td style="white-space:nowrap">${r.from} ~ ${r.to}</td>
-        <td class="num">${r.lines ? r.lines.toLocaleString('ko-KR') + '줄' : '-'}</td>
-        <td class="num"><b>${r.amount ? r.amount.toLocaleString('ko-KR') : '아직 없음'}</b>${
-          r.afterAmount ? `<br><span style="opacity:.65;font-size:.85em">마감 후 ${r.afterTo} 까지 ${r.afterLines}줄 +${r.afterAmount.toLocaleString('ko-KR')}</span>` : ''}</td>
+        <td class="num">${(r.lines + r.afterLines) ? (r.lines + r.afterLines).toLocaleString('ko-KR') + '줄' : '-'}</td>
+        <td class="num"><b>${(r.amount + r.afterAmount) ? (r.amount + r.afterAmount).toLocaleString('ko-KR') : '아직 없음'}</b>${
+          r.afterAmount ? `<br><span style="opacity:.65;font-size:.85em">일정 내 ${r.amount.toLocaleString('ko-KR')} + 마감 후 ${r.afterTo} 까지 ${r.afterAmount.toLocaleString('ko-KR')}</span>` : ''}</td>
         <td>${(r.amount || r.afterAmount) ? `<button type="button" class="filter-reset-btn"
           onclick="gbFeeOpenCampaign('${escapeAttr(r.name)}','${r.from}','${to}')">정산하기</button>` : ''}</td>
       </tr>`;
