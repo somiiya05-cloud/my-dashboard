@@ -12834,6 +12834,16 @@
   const GB_FEE_DEFAULT = '(기본 요율)';
 
   // 상품명 앞에 붙는 "[코드니처]" 같은 머리표를 떼고 비교용 키를 만듭니다.
+  // 상품명을 낱말로 쪼갭니다. "[코드니처] 대형 텀블러 세척솔" → 대형 / 텀블러 / 세척솔
+  // 한 글자짜리는 아무 데나 걸려서 뺍니다.
+  function gbFeeProductTokens(name) {
+    return String(name || '')
+      .replace(/^\s*\[[^\]]*\]\s*/, '')
+      .split(/\s+/)
+      .map(gbFeeOptionKey)
+      .filter((t) => t.length >= 2);
+  }
+
   function gbFeeProductKey(name) {
     return gbFeeOptionKey(String(name || '').replace(/^\s*\[[^\]]*\]\s*/, ''));
   }
@@ -12844,12 +12854,19 @@
   // (27,900원은 기준표에 4줄이나 있습니다 — 하수구 1+1, 변기수조+하수구 1+1, 텀블러 SET, 세탁망 2개)
   // 그래도 여러 개면 요율이 모두 같을 때만 씁니다. 요율이 갈리면 사람이 정해야 하므로 되돌립니다.
   function gbFeeDefaultRate(unitPrice, productName) {
-    const defs = gbFeeRates.filter((r) => r.campaign === GB_FEE_DEFAULT && Number(r.unit_price) === unitPrice);
+    const defs = gbFeeRates.filter((r) => gbFeeNameKey(r.campaign) === gbFeeNameKey(GB_FEE_DEFAULT)
+      && Number(r.unit_price) === unitPrice);
     if (!defs.length) return null;
     let cand = defs;
-    const pk = gbFeeProductKey(productName);
-    if (pk) {
-      const narrowed = defs.filter((r) => gbFeeOptionKey(r.option_name).includes(pk));
+    // 상품명을 통짜로 비교하면 띄어쓰기가 조금만 달라도 안 붙습니다.
+    // RAW 상품명 "대형 텀블러 세척솔" 이 기준표 "대형 텀블러 전용 클리너 세척솔" 안에
+    // 통째로는 없기 때문입니다. 그래서 낱말 단위로 "전부 들어 있는가" 로 봅니다.
+    const toks = gbFeeProductTokens(productName);
+    if (toks.length) {
+      const narrowed = defs.filter((r) => {
+        const k = gbFeeOptionKey(r.option_name);
+        return toks.every((t) => k.includes(t));
+      });
       if (narrowed.length) cand = narrowed;
     }
     const rates = [...new Set(cand.map((r) => Number(r.commission_rate)))];
