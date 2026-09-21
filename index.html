@@ -2159,27 +2159,6 @@
 
       <section class="panel">
         <div class="panel-head">
-          <h2>상품별 물류 목록</h2>
-          <span class="panel-note" id="lgListNote"></span>
-        </div>
-        <div class="filter-group" style="margin-bottom: 12px;">
-          <input type="text" id="lgSearchInput" class="vendor-select" placeholder="상품명 검색" autocomplete="off">
-          <select id="lgBrandFilter" class="vendor-select"><option value="">브랜드 전체</option></select>
-          <select id="lgCenterFilter" class="vendor-select"><option value="">물류지 전체</option></select>
-          <select id="lgCourierFilter" class="vendor-select"><option value="">택배사 전체</option></select>
-        </div>
-        <div class="scroll-box">
-          <table>
-            <thead>
-              <tr><th>브랜드</th><th>상품명</th><th>물류지</th><th>택배사</th><th class="num">택배비</th><th class="num">합포가능수량</th><th>포장 단위</th><th class="num">완박 수량</th><th></th></tr>
-            </thead>
-            <tbody id="lgTable"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head">
           <h2>재고 연동 (이지어드민)</h2>
           <span class="panel-note" id="eiListNote"></span>
         </div>
@@ -2201,6 +2180,26 @@
         </div>
       </section>
 
+      <section class="panel">
+        <div class="panel-head">
+          <h2>상품별 물류 목록</h2>
+          <span class="panel-note" id="lgListNote"></span>
+        </div>
+        <div class="filter-group" style="margin-bottom: 12px;">
+          <input type="text" id="lgSearchInput" class="vendor-select" placeholder="상품명 검색" autocomplete="off">
+          <select id="lgBrandFilter" class="vendor-select"><option value="">브랜드 전체</option></select>
+          <select id="lgCenterFilter" class="vendor-select"><option value="">물류지 전체</option></select>
+          <select id="lgCourierFilter" class="vendor-select"><option value="">택배사 전체</option></select>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead>
+              <tr><th>브랜드</th><th>상품명</th><th>물류지</th><th>택배사</th><th class="num">택배비</th><th class="num">합포가능수량</th><th>포장 단위</th><th class="num">완박 수량</th><th></th></tr>
+            </thead>
+            <tbody id="lgTable"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
 
     <!-- 쿠팡 재고 화면만 글자를 키운다 (다른 화면 표에는 영향 없음) -->
