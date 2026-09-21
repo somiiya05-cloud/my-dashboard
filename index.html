@@ -3388,6 +3388,7 @@
         <div class="panel-head">
           <h2>공구 현황</h2>
           <span class="panel-note" id="gbFeeOverviewNote"></span>
+          <button type="button" class="filter-reset-btn" onclick="gbFeeOpenDefaultRates()">영업팀 공통 기준표</button>
         </div>
         <div class="scroll-box">
           <table class="table-center-head">
@@ -3396,11 +3397,10 @@
           </table>
         </div>
       </section>
-      <section class="panel">
+      <section class="panel" id="gbFeeRatePanel" style="display:none">
         <div class="panel-head">
           <h2>1단계 · 옵션 수수료율</h2>
-          <span class="panel-note" id="gbFeeRateWho">위 현황에서 "정산하기" 를 누르면 그 공구의 요율이 여기에 나옵니다.</span>
-          <button type="button" class="filter-reset-btn" onclick="gbFeeOpenDefaultRates()">영업팀 공통 기준표</button>
+          <span class="panel-note" id="gbFeeRateWho"></span>
         </div>
         <div id="gbFeeRateBox" style="display:none">
           <form class="deal-form" id="gbFeeRateForm">
@@ -12663,13 +12663,16 @@
     const table = document.getElementById('gbFeeRateTable');
     const upload = document.getElementById('gbFeeUploadPanel');
     if (!box || !table || !upload) return;
+    // 아무것도 안 고른 상태에서는 빈 껍데기만 남아 거슬리므로 1단계를 통째로 감춥니다.
+    // 기준표로 들어가는 버튼은 위 "공구 현황" 머리에 있습니다.
+    const panel = document.getElementById('gbFeeRatePanel');
+    if (panel) panel.style.display = gbFeeCampaign ? '' : 'none';
     box.style.display = gbFeeCampaign ? '' : 'none';
     const who = document.getElementById('gbFeeRateWho');
     if (who) {
-      who.textContent = gbFeeCampaign
-        ? (gbFeeCampaign === GB_FEE_DEFAULT ? '영업팀 공통 기준표를 보고 있습니다. 모든 공구가 이 요율로 계산됩니다.'
-          : gbFeeCampaign + ' — 이 공구만의 특약 요율')
-        : '위 현황에서 "정산하기" 를 누르면 그 공구의 요율이 여기에 나옵니다.';
+      who.textContent = gbFeeCampaign === GB_FEE_DEFAULT
+        ? '모든 공구가 이 요율로 계산됩니다. 다르게 합의한 옵션만 그 공구에 따로 넣으세요.'
+        : gbFeeCampaign + ' — 이 공구만의 특약 요율';
     }
     const rows = gbFeeRates.filter((r) => gbFeeNameKey(r.campaign) === gbFeeNameKey(gbFeeCampaign));
     const hasDefault = gbFeeRates.some((r) => r.campaign === GB_FEE_DEFAULT);
