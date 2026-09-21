@@ -2238,11 +2238,11 @@
                넓은 모니터에서도 값이 멀리 흩어지지 않게 한다 -->
           <table style="width:100%; table-layout:fixed">
             <colgroup>
-              <col style="width:28%"><col style="width:10%"><col style="width:12%">
-              <col style="width:10%"><col style="width:14%"><col style="width:13%"><col style="width:13%">
+              <col style="width:26%"><col style="width:9%"><col style="width:11%">
+              <col style="width:10%"><col style="width:11%"><col style="width:13%"><col style="width:10%"><col style="width:10%">
             </colgroup>
             <thead>
-              <tr><th>상품</th><th>상태</th><th class="num">판매가능</th><th class="num">입고권장</th><th>권장입고일</th><th class="num">최근 7일</th><th class="num">최근 30일</th></tr>
+              <tr><th>상품</th><th>상태</th><th class="num">판매가능</th><th class="num">입고권장</th><th class="num">본사재고</th><th>권장입고일</th><th class="num">최근 7일</th><th class="num">최근 30일</th></tr>
             </thead>
             <tbody id="rsNeedTable"></tbody>
           </table>
@@ -2257,8 +2257,8 @@
         <div class="scroll-box">
           <table style="width:100%; table-layout:fixed">
             <colgroup>
-              <col style="width:28%"><col style="width:10%"><col style="width:12%">
-              <col style="width:10%"><col style="width:40%">
+              <col style="width:26%"><col style="width:9%"><col style="width:11%">
+              <col style="width:10%"><col style="width:44%">
             </colgroup>
             <thead>
               <tr><th>상품</th><th>상태</th><th class="num">판매가능</th><th class="num">입고중</th><th>도착예정일</th></tr>
@@ -6535,6 +6535,48 @@
   // coupang_restock 테이블에 올립니다. 이 화면은 읽기만 합니다.
   const RESTOCK_BUFFER_DAYS = 2; // 소진예상일보다 며칠 앞당겨 권장할지
 
+  // 쿠팡 옵션ID → 이지어드민 상품코드. 이름이 서로 달라 자동으로 맞출 수 없어 직접 적어둔다.
+  // codes 가 둘 이상이면 세트 상품이라 가장 적은 재고를 본사재고로 본다(부족한 쪽이 병목).
+  const RESTOCK_EZ_MAP = {
+    '94837045688': ['S04977', 'S04978'], // 베개 2중 압축 세탁망, 그린+화이트 (그린+화이트 세트)
+    '94837045692': ['S04978'],           // 베개 2중 압축 세탁망, 화이트
+    '95911289377': ['S05614'],           // 목 라인 방패 세탁망, 화이트 L
+    '92378366787': ['S05215'],           // 그로우뮤즈 찰싹스, 남성용 블랙
+    '93468123471': ['S04917'],           // 킬파이어 가글 캔디 1개 (집중형)
+    '93468123473': ['S04917'],           // 킬파이어 가글 캔디 2개 (집중형)
+    '93129149485': ['S04893'],           // 통세탁 사계절 방수토퍼, 베이지 S/SS
+    // 데일리 풋쿠션 삭스 2종(92859326184 / 92859326173)은 칼로리삭스 중
+    // 어느 종류인지 확정되면 여기에 추가한다.
+  };
+
+  let restockEzStock = {}; // 상품코드 → 가용재고
+
+  async function loadRestockEzStock() {
+    const codes = [...new Set(Object.values(RESTOCK_EZ_MAP).flat())];
+    if (!codes.length) return;
+    const { data, error } = await client
+      .from('product_inventory')
+      .select('product_id,available_stock,stock')
+      .in('product_id', codes);
+    if (error) return;
+    restockEzStock = {};
+    (data || []).forEach((r) => {
+      // 가용재고가 비어 있으면(예전 수동 업로드분) 재고로 대신한다
+      restockEzStock[r.product_id] = r.available_stock != null ? r.available_stock : r.stock;
+    });
+  }
+
+  function restockEzCell(optionId) {
+    const codes = RESTOCK_EZ_MAP[optionId];
+    if (!codes) return '<span style="color:#94a3b8;">미연결</span>';
+    const vals = codes.map((c) => restockEzStock[c]).filter((v) => v != null);
+    if (!vals.length) return '-';
+    const n = Math.min(...vals);
+    const color = n <= 0 ? '#dc2626' : n < 50 ? '#d97706' : '';
+    const label = Number(n).toLocaleString('ko-KR');
+    return color ? `<span style="color:${color};font-weight:600;">${label}</span>` : label;
+  }
+
   function restockRecommendDate(syncedAt, availableDays) {
     if (!syncedAt || availableDays == null) return '-';
     const days = parseInt(availableDays, 10);
@@ -6638,7 +6680,10 @@
     const updatedEl = document.getElementById('rsUpdatedAt');
     const needNote = document.getElementById('rsNeedNote');
     const incomingNote = document.getElementById('rsIncomingNote');
-    const { data, error } = await client.from('coupang_restock').select('*');
+    const [{ data, error }] = await Promise.all([
+      client.from('coupang_restock').select('*'),
+      loadRestockEzStock(), // 본사재고(이지어드민)도 같이 읽어둔다
+    ]);
 
     if (error) {
       updatedEl.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
@@ -6675,11 +6720,12 @@
           <td>${restockStatusBadge(r.filter)}</td>
           <td class="num">${restockAvailable(r)}</td>
           <td class="num">${r.recommend || '-'}</td>
+          <td class="num">${restockEzCell(r.option_id)}</td>
           <td>${restockRecommendDate(r.synced_at, r.available_days)}</td>
           <td class="num">${restockNum(r.last_7d)}</td>
           <td class="num">${restockNum(r.last_30d)}</td>
         </tr>`).join('')
-      : '<tr><td colspan="7">입고 신청이 필요한 상품이 없습니다.</td></tr>';
+      : '<tr><td colspan="8">입고 신청이 필요한 상품이 없습니다.</td></tr>';
 
     incomingNote.textContent = `${incomingRows.length}개`;
     document.getElementById('rsIncomingTable').innerHTML = incomingRows.length
