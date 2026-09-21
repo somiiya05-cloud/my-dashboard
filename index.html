@@ -3546,9 +3546,10 @@
       <table class="qt-item-table">
         <thead><tr>
           <th style="width:38px;">도번</th><th>품명</th><th style="width:72px;">개수</th>
-          <th style="width:120px;">항목명</th><th style="width:92px;">단가</th>
-          <th style="width:92px;" title="원가 대시보드에서 자동으로 찾아옵니다">개당원가</th>
-          <th style="width:110px;">금액</th><th style="width:34px;"></th>
+          <th style="width:100px;">항목명</th><th style="width:88px;">단가</th>
+          <th style="width:88px;" title="원가 대시보드에서 자동으로 찾아옵니다">개당원가</th>
+          <th style="width:92px;" title="이 줄에만 붙는 물류비입니다. 건 전체에 붙는 비용은 아래 공통 물류비에 적으세요">물류비</th>
+          <th style="width:104px;">금액</th><th style="width:34px;"></th>
         </tr></thead>
         <tbody id="qfItemBody"></tbody>
       </table>
@@ -3560,7 +3561,7 @@
       <div class="qt-profit">
         <div class="qt-profit-head">
           <b>손익</b>
-          <label>물류비
+          <label title="품목 줄에 적은 물류비와 더해집니다. 건 전체에 한 번 붙는 비용만 여기에 적으세요">공통 물류비
             <input type="text" inputmode="numeric" id="qfLogistics" placeholder="0"
               oninput="gsFormatMoneyInput(this)" onchange="renderQuoteTotals()"></label>
           <label>경비율(%)
@@ -5175,6 +5176,9 @@
       <td><input class="qf-cost num" inputmode="numeric" value="${quoteNumText(item && item.unit_cost)}"
             placeholder="자동" title="비워 두면 원가 대시보드에서 찾아 채웁니다"
             oninput="gsFormatMoneyInput(this)" onchange="renderQuoteTotals()"></td>
+      <td><input class="qf-logi num" inputmode="numeric" value="${quoteNumText(item && item.logistics_cost)}"
+            placeholder="0" title="이 줄에만 붙는 물류비"
+            oninput="gsFormatMoneyInput(this)" onchange="renderQuoteTotals()"></td>
       <td class="qt-amount">-</td>
       <td><button type="button" class="btn-mini" title="이 줄을 지웁니다"
             onclick="this.closest('tr').remove(); renderQuoteTotals();">✕</button></td>`;
@@ -5243,6 +5247,7 @@
       const qtyRaw = gsMoneyValue(tr.querySelector('.qf-qty').value);
       const priceRaw = gsMoneyValue(tr.querySelector('.qf-price').value);
       const costRaw = gsMoneyValue(tr.querySelector('.qf-cost').value);
+      const logiRaw = gsMoneyValue(tr.querySelector('.qf-logi').value);
       const qty = qtyRaw === '' ? null : Number(qtyRaw);
       const unitPrice = priceRaw === '' ? null : Number(priceRaw);
       return {
@@ -5253,6 +5258,7 @@
         unit_price: unitPrice,
         // 원가는 견적 시점 값을 박아 둡니다. 나중에 원가가 바뀌어도 지난 손익이 흔들리지 않습니다.
         unit_cost: costRaw === '' ? null : Number(costRaw),
+        logistics_cost: logiRaw === '' ? null : Number(logiRaw),
         amount: qty != null && unitPrice != null ? qty * unitPrice : null
       };
     }).filter((i) => i.product_name);
@@ -5287,6 +5293,7 @@
       qty: Number(gsMoneyValue(tr.querySelector('.qf-qty').value)) || 0,
       unit_price: Number(gsMoneyValue(tr.querySelector('.qf-price').value)) || 0,
       unit_cost: Number(gsMoneyValue(tr.querySelector('.qf-cost').value)) || 0,
+      logistics_cost: Number(gsMoneyValue(tr.querySelector('.qf-logi').value)) || 0,
     }));
     const rateRaw = (document.getElementById('qfExpenseRate').value || '').replace(/[^0-9.]/g, '');
     const rate = rateRaw === '' ? QUOTE_EXPENSE_RATE : Number(rateRaw) / 100;
@@ -5625,7 +5632,10 @@
   function quoteProfit(items, logisticsCost, expenseRate) {
     const supply = items.reduce((s, i) => s + ((Number(i.qty) || 0) * (Number(i.unit_price) || 0)), 0);
     const cost = items.reduce((s, i) => s + ((Number(i.qty) || 0) * (Number(i.unit_cost) || 0)), 0);
-    const logistics = Number(logisticsCost) || 0;
+    // 물류비는 줄마다 다를 수 있습니다(히트유통은 500개 136,000원 / 1,000개 242,000원).
+    // 줄에 적은 값을 모두 더하고, 건 전체에 한 번 붙는 비용은 공통 물류비로 더합니다.
+    const itemLogistics = items.reduce((s, i) => s + (Number(i.logistics_cost) || 0), 0);
+    const logistics = itemLogistics + (Number(logisticsCost) || 0);
     const rate = Number.isFinite(Number(expenseRate)) ? Number(expenseRate) : QUOTE_EXPENSE_RATE;
     const vat = supply / QUOTE_VAT_DIVISOR;
     const expense = supply * rate;
@@ -7746,7 +7756,7 @@
   //   2. 검수에서 미충족('담당자 오류')이 나오면 기한 준수를 수정 완료 시각으로 다시 계산하고,
   //      바뀐 값은 history에 남깁니다.
   //   3. 기준 변경·추가 요청(scope)은 담당자 오류가 아니므로 정확도에서 깎지 않습니다.
-  //   4. 미래 마감·취소·해당없음은 그 주 평가에서 뺍니다.
+  //   4. 취소·해당없음과, 아직 마감이 안 왔고 손도 안 댄 건은 그 주 평가에서 뺍니다.
   //   5. 같은 이름이어도 업무 id가 다르면 다른 건입니다 (이월을 이름으로 병합하지 않습니다).
 
   const WR_ASSIGNEE = '전휘원';
@@ -7790,6 +7800,7 @@
   function wrKstStart(dateStr) { return new Date(dateStr + 'T00:00:00+09:00'); }
   function wrKstEnd(dateStr) { return new Date(dateStr + 'T23:59:59.999+09:00'); }
   function wrMD(dateStr) { return dateStr ? dateStr.slice(5).replace('-', '/') : ''; }
+  function wrDow(dateStr) { return '일월화수목금토'[new Date(dateStr + 'T00:00:00Z').getUTCDay()]; }
   // timestamptz -> datetime-local 입력칸 값 (한국 시간)
   function wrDtLocal(iso) {
     if (!iso) return '';
@@ -7819,7 +7830,12 @@
     await wrLoadWeek();
   }
 
-  function wrSelectWeek(ws) { wrWeekStart = ws; wrOpenGroups.clear(); wrOpenTasks.clear(); wrLoadWeek(); }
+  function wrSelectWeek(ws) {
+    wrWeekStart = ws;
+    document.getElementById('wrWeekSelect').value = ws;
+    wrOpenGroups.clear(); wrOpenTasks.clear();
+    wrLoadWeek();
+  }
   function wrSetSearch(v) { wrFilter.q = (v || '').trim(); wrRenderList(); }
   function wrSetOpenOnly(on) { wrFilter.openOnly = !!on; wrRenderList(); }
   function wrSetBucket(k) { wrFilter.bucket = wrFilter.bucket === k ? '' : k; wrRender(); }
@@ -7966,7 +7982,9 @@
       if (t.status === '해당없음') excluded = '해당 없음';
       else if (f.excluded_reason) excluded = f.excluded_reason;
       else if (!deadline) excluded = '완료기한 없음';
-      else if (deadline > cutoff) excluded = '미래 마감';
+      // 마감이 아직 안 온 건은 평가에서 뺍니다. 다만 담당자가 이미 끝냈다면
+      // 기한 내 완료가 맞으므로 실적으로 셉니다 (끝낸 일이 사라져 보이지 않게).
+      else if (deadline > cutoff && !staffDone) excluded = '미래 마감';
       if (!deadline) need.push('완료기한');
 
       // 기한 준수 — 검수 대기는 담당자 완료 시각으로 보므로 지연으로 잡히지 않습니다.
@@ -8286,7 +8304,7 @@
         const isOpen = wrOpenTasks.has(r.id);
         return `<tr class="wr-row-day" onclick="wrToggleTask(${r.id})">
           <td class="wr-c-caret">${isOpen ? '▾' : '▸'}</td>
-          <td class="wr-c-name"><span class="wr-name sub">${wrMD(r.date)}</span></td>
+          <td class="wr-c-name"><span class="wr-name sub">${wrMD(r.date)} <span class="wr-dim">(${wrDow(r.date)})</span></span></td>
           <td>${wrDeadlineText(r)}</td>
           <td>${wrStateBadge(r)}</td>
           <td>${wrEvidence(r)}</td>
@@ -8487,14 +8505,21 @@
       const notReviewed = key === 'accuracy'
         ? wrRows.filter((r) => !r.excluded && !r.reviewDone) : [];
 
+      // 충족·미충족 옆에 무엇을 보고 그렇게 판정했는지 한 줄로 붙입니다.
+      const why = (r, hit) => {
+        if (key === 'accuracy') return hit ? (WR_REVIEW_LABEL[r.f.review_result] || '') : '담당자 오류 · 재작업';
+        if (key === 'followup') {
+          return hit ? `확인기한 ${wrMD(r.f.followup_due)} · 기록 ${wrDtText(r.f.followup_done_at)}`
+            : (r.f.followup_done_at ? `기록 ${wrDtText(r.f.followup_done_at)} (확인기한 ${wrMD(r.f.followup_due)} 넘김)` : `확인기한 ${wrMD(r.f.followup_due)} · 기록 없음`);
+        }
+        const at = r.doneEff ? wrDtText(r.doneEff.toISOString()) : '';
+        if (hit) return `완료 ${at}`;
+        return r.staffDone ? `완료 ${at} (기한 넘김)` : '완료 기록 없음';
+      };
       sections = wrSection(`충족 ${k.num}건`,
-        k.hitRows.map((r) => wrMiniRow(r, key === 'accuracy'
-          ? (WR_REVIEW_LABEL[r.f.review_result] || '') : `완료 ${wrDtText(r.doneEff && r.doneEff.toISOString())}`)).join(''),
-        '없습니다.')
+        k.hitRows.map((r) => wrMiniRow(r, why(r, true))).join(''), '없습니다.')
         + wrSection(`미충족 ${k.missRows.length}건`,
-          k.missRows.map((r) => wrMiniRow(r, key === 'accuracy' ? '담당자 오류 · 재작업'
-            : (r.staffDone ? `완료 ${wrDtText(r.doneEff && r.doneEff.toISOString())} (기한 넘김)` : '완료 기록 없음'))).join(''),
-          '없습니다.')
+          k.missRows.map((r) => wrMiniRow(r, why(r, false))).join(''), '없습니다.')
         + wrSection(`값이 없어 뺀 건 ${k.needRows.length}건`,
           k.needRows.map((r) => wrMiniRow(r, r.need.join(' · ') + ' 입력 필요')).join(''),
           '없습니다.')
