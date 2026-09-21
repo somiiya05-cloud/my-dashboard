@@ -801,119 +801,92 @@
   }
 
   /* ---- 주간 리포트 ---- */
-  /* KPI 카드 5개 */
-  .wr-kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 18px; }
-  .wr-kpi {
-    background: #ffffff; border: 1px solid rgba(15,23,42,.07); border-top: 3px solid #cbd5e1;
-    border-radius: 12px; padding: 14px 16px 13px; text-align: left; font-family: inherit;
-    cursor: pointer; transition: box-shadow .12s, border-color .12s;
+  /* 상단 요약 4칸 — 카드 높이와 여백을 줄여 한눈에 들어오게 */
+  .wr-sum-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .wr-sum {
+    background: #ffffff; border: 1px solid rgba(15,23,42,.07); border-radius: 10px; padding: 11px 14px;
   }
-  .wr-kpi:hover { box-shadow: 0 4px 14px rgba(15,23,42,.09); }
-  .wr-kpi.hit { border-top-color: #1d4ed8; }
-  .wr-kpi.miss { border-top-color: #dc2626; }
-  .wr-kpi.none { border-top-color: #cbd5e1; }
-  .wr-kpi-label { font-size: 11.5px; font-weight: 700; color: #64748b; }
-  .wr-kpi-value { font-size: 28px; font-weight: 800; color: #0f172a; line-height: 1.15; margin-top: 4px; font-variant-numeric: tabular-nums; }
-  .wr-kpi-value span { font-size: 15px; margin-left: 1px; }
-  .wr-kpi.hit .wr-kpi-value { color: #1d4ed8; }
-  .wr-kpi.miss .wr-kpi-value { color: #b91c1c; }
-  .wr-kpi.none .wr-kpi-value { font-size: 20px; color: #94a3b8; }
-  .wr-kpi-goal { font-size: 11px; color: #64748b; margin-top: 4px; }
-  .wr-kpi-calc { font-size: 11px; color: #94a3b8; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .wr-kpi-warn { font-size: 11px; color: #b45309; margin-top: 3px; font-weight: 700; }
+  .wr-sum-label { font-size: 11.5px; font-weight: 700; color: #64748b; }
+  .wr-sum-num { font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1.2; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .wr-sum-num span { font-size: 14px; margin-left: 1px; }
+  .wr-sum.rate { border-left: 3px solid #1d4ed8; }
+  .wr-sum.rate .wr-sum-num { color: #1d4ed8; }
+  .wr-sum.rate.none .wr-sum-num { font-size: 17px; color: #94a3b8; }
+  .wr-sum.done { border-left: 3px solid #16a34a; }
+  .wr-sum.done .wr-sum-num { color: #15803d; }
+  .wr-sum.wait { border-left: 3px solid #ea580c; }
+  .wr-sum.wait .wr-sum-num { color: #c2410c; }
+  .wr-sum.open { border-left: 3px solid #dc2626; }
+  .wr-sum.open .wr-sum-num { color: #b91c1c; }
+  .wr-sum-sub { font-size: 10.5px; color: #94a3b8; margin-top: 2px; }
 
-  /* 먼저 확인할 업무 */
-  .wr-bucket-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-  .wr-bucket {
-    background: #f8fafc; border: 1px solid rgba(15,23,42,.08); border-radius: 10px;
-    padding: 11px 13px; text-align: left; font-family: inherit; cursor: pointer;
-    transition: box-shadow .12s, border-color .12s;
+  /* 데일리업무 주간표 */
+  .wr-grid { width: 100%; border-collapse: collapse; font-size: 12.5px; color: #0f172a; }
+  .wr-grid th {
+    font-size: 11px; font-weight: 700; color: #64748b; padding: 6px 8px;
+    border-bottom: 1px solid rgba(15,23,42,.1); text-align: center; white-space: nowrap;
   }
-  .wr-bucket:hover { box-shadow: 0 2px 10px rgba(15,23,42,.08); }
-  .wr-bucket.active { border-color: #1d4ed8; box-shadow: inset 0 0 0 1px #1d4ed8; background: rgba(37,99,235,.05); }
-  .wr-bucket-label { font-size: 11.5px; font-weight: 700; color: #64748b; }
-  .wr-bucket-num { font-size: 21px; font-weight: 800; color: #0f172a; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .wr-bucket.warn .wr-bucket-num { color: #b91c1c; }
-  .wr-bucket.zero .wr-bucket-num { color: #94a3b8; }
+  .wr-grid th.name { text-align: left; min-width: 190px; }
+  .wr-grid td { padding: 4px 8px; border-bottom: 1px solid #f1f5f9; text-align: center; }
+  .wr-grid td.name { text-align: left; font-weight: 600; }
+  .wr-grid tr:hover > td { background: rgba(15,23,42,.02); }
+  .wr-grid td.tally { font-size: 11.5px; color: #64748b; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .wr-grid td.tally b { color: #0f172a; }
 
-  /* 태그 필터 줄 */
-  .wr-tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-  .wr-tagbtn {
-    font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 4px 11px; cursor: pointer;
-    border: 1px solid rgba(15,23,42,.12); background: #ffffff; color: #64748b; font-family: inherit;
+  .wr-cell {
+    width: 30px; height: 26px; border: 0; border-radius: 7px; background: transparent;
+    font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer; line-height: 1;
   }
-  .wr-tagbtn:hover { border-color: rgba(29,78,216,.4); color: #1d4ed8; }
-  .wr-tagbtn.active { background: #1d4ed8; border-color: #1d4ed8; color: #ffffff; }
-  .wr-chk { font-size: 12.5px; color: #475569; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .wr-cell:hover { background: rgba(15,23,42,.06); }
+  .wr-cell.on { box-shadow: inset 0 0 0 2px #1d4ed8; }
+  .wr-cell.done { color: #16a34a; }
+  .wr-cell.wait { color: #ea580c; }
+  .wr-cell.open { color: #dc2626; }
+  .wr-cell.na { color: #cbd5e1; }
+  .wr-cell.future, .wr-cell.none { color: #cbd5e1; font-size: 10px; font-weight: 600; cursor: default; }
+  .wr-cell.future:hover, .wr-cell.none:hover { background: transparent; }
 
-  /* 업무별 통합 목록 */
-  .wr-table { width: 100%; border-collapse: collapse; font-size: 12.5px; color: #0f172a; }
-  .wr-table th {
-    text-align: left; font-size: 11px; font-weight: 700; color: #64748b;
-    padding: 7px 9px; border-bottom: 1px solid rgba(15,23,42,.1); white-space: nowrap;
+  .wr-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; color: #64748b; margin-bottom: 10px; }
+  .wr-legend b { font-weight: 700; margin-right: 3px; }
+  .wr-legend .done { color: #16a34a; }
+  .wr-legend .wait { color: #ea580c; }
+  .wr-legend .open { color: #dc2626; }
+  .wr-legend .na { color: #94a3b8; }
+
+  /* 추가 · 긴급 업무 (작은 별도 목록) */
+  .wr-extra { width: 100%; border-collapse: collapse; font-size: 12.5px; color: #0f172a; }
+  .wr-extra th {
+    font-size: 11px; font-weight: 700; color: #64748b; padding: 6px 8px;
+    border-bottom: 1px solid rgba(15,23,42,.1); text-align: left; white-space: nowrap;
   }
-  .wr-table td { padding: 8px 9px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
-  .wr-table tr.wr-row-group > td { background: #fbfcfe; cursor: pointer; }
-  .wr-table tr.wr-row-group:hover > td { background: #f4f7fd; }
-  .wr-table tr.wr-row-day > td { cursor: pointer; }
-  .wr-table tr.wr-row-day:hover > td { background: rgba(15,23,42,.02); }
-  .wr-table td.wr-c-caret { width: 20px; color: #94a3b8; font-size: 10px; padding-right: 0; }
-  .wr-table td.wr-c-name { min-width: 200px; }
-  .wr-name { font-weight: 700; }
-  .wr-name.sub { font-weight: 600; padding-left: 16px; color: #334155; }
-  .wr-dim { color: #94a3b8; }
-  .wr-need { color: #b45309; font-weight: 700; }
-  .wr-nums { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .wr-extra td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; }
+  .wr-extra tr.row:hover > td { background: rgba(15,23,42,.02); cursor: pointer; }
+  .wr-extra td.name { font-weight: 600; }
+  .wr-extra td.date { font-variant-numeric: tabular-nums; white-space: nowrap; color: #64748b; width: 110px; }
+  .wr-caret { color: #94a3b8; font-size: 10px; margin-right: 5px; }
 
+  .wr-state { font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 8px; white-space: nowrap; background: #f1f5f9; color: #64748b; }
+  .wr-state.done { background: rgba(22,163,74,.12); color: #15803d; }
+  .wr-state.wait { background: rgba(234,88,12,.12); color: #c2410c; }
+  .wr-state.open { background: #fef2f2; color: #b91c1c; }
+  .wr-state.na { background: #f1f5f9; color: #94a3b8; }
   .wr-tag { font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 7px; margin-left: 5px; white-space: nowrap; }
   .wr-tag.urgent { background: #fef2f2; color: #b91c1c; }
-  .wr-tag.added { background: rgba(124,58,237,.1); color: #6d28d9; }
-  .wr-tag.req { background: rgba(217,119,6,.12); color: #b45309; }
-  .wr-tag.improve { background: rgba(22,163,74,.12); color: #15803d; }
   .wr-tag.days { background: rgba(29,78,216,.1); color: #1d4ed8; }
 
-  .wr-state { font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 8px; background: #f1f5f9; color: #64748b; white-space: nowrap; }
-  .wr-state.done { background: rgba(21,128,61,.1); color: #15803d; }
-  .wr-state.review { background: rgba(217,119,6,.12); color: #b45309; }
-  .wr-state.late { background: #fef2f2; color: #b91c1c; }
-  .wr-state.wait { background: rgba(124,58,237,.1); color: #6d28d9; }
-  .wr-state.off { background: #f1f5f9; color: #94a3b8; }
-
-  /* 펼친 업무의 상세 (목적 · 진행기록 · 댓글 · 입력칸) */
-  .wr-detail { background: #fbfcfe; border-left: 3px solid #dbe4f5; padding: 12px 14px; }
-  .wr-detail-h { font-size: 11px; font-weight: 800; color: #64748b; margin: 0 0 5px; }
-  .wr-detail-sec { margin-bottom: 12px; }
+  /* 셀·줄을 누르면 그날 기록만 펼쳐집니다 (기본 화면에는 긴 글을 두지 않습니다) */
+  .wr-detail { background: #fbfcfe; border-left: 3px solid #dbe4f5; padding: 10px 13px; text-align: left; }
+  .wr-detail-h { font-size: 11px; font-weight: 800; color: #64748b; margin: 0 0 4px; }
+  .wr-detail-sec { margin-bottom: 9px; }
   .wr-detail-sec:last-child { margin-bottom: 0; }
-  .wr-form { display: flex; flex-wrap: wrap; gap: 9px; }
-  .wr-field { display: flex; flex-direction: column; gap: 3px; }
-  .wr-field > label { font-size: 10.5px; font-weight: 700; color: #64748b; }
-  .wr-field input, .wr-field select {
-    padding: 5px 7px; border: 1px solid rgba(15,23,42,.14); border-radius: 6px;
-    font-size: 12px; font-family: inherit; color: #0f172a; background: #ffffff;
-  }
-  .wr-field input:focus, .wr-field select:focus { outline: 1px solid #4d7cfe; }
-  .wr-field.flag { flex-direction: row; align-items: center; gap: 5px; padding-top: 15px; }
-  .wr-hist { font-size: 11px; color: #94a3b8; margin-top: 7px; line-height: 1.6; }
-
-  /* 기존 업무 기록 표시 (목적 · 댓글) — 이전 리포트와 같은 모양 */
-  .wr-list { margin: 0; padding-left: 0; list-style: none; }
-  .wr-list li { padding: 7px 2px; border-bottom: 1px solid #f1f5f9; font-size: 12.5px; color: #0f172a; }
-  .wr-item-date { font-size: 11px; font-weight: 700; color: #94a3b8; margin-right: 7px; font-variant-numeric: tabular-nums; }
-  .wr-empty { font-size: 12px; color: #94a3b8; padding: 8px 2px; }
-  .wr-note-purpose { font-size: 12px; color: #475569; line-height: 1.6; }
-  .wr-cmt { font-size: 12px; color: #3b63d4; margin-top: 4px; line-height: 1.6; }
+  .wr-empty { font-size: 12px; color: #94a3b8; }
+  .wr-text { font-size: 12px; color: #475569; line-height: 1.6; }
+  .wr-cmt { font-size: 12px; color: #3b63d4; margin-top: 3px; line-height: 1.6; }
   .wr-cmt.lead { color: #be185d; }
   .wr-cmt.reply { padding-left: 14px; }
   .wr-cmt b { margin-right: 5px; }
-
-  /* KPI 카드를 누르면 열리는 산출 내역 */
-  .wr-modal-h { font-size: 15px; font-weight: 800; color: #0f172a; margin: 0 0 3px; padding-right: 26px; }
-  .wr-modal-sub { font-size: 11.5px; color: #64748b; margin-bottom: 12px; line-height: 1.6; }
-  .wr-modal-scroll { max-height: 54vh; overflow-y: auto; }
-  .wr-mrow { display: flex; gap: 8px; align-items: baseline; font-size: 12px; padding: 5px 2px; border-bottom: 1px solid #f1f5f9; }
-  .wr-mrow .wr-item-date { flex: none; width: 38px; margin: 0; }
-  .wr-mrow-name { flex: 1; min-width: 0; }
-  .wr-mrow-why { flex: none; font-size: 11px; color: #94a3b8; }
+  .wr-day-h { font-size: 11.5px; font-weight: 800; color: #1d4ed8; margin: 8px 0 3px; }
+  .wr-day-h:first-child { margin-top: 0; }
 
   /* ---- 자사몰 검수 ---- */
   .ma-table { width: 100%; border-collapse: collapse; font-size: 13px; color: #1e293b; min-width: 720px; }
@@ -3251,39 +3224,36 @@
           <div class="subtitle" id="wrSubtitle">불러오는 중...</div>
         </div>
         <div class="topbar-right">
-          <input id="wrSearch" class="vendor-select" type="search" placeholder="업무 검색" oninput="wrSetSearch(this.value)">
-          <label class="wr-chk"><input type="checkbox" id="wrOpenOnly" onchange="wrSetOpenOnly(this.checked)">미완료만</label>
           <select id="wrWeekSelect" class="month-select" onchange="wrSelectWeek(this.value)"></select>
-          <button type="button" class="btn-ghost" onclick="wrOpenTargets()">목표 수정</button>
         </div>
       </div>
 
-      <div id="wrKpiRow" class="wr-kpi-row"></div>
+      <div id="wrSummary" class="wr-sum-row"></div>
 
       <section class="panel">
         <div class="panel-head">
-          <h2>먼저 확인할 업무</h2>
-          <div class="panel-note" id="wrTotalNote"></div>
+          <h2>데일리업무 주간표</h2>
+          <div class="panel-note" id="wrGridNote"></div>
         </div>
-        <div id="wrBuckets" class="wr-bucket-row"></div>
+        <div class="wr-legend">
+          <span><b class="done">✓</b>완수</span>
+          <span><b class="wait">◐</b>확인 대기</span>
+          <span><b class="open">○</b>미완료</span>
+          <span><b class="na">—</b>해당 없음</span>
+          <span><b class="na">예정</b>미래 날짜</span>
+          <span><b class="na">·</b>기록 없음</span>
+        </div>
+        <div id="wrGrid"><div class="gs-empty">불러오는 중...</div></div>
       </section>
 
       <section class="panel">
         <div class="panel-head">
-          <h2>업무별 통합 목록</h2>
-          <div class="panel-note" id="wrListNote"></div>
+          <h2>추가 · 긴급 업무</h2>
+          <div class="panel-note" id="wrExtraNote"></div>
         </div>
-        <div id="wrTagFilters" class="wr-tag-row"></div>
-        <div id="wrBody"><div class="gs-empty">불러오는 중...</div></div>
+        <div id="wrExtra"></div>
       </section>
     </main>
-
-    <div class="gs-modal-overlay" id="wrModalOverlay" style="display:none" onclick="if(event.target===this) wrCloseModal()">
-      <div class="gs-modal" style="max-width:640px">
-        <button type="button" class="gs-modal-close" onclick="wrCloseModal()">✕</button>
-        <div id="wrModalBody"></div>
-      </div>
-    </div>
 
     <main class="main" id="teamWeeklyView" style="display:none">
       <div class="topbar">
@@ -7739,47 +7709,29 @@
   let mallRegIndex = null;   // 품번 -> { 상품명, 브랜드, 상태, 몰: [...] }
 
   // ==================== 주간 리포트 ====================
-  // 화면을 열 때 그 주 데이터를 직접 읽어 계산합니다. 값을 채워 넣으면 수치가 바로 다시 잡힙니다.
-  //   · team_tasks               업무 · 상태 · 마감일 · 결과·증빙 (기존 그대로)
-  //   · weekly_task_facts        완료기한 · 완료시각 · 검수결과 · 필수조치 · 후속 확인일 (weekly_task_facts.sql)
-  //   · weekly_kpi_settings      KPI 목표 · 필수조치 판정 낱말
-  //   · team_task_daily_purposes / team_task_comments   업무 목적 · 댓글 (기존 그대로)
+  // 할일 관리의 담당자·파트장 체크를 그대로 읽어 보여줍니다. 별도 표나 입력칸은 없습니다.
+  //   · team_tasks.status  할일 → (담당자 체크) 검수대기 → (파트장 체크) 확인완료 / 해당없음
+  //     업무는 (업무명 + 날짜)마다 한 줄이라 체크는 날짜별로 따로 남고,
+  //     할일 관리와 주간 리포트가 같은 줄을 보므로 두 화면 값이 항상 같습니다.
+  //   · team_task_daily_purposes · team_task_comments   업무 목적 · 댓글 (기존 그대로)
   //
-  // 집계 기준
-  //   1. 담당자 완료 시각(done_at)과 파트장 검수 시각(reviewed_at)을 나눠 봅니다.
-  //      기한 준수는 done_at만 보므로 검수가 늦어도 담당자 지연으로 잡히지 않습니다.
-  //   2. 검수에서 미충족('담당자 오류')이 나오면 기한 준수를 수정 완료 시각으로 다시 계산하고,
-  //      바뀐 값은 history에 남깁니다.
-  //   3. 기준 변경·추가 요청(scope)은 담당자 오류가 아니므로 정확도에서 깎지 않습니다.
-  //   4. 취소·해당없음과, 아직 마감이 안 왔고 손도 안 댄 건은 그 주 평가에서 뺍니다.
-  //   5. 같은 이름이어도 업무 id가 다르면 다른 건입니다 (이월을 이름으로 병합하지 않습니다).
+  // 집계
+  //   완수     = 담당자·파트장 둘 다 체크 (확인완료)
+  //   확인 대기 = 담당자만 체크 (검수대기)      ← 미완료와 겹치지 않습니다
+  //   미완료   = 담당자 미체크 (할일 · 진행중)
+  //   파트장 단독 체크는 화면에서 만들 수 없고(담당자 체크 전에는 눌리지 않음),
+  //   들어오더라도 확인완료가 아니면 완수로 세지 않습니다.
+  //   해당없음 · 미래 날짜 · 줄이 없는 날은 분모에서 뺍니다. 오늘 미체크는 그냥 미완료입니다.
 
   const WR_ASSIGNEE = '전휘원';
-  const WR_DEFAULT_TARGETS = { deadline: 95, accuracy: 98, required: 100, followup: 95, improvement: 1 };
-  const WR_DEFAULT_PATTERNS = ['발주', '품절', '입고', '충전'];
-  const WR_STAFF_DONE = new Set(['검수대기', '확인완료', '완료']);
-  const WR_LEAD_DONE = new Set(['확인완료', '완료']);
-  const WR_REVIEW_LABEL = { ok: '충족', rework: '담당자 오류 · 재작업', scope: '기준 변경 · 추가 요청' };
-  const WR_FIELD_LABEL = {
-    due_at: '완료기한', done_at: '완료 시각', reviewed_at: '검수 시각', review_result: '검수 결과',
-    rework_done_at: '수정 완료 시각', required_action: '필수조치', followup_due: '후속 확인일',
-    followup_done_at: '후속 조치 기록', waiting_external: '외부 회신 대기', improvement: '개선 과제',
-    improvement_verified_at: '효과 확인', excluded_reason: '평가 제외',
-  };
+  const WR_DOW = ['월', '화', '수', '목', '금'];
 
   let wrWeekStart = '';
   let wrTasks = [];
-  let wrFacts = {};          // 업무id -> weekly_task_facts 한 줄
   let wrPurposes = {};       // '업무명|날짜' -> 업무 목적
   let wrComments = {};       // 업무id -> 댓글 줄 목록
-  let wrSettings = { targets: { ...WR_DEFAULT_TARGETS }, required_patterns: [...WR_DEFAULT_PATTERNS] };
-  let wrImprove = { verified: [], planned: 0, month: '' };
-  let wrRows = [];           // 계산 결과
   let wrLoadedAt = null;
-  let wrFactsMissing = false;
-  let wrFilter = { bucket: '', tag: '', q: '', openOnly: false };
-  const wrOpenGroups = new Set();
-  const wrOpenTasks = new Set();
+  const wrOpenIds = new Set();   // 펼쳐 놓은 업무 id
 
   // ---- 날짜 도우미 (모두 한국 시간 기준) ----
   function wrAddDays(dateStr, n) {
@@ -7792,23 +7744,13 @@
     const dow = new Date(dateStr + 'T00:00:00Z').getUTCDay();
     return wrAddDays(dateStr, -(dow === 0 ? 6 : dow - 1));
   }
-  function wrKstStart(dateStr) { return new Date(dateStr + 'T00:00:00+09:00'); }
-  function wrKstEnd(dateStr) { return new Date(dateStr + 'T23:59:59.999+09:00'); }
   function wrMD(dateStr) { return dateStr ? dateStr.slice(5).replace('-', '/') : ''; }
-  function wrDow(dateStr) { return '일월화수목금토'[new Date(dateStr + 'T00:00:00Z').getUTCDay()]; }
-  // timestamptz -> datetime-local 입력칸 값 (한국 시간)
-  function wrDtLocal(iso) {
-    if (!iso) return '';
-    return new Intl.DateTimeFormat('sv-SE', {
-      timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hour12: false,
-    }).format(new Date(iso)).replace(' ', 'T');
-  }
-  function wrDtIso(v) { return v ? new Date(v + ':00+09:00').toISOString() : null; }
-  function wrDtText(iso) { return iso ? wrDtLocal(iso).replace('T', ' ').slice(5) : ''; }
   function wrWeekLabel(ws) {
     const we = wrAddDays(ws, 4);
     return `${Number(ws.slice(5, 7))}월 ${Number(ws.slice(8))}일 ~ ${Number(we.slice(5, 7))}월 ${Number(we.slice(8))}일`;
+  }
+  function wrNowText() {
+    return new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' });
   }
 
   // ---- 불러오기 ----
@@ -7828,49 +7770,31 @@
   function wrSelectWeek(ws) {
     wrWeekStart = ws;
     document.getElementById('wrWeekSelect').value = ws;
-    wrOpenGroups.clear(); wrOpenTasks.clear();
+    wrOpenIds.clear();
     wrLoadWeek();
   }
-  function wrSetSearch(v) { wrFilter.q = (v || '').trim(); wrRenderList(); }
-  function wrSetOpenOnly(on) { wrFilter.openOnly = !!on; wrRenderList(); }
-  function wrSetBucket(k) { wrFilter.bucket = wrFilter.bucket === k ? '' : k; wrRender(); }
-  function wrSetTag(k) { wrFilter.tag = wrFilter.tag === k ? '' : k; wrRenderList(); }
   window.wrSelectWeek = wrSelectWeek;
-  window.wrSetSearch = wrSetSearch;
-  window.wrSetOpenOnly = wrSetOpenOnly;
-  window.wrSetBucket = wrSetBucket;
-  window.wrSetTag = wrSetTag;
 
   async function wrLoadWeek() {
-    const body = document.getElementById('wrBody');
-    body.innerHTML = '<div class="gs-empty">불러오는 중...</div>';
+    const grid = document.getElementById('wrGrid');
+    grid.innerHTML = '<div class="gs-empty">불러오는 중...</div>';
     const weekEnd = wrAddDays(wrWeekStart, 4);
 
-    const [taskRes, setRes] = await Promise.all([
-      client.from('team_tasks')
-        .select('id,title,category,detail,status,priority,due_date,memo,result_note,followup')
-        .eq('assignee', WR_ASSIGNEE)
-        .gte('due_date', wrWeekStart).lte('due_date', weekEnd)
-        .order('due_date', { ascending: true }),
-      client.from('weekly_kpi_settings').select('targets,required_patterns').eq('assignee', WR_ASSIGNEE).maybeSingle(),
-    ]);
+    const taskRes = await client.from('team_tasks')
+      .select('id,title,category,detail,status,priority,due_date,memo,result_note,followup')
+      .eq('assignee', WR_ASSIGNEE)
+      .gte('due_date', wrWeekStart).lte('due_date', weekEnd)
+      .order('due_date', { ascending: true });
     if (taskRes.error) {
-      body.innerHTML = '<div class="gs-empty error">업무를 불러오지 못했습니다: ' + escapeAttr(taskRes.error.message) + '</div>';
+      grid.innerHTML = '<div class="gs-empty error">업무를 불러오지 못했습니다: ' + escapeAttr(taskRes.error.message) + '</div>';
       return;
     }
-    wrTasks = taskRes.data || [];
-    if (setRes && !setRes.error && setRes.data) {
-      wrSettings = {
-        targets: { ...WR_DEFAULT_TARGETS, ...(setRes.data.targets || {}) },
-        required_patterns: (setRes.data.required_patterns && setRes.data.required_patterns.length)
-          ? setRes.data.required_patterns : [...WR_DEFAULT_PATTERNS],
-      };
-    }
+    // 과거 데이터의 '완료'는 할일 관리와 똑같이 '확인완료'로 읽습니다.
+    wrTasks = (taskRes.data || []).map((t) => ({ ...t, status: normalizeStatus(t.status) }));
 
     const ids = wrTasks.map((t) => t.id);
     const empty = Promise.resolve({ data: [], error: null });
-    const [factRes, purpRes, cmtRes] = await Promise.all([
-      ids.length ? client.from('weekly_task_facts').select('*').in('task_id', ids) : empty,
+    const [purpRes, cmtRes] = await Promise.all([
       client.from('team_task_daily_purposes').select('title,due_date,purpose')
         .gte('due_date', wrWeekStart).lte('due_date', weekEnd),
       ids.length ? client.from('team_task_comments')
@@ -7878,708 +7802,247 @@
         .order('created_at', { ascending: true }) : empty,
     ]);
 
-    wrFactsMissing = !!factRes.error;
-    wrFacts = {};
-    if (!factRes.error) (factRes.data || []).forEach((f) => { wrFacts[f.task_id] = f; });
-
     wrPurposes = {};
     if (!purpRes.error) (purpRes.data || []).forEach((p) => {
       if (p.purpose && p.purpose.trim()) wrPurposes[p.title + '|' + p.due_date] = p.purpose.trim();
     });
-
     wrComments = {};
     if (!cmtRes.error) (cmtRes.data || []).forEach((c) => {
       (wrComments[c.task_id] = wrComments[c.task_id] || []).push(c);
     });
 
-    await wrLoadImprovements();
     wrLoadedAt = new Date();
     wrRender();
   }
 
-  // 개선 실적만 "그 주"가 아니라 "그 달 누적"이라 따로 셉니다.
-  // 효과를 확인한 날짜(improvement_verified_at)가 그 달에 들어오면 실적으로 잡습니다.
-  async function wrLoadImprovements() {
-    const ym = wrAddDays(wrWeekStart, 4).slice(0, 7);
-    const mStart = ym + '-01';
-    const lastDay = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).getUTCDate();
-    const mEnd = ym + '-' + String(lastDay).padStart(2, '0');
-    wrImprove = { verified: [], planned: 0, month: ym };
-    if (wrFactsMissing) return;
+  // ---- 상태 판정 ----
+  // 'done' 완수 | 'wait' 확인 대기 | 'open' 미완료 | 'na' 해당 없음 | 'future' 예정 | 'none' 기록 없음
+  // 분모(집계 대상)에 들어가는 것은 done · wait · open 셋뿐입니다.
+  const WR_COUNTED = new Set(['done', 'wait', 'open']);
 
-    const monthTasks = await client.from('team_tasks').select('id,title,due_date')
-      .eq('assignee', WR_ASSIGNEE).gte('due_date', mStart).lte('due_date', mEnd);
-    if (monthTasks.error) return;
-    const taskOf = new Map((monthTasks.data || []).map((t) => [t.id, t]));
-
-    const [planRes, verRes] = await Promise.all([
-      taskOf.size ? client.from('weekly_task_facts').select('task_id')
-        .eq('improvement', true).in('task_id', [...taskOf.keys()]) : Promise.resolve({ data: [], error: null }),
-      client.from('weekly_task_facts').select('task_id,improvement_verified_at')
-        .eq('improvement', true)
-        .gte('improvement_verified_at', wrKstStart(mStart).toISOString())
-        .lte('improvement_verified_at', wrKstEnd(mEnd).toISOString()),
-    ]);
-    if (!planRes.error) wrImprove.planned = (planRes.data || []).length;
-    if (verRes.error) return;
-
-    // 효과 확인이 다음 달로 넘어간 건도 잡히도록, 이 달 마감 목록에 없는 업무는 한 번 더 조회합니다.
-    const rows = verRes.data || [];
-    const unknown = rows.map((r) => r.task_id).filter((id) => !taskOf.has(id));
-    if (unknown.length) {
-      const extra = await client.from('team_tasks').select('id,title,due_date')
-        .in('id', unknown).eq('assignee', WR_ASSIGNEE);
-      if (!extra.error) (extra.data || []).forEach((t) => taskOf.set(t.id, t));
-    }
-    wrImprove.verified = rows
-      .filter((r) => taskOf.has(r.task_id))
-      .map((r) => ({ ...taskOf.get(r.task_id), verified_at: r.improvement_verified_at }));
-  }
-
-  // ---- 업무 한 건 평가 ----
-  function wrGroupName(t) {
-    const m = /^그룹:(.+)$/.exec(t.detail || '');
-    if (m) return m[1].trim();
-    return JW_TITLE_GROUPS[t.title] || '';
-  }
-
-  // 필수조치 대상인지. 업무에서 직접 지정(required_action)했으면 그 값이 먼저입니다.
-  function wrRequired(t, f) {
-    if (f && f.required_action !== null && f.required_action !== undefined) {
-      return { on: !!f.required_action, auto: false };
-    }
-    const hay = [t.title, t.category, t.detail, wrGroupName(t)].filter(Boolean).join(' ');
-    return { on: (wrSettings.required_patterns || []).some((p) => p && hay.includes(p)), auto: true };
-  }
-
-  let wrCutoff = null;   // 주간 집계 기준시각
-
-  function wrBuild() {
+  function wrCutoffDate() {
+    // 현재 주는 오늘까지, 지난주는 그 주 전체를 셉니다.
     const weekEnd = wrAddDays(wrWeekStart, 4);
-    const now = new Date();
-    // 주간 집계 기준시각 — 그 주 금요일 23:59(KST). 아직 주가 끝나지 않았으면 지금까지만 셉니다.
-    const weekClose = wrKstEnd(weekEnd);
-    wrCutoff = now < weekClose ? now : weekClose;
-    const cutoff = wrCutoff;
-
-    wrRows = wrTasks.map((t) => {
-      const f = wrFacts[t.id] || {};
-      const deadline = f.due_at ? new Date(f.due_at) : (t.due_date ? wrKstEnd(t.due_date) : null);
-      const staffDone = WR_STAFF_DONE.has(t.status);
-      const leadDone = WR_LEAD_DONE.has(t.status);
-      const rework = f.review_result === 'rework';
-      // 검수에서 미충족이 나온 건은 수정 완료 시각으로 기한 준수를 다시 계산합니다.
-      const doneEff = rework ? (f.rework_done_at ? new Date(f.rework_done_at) : null)
-        : (f.done_at ? new Date(f.done_at) : null);
-
-      const need = [];
-      let excluded = '';
-      if (t.status === '해당없음') excluded = '해당 없음';
-      else if (f.excluded_reason) excluded = f.excluded_reason;
-      else if (!deadline) excluded = '완료기한 없음';
-      // 마감이 아직 안 온 건은 평가에서 뺍니다. 다만 담당자가 이미 끝냈다면
-      // 기한 내 완료가 맞으므로 실적으로 셉니다 (끝낸 일이 사라져 보이지 않게).
-      else if (deadline > cutoff && !staffDone) excluded = '미래 마감';
-      if (!deadline) need.push('완료기한');
-
-      // 기한 준수 — 검수 대기는 담당자 완료 시각으로 보므로 지연으로 잡히지 않습니다.
-      let onTime = null;
-      if (!excluded) {
-        if (staffDone) {
-          if (doneEff) onTime = doneEff <= deadline;
-          else need.push(rework ? '수정 완료 시각' : '완료 시각');
-        } else {
-          onTime = false;
-        }
-      }
-
-      // 업무 정확도 — 검수가 끝난 건만 셉니다.
-      const reviewDone = leadDone || !!f.reviewed_at || !!f.review_result;
-      let accuracy = null;
-      if (!excluded && reviewDone) {
-        if (f.review_result) accuracy = f.review_result !== 'rework';
-        else need.push('검수 결과');
-      }
-
-      // 후속관리 — 확인기한이 이번 주에 도래한 건만 셉니다.
-      const fDue = f.followup_due || '';
-      const followupDue = !!fDue && fDue >= wrWeekStart && fDue <= weekEnd && wrKstEnd(fDue) <= cutoff;
-      let followup = null;
-      if (followupDue && !excluded) {
-        followup = !!(f.followup_done_at && new Date(f.followup_done_at) <= wrKstEnd(fDue));
-      }
-
-      const req = wrRequired(t, f);
-      return {
-        t, f, id: t.id, title: t.title, date: t.due_date,
-        deadline, staffDone, leadDone, doneEff, rework,
-        excluded, need, onTime, reviewDone, accuracy, followupDue, followup,
-        required: req.on, requiredAuto: req.auto,
-        overdue: !excluded && !staffDone && !!deadline && deadline < now,
-        awaitReview: !excluded && staffDone && !reviewDone,
-        awaitExternal: !!f.waiting_external && !leadDone,
-        needFix: rework && !f.rework_done_at,
-        urgent: t.priority === '높음',
-        added: !JW_ROUTINE_TITLES.has(t.title),
-        improve: !!f.improvement,
-      };
-    });
+    const today = jwTodayKST();
+    return today < weekEnd ? today : weekEnd;
   }
 
-  // ---- KPI 5개 ----
-  // 분모가 0이면 대상이 없다는 뜻 → '해당 없음'.
-  // 대상은 있는데 값이 비어 계산할 수 없으면 → '미측정'. 0%로 내리지 않습니다.
-  function wrRate(pick, ok, target) {
-    const pool = wrRows.filter(pick);
-    const counted = pool.filter((r) => ok(r) !== null);
-    const hit = counted.filter((r) => ok(r) === true);
-    const need = pool.filter((r) => ok(r) === null);
-    const pct = counted.length ? Math.round((hit.length / counted.length) * 1000) / 10 : null;
-    return {
-      pct, num: hit.length, den: counted.length, target,
-      kind: counted.length ? 'rate' : (need.length ? 'unmeasured' : 'na'),
-      state: counted.length ? (pct >= target ? 'hit' : 'miss') : 'none',
-      hitRows: hit, missRows: counted.filter((r) => ok(r) === false), needRows: need,
-    };
+  function wrState(t) {
+    if (!t) return 'none';
+    if (t.due_date > wrCutoffDate()) return 'future';
+    if (t.status === TASK_STATUS_NA) return 'na';
+    if (t.status === '확인완료') return 'done';
+    if (t.status === '검수대기') return 'wait';
+    return 'open';
   }
 
-  function wrKpis() {
-    const tg = wrSettings.targets;
-    return {
-      deadline: wrRate((r) => !r.excluded, (r) => r.onTime, tg.deadline),
-      accuracy: wrRate((r) => !r.excluded && r.reviewDone, (r) => r.accuracy, tg.accuracy),
-      required: wrRate((r) => !r.excluded && r.required, (r) => r.onTime, tg.required),
-      followup: wrRate((r) => r.followupDue, (r) => r.followup, tg.followup),
-      improvement: {
-        num: wrImprove.verified.length, den: wrImprove.planned, target: tg.improvement,
-        kind: (wrImprove.verified.length || wrImprove.planned) ? 'count' : 'na',
-        state: wrImprove.verified.length >= tg.improvement ? 'hit'
-          : ((wrImprove.verified.length || wrImprove.planned) ? 'miss' : 'none'),
-      },
-    };
+  const WR_MARK = { done: '✓', wait: '◐', open: '○', na: '—', future: '예정', none: '·' };
+  const WR_STATE_LABEL = { done: '완수', wait: '확인 대기', open: '미완료', na: '해당 없음', future: '예정', none: '기록 없음' };
+
+  // 한 칸에 줄이 여러 개면 덜 끝난 쪽을 보여줍니다 (미완료 > 확인 대기 > 완수).
+  const WR_CELL_RANK = { open: 0, wait: 1, done: 2, na: 3, future: 4, none: 5 };
+  function wrCellState(list) {
+    if (!list || !list.length) return 'none';
+    return list.map(wrState).sort((x, y) => WR_CELL_RANK[x] - WR_CELL_RANK[y])[0];
   }
 
-  function wrBucketRows() {
-    return {
-      overdue: wrRows.filter((r) => r.overdue),
-      review: wrRows.filter((r) => r.awaitReview),
-      external: wrRows.filter((r) => r.awaitExternal),
-      fix: wrRows.filter((r) => r.needFix),
-    };
+  function wrTally(tasks) {
+    const c = { done: 0, wait: 0, open: 0, na: 0, future: 0, none: 0 };
+    tasks.forEach((t) => { c[wrState(t)]++; });
+    c.total = c.done + c.wait + c.open;
+    return c;
   }
 
   // ---- 그리기 ----
-  const WR_KPI_DEFS = [
-    { key: 'deadline', label: '기한 준수율', num: '기한 내 완료', den: '이번 주 마감 업무' },
-    { key: 'accuracy', label: '업무 정확도', num: '담당자 오류 재작업 없음', den: '검수 완료 업무' },
-    { key: 'required', label: '필수조치 준수율', num: '시한 내 처리', den: '이번 주 마감 필수조치' },
-    { key: 'followup', label: '후속관리 준수율', num: '확인기한 내 기록', den: '이번 주 확인기한 도래' },
-    { key: 'improvement', label: '개선 실적', num: '효과까지 확인', den: '이번 달 개선 과제' },
-  ];
+  // 데일리업무 = 매일 자동으로 생기는 루틴 업무. 그 밖은 모두 "추가 · 긴급 업무"로 뺍니다.
+  function wrIsDaily(t) { return JW_ROUTINE_TITLES.has(t.title); }
 
   function wrRender() {
-    wrBuild();
-    const k = wrKpis();
-    const b = wrBucketRows();
-    wrRenderHead();
-    wrRenderKpis(k);
-    wrRenderBuckets(b);
-    wrRenderList();
+    const daily = wrTasks.filter(wrIsDaily);
+    const extra = wrTasks.filter((t) => !wrIsDaily(t));
+    wrRenderHead(daily, extra);
+    wrRenderSummary(daily);
+    wrRenderGrid(daily);
+    wrRenderExtra(extra);
   }
 
-  function wrRenderHead() {
+  function wrRenderHead(daily, extra) {
+    const cut = wrCutoffDate();
     const weekEnd = wrAddDays(wrWeekStart, 4);
-    const live = wrCutoff && wrCutoff < wrKstEnd(weekEnd);
-    const cut = live
-      ? `지금 ${wrDtText(wrCutoff.toISOString())} (주 마감 ${wrMD(weekEnd)} 23:59 전)`
-      : `${wrMD(weekEnd)} 23:59`;
-    const el = document.getElementById('wrSubtitle');
-    el.innerHTML = `${wrWeekLabel(wrWeekStart)} · ${WR_ASSIGNEE} · 집계 기준시각 ${cut}`
-      + ` · 갱신 ${wrLoadedAt ? wrDtText(wrLoadedAt.toISOString()) : '-'}`
-      + (wrFactsMissing ? ' · <b style="color:#b45309">weekly_task_facts.sql 을 먼저 실행하세요</b>' : '');
-
-    const counted = wrRows.filter((r) => !r.excluded).length;
-    const done = wrRows.filter((r) => !r.excluded && r.leadDone).length;
-    document.getElementById('wrTotalNote').textContent =
-      `전체 ${wrRows.length}건 · 평가 대상 ${counted}건 · 확인완료 ${done}건`
-      + (counted ? ` (${Math.round((done / counted) * 100)}%)` : '');
+    document.getElementById('wrSubtitle').textContent =
+      `${wrWeekLabel(wrWeekStart)} · ${WR_ASSIGNEE} · ${cut < weekEnd ? `오늘(${wrMD(cut)})까지` : '한 주 전체'} 집계 · 갱신 ${wrNowText()}`;
+    document.getElementById('wrGridNote').textContent =
+      `데일리업무 ${new Set(daily.map((t) => t.title)).size}종 · ${daily.length}건`;
+    const c = wrTally(extra);
+    document.getElementById('wrExtraNote').textContent = extra.length
+      ? `${extra.length}건 · 완수 ${c.done} · 확인 대기 ${c.wait} · 미완료 ${c.open}`
+      : '이번 주에는 없습니다';
   }
 
-  function wrRenderKpis(k) {
-    document.getElementById('wrKpiRow').innerHTML = WR_KPI_DEFS.map((d) => {
-      const v = k[d.key];
-      let value; let calc;
-      if (d.key === 'improvement') {
-        value = v.kind === 'na' ? '해당 없음' : `${v.num}<span>건</span>`;
-        calc = v.kind === 'na' ? '이번 달 개선 과제 0건'
-          : `${d.num} ${v.num} ÷ ${d.den} ${v.den}건`;
-      } else if (v.kind === 'rate') {
-        value = `${v.pct}<span>%</span>`;
-        calc = `${d.num} ${v.num} ÷ ${d.den} ${v.den}건`;
-      } else if (v.kind === 'unmeasured') {
-        value = '미측정';
-        calc = `${d.den} ${v.needRows.length}건 · 값이 없어 계산 못 함`;
-      } else {
-        value = '해당 없음';
-        calc = `${d.den} 0건`;
-      }
-      const goal = d.key === 'improvement' ? `목표 월 ${v.target}건` : `목표 ${v.target}%`;
-      const needN = v.needRows ? v.needRows.length : 0;
-      return `<button type="button" class="wr-kpi ${v.state}" onclick="wrOpenKpi('${d.key}')">
-        <div class="wr-kpi-label">${d.label}</div>
-        <div class="wr-kpi-value">${value}</div>
-        <div class="wr-kpi-goal">${goal}</div>
-        <div class="wr-kpi-calc">${escapeAttr(calc)}</div>
-        ${needN && v.kind === 'rate' ? `<div class="wr-kpi-warn">입력 필요 ${needN}건</div>` : ''}
-      </button>`;
-    }).join('');
+  // 상단 요약 4칸 — 데일리업무만 셉니다.
+  function wrRenderSummary(daily) {
+    const c = wrTally(daily);
+    const rate = c.total ? Math.round((c.done / c.total) * 1000) / 10 : null;
+    const cell = (cls, label, num, sub) => `<div class="wr-sum ${cls}">
+      <div class="wr-sum-label">${label}</div>
+      <div class="wr-sum-num">${num}</div>
+      <div class="wr-sum-sub">${sub}</div>
+    </div>`;
+    document.getElementById('wrSummary').innerHTML =
+      cell(`rate${c.total ? '' : ' none'}`, '완수율',
+        c.total ? `${rate}<span>%</span>` : '해당 없음',
+        c.total ? `완수 ${c.done} ÷ 대상 ${c.total}건` : '집계 대상이 없습니다')
+      + cell('done', '완수', `${c.done}<span>건</span>`, '담당자 · 파트장 모두 체크')
+      + cell('wait', '확인 대기', `${c.wait}<span>건</span>`, '담당자만 체크')
+      + cell('open', '미완료', `${c.open}<span>건</span>`, '담당자 미체크')
+      + `<div class="wr-sum">
+          <div class="wr-sum-label">집계에서 뺀 건</div>
+          <div class="wr-sum-num">${c.na + c.future}<span>건</span></div>
+          <div class="wr-sum-sub">해당 없음 ${c.na} · 예정 ${c.future}</div>
+        </div>`;
   }
 
-  const WR_BUCKET_DEFS = [
-    { key: 'overdue', label: '기한 초과' },
-    { key: 'review', label: '검수 대기' },
-    { key: 'external', label: '외부 회신 대기' },
-    { key: 'fix', label: '오류 수정 필요' },
-  ];
-
-  function wrRenderBuckets(b) {
-    document.getElementById('wrBuckets').innerHTML = WR_BUCKET_DEFS.map((d) => {
-      const n = b[d.key].length;
-      const cls = [n ? 'warn' : 'zero', wrFilter.bucket === d.key ? 'active' : ''].join(' ');
-      return `<button type="button" class="wr-bucket ${cls}" onclick="wrSetBucket('${d.key}')">
-        <div class="wr-bucket-label">${d.label}</div>
-        <div class="wr-bucket-num">${n}건</div>
-      </button>`;
-    }).join('');
-  }
-
-  // 업무명은 그대로 onclick 에 넣기 어려우므로 짧은 키를 붙여 씁니다.
-  const wrKeyMap = new Map();
-  function wrKeyOf(title) {
-    if (!wrKeyMap.has(title)) wrKeyMap.set(title, 'g' + wrKeyMap.size);
-    return wrKeyMap.get(title);
-  }
-
-  const WR_TAG_DEFS = [
-    { key: 'urgent', label: '긴급' },
-    { key: 'added', label: '직접 추가' },
-    { key: 'required', label: '필수조치' },
-    { key: 'improve', label: '개선' },
-    { key: 'need', label: '입력 필요' },
-  ];
-
-  function wrMatch(r) {
-    if (wrFilter.bucket === 'overdue' && !r.overdue) return false;
-    if (wrFilter.bucket === 'review' && !r.awaitReview) return false;
-    if (wrFilter.bucket === 'external' && !r.awaitExternal) return false;
-    if (wrFilter.bucket === 'fix' && !r.needFix) return false;
-    if (wrFilter.tag === 'need' && !r.need.length) return false;
-    if (wrFilter.tag && wrFilter.tag !== 'need' && !r[wrFilter.tag]) return false;
-    if (wrFilter.openOnly && (r.leadDone || r.t.status === '해당없음')) return false;
-    if (wrFilter.q) {
-      const hay = [r.title, r.t.category, r.t.detail, r.t.result_note, r.t.memo, r.t.followup,
-        wrPurposes[r.title + '|' + r.date]].filter(Boolean).join(' ');
-      if (!hay.toLowerCase().includes(wrFilter.q.toLowerCase())) return false;
-    }
-    return true;
-  }
-
-  function wrStateBadge(r) {
-    if (r.t.status === '해당없음') return '<span class="wr-state off">해당없음</span>';
-    if (r.f.excluded_reason) return `<span class="wr-state off">제외 · ${escapeAttr(r.f.excluded_reason)}</span>`;
-    if (r.needFix) return '<span class="wr-state late">오류 수정 필요</span>';
-    if (r.leadDone) return '<span class="wr-state done">확인완료</span>';
-    if (r.awaitExternal) return '<span class="wr-state wait">외부 회신 대기</span>';
-    if (r.awaitReview) return '<span class="wr-state review">검수 대기</span>';
-    if (r.overdue) return '<span class="wr-state late">기한 초과</span>';
-    if (r.excluded === '미래 마감') return '<span class="wr-state off">미래 마감</span>';
-    return `<span class="wr-state">${escapeAttr(r.t.status)}</span>`;
-  }
-
-  function wrTagsHtml(r) {
-    return (r.urgent ? '<span class="wr-tag urgent">긴급</span>' : '')
-      + (r.added ? '<span class="wr-tag added">직접 추가</span>' : '')
-      + (r.required ? `<span class="wr-tag req">필수조치${r.requiredAuto ? '' : '·지정'}</span>` : '')
-      + (r.improve ? '<span class="wr-tag improve">개선</span>' : '');
-  }
-
-  function wrEvidence(r) {
-    const note = (r.t.result_note || '').trim();
-    if (note) return escapeAttr(note);
-    if (r.staffDone) return '<span class="wr-need">입력 필요</span>';
-    return '<span class="wr-dim">—</span>';
-  }
-
-  function wrNextAction(r) {
-    const txt = (r.t.followup || '').trim();
-    const due = r.f.followup_due;
-    if (!txt && !due) return '<span class="wr-dim">—</span>';
-    return (txt ? escapeAttr(txt) : '<span class="wr-dim">내용 없음</span>')
-      + (due ? ` <span class="wr-nums wr-dim">(확인 ${wrMD(due)})</span>` : '');
-  }
-
-  function wrDeadlineText(r) {
-    if (!r.deadline) return '<span class="wr-need">입력 필요</span>';
-    const custom = !!r.f.due_at;
-    return `<span class="wr-nums">${wrMD(r.date)}${custom ? ' ' + wrDtLocal(r.f.due_at).slice(11) : ''}</span>`;
-  }
-
-  function wrRenderList() {
-    const body = document.getElementById('wrBody');
-    const rows = wrRows.filter(wrMatch);
-    document.getElementById('wrTagFilters').innerHTML = WR_TAG_DEFS.map((d) => {
-      const n = wrRows.filter((r) => (d.key === 'need' ? r.need.length : r[d.key])).length;
-      return `<button type="button" class="wr-tagbtn${wrFilter.tag === d.key ? ' active' : ''}"
-        onclick="wrSetTag('${d.key}')">${d.label} ${n}</button>`;
-    }).join('') + (wrFilter.bucket || wrFilter.tag || wrFilter.q || wrFilter.openOnly
-      ? '<button type="button" class="wr-tagbtn" onclick="wrClearFilters()">필터 해제</button>' : '');
-
-    document.getElementById('wrListNote').textContent = `${rows.length}건 표시 / 전체 ${wrRows.length}건`;
-
-    if (!rows.length) {
-      body.innerHTML = '<div class="gs-empty">조건에 맞는 업무가 없습니다.</div>';
+  // 데일리업무 주간표 — 같은 반복업무는 한 행, 날짜별로 한 칸.
+  function wrRenderGrid(daily) {
+    const grid = document.getElementById('wrGrid');
+    if (!daily.length) {
+      grid.innerHTML = '<div class="gs-empty">이번 주 데일리업무가 없습니다.</div>';
       return;
     }
+    const dates = [0, 1, 2, 3, 4].map((i) => wrAddDays(wrWeekStart, i));
+    const byTitle = new Map();
+    daily.forEach((t) => {
+      if (!byTitle.has(t.title)) byTitle.set(t.title, {});
+      const row = byTitle.get(t.title);
+      // 보통은 같은 업무·같은 날에 한 줄뿐이지만, 실수로 두 줄이 생긴 날도 있습니다.
+      // 그런 날은 두 줄을 다 세고(완수/대상), 칸에는 덜 끝난 쪽을 보여줍니다.
+      (row[t.due_date] = row[t.due_date] || []).push(t);
+    });
+    // 할일 관리와 같은 순서(오전 → 오후)로 늘어놓습니다.
+    const order = [...AM_TASK_ORDER, ...PM_TASK_ORDER];
+    const titles = [...byTitle.keys()].sort((a, b) => {
+      const ia = order.indexOf(a); const ib = order.indexOf(b);
+      return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib) || a.localeCompare(b, 'ko');
+    });
 
-    // 같은 과제(업무명)의 날짜별 기록을 한 행 아래로 묶습니다.
-    // 집계는 항상 업무 id별로 따로 세므로, 묶어 보여도 중복으로 잡히지 않습니다.
-    const map = new Map();
-    rows.forEach((r) => { if (!map.has(r.title)) map.set(r.title, []); map.get(r.title).push(r); });
-    const groups = [...map.entries()].map(([title, list]) => ({
-      title, key: wrKeyOf(title),
-      list: list.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))),
-    }));
-    const issue = (g) => g.list.some((r) => r.overdue || r.needFix || r.awaitReview || r.awaitExternal);
-    groups.sort((a, b) => (issue(b) - issue(a))
-      || String(a.list[0].date).localeCompare(String(b.list[0].date))
-      || String(a.title).localeCompare(String(b.title), 'ko'));
-
-    body.innerHTML = `<div style="overflow-x:auto"><table class="wr-table">
-      <thead><tr>
-        <th></th><th>업무명</th><th>완료기한</th><th>상태</th><th>결과·증빙</th><th>다음 조치·확인일</th>
-      </tr></thead>
-      <tbody>${groups.map(wrGroupHtml).join('')}</tbody>
+    grid.innerHTML = `<div style="overflow-x:auto"><table class="wr-grid">
+      <thead><tr><th class="name">업무명</th>
+        ${dates.map((d, i) => `<th>${WR_DOW[i]}<br><span style="font-weight:600;color:#94a3b8">${wrMD(d)}</span></th>`).join('')}
+        <th>완수/대상</th></tr></thead>
+      <tbody>${titles.map((title) => {
+        const row = byTitle.get(title);
+        const list = dates.flatMap((d) => row[d] || []);
+        const c = wrTally(list);
+        const opened = list.filter((t) => wrOpenIds.has(t.id));
+        return `<tr>
+            <td class="name">${escapeAttr(title)}</td>
+            ${dates.map((d) => {
+              const day = row[d] || [];
+              const st = wrCellState(day);
+              const clickable = st !== 'future' && st !== 'none';
+              const on = day.some((t) => wrOpenIds.has(t.id));
+              return `<td><button type="button" class="wr-cell ${st}${on ? ' on' : ''}"
+                ${clickable ? `onclick="wrOpenCell('${day.map((x) => x.id).join(',')}')"` : 'disabled'}
+                title="${wrMD(d)} · ${WR_STATE_LABEL[st]}${day.length > 1 ? ` (${day.length}줄)` : ''}">${WR_MARK[st]}</button></td>`;
+            }).join('')}
+            <td class="tally">${c.total ? `<b>${c.done}</b>/${c.total}` : '<span style="color:#cbd5e1">—</span>'}</td>
+          </tr>${opened.length ? `<tr><td colspan="7" style="padding:0">${
+            opened.map((t) => wrDetailHtml(t)).join('')}</td></tr>` : ''}`;
+      }).join('')}</tbody>
     </table></div>`;
   }
 
-  function wrGroupHtml(g) {
-    const single = g.list.length === 1;
-    const open = wrOpenGroups.has(g.key);
-    if (single) {
-      const r = g.list[0];
-      const isOpen = wrOpenTasks.has(r.id);
-      return `<tr class="wr-row-group" onclick="wrToggleTask(${r.id})">
-          <td class="wr-c-caret">${isOpen ? '▾' : '▸'}</td>
-          <td class="wr-c-name"><span class="wr-name">${escapeAttr(g.title)}</span>${wrTagsHtml(r)}</td>
-          <td>${wrDeadlineText(r)}</td>
-          <td>${wrStateBadge(r)}</td>
-          <td>${wrEvidence(r)}</td>
-          <td>${wrNextAction(r)}</td>
-        </tr>${isOpen ? wrDetailRow(r) : ''}`;
+  // 추가 · 긴급 업무 — 같은 업무는 한 줄로 묶어 중복해서 보여주지 않습니다.
+  function wrRenderExtra(extra) {
+    const box = document.getElementById('wrExtra');
+    if (!extra.length) {
+      box.innerHTML = '<div class="gs-empty">이번 주에 따로 추가한 업무가 없습니다.</div>';
+      return;
     }
-    // 날짜가 여러 개인 과제 — 머리 행에는 합계만, 펼치면 날짜별로 한 줄씩.
-    const done = g.list.filter((r) => r.leadDone).length;
-    const review = g.list.filter((r) => r.awaitReview).length;
-    const late = g.list.filter((r) => r.overdue).length;
-    const tags = `<span class="wr-tag days">${g.list.length}일</span>`
-      + (g.list.some((r) => r.urgent) ? '<span class="wr-tag urgent">긴급</span>' : '')
-      + (g.list.some((r) => r.added) ? '<span class="wr-tag added">직접 추가</span>' : '')
-      + (g.list.some((r) => r.required) ? '<span class="wr-tag req">필수조치</span>' : '')
-      + (g.list.some((r) => r.improve) ? '<span class="wr-tag improve">개선</span>' : '');
-    const evi = g.list.filter((r) => (r.t.result_note || '').trim()).length;
-    const nxt = g.list.filter((r) => (r.t.followup || '').trim() || r.f.followup_due).length;
-    return `<tr class="wr-row-group" onclick="wrToggleGroup('${g.key}')">
-        <td class="wr-c-caret">${open ? '▾' : '▸'}</td>
-        <td class="wr-c-name"><span class="wr-name">${escapeAttr(g.title)}</span>${tags}</td>
-        <td><span class="wr-nums">${wrMD(g.list[0].date)}~${wrMD(g.list[g.list.length - 1].date)}</span></td>
-        <td><span class="wr-nums wr-dim">확인완료 ${done}${review ? ` · 검수대기 ${review}` : ''}${late ? ` · 초과 ${late}` : ''} / ${g.list.length}</span></td>
-        <td><span class="wr-dim">${evi ? `기록 ${evi}건` : '—'}</span></td>
-        <td><span class="wr-dim">${nxt ? `${nxt}건` : '—'}</span></td>
-      </tr>${open ? g.list.map((r) => {
-        const isOpen = wrOpenTasks.has(r.id);
-        return `<tr class="wr-row-day" onclick="wrToggleTask(${r.id})">
-          <td class="wr-c-caret">${isOpen ? '▾' : '▸'}</td>
-          <td class="wr-c-name"><span class="wr-name sub">${wrMD(r.date)} <span class="wr-dim">(${wrDow(r.date)})</span></span></td>
-          <td>${wrDeadlineText(r)}</td>
-          <td>${wrStateBadge(r)}</td>
-          <td>${wrEvidence(r)}</td>
-          <td>${wrNextAction(r)}</td>
-        </tr>${isOpen ? wrDetailRow(r) : ''}`;
-      }).join('') : ''}`;
+    const byTitle = new Map();
+    extra.forEach((t) => {
+      if (!byTitle.has(t.title)) byTitle.set(t.title, []);
+      byTitle.get(t.title).push(t);
+    });
+    const groups = [...byTitle.entries()].map(([title, list]) => ({
+      title, list: list.slice().sort((a, b) => String(a.due_date).localeCompare(String(b.due_date))),
+    })).sort((a, b) => String(a.list[0].due_date).localeCompare(String(b.list[0].due_date))
+      || a.title.localeCompare(b.title, 'ko'));
+
+    box.innerHTML = `<div style="overflow-x:auto"><table class="wr-extra">
+      <thead><tr><th>업무명</th><th>완료예정일</th><th>상태</th></tr></thead>
+      <tbody>${groups.map((g) => {
+        const first = g.list[0];
+        const open = g.list.some((t) => wrOpenIds.has(t.id));
+        const c = wrTally(g.list);
+        const one = g.list.length === 1;
+        const st = wrState(first);
+        const status = one
+          ? `<span class="wr-state ${st}">${WR_STATE_LABEL[st]}</span>`
+          : `<span class="wr-state${c.total && c.done === c.total ? ' done' : ''}">완수 ${c.done}/${c.total || 0}</span>`;
+        const dates = one ? wrMD(first.due_date)
+          : `${wrMD(first.due_date)}~${wrMD(g.list[g.list.length - 1].due_date)}`;
+        return `<tr class="row" onclick="wrToggleOpen(${first.id})">
+            <td class="name"><span class="wr-caret">${open ? '▾' : '▸'}</span>${escapeAttr(g.title)}${
+              g.list.some((t) => t.priority === '높음') ? '<span class="wr-tag urgent">긴급</span>' : ''}${
+              one ? '' : `<span class="wr-tag days">${g.list.length}일</span>`}</td>
+            <td class="date">${dates}</td>
+            <td>${status}</td>
+          </tr>${open ? `<tr><td colspan="3" style="padding:0">${
+            g.list.map((t) => wrDetailHtml(t, !one)).join('')}</td></tr>` : ''}`;
+      }).join('')}</tbody>
+    </table></div>`;
   }
 
-  function wrToggleGroup(key) { wrOpenGroups.has(key) ? wrOpenGroups.delete(key) : wrOpenGroups.add(key); wrRenderList(); }
-  function wrToggleTask(id) { wrOpenTasks.has(id) ? wrOpenTasks.delete(id) : wrOpenTasks.add(id); wrRenderList(); }
-  function wrClearFilters() {
-    wrFilter = { bucket: '', tag: '', q: '', openOnly: false };
-    document.getElementById('wrSearch').value = '';
-    document.getElementById('wrOpenOnly').checked = false;
+  function wrToggleOpen(id) {
+    // 한 번에 하나만 펼칩니다 — 기본 화면이 길어지지 않게.
+    const was = wrOpenIds.has(id);
+    wrOpenIds.clear();
+    if (!was) wrOpenIds.add(id);
     wrRender();
   }
-  window.wrToggleGroup = wrToggleGroup;
-  window.wrToggleTask = wrToggleTask;
-  window.wrClearFilters = wrClearFilters;
+  window.wrToggleOpen = wrToggleOpen;
 
-  // ---- 펼친 업무의 상세: 목적 · 진행기록 · 댓글 · 입력칸 ----
-  // 이력에 남은 값을 사람이 읽을 수 있게 바꿉니다 (시각은 한국 시간, 참·거짓은 말로).
-  function wrHistVal(v, emptyText) {
-    if (v === null || v === undefined || v === '') return emptyText;
-    if (v === true) return '예';
-    if (v === false) return '아니오';
-    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v)) return wrDtText(v);
-    return escapeAttr(WR_REVIEW_LABEL[v] || String(v));
+  // 한 칸에 줄이 둘 이상이면 함께 펼칩니다.
+  function wrOpenCell(ids) {
+    const list = String(ids).split(',').map(Number);
+    const was = list.some((id) => wrOpenIds.has(id));
+    wrOpenIds.clear();
+    if (!was) list.forEach((id) => wrOpenIds.add(id));
+    wrRender();
   }
+  window.wrOpenCell = wrOpenCell;
 
-  function wrCommentsHtml(r) {
-    const all = wrComments[r.id] || [];
-    const roots = all.filter((c) => !c.parent_id);
+  // 누른 날의 업무 목적 · 진행기록 · 댓글 · 파트장 답글
+  function wrDetailHtml(t, withDate) {
+    const purpose = wrPurposes[t.title + '|' + t.due_date] || '';
+    const note = (t.result_note || '').trim();
+    const memo = (t.memo || '').trim();
+    const next = (t.followup || '').trim();
+    const all = wrComments[t.id] || [];
     const kids = (pid) => all.filter((c) => c.parent_id === pid);
-    if (!all.length) return '<div class="wr-empty">댓글이 없습니다.</div>';
     const one = (c, reply) => `<div class="wr-cmt${c.author === '파트장' ? ' lead' : ''}${reply ? ' reply' : ''}">
       <b>${escapeAttr(c.author)}</b>${escapeAttr((c.body || '').trim())}</div>`;
-    return roots.map((c) => one(c, false) + kids(c.id).map((k) => one(k, true)).join('')).join('');
-  }
+    const cmts = all.filter((c) => !c.parent_id)
+      .map((c) => one(c, false) + kids(c.id).map((k) => one(k, true)).join('')).join('');
+    const st = wrState(t);
 
-  function wrDetailRow(r) {
-    const f = r.f;
-    const purpose = wrPurposes[r.title + '|' + r.date] || '';
-    const memo = (r.t.memo || '').trim();
-    const note = (r.t.result_note || '').trim();
-    const hist = Array.isArray(f.history) ? f.history.slice(-5).reverse() : [];
-    const disabled = wrFactsMissing ? ' disabled' : '';
-
-    return `<tr><td colspan="6" style="padding:0"><div class="wr-detail">
+    return `<div class="wr-detail">
+      ${withDate ? `<div class="wr-day-h">${wrMD(t.due_date)}</div>` : ''}
       <div class="wr-detail-sec">
-        <div class="wr-detail-h">목적</div>
-        ${purpose ? `<div class="wr-note-purpose">${escapeAttr(purpose)}</div>` : '<div class="wr-empty">적어둔 목적이 없습니다.</div>'}
-      </div>
-      <div class="wr-detail-sec">
-        <div class="wr-detail-h">${wrMD(r.date)} 진행기록</div>
-        ${note ? `<div class="wr-note-purpose">결과·증빙 · ${escapeAttr(note)}</div>` : ''}
-        ${memo ? `<div class="wr-note-purpose">메모 · ${escapeAttr(memo)}</div>` : ''}
-        ${!note && !memo ? '<div class="wr-empty">적어둔 기록이 없습니다.</div>' : ''}
+        <div class="wr-detail-h">${wrMD(t.due_date)} · ${WR_STATE_LABEL[st]}</div>
+        ${purpose ? `<div class="wr-text">목적 · ${escapeAttr(purpose)}</div>` : ''}
+        ${note ? `<div class="wr-text">기록 · ${escapeAttr(note)}</div>` : ''}
+        ${memo ? `<div class="wr-text">메모 · ${escapeAttr(memo)}</div>` : ''}
+        ${next ? `<div class="wr-text">다음 조치 · ${escapeAttr(next)}</div>` : ''}
+        ${!purpose && !note && !memo && !next ? '<div class="wr-empty">적어둔 목적·기록이 없습니다.</div>' : ''}
       </div>
       <div class="wr-detail-sec">
         <div class="wr-detail-h">댓글 · 파트장 답글</div>
-        ${wrCommentsHtml(r)}
+        ${cmts || '<div class="wr-empty">댓글이 없습니다.</div>'}
       </div>
-      <div class="wr-detail-sec">
-        <div class="wr-detail-h">집계 입력${wrFactsMissing ? ' — weekly_task_facts.sql 을 먼저 실행하세요' : ''}</div>
-        <div class="wr-form">
-          <div class="wr-field"><label>완료기한</label>
-            <input type="datetime-local"${disabled} value="${wrDtLocal(f.due_at) || (r.date + 'T23:59')}"
-              onchange="wrSaveFact(${r.id},'due_at',wrDtIso(this.value))"></div>
-          <div class="wr-field"><label>완료 시각 (담당자)</label>
-            <input type="datetime-local"${disabled} value="${wrDtLocal(f.done_at)}"
-              onchange="wrSaveFact(${r.id},'done_at',wrDtIso(this.value))"></div>
-          <div class="wr-field"><label>검수 시각 (파트장)</label>
-            <input type="datetime-local"${disabled} value="${wrDtLocal(f.reviewed_at)}"
-              onchange="wrSaveFact(${r.id},'reviewed_at',wrDtIso(this.value))"></div>
-          <div class="wr-field"><label>검수 결과</label>
-            <select${disabled} onchange="wrSaveFact(${r.id},'review_result',this.value||null)">
-              <option value=""${!f.review_result ? ' selected' : ''}>입력 필요</option>
-              <option value="ok"${f.review_result === 'ok' ? ' selected' : ''}>충족</option>
-              <option value="rework"${f.review_result === 'rework' ? ' selected' : ''}>담당자 오류 · 재작업</option>
-              <option value="scope"${f.review_result === 'scope' ? ' selected' : ''}>기준 변경 · 추가 요청</option>
-            </select></div>
-          ${f.review_result === 'rework' ? `<div class="wr-field"><label>수정 완료 시각</label>
-            <input type="datetime-local"${disabled} value="${wrDtLocal(f.rework_done_at)}"
-              onchange="wrSaveFact(${r.id},'rework_done_at',wrDtIso(this.value))"></div>` : ''}
-          <div class="wr-field"><label>필수조치</label>
-            <select${disabled} onchange="wrSaveFact(${r.id},'required_action',this.value===''?null:this.value==='1')">
-              <option value=""${r.requiredAuto ? ' selected' : ''}>자동 (${r.required ? '대상' : '대상 아님'})</option>
-              <option value="1"${!r.requiredAuto && r.required ? ' selected' : ''}>대상</option>
-              <option value="0"${!r.requiredAuto && !r.required ? ' selected' : ''}>대상 아님</option>
-            </select></div>
-          <div class="wr-field"><label>후속 확인일</label>
-            <input type="date"${disabled} value="${f.followup_due || ''}"
-              onchange="wrSaveFact(${r.id},'followup_due',this.value||null)"></div>
-          <div class="wr-field"><label>후속 조치 기록</label>
-            <input type="datetime-local"${disabled} value="${wrDtLocal(f.followup_done_at)}"
-              onchange="wrSaveFact(${r.id},'followup_done_at',wrDtIso(this.value))"></div>
-          <div class="wr-field flag"><label><input type="checkbox"${disabled} ${f.waiting_external ? 'checked' : ''}
-            onchange="wrSaveFact(${r.id},'waiting_external',this.checked)"> 외부 회신 대기</label></div>
-          <div class="wr-field flag"><label><input type="checkbox"${disabled} ${f.improvement ? 'checked' : ''}
-            onchange="wrSaveFact(${r.id},'improvement',this.checked)"> 개선 과제</label></div>
-          ${f.improvement ? `<div class="wr-field"><label>효과 확인</label>
-            <input type="datetime-local"${disabled} value="${wrDtLocal(f.improvement_verified_at)}"
-              onchange="wrSaveFact(${r.id},'improvement_verified_at',wrDtIso(this.value))"></div>` : ''}
-          <div class="wr-field"><label>평가 제외 사유</label>
-            <input type="text"${disabled} placeholder="취소 등" value="${escapeAttr(f.excluded_reason || '')}"
-              onchange="wrSaveFact(${r.id},'excluded_reason',this.value.trim()||null)"></div>
-        </div>
-        ${r.need.length ? `<div class="wr-kpi-warn">입력 필요 — ${r.need.join(' · ')}</div>` : ''}
-        ${r.rework ? '<div class="wr-kpi-warn">미충족으로 확인된 건입니다. 기한 준수는 수정 완료 시각으로 다시 계산합니다.</div>' : ''}
-        ${hist.length ? `<div class="wr-hist">이력 · ${hist.map((h) =>
-          `${wrDtText(h.시각)} ${escapeAttr(h.항목)} ${wrHistVal(h.이전, '비어 있음')} → ${wrHistVal(h.이후, '비움')}`).join('<br>')}</div>` : ''}
-      </div>
-    </div></td></tr>`;
-  }
-
-  // ---- 저장 ----
-  async function wrSaveFact(taskId, field, value) {
-    if (wrFactsMissing) return;
-    const prev = wrFacts[taskId] || {};
-    const before = prev[field] === undefined ? null : prev[field];
-    const same = field.endsWith('_at')
-      ? (before ? new Date(before).getTime() : null) === (value ? new Date(value).getTime() : null)
-      : before === value;
-    if (same) return;
-
-    const hist = Array.isArray(prev.history) ? prev.history.slice(-49) : [];
-    hist.push({ 시각: new Date().toISOString(), 항목: WR_FIELD_LABEL[field] || field, 이전: before, 이후: value });
-    const row = {
-      ...prev, task_id: taskId, [field]: value,
-      history: hist, updated_at: new Date().toISOString(),
-    };
-    const { data, error } = await client.from('weekly_task_facts')
-      .upsert(row, { onConflict: 'task_id' }).select().maybeSingle();
-    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
-    wrFacts[taskId] = data || row;
-    await wrLoadImprovements();
-    wrLoadedAt = new Date();
-    wrRender();
-  }
-  window.wrSaveFact = wrSaveFact;
-  window.wrDtIso = wrDtIso;
-
-  // ---- KPI 카드를 누르면 나오는 산출 내역 ----
-  function wrCloseModal() { document.getElementById('wrModalOverlay').style.display = 'none'; }
-  window.wrCloseModal = wrCloseModal;
-
-  function wrMiniRow(r, why, cls) {
-    return `<div class="wr-mrow">
-      <span class="wr-item-date">${wrMD(r.date)}</span>
-      <span class="wr-mrow-name">${escapeAttr(r.title)}</span>
-      <span class="wr-mrow-why${cls ? ' ' + cls : ''}">${escapeAttr(why)}</span>
     </div>`;
   }
-
-  function wrSection(title, html, emptyText) {
-    return `<div class="wr-detail-sec"><div class="wr-detail-h">${title}</div>
-      ${html || `<div class="wr-empty">${emptyText}</div>`}</div>`;
-  }
-
-  function wrOpenKpi(key) {
-    const d = WR_KPI_DEFS.find((x) => x.key === key);
-    const k = wrKpis()[key];
-    const box = document.getElementById('wrModalBody');
-    let sub; let sections;
-
-    if (key === 'improvement') {
-      sub = `${d.num} ÷ ${d.den} · 목표 월 ${k.target}건 · ${wrImprove.month} 누적`
-        + '<br>개선 과제로 표시하고 효과 확인 시각까지 넣은 건만 셉니다.';
-      sections = wrSection(`실적 ${k.num}건`,
-        wrImprove.verified.map((v) => `<div class="wr-mrow">
-          <span class="wr-item-date">${wrMD(v.due_date)}</span>
-          <span class="wr-mrow-name">${escapeAttr(v.title)}</span>
-          <span class="wr-mrow-why">효과 확인 ${wrDtText(v.verified_at)}</span></div>`).join(''),
-        '효과까지 확인한 개선 건이 아직 없습니다.')
-        + wrSection(`이번 달 개선 과제 ${k.den}건`,
-          k.den ? `<div class="wr-empty">개선 과제로 표시된 ${k.den}건 가운데 위 ${k.num}건이 효과 확인까지 끝났습니다.</div>` : '',
-          '개선 과제로 표시된 업무가 없습니다.');
-    } else {
-      const total = k.den + k.needRows.length;
-      sub = `${d.num} ÷ ${d.den} · 목표 ${k.target}%`
-        + `<br>산출 대상 ${k.den}건 (${k.num}건 충족 / ${k.missRows.length}건 미충족)`
-        + (k.needRows.length ? ` · 값이 없어 뺀 건 ${k.needRows.length}건` : '')
-        + (total === 0 ? '<br>이번 주 대상이 없어 <b>해당 없음</b>으로 표시합니다.' : '');
-
-      const excl = wrRows.filter((r) => {
-        if (key === 'required' && !r.required) return false;
-        if (key === 'followup') return !!r.f.followup_due && !r.followupDue;
-        return !!r.excluded;
-      });
-      const exclWhy = (r) => {
-        if (key === 'followup') {
-          const due = r.f.followup_due;
-          return due > wrAddDays(wrWeekStart, 4) || due < wrWeekStart ? '확인기한이 다른 주' : '아직 확인기한 전';
-        }
-        return r.excluded;
-      };
-      const notReviewed = key === 'accuracy'
-        ? wrRows.filter((r) => !r.excluded && !r.reviewDone) : [];
-
-      // 충족·미충족 옆에 무엇을 보고 그렇게 판정했는지 한 줄로 붙입니다.
-      const why = (r, hit) => {
-        if (key === 'accuracy') return hit ? (WR_REVIEW_LABEL[r.f.review_result] || '') : '담당자 오류 · 재작업';
-        if (key === 'followup') {
-          return hit ? `확인기한 ${wrMD(r.f.followup_due)} · 기록 ${wrDtText(r.f.followup_done_at)}`
-            : (r.f.followup_done_at ? `기록 ${wrDtText(r.f.followup_done_at)} (확인기한 ${wrMD(r.f.followup_due)} 넘김)` : `확인기한 ${wrMD(r.f.followup_due)} · 기록 없음`);
-        }
-        const at = r.doneEff ? wrDtText(r.doneEff.toISOString()) : '';
-        if (hit) return `완료 ${at}`;
-        return r.staffDone ? `완료 ${at} (기한 넘김)` : '완료 기록 없음';
-      };
-      sections = wrSection(`충족 ${k.num}건`,
-        k.hitRows.map((r) => wrMiniRow(r, why(r, true))).join(''), '없습니다.')
-        + wrSection(`미충족 ${k.missRows.length}건`,
-          k.missRows.map((r) => wrMiniRow(r, why(r, false))).join(''), '없습니다.')
-        + wrSection(`값이 없어 뺀 건 ${k.needRows.length}건`,
-          k.needRows.map((r) => wrMiniRow(r, r.need.join(' · ') + ' 입력 필요')).join(''),
-          '없습니다.')
-        + wrSection(`제외 ${excl.length}건`,
-          excl.map((r) => wrMiniRow(r, exclWhy(r))).join(''), '없습니다.')
-        + (key === 'accuracy'
-          ? wrSection(`아직 검수 전 ${notReviewed.length}건`,
-            notReviewed.map((r) => wrMiniRow(r, '검수 대기 — 담당자 지연으로 세지 않음')).join(''), '없습니다.')
-          : '');
-    }
-
-    box.innerHTML = `<div class="wr-modal-h">${d.label}</div>
-      <div class="wr-modal-sub">${sub}</div>
-      <div class="wr-modal-scroll">${sections}</div>`;
-    document.getElementById('wrModalOverlay').style.display = 'flex';
-  }
-  window.wrOpenKpi = wrOpenKpi;
-
-  // ---- 목표 수정 ----
-  function wrOpenTargets() {
-    const t = wrSettings.targets;
-    const row = (k, label, unit) => `<div class="wr-field"><label>${label}</label>
-      <input type="number" id="wrTg_${k}" value="${t[k]}" min="0" max="${unit === '%' ? 100 : 99}" step="${unit === '%' ? 0.5 : 1}"> </div>`;
-    document.getElementById('wrModalBody').innerHTML = `
-      <div class="wr-modal-h">KPI 목표 수정</div>
-      <div class="wr-modal-sub">담당자 ${WR_ASSIGNEE} 기준입니다. 저장하면 모든 주차에 바로 적용됩니다.</div>
-      <div class="wr-form">
-        ${row('deadline', '기한 준수율 (%)', '%')}
-        ${row('accuracy', '업무 정확도 (%)', '%')}
-        ${row('required', '필수조치 준수율 (%)', '%')}
-        ${row('followup', '후속관리 준수율 (%)', '%')}
-        ${row('improvement', '개선 실적 (월 건수)', '건')}
-      </div>
-      <div class="wr-field" style="margin-top:12px">
-        <label>필수조치 자동 판정 낱말 (쉼표로 구분)</label>
-        <input type="text" id="wrTgPatterns" value="${escapeAttr((wrSettings.required_patterns || []).join(', '))}">
-      </div>
-      <div class="wr-kpi-calc" style="margin-top:4px">업무명·분류·그룹에 이 낱말이 들어 있으면 필수조치로 봅니다. 업무별로 직접 지정하면 그 값이 먼저입니다.</div>
-      <div class="gs-modal-actions">
-        <button type="button" class="btn-primary" onclick="wrSaveTargets()">저장</button>
-        <button type="button" class="btn-ghost" onclick="wrCloseModal()">취소</button>
-      </div>`;
-    document.getElementById('wrModalOverlay').style.display = 'flex';
-  }
-  window.wrOpenTargets = wrOpenTargets;
-
-  async function wrSaveTargets() {
-    const targets = {};
-    ['deadline', 'accuracy', 'required', 'followup', 'improvement'].forEach((k) => {
-      const v = Number(document.getElementById('wrTg_' + k).value);
-      targets[k] = Number.isFinite(v) ? v : WR_DEFAULT_TARGETS[k];
-    });
-    const patterns = document.getElementById('wrTgPatterns').value
-      .split(',').map((s) => s.trim()).filter(Boolean);
-    const { error } = await client.from('weekly_kpi_settings').upsert({
-      assignee: WR_ASSIGNEE, targets,
-      required_patterns: patterns.length ? patterns : WR_DEFAULT_PATTERNS,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'assignee' });
-    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
-    wrSettings = { targets, required_patterns: patterns.length ? patterns : [...WR_DEFAULT_PATTERNS] };
-    wrCloseModal();
-    wrRender();
-  }
-  window.wrSaveTargets = wrSaveTargets;
 
   // ==================== 자사몰 검수 ====================
   // 데이터 원본: mall_audits 표. scripts/mall-audit.js 가 하루 여러 번(09:10·11:00·14:00·17:00)
