@@ -1789,6 +1789,7 @@
           <div id="navScheduleSub">
             <div class="nav-subitem" data-schedulesub="main" onclick="switchView('team-schedule', 'main')">일정</div>
             <div class="nav-subitem" data-schedulesub="settlement" onclick="switchView('team-schedule', 'settlement')">정산</div>
+            <div class="nav-subitem" data-schedulesub="feecalc" onclick="switchView('team-schedule', 'feecalc')">공구 정산 계산</div>
           </div>
           <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process', 'overview')"><span class="dot dot-team"></span>거래처 운영현황</div>
           <div id="navProcessSub">
@@ -3237,6 +3238,67 @@
           <table class="table-center-head">
             <thead><tr><th>구분</th><th>인플루언서/거래처</th><th class="num">매출</th><th class="num">수수료(원)</th><th class="num">수금(원)</th><th>공동구매 기간</th><th>정산일</th><th>상태</th><th>메모</th><th></th></tr></thead>
             <tbody id="settlementTable"></tbody>
+          </table>
+        </div>
+      </section>
+      </div>
+
+      <div id="scheduleSubFeeCalc" style="display:none">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>1단계 · 공구 선택과 옵션 수수료율</h2>
+          <span class="panel-note">공구마다 한 번만 등록해 두면 다음 정산부터 그대로 다시 씁니다.</span>
+        </div>
+        <form class="deal-form" id="gbFeeCampaignForm">
+          <select id="gbFeeCampaignSelect" style="flex:2; min-width:260px;" onchange="gbFeeSelectCampaign(this.value)">
+            <option value="">공구를 고르세요</option>
+          </select>
+          <input type="text" id="gbFeeNewCampaign" placeholder="새 공구명 (예: 코드니처 X 로라도라홈 공동구매)" style="flex:2; min-width:240px;">
+          <input type="text" id="gbFeeNewPartner" placeholder="정산 대상 업체명 (예: 로라도라홈)" style="flex:1; min-width:170px;">
+          <button type="submit" class="btn-primary">공구 만들기</button>
+        </form>
+        <div id="gbFeeRateBox" style="display:none">
+          <form class="deal-form" id="gbFeeRateForm">
+            <input type="text" name="optionName" placeholder="옵션명 (RAW 의 '판매처 옵션' 과 같게)" required style="flex:3; min-width:280px;">
+            <input type="text" name="unitPrice" inputmode="numeric" placeholder="공구판매가" oninput="gsFormatMoneyInput(this)" style="flex:1; min-width:110px;">
+            <input type="text" name="rate" inputmode="decimal" placeholder="수수료율 % (예: 25)" required style="flex:1; min-width:130px;">
+            <button type="submit" class="btn-primary">옵션 추가</button>
+            <button type="button" class="filter-reset-btn" onclick="document.getElementById('gbFeeRateImport').click()">엑셀로 한 번에 넣기</button>
+            <button type="button" class="filter-reset-btn" onclick="gbFeeDownloadRateTemplate()">양식 내려받기</button>
+            <input type="file" id="gbFeeRateImport" accept=".xlsx,.xls,.csv" hidden onchange="gbFeeImportRates(this)">
+          </form>
+          <div class="scroll-box">
+            <table class="table-center-head">
+              <thead><tr><th>옵션명</th><th class="num">공구판매가</th><th class="num">수수료율</th><th></th></tr></thead>
+              <tbody id="gbFeeRateTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="gbFeeUploadPanel" style="display:none">
+        <div class="panel-head">
+          <h2>2단계 · 주문 RAW 올리기</h2>
+          <span class="panel-note" id="gbFeeUploadNote">주문 내역 엑셀을 그대로 올리면 됩니다. 손볼 필요 없습니다.</span>
+        </div>
+        <form class="deal-form">
+          <input type="file" id="gbFeeRawInput" accept=".xlsx,.xls,.csv" onchange="gbFeeReadRaw(this)" style="flex:2; min-width:260px;">
+          <button type="button" class="filter-reset-btn" onclick="gbFeeResetRaw()">지우기</button>
+        </form>
+        <div id="gbFeeWarnBox"></div>
+      </section>
+
+      <section class="panel" id="gbFeeResultPanel" style="display:none">
+        <div class="panel-head">
+          <h2>3단계 · 계산 결과</h2>
+          <span class="panel-note" id="gbFeeResultNote"></span>
+          <button type="button" class="btn-primary" onclick="gbFeeDownloadStatement()">정산서 엑셀 다운로드</button>
+        </div>
+        <section class="kpi-row" id="gbFeeKpiRow"></section>
+        <div class="scroll-box">
+          <table class="table-center-head">
+            <thead><tr><th>옵션명</th><th class="num">공구판매가</th><th class="num">판매수량</th><th class="num">판매금액</th><th class="num">수수료율</th><th class="num">수수료</th></tr></thead>
+            <tbody id="gbFeeAggTable"></tbody>
           </table>
         </div>
       </section>
@@ -5419,6 +5481,9 @@
       currentScheduleSub = brandChannel || currentScheduleSub;
       document.getElementById('scheduleSubMain').style.display = currentScheduleSub === 'main' ? '' : 'none';
       document.getElementById('scheduleSubSettlement').style.display = currentScheduleSub === 'settlement' ? '' : 'none';
+      document.getElementById('scheduleSubFeeCalc').style.display = currentScheduleSub === 'feecalc' ? '' : 'none';
+      // 요율 표는 이 화면에 들어올 때만 불러옵니다(일정·정산 화면에는 쓰이지 않습니다).
+      if (currentScheduleSub === 'feecalc') loadGbFeeRates();
     }
     if (view === 'monthly-trend') renderMonthlyTrendView();
     if (view === 'pipeline') loadPipeline();
@@ -10993,6 +11058,626 @@
     if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
     loadTeamSchedule();
   }
+
+  // ---- 공구 정산 계산 (주문 RAW → 옵션별 수수료 → 정산서 발행) ----
+  // 서버가 아니라 화면에서 계산합니다. api 폴더가 Vercel 함수 12개 한도에 꽉 차 있어
+  // 함수를 더 못 늘리는데, 이 페이지에는 SheetJS 가 이미 올라와 있어 업로드·파싱·집계를
+  // 전부 브라우저에서 끝낼 수 있습니다. 주문 RAW 는 서버로 올라가지 않습니다.
+  let gbFeeRates = [];      // groupbuy_commission_rates 전체
+  let gbFeeCampaign = '';   // 지금 고른 공구명
+  let gbFeePartner = '';    // 그 공구의 정산 대상 업체명
+  let gbFeeDetail = [];     // RAW 에서 뽑아낸 과금 줄
+  let gbFeeAgg = [];        // 옵션별 집계
+  let gbFeeSkipped = { cancelled: 0, unmatched: [] };
+
+  // RAW 는 "옵션=변기수조 세정서버 1+1세트 (12ea)" 처럼 들어오고 요율 표는 사람이 손으로 적습니다.
+  // 괄호·공백·별표가 조금 달라도 같은 옵션으로 붙도록 비교용 키를 만듭니다.
+  // '+' 는 일부러 남깁니다. 없애면 "1+1 (20ea)" 와 "11 (20ea)" 가 같은 키가 되어 버립니다.
+  function gbFeeOptionKey(name) {
+    return String(name || '')
+      .replace(/^\s*옵션\s*=\s*/, '')
+      .toLowerCase()
+      .replace(/[^0-9a-z가-힣+]/g, '');
+  }
+
+  // 요율은 화면에서 % 로 받고 DB 에는 0.25 처럼 소수로 넣습니다.
+  // 엑셀로 올릴 때 0.25 로 적힌 표(지금 쓰시던 "공구가" 시트)와 25 로 적힌 표가 섞여 들어오므로
+  // 1 보다 작으면 이미 소수, 1 이상이면 % 로 봅니다.
+  function gbFeeParseRate(v) {
+    const n = Number(String(v == null ? '' : v).replace(/[^0-9.]/g, ''));
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return n < 1 ? n : n / 100;
+  }
+
+  async function loadGbFeeRates() {
+    const { data, error } = await client.from('groupbuy_commission_rates')
+      .select('*').order('campaign', { ascending: true }).order('id', { ascending: true });
+    if (error) {
+      alert('옵션 수수료율 표를 불러오지 못했습니다: ' + error.message +
+        '\n\ngroupbuy_commission_rates.sql 을 Supabase SQL Editor 에서 먼저 실행했는지 확인해주세요.');
+      return;
+    }
+    gbFeeRates = data || [];
+    renderGbFeeCampaigns();
+  }
+
+  function renderGbFeeCampaigns() {
+    const sel = document.getElementById('gbFeeCampaignSelect');
+    if (!sel) return;
+    const names = [...new Set(gbFeeRates.map((r) => r.campaign))];
+    // 방금 만들었지만 아직 옵션을 하나도 안 넣은 공구도 목록에 남겨 둡니다.
+    if (gbFeeCampaign && !names.includes(gbFeeCampaign)) names.push(gbFeeCampaign);
+    sel.innerHTML = '<option value="">공구를 고르세요</option>' + names
+      .map((n) => `<option value="${escapeAttr(n)}"${n === gbFeeCampaign ? ' selected' : ''}>${escapeAttr(n)}</option>`)
+      .join('');
+    renderGbFeeRateTable();
+  }
+
+  function gbFeeSelectCampaign(campaign) {
+    gbFeeCampaign = campaign || '';
+    const mine = gbFeeRates.filter((r) => r.campaign === gbFeeCampaign);
+    gbFeePartner = (mine.find((r) => r.partner) || {}).partner || '';
+    gbFeeResetRaw();
+    renderGbFeeRateTable();
+  }
+  window.gbFeeSelectCampaign = gbFeeSelectCampaign;
+
+  document.getElementById('gbFeeCampaignForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = document.getElementById('gbFeeNewCampaign').value.trim();
+    const partner = document.getElementById('gbFeeNewPartner').value.trim();
+    if (!name) { alert('새 공구명을 적어주세요.'); return; }
+    gbFeeCampaign = name;
+    gbFeePartner = partner;
+    document.getElementById('gbFeeNewCampaign').value = '';
+    document.getElementById('gbFeeNewPartner').value = '';
+    gbFeeResetRaw();
+    renderGbFeeCampaigns();
+  });
+
+  function renderGbFeeRateTable() {
+    const box = document.getElementById('gbFeeRateBox');
+    const table = document.getElementById('gbFeeRateTable');
+    const upload = document.getElementById('gbFeeUploadPanel');
+    if (!box || !table || !upload) return;
+    box.style.display = gbFeeCampaign ? '' : 'none';
+    const rows = gbFeeRates.filter((r) => r.campaign === gbFeeCampaign);
+    // 요율이 한 줄도 없으면 RAW 를 올려도 계산할 게 없으므로 2단계를 감춰 둡니다.
+    upload.style.display = rows.length ? '' : 'none';
+    if (!gbFeeCampaign) { table.innerHTML = ''; return; }
+    if (!rows.length) {
+      table.innerHTML = '<tr><td colspan="4" class="gs-empty">아직 옵션이 없습니다. 위에서 한 줄씩 넣거나 "엑셀로 한 번에 넣기"를 쓰세요.</td></tr>';
+      return;
+    }
+    table.innerHTML = rows.map((r) => `
+      <tr>
+        <td><input type="text" class="inline-edit" value="${escapeAttr(r.option_name || '')}"
+          onchange="gbFeeUpdateRate(${r.id}, 'option_name', this.value)"></td>
+        <td class="num"><input type="text" inputmode="numeric" class="inline-edit num" value="${r.unit_price != null ? Number(r.unit_price).toLocaleString('ko-KR') : ''}"
+          oninput="gsFormatMoneyInput(this)" onchange="gbFeeUpdateRate(${r.id}, 'unit_price', this.value)"></td>
+        <td class="num"><input type="text" inputmode="decimal" class="inline-edit num" value="${(Number(r.commission_rate) * 100).toFixed(2).replace(/\.?0+$/, '')}%"
+          onchange="gbFeeUpdateRate(${r.id}, 'commission_rate', this.value)"></td>
+        <td><button class="btn-danger" onclick="gbFeeDeleteRate(${r.id})">삭제</button></td>
+      </tr>
+    `).join('');
+  }
+
+  document.getElementById('gbFeeRateForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!gbFeeCampaign) { alert('먼저 공구를 고르세요.'); return; }
+    const form = e.target;
+    const optionName = form.optionName.value.trim();
+    const rate = gbFeeParseRate(form.rate.value);
+    if (!optionName) { alert('옵션명을 적어주세요.'); return; }
+    if (rate == null) { alert('수수료율을 숫자로 적어주세요 (예: 25).'); return; }
+    const unitRaw = gsMoneyValue(form.unitPrice.value);
+    const { error } = await client.from('groupbuy_commission_rates').upsert({
+      campaign: gbFeeCampaign,
+      partner: gbFeePartner || null,
+      option_name: optionName,
+      option_key: gbFeeOptionKey(optionName),
+      unit_price: unitRaw === '' ? null : Number(unitRaw),
+      commission_rate: rate
+    }, { onConflict: 'campaign,option_key' });
+    if (error) { alert('옵션을 넣지 못했습니다: ' + error.message); return; }
+    form.reset();
+    gbFeeResetRaw();
+    loadGbFeeRates();
+  });
+
+  async function gbFeeUpdateRate(id, field, rawValue) {
+    const patch = {};
+    if (field === 'commission_rate') {
+      const rate = gbFeeParseRate(rawValue);
+      if (rate == null) { alert('수수료율을 숫자로 적어주세요 (예: 25).'); loadGbFeeRates(); return; }
+      patch.commission_rate = rate;
+    } else if (field === 'unit_price') {
+      const raw = gsMoneyValue(rawValue);
+      patch.unit_price = raw === '' ? null : Number(raw);
+    } else {
+      const name = String(rawValue).trim();
+      if (!name) { alert('옵션명은 비울 수 없습니다.'); loadGbFeeRates(); return; }
+      // 이름을 고치면 RAW 와 맞춰 보는 키도 같이 고쳐야 합니다.
+      patch.option_name = name;
+      patch.option_key = gbFeeOptionKey(name);
+    }
+    const { error } = await client.from('groupbuy_commission_rates').update(patch).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); }
+    gbFeeResetRaw();
+    loadGbFeeRates();
+  }
+  window.gbFeeUpdateRate = gbFeeUpdateRate;
+
+  async function gbFeeDeleteRate(id) {
+    if (!confirm('이 옵션 요율을 지울까요?')) return;
+    const { error } = await client.from('groupbuy_commission_rates').delete().eq('id', id);
+    if (error) { alert('지우지 못했습니다: ' + error.message); return; }
+    gbFeeResetRaw();
+    loadGbFeeRates();
+  }
+  window.gbFeeDeleteRate = gbFeeDeleteRate;
+
+  function gbFeeDownloadRateTemplate() {
+    const ws = XLSX.utils.json_to_sheet([
+      { 옵션명: '변기수조 세정서버 1+1세트 (12ea)', 공구판매가: 14900, '수수료율(%)': 20 },
+      { 옵션명: '하수구 악취 세정서버 (10ea)', 공구판매가: 17900, '수수료율(%)': 25 }
+    ], { header: ['옵션명', '공구판매가', '수수료율(%)'] });
+    ws['!cols'] = [{ wch: 46 }, { wch: 12 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '옵션 수수료율');
+    XLSX.writeFile(wb, '공구_옵션_수수료율_양식.xlsx');
+  }
+  window.gbFeeDownloadRateTemplate = gbFeeDownloadRateTemplate;
+
+  async function gbFeeImportRates(input) {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    if (!gbFeeCampaign) { alert('먼저 공구를 고르세요.'); return; }
+    // 지금 쓰시던 "공구가" 시트는 칸 이름이 상품명 / 공구판매가 / 수수료(%) / 수수료 입니다.
+    // 맨 끝 "수수료" 는 원 단위 금액이라 요율로 잘못 읽으면 안 되므로 후보에서 뺐습니다.
+    const nameCols = ['옵션명', '상품명', '판매처 옵션', '옵션'];
+    const pctCols = ['수수료율(%)', '수수료(%)', '수수료율', '요율'];
+    let rows = null;
+    try {
+      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      // 주문 RAW 와 요율 표가 한 파일에 같이 들어 있는 경우가 많아, 요율 칸이 있는 시트를 찾아갑니다.
+      for (const name of wb.SheetNames) {
+        const cand = XLSX.utils.sheet_to_json(wb.Sheets[name], { defval: '', raw: false });
+        if (cand.length && nameCols.some((c) => c in cand[0]) && pctCols.some((c) => c in cand[0])) { rows = cand; break; }
+      }
+    } catch (err) { alert('엑셀을 읽지 못했습니다: ' + err.message); return; }
+    if (!rows) {
+      alert('요율 표를 찾지 못했습니다.\n"옵션명"(또는 상품명)과 "수수료율(%)" 칸이 있는 시트가 필요합니다.\n"양식 내려받기"로 받은 파일에 채워서 올려주세요.');
+      return;
+    }
+
+    const pick = (r, names) => { for (const n of names) if (r[n] !== undefined && String(r[n]).trim() !== '') return r[n]; return ''; };
+    const payload = [];
+    const seen = new Set();
+    for (const r of rows) {
+      const name = String(pick(r, nameCols)).trim();
+      const rate = gbFeeParseRate(pick(r, pctCols));
+      if (!name || rate == null) continue;
+      const key = gbFeeOptionKey(name);
+      // 같은 파일 안에 같은 옵션이 두 번 있으면 upsert 가 통째로 실패하므로 첫 줄만 씁니다.
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const unit = Number(String(pick(r, ['공구판매가', '판매가', '단가'])).replace(/[^0-9.]/g, ''));
+      payload.push({
+        campaign: gbFeeCampaign,
+        partner: gbFeePartner || null,
+        option_name: name.replace(/^\s*옵션\s*=\s*/, ''),
+        option_key: key,
+        unit_price: Number.isFinite(unit) && unit > 0 ? unit : null,
+        commission_rate: rate
+      });
+    }
+    if (!payload.length) {
+      alert('읽을 수 있는 줄이 없습니다.\n"옵션명"(또는 상품명)과 "수수료율(%)" 칸이 채워져 있어야 합니다.\n"양식 내려받기"로 받은 파일에 채워서 올려주세요.');
+      return;
+    }
+    if (!confirm(`옵션 ${payload.length}개를 "${gbFeeCampaign}" 에 넣을까요?\n이미 있는 옵션은 요율이 새 값으로 바뀝니다.`)) return;
+    const { error } = await client.from('groupbuy_commission_rates')
+      .upsert(payload, { onConflict: 'campaign,option_key' });
+    if (error) { alert('넣지 못했습니다: ' + error.message); return; }
+    gbFeeResetRaw();
+    loadGbFeeRates();
+  }
+  window.gbFeeImportRates = gbFeeImportRates;
+
+  // ---- 주문 RAW 읽기 ----
+  // 판매처마다 칸 이름이 조금씩 다르므로 후보를 여러 개 두고 먼저 찾히는 것을 씁니다.
+  const GB_RAW_OPTION_COLS = ['판매처 옵션', '판매처옵션', '옵션명', '옵션'];
+  const GB_RAW_AMOUNT_COLS = ['판매가', '판매금액', '결제금액', '금액'];
+  const GB_RAW_QTY_COLS = ['주문수량', '수량'];
+  const GB_RAW_DATE_COLS = ['주문일', '주문일자', '결제일'];
+  const GB_RAW_NO_COLS = ['주문번호'];
+  const GB_RAW_STATUS_COLS = ['CS', '주문상태', '상태'];
+
+  function gbFeePick(row, names) {
+    for (const n of names) if (row[n] !== undefined && String(row[n]).trim() !== '') return row[n];
+    return '';
+  }
+
+  // 머리글이 1행에 없는 파일(위에 제목 줄이 붙은 경우)도 있어서 위에서부터 훑어 찾습니다.
+  function gbFeeSheetToRows(ws) {
+    const grid = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+    const hit = (cells, names) => cells.some((c) => names.includes(c));
+    let h = -1;
+    for (let i = 0; i < Math.min(grid.length, 20); i++) {
+      const cells = grid[i].map((c) => String(c).trim());
+      if (hit(cells, GB_RAW_OPTION_COLS) && hit(cells, GB_RAW_AMOUNT_COLS)) { h = i; break; }
+    }
+    if (h < 0) return null;
+    const head = grid[h].map((c) => String(c).trim());
+    return grid.slice(h + 1).map((r) => {
+      const o = {};
+      head.forEach((k, i) => { if (k) o[k] = r[i] == null ? '' : String(r[i]).trim(); });
+      return o;
+    });
+  }
+
+  async function gbFeeReadRaw(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (!gbFeeCampaign) { alert('먼저 공구를 고르세요.'); input.value = ''; return; }
+    let rows = null;
+    try {
+      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      // 요율 시트가 같이 들어 있는 파일도 있으므로 주문 칸이 있는 시트를 찾을 때까지 넘깁니다.
+      for (const name of wb.SheetNames) {
+        rows = gbFeeSheetToRows(wb.Sheets[name]);
+        if (rows) break;
+      }
+    } catch (err) { alert('엑셀을 읽지 못했습니다: ' + err.message); return; }
+    if (!rows) {
+      alert('주문 내역 시트를 찾지 못했습니다.\n"판매처 옵션"(또는 옵션명)과 "판매가" 칸이 있는 시트가 필요합니다.');
+      return;
+    }
+    gbFeeCompute(rows);
+  }
+  window.gbFeeReadRaw = gbFeeReadRaw;
+
+  function gbFeeCompute(rows) {
+    const rateByKey = new Map(gbFeeRates.filter((r) => r.campaign === gbFeeCampaign).map((r) => [r.option_key, r]));
+    const detail = [];
+    const unmatched = new Map();
+    let cancelled = 0;
+    for (const r of rows) {
+      const optRaw = String(gbFeePick(r, GB_RAW_OPTION_COLS) || '').trim();
+      const amount = Number(String(gbFeePick(r, GB_RAW_AMOUNT_COLS)).replace(/[^0-9.]/g, ''));
+      // 세트 상품은 구성품마다 한 줄씩 들어오고 둘째 줄부터 판매가가 0 입니다. 그 줄까지 세면
+      // 같은 주문을 두 번 계산하게 되므로 판매가가 있는 줄만 씁니다.
+      // 맨 아래 "합계" 줄은 옵션 칸이 비어 있어 여기서 같이 걸러집니다.
+      if (!optRaw || !Number.isFinite(amount) || amount <= 0) continue;
+      if (/취소|반품|환불|교환/.test(String(gbFeePick(r, GB_RAW_STATUS_COLS)))) { cancelled++; continue; }
+      const key = gbFeeOptionKey(optRaw);
+      const rate = rateByKey.get(key);
+      // 요율을 모르는 옵션은 0 원으로 넘기지 않고 따로 모아 화면에 띄웁니다.
+      if (!rate) { unmatched.set(key, optRaw.replace(/^\s*옵션\s*=\s*/, '')); continue; }
+      const qtyRaw = Number(String(gbFeePick(r, GB_RAW_QTY_COLS)).replace(/[^0-9.]/g, ''));
+      const qty = Number.isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1;
+      const pct = Number(rate.commission_rate);
+      detail.push({
+        date: quoteParseDate(gbFeePick(r, GB_RAW_DATE_COLS)) || '',
+        no: String(gbFeePick(r, GB_RAW_NO_COLS) || ''),
+        opt: rate.option_name,
+        unit: rate.unit_price != null ? Number(rate.unit_price) : Math.round(amount / qty),
+        qty: qty,
+        amt: amount,
+        rate: pct,
+        // 줄마다 반올림해 둡니다. 그래야 옵션별 합계와 총액이 상세 줄의 합과 1원도 안 어긋납니다.
+        fee: Math.round(amount * pct)
+      });
+    }
+    detail.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.no < b.no ? -1 : 1)));
+    const map = {};
+    detail.forEach((d) => {
+      const a = map[d.opt] = map[d.opt] || { opt: d.opt, unit: d.unit, rate: d.rate, qty: 0, amt: 0, fee: 0 };
+      a.qty += d.qty; a.amt += d.amt; a.fee += d.fee;
+    });
+    gbFeeDetail = detail;
+    gbFeeAgg = Object.values(map).sort((a, b) => b.fee - a.fee);
+    gbFeeSkipped = { cancelled: cancelled, unmatched: [...unmatched.values()] };
+    renderGbFeeResult();
+  }
+
+  function gbFeeTotals() {
+    return gbFeeAgg.reduce((s, a) => ({ qty: s.qty + a.qty, amt: s.amt + a.amt, fee: s.fee + a.fee }), { qty: 0, amt: 0, fee: 0 });
+  }
+
+  function gbFeePeriod() {
+    const dates = gbFeeDetail.map((d) => d.date).filter(Boolean).sort();
+    return dates.length ? dates[0] + ' ~ ' + dates[dates.length - 1] : '';
+  }
+
+  function renderGbFeeResult() {
+    const warn = document.getElementById('gbFeeWarnBox');
+    const panel = document.getElementById('gbFeeResultPanel');
+    const note = document.getElementById('gbFeeResultNote');
+    const kpi = document.getElementById('gbFeeKpiRow');
+    const table = document.getElementById('gbFeeAggTable');
+    if (!warn || !panel) return;
+
+    const bits = [];
+    if (gbFeeSkipped.unmatched.length) {
+      bits.push(`<div class="gs-empty error">요율이 등록되지 않은 옵션 ${gbFeeSkipped.unmatched.length}개는 계산에서 빠졌습니다. 1단계에 넣고 다시 올려주세요.<br>` +
+        gbFeeSkipped.unmatched.map((n) => '· ' + escapeAttr(n)).join('<br>') + '</div>');
+    }
+    if (gbFeeSkipped.cancelled) {
+      bits.push(`<div class="gs-empty">취소·반품으로 표시된 ${gbFeeSkipped.cancelled}줄은 뺐습니다.</div>`);
+    }
+    warn.innerHTML = bits.join('');
+
+    if (!gbFeeDetail.length) {
+      panel.style.display = 'none';
+      if (!bits.length) warn.innerHTML = '<div class="gs-empty">계산할 주문을 찾지 못했습니다.</div>';
+      return;
+    }
+    panel.style.display = '';
+    const T = gbFeeTotals();
+    note.textContent = `${gbFeePeriod()} · 주문 ${new Set(gbFeeDetail.map((d) => d.no)).size}건`;
+    kpi.innerHTML = `
+      <div class="kpi-card"><div class="kpi-label">판매수량</div><div class="kpi-value">${T.qty.toLocaleString('ko-KR')}개</div></div>
+      <div class="kpi-card"><div class="kpi-label">판매금액</div><div class="kpi-value">${won(T.amt)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">지급 수수료</div><div class="kpi-value">${won(T.fee)}</div></div>
+    `;
+    table.innerHTML = gbFeeAgg.map((a) => `
+      <tr>
+        <td>${escapeAttr(a.opt)}</td>
+        <td class="num">${Number(a.unit).toLocaleString('ko-KR')}</td>
+        <td class="num">${a.qty.toLocaleString('ko-KR')}</td>
+        <td class="num">${a.amt.toLocaleString('ko-KR')}</td>
+        <td class="num">${(a.rate * 100).toFixed(2).replace(/\.?0+$/, '')}%</td>
+        <td class="num"><b>${a.fee.toLocaleString('ko-KR')}</b></td>
+      </tr>
+    `).join('') + `
+      <tr class="gs-row-done">
+        <td><b>합 계</b></td><td></td>
+        <td class="num"><b>${T.qty.toLocaleString('ko-KR')}</b></td>
+        <td class="num"><b>${T.amt.toLocaleString('ko-KR')}</b></td>
+        <td></td>
+        <td class="num"><b>${T.fee.toLocaleString('ko-KR')}</b></td>
+      </tr>`;
+  }
+
+  function gbFeeResetRaw() {
+    gbFeeDetail = []; gbFeeAgg = []; gbFeeSkipped = { cancelled: 0, unmatched: [] };
+    const input = document.getElementById('gbFeeRawInput');
+    if (input) input.value = '';
+    const warn = document.getElementById('gbFeeWarnBox');
+    if (warn) warn.innerHTML = '';
+    const panel = document.getElementById('gbFeeResultPanel');
+    if (panel) panel.style.display = 'none';
+  }
+  window.gbFeeResetRaw = gbFeeResetRaw;
+
+  // ---- 정산서 발행 ----
+  // 색·테두리가 들어간 서식은 SheetJS 무료판으로 못 만듭니다. 그래서 내려받기를 누른
+  // 순간에만 exceljs 를 불러옵니다(첫 번째 다운로드만 잠깐 걸리고 그 뒤로는 바로 나옵니다).
+  let gbFeeExcelJsLoading = null;
+  function gbFeeLoadExcelJs() {
+    if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+    if (gbFeeExcelJsLoading) return gbFeeExcelJsLoading;
+    gbFeeExcelJsLoading = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+      s.onload = () => resolve(window.ExcelJS);
+      s.onerror = () => { gbFeeExcelJsLoading = null; reject(new Error('정산서 서식 파일을 불러오지 못했습니다. 인터넷 연결을 확인해주세요.')); };
+      document.head.appendChild(s);
+    });
+    return gbFeeExcelJsLoading;
+  }
+
+  async function gbFeeDownloadStatement() {
+    if (!gbFeeDetail.length) { alert('먼저 주문 RAW 를 올려주세요.'); return; }
+    if (gbFeeSkipped.unmatched.length &&
+      !confirm(`요율이 없는 옵션 ${gbFeeSkipped.unmatched.length}개가 빠진 채로 발행됩니다. 그대로 만들까요?`)) return;
+
+    let ExcelJS;
+    try { ExcelJS = await gbFeeLoadExcelJs(); } catch (err) { alert(err.message); return; }
+
+    const T = gbFeeTotals();
+    const period = gbFeePeriod();
+    const orderCount = new Set(gbFeeDetail.map((d) => d.no)).size;
+    const partner = gbFeePartner || gbFeeCampaign;
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+
+    const NAVY = 'FF1F3864', LIGHT = 'FFEDF1F8', GREY = 'FFF7F7F9', LINE = 'FFE3E6EC';
+    const F = (size, bold, color) => ({ name: '맑은 고딕', size: size, bold: !!bold, color: { argb: color || 'FF111827' } });
+    const bg = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: argb } });
+    const box = (c, color) => {
+      const s = { style: 'thin', color: { argb: color || LINE } };
+      c.border = { top: s, left: s, bottom: s, right: s };
+    };
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('수수료 정산서', {
+      views: [{ showGridLines: false }],
+      pageSetup: { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+    });
+    ws.columns = [{ width: 3 }, { width: 46 }, { width: 13 }, { width: 9 }, { width: 14 }, { width: 10 }, { width: 14 }];
+    let R = 2;
+
+    ws.mergeCells(R, 2, R, 7);
+    const t = ws.getCell(R, 2);
+    t.value = '공동구매 수수료 정산서';
+    t.font = { name: '맑은 고딕', size: 20, bold: true, color: { argb: NAVY } };
+    t.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(R).height = 38; R++;
+
+    ws.mergeCells(R, 2, R, 7);
+    const sub = ws.getCell(R, 2);
+    sub.value = gbFeeCampaign;
+    sub.font = F(11, false, 'FF6B7280');
+    sub.alignment = { horizontal: 'center' };
+    ws.getRow(R).height = 20; R += 2;
+
+    [['정산 대상 (수취인)', partner, '정산 기간', period],
+     ['공급사 (지급인)', '셀디랩', '발행일', today],
+     ['공구명', gbFeeCampaign, '주문 건수', orderCount + '건 / ' + T.qty + '개']
+    ].forEach(([k1, v1, k2, v2]) => {
+      ws.mergeCells(R, 3, R, 4);
+      ws.mergeCells(R, 6, R, 7);
+      [[2, k1, 1], [3, v1, 0], [5, k2, 1], [6, v2, 0]].forEach(([col, v, isKey]) => {
+        const c = ws.getCell(R, col);
+        c.value = v;
+        c.font = F(10, !!isKey, isKey ? 'FF6B7280' : 'FF111827');
+        c.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        c.fill = bg(isKey ? GREY : 'FFFFFFFF');
+      });
+      for (let c = 2; c <= 7; c++) box(ws.getCell(R, c));
+      ws.getRow(R).height = 22; R++;
+    });
+    R++;
+
+    ws.mergeCells(R, 2, R + 1, 4);
+    const hl = ws.getCell(R, 2);
+    hl.value = '지급 수수료 총액';
+    hl.font = F(13, true, 'FFFFFFFF');
+    hl.alignment = { horizontal: 'left', vertical: 'middle', indent: 2 };
+    ws.mergeCells(R, 5, R + 1, 7);
+    const hv = ws.getCell(R, 5);
+    hv.value = T.fee;
+    hv.numFmt = '#,##0"원"';
+    hv.font = { name: '맑은 고딕', size: 20, bold: true, color: { argb: 'FFFFFFFF' } };
+    hv.alignment = { horizontal: 'right', vertical: 'middle', indent: 2 };
+    for (let c = 2; c <= 7; c++) for (let r = R; r <= R + 1; r++) ws.getCell(r, c).fill = bg(NAVY);
+    ws.getRow(R).height = 24; ws.getRow(R + 1).height = 22; R += 2;
+
+    ws.mergeCells(R, 2, R, 7);
+    const cap = ws.getCell(R, 2);
+    cap.value = '※ 총 판매금액 ' + T.amt.toLocaleString('ko-KR') + '원 기준 · 부가세 별도 (세금계산서 발행 시 VAT 10% 추가)';
+    cap.font = F(9, false, 'FF6B7280');
+    cap.alignment = { horizontal: 'right' };
+    ws.getRow(R).height = 18; R += 2;
+
+    ws.mergeCells(R, 2, R, 7);
+    const sh = ws.getCell(R, 2);
+    sh.value = '옵션별 정산 명세';
+    sh.font = F(12, true, NAVY);
+    sh.alignment = { vertical: 'middle' };
+    ws.getRow(R).height = 26; R++;
+
+    ['옵션명', '공구판매가', '판매수량', '판매금액', '수수료율', '수수료'].forEach((h, i) => {
+      const c = ws.getCell(R, i + 2);
+      c.value = h;
+      c.font = F(10, true, 'FFFFFFFF');
+      c.alignment = { horizontal: i === 0 ? 'left' : 'center', vertical: 'middle', indent: i === 0 ? 1 : 0 };
+      c.fill = bg(NAVY);
+      box(c, NAVY);
+    });
+    ws.getRow(R).height = 24; R++;
+
+    gbFeeAgg.forEach((a, i) => {
+      [a.opt, a.unit, a.qty, a.amt, a.rate, a.fee].forEach((v, j) => {
+        const c = ws.getCell(R, j + 2);
+        c.value = v;
+        c.font = j === 5 ? F(10, true, NAVY) : F(10);
+        if (j === 0) c.alignment = { horizontal: 'left', vertical: 'middle', indent: 1, wrapText: true };
+        else if (j === 2 || j === 4) c.alignment = { horizontal: 'center', vertical: 'middle' };
+        else c.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 };
+        if (j === 1 || j === 3 || j === 5) c.numFmt = '#,##0';
+        if (j === 4) c.numFmt = '0%';
+        if (i % 2 === 1) c.fill = bg(GREY);
+        box(c);
+      });
+      ws.getRow(R).height = 30; R++;
+    });
+
+    ['합 계', null, T.qty, T.amt, null, T.fee].forEach((v, j) => {
+      const c = ws.getCell(R, j + 2);
+      c.value = v;
+      c.font = F(11, true, NAVY);
+      if (j === 0) c.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+      else if (j === 2) c.alignment = { horizontal: 'center', vertical: 'middle' };
+      else c.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 };
+      if (j === 3 || j === 5) c.numFmt = '#,##0';
+      c.fill = bg(LIGHT);
+      c.border = {
+        top: { style: 'medium', color: { argb: NAVY } },
+        bottom: { style: 'medium', color: { argb: NAVY } },
+        left: { style: 'thin', color: { argb: LINE } },
+        right: { style: 'thin', color: { argb: LINE } }
+      };
+    });
+    ws.getRow(R).height = 28; R += 2;
+
+    ws.mergeCells(R, 2, R, 7);
+    const gh = ws.getCell(R, 2);
+    gh.value = '정산 기준 안내';
+    gh.font = F(11, true, NAVY);
+    ws.getRow(R).height = 22; R++;
+
+    [
+      '1. 정산 기간 ' + period + ' 동안 접수된 정상 주문 ' + orderCount + '건(판매수량 ' + T.qty + '개)을 대상으로 합니다.',
+      '2. 수수료는 옵션별 공구판매가 기준 판매금액에 사전 합의된 옵션별 수수료율을 적용해 산출했습니다.',
+      '3. 취소·반품·교환 건은 정산에서 제외하며, 정산 후 발생 시 차기 정산에서 차감합니다.',
+      '4. 배송비, 쿠폰·포인트 할인액은 판매금액에 포함되지 않습니다.',
+      '5. 상기 금액은 부가세 별도 금액이며, 세금계산서 발행 확인 후 지급합니다.',
+      '6. 주문 건별 내역은 [주문 상세] 시트에서 확인하실 수 있습니다.'
+    ].forEach((n) => {
+      ws.mergeCells(R, 2, R, 7);
+      const c = ws.getCell(R, 2);
+      c.value = n;
+      c.font = F(9.5, false, 'FF4B5563');
+      c.alignment = { vertical: 'middle', indent: 1 };
+      c.fill = bg(GREY);
+      ws.getRow(R).height = 19; R++;
+    });
+
+    const ds = wb.addWorksheet('주문 상세', {
+      views: [{ state: 'frozen', ySplit: 1, showGridLines: false }],
+      pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+    });
+    ds.columns = [
+      { header: '주문일', key: 'date', width: 12 }, { header: '주문번호', key: 'no', width: 20 },
+      { header: '옵션명', key: 'opt', width: 50 }, { header: '공구판매가', key: 'unit', width: 12 },
+      { header: '수량', key: 'qty', width: 7 }, { header: '판매금액', key: 'amt', width: 13 },
+      { header: '수수료율', key: 'rate', width: 10 }, { header: '수수료', key: 'fee', width: 13 }
+    ];
+    ds.getRow(1).eachCell((c) => {
+      c.font = F(10, true, 'FFFFFFFF');
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.fill = bg(NAVY);
+    });
+    ds.getRow(1).height = 24;
+    gbFeeDetail.forEach((d, i) => {
+      const row = ds.addRow(d);
+      row.height = 19;
+      row.eachCell((c, n) => {
+        c.font = n === 8 ? F(9.5, true, NAVY) : F(9.5);
+        if (n === 1 || n === 2 || n === 5 || n === 7) c.alignment = { horizontal: 'center', vertical: 'middle' };
+        else if (n === 3) c.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+        else c.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 };
+        if (n === 4 || n === 6 || n === 8) c.numFmt = '#,##0';
+        if (n === 7) c.numFmt = '0%';
+        if (i % 2 === 1) c.fill = bg(GREY);
+        box(c, 'FFE8EAEE');
+      });
+    });
+    const last = ds.addRow({ date: '합 계', qty: T.qty, amt: T.amt, fee: T.fee });
+    last.height = 24;
+    last.eachCell((c, n) => {
+      c.font = F(10, true, NAVY);
+      c.fill = bg(LIGHT);
+      c.border = { top: { style: 'medium', color: { argb: NAVY } }, bottom: { style: 'medium', color: { argb: NAVY } } };
+      if (n === 4 || n === 6 || n === 8) c.numFmt = '#,##0';
+      c.alignment = { horizontal: n === 1 ? 'center' : 'right', vertical: 'middle', indent: 1 };
+    });
+    ds.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 8 } };
+
+    const buf = await wb.xlsx.writeBuffer();
+    const stamp = period ? period.replace(/[^0-9]/g, '').slice(0, 8) + '-' + period.replace(/[^0-9]/g, '').slice(8) : today.replace(/-/g, '');
+    const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${partner}_수수료정산서_${stamp}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  window.gbFeeDownloadStatement = gbFeeDownloadStatement;
 
   // ==================== 영업팀 - 사업자·회계 ====================
   let currentEntities = [];
