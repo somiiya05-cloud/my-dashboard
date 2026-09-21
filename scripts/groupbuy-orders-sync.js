@@ -256,6 +256,14 @@ async function main() {
   // 확장주문검색 내보내기는 판매처가 전부 "코드니처" 라 팀을 알 수 없습니다. 그때는
   // 기획전명으로 공구만 고르고, 팀이 섞일 수 있다고 알립니다.
   const TEAM = process.env.GB_TEAM || '영업팀';
+  // 정산 직전에 한 공구만 새로 고칠 때 씁니다.
+  //   GB_ONLY=데이원 node scripts/groupbuy-orders-sync.js "<확장주문검색 파일>"
+  // 일별 적재는 그날 찍힌 상태라, 나중에 생긴 취소를 모릅니다(9/5 주문이 9/10 에 취소돼도
+  // 9/5 파일에는 "정상" 으로 남아 있습니다). 확장주문검색은 내보낸 시점의 상태라 이걸로
+  // 덮어써야 맞습니다. 다만 그 파일에는 팀 정보가 없어 컨텐츠팀까지 들어오므로,
+  // 공구를 지정해 그 공구만 건드립니다.
+  const ONLY = process.env.GB_ONLY || '';
+  if (ONLY) console.log(`"${ONLY}" 가 든 공구만 갱신합니다.`);
   const hasTeam = rows.some((r) => /공동구매/.test(String(pick(r, COL.vendor) || '')));
   if (hasTeam) {
     console.log(`공구 고르는 기준: 판매처 = 공동구매(${TEAM})`);
@@ -270,6 +278,7 @@ async function main() {
   for (const r of rows) {
     const campaign = String(pick(r, COL.campaign) || '').trim();
     const vendor = String(pick(r, COL.vendor) || '').trim();
+    if (ONLY && !campaign.includes(ONLY)) { skipped.공구아님++; continue; }
     if (hasTeam) {
       if (!/공동구매/.test(vendor)) { skipped.공구아님++; continue; }
       if (!vendor.includes(TEAM)) {
