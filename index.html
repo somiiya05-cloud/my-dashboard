@@ -2164,11 +2164,6 @@
           <h2>재고 연동 (이지어드민)</h2>
           <span class="panel-note" id="eiListNote"></span>
         </div>
-        <div class="filter-group" style="margin-bottom: 12px; align-items: center;">
-          <input type="file" id="eiFileInput" accept=".xlsx,.xls,.csv">
-          <button type="button" class="btn-primary" onclick="uploadEzadminInventoryFile()">재고 파일 업로드</button>
-          <span id="eiUploadStatus" style="font-size: 13px; color: #64748b;"></span>
-        </div>
         <div class="filter-group" style="margin-bottom: 12px;">
           <input type="text" id="eiSearchInput" class="vendor-select" placeholder="상품코드 · 상품명 검색" autocomplete="off">
         </div>
@@ -6789,7 +6784,7 @@
   function renderEiTable() {
     const note = document.getElementById('eiListNote');
     if (allEzadminInventoryRows.length === 0) {
-      note.textContent = '아직 동기화된 재고가 없습니다. 이지어드민 API 키(파트너키·업체키)가 Vercel에 설정되면 매일 자동으로 재고가 동기화됩니다.';
+      note.textContent = '아직 동기화된 재고가 없습니다. 사무실 PC의 이지어드민 창에 로그인돼 있으면 3시간마다 자동으로 채워집니다.';
       document.getElementById('eiTable').innerHTML = '';
       return;
     }
@@ -6814,69 +6809,6 @@
           <td>${r.synced_at ? new Date(r.synced_at).toLocaleString('ko-KR') : '-'}</td>
         </tr>
       `).join('');
-  }
-
-  const EI_HEADER_ALIASES = {
-    product_id: ['상품코드'],
-    stock: ['정상재고', '재고'],
-    available_stock: ['가용재고']
-  };
-
-  function findEiColumnIndex(headerRow, aliases) {
-    for (let i = 0; i < headerRow.length; i++) {
-      const cell = String(headerRow[i] || '').trim();
-      if (aliases.includes(cell)) return i;
-    }
-    return -1;
-  }
-
-  function uploadEzadminInventoryFile() {
-    const input = document.getElementById('eiFileInput');
-    const status = document.getElementById('eiUploadStatus');
-    const file = input.files[0];
-    if (!file) { status.textContent = '파일을 먼저 선택하세요.'; return; }
-
-    status.textContent = '읽는 중...';
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const wb = XLSX.read(e.target.result, { type: 'array' });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-        if (grid.length < 2) { status.textContent = '데이터가 없는 파일입니다.'; return; }
-
-        const headerRow = grid[0];
-        const idxProductId = findEiColumnIndex(headerRow, EI_HEADER_ALIASES.product_id);
-        const idxStock = findEiColumnIndex(headerRow, EI_HEADER_ALIASES.stock);
-        const idxAvailable = findEiColumnIndex(headerRow, EI_HEADER_ALIASES.available_stock);
-        if (idxProductId === -1 || idxStock === -1) {
-          status.textContent = '"상품코드" · "정상재고" 컬럼을 찾지 못했습니다. 이지어드민에서 받은 파일이 맞는지 확인해주세요.';
-          return;
-        }
-
-        const now = new Date().toISOString();
-        const rows = grid.slice(1)
-          .filter(row => String(row[idxProductId] || '').trim())
-          .map(row => ({
-            product_id: String(row[idxProductId]).trim(),
-            stock: Number(row[idxStock]) || 0,
-            available_stock: idxAvailable !== -1 ? (Number(row[idxAvailable]) || 0) : null,
-            synced_at: now
-          }));
-
-        if (rows.length === 0) { status.textContent = '업로드할 상품이 없습니다.'; return; }
-
-        const { error } = await client.from('product_inventory').upsert(rows, { onConflict: 'product_id' });
-        if (error) { status.textContent = '업로드 실패: ' + error.message; return; }
-
-        status.textContent = `${rows.length.toLocaleString('ko-KR')}개 상품 재고를 업데이트했습니다.`;
-        input.value = '';
-        loadEzadminInventory();
-      } catch (err) {
-        status.textContent = '파일을 읽는 중 오류가 발생했습니다: ' + err.message;
-      }
-    };
-    reader.readAsArrayBuffer(file);
   }
 
   // ==================== 샘플연동 (구글시트) ====================
