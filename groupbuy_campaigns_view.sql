@@ -10,18 +10,30 @@
 --   그렇다고 groupbuy_order_lines 를 통째로 읽으면(하루 50줄씩 1년에 2만 줄) 화면 열 때마다
 --   낭비인데, 공구×날짜로 줄이면 공구 10개에 한 달이면 100줄대라 가볍습니다.
 --
+-- 세는 단위가 셋입니다. 헷갈리기 쉬워 적어 둡니다.
+--   · order_count : 주문 건수. 한 주문에 옵션이 둘이면 1건입니다.
+--                   주문번호는 하루에 매여 있어(20260905-0003556) 날짜별로 세어 더해도 맞습니다.
+--   · qty         : 수량(개). 한 줄에서 옵션을 2개 사면 2입니다.
+--   · line_count  : 과금 줄 수. 화면에는 쓰지 않고 검산용으로만 둡니다.
+--                   (로라도라홈: 138건 / 157개 / 140줄)
+--
 -- 취소·반품·환불은 빼고 셉니다. 정산 화면이 쓰는 기준과 같아야 목록의 누적 매출과
 -- 실제 정산 금액이 어긋나지 않습니다. 교환은 매출이 살아 있으므로 넣습니다.
 
+-- create or replace 로는 칸 이름·순서를 못 바꿉니다("cannot change name of view column").
+-- 칸을 더하거나 순서를 바꿀 때는 지우고 다시 만들어야 합니다. 뷰라서 데이터는 안 없어집니다.
 drop view if exists groupbuy_campaigns;
+drop view if exists groupbuy_campaign_days;
 
-create or replace view groupbuy_campaign_days as
+create view groupbuy_campaign_days as
 select
   campaign_key,
-  min(campaign)   as campaign,      -- 표기가 "X " / "X  " 로 흔들려 하나를 대표로 씁니다
+  min(campaign)               as campaign,   -- 표기가 "X " / "X  " 로 흔들려 하나를 대표로 씁니다
   order_date,
-  count(*)        as line_count,
-  sum(amount)     as total_amount
+  count(distinct order_no)    as order_count,
+  sum(qty)                    as qty,
+  count(*)                    as line_count,
+  sum(amount)                 as total_amount
 from groupbuy_order_lines
 where cs_status is null or cs_status !~ '취소|반품|환불'
 group by campaign_key, order_date;
@@ -30,8 +42,9 @@ group by campaign_key, order_date;
 grant select on groupbuy_campaign_days to anon, authenticated;
 
 -- 확인 — 공구별로 합쳐 보면 이렇게 나옵니다.
-select campaign as "공구", sum(line_count) as "줄수", sum(total_amount) as "누적 매출",
+select campaign as "공구", sum(order_count) as "주문", sum(qty) as "수량",
+       sum(line_count) as "줄", sum(total_amount) as "누적 매출",
        min(order_date) as "처음", max(order_date) as "마지막"
 from groupbuy_campaign_days
 group by campaign_key, campaign
-order by 3 desc;
+order by 5 desc;

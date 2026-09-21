@@ -3391,7 +3391,7 @@
         </div>
         <div class="scroll-box">
           <table class="table-center-head">
-            <thead><tr><th>상태</th><th>공구</th><th>기간</th><th class="num">주문</th><th class="num">누적 매출</th><th></th></tr></thead>
+            <thead><tr><th>상태</th><th>공구</th><th>기간</th><th class="num">주문</th><th class="num">수량</th><th class="num">누적 매출</th><th></th></tr></thead>
             <tbody id="gbFeeOverviewTable"></tbody>
           </table>
         </div>
@@ -12565,12 +12565,14 @@
         if (!inRange.length && !after.length && !running) return;
         [...inRange, ...after].forEach((d) => used.add(d.campaign_key + '|' + d.order_date));
         const sum = (a) => a.reduce((x, d) => x + Number(d.total_amount), 0);
-        const cnt = (a) => a.reduce((x, d) => x + Number(d.line_count), 0);
+        // 주문번호는 하루에 매여 있어(20260905-0003556) 날짜별 건수를 더해도 맞습니다.
+        const cnt = (a) => a.reduce((x, d) => x + Number(d.order_count || 0), 0);
+        const qty = (a) => a.reduce((x, d) => x + Number(d.qty || 0), 0);
         rows.push({
           name: (inRange[0] || after[0] || {}).campaign || String(sc.influencer_name || '').split('/')[0].trim(),
           running: running, from: sc.start_date, to: sc.end_date,
-          lines: cnt(inRange), amount: sum(inRange),
-          afterLines: cnt(after), afterAmount: sum(after),
+          lines: cnt(inRange), qty: qty(inRange), amount: sum(inRange),
+          afterLines: cnt(after), afterQty: qty(after), afterAmount: sum(after),
           afterTo: after.length ? after[after.length - 1].order_date : ''
         });
       });
@@ -12581,8 +12583,9 @@
     gbFeeDays.forEach((d) => {
       if (used.has(d.campaign_key + '|' + d.order_date)) return;
       const c = left.get(d.campaign_key) || { name: d.campaign, running: false,
-        from: d.order_date, to: d.order_date, lines: 0, amount: 0, afterLines: 0, afterAmount: 0, loose: true };
-      c.lines += Number(d.line_count); c.amount += Number(d.total_amount);
+        from: d.order_date, to: d.order_date, lines: 0, qty: 0, amount: 0,
+        afterLines: 0, afterQty: 0, afterAmount: 0, loose: true };
+      c.lines += Number(d.order_count || 0); c.qty += Number(d.qty || 0); c.amount += Number(d.total_amount);
       if (d.order_date < c.from) c.from = d.order_date;
       if (d.order_date > c.to) c.to = d.order_date;
       left.set(d.campaign_key, c);
@@ -12600,7 +12603,7 @@
     `;
     note.textContent = `${GB_FEE_TEAM} 기준 · 취소·반품 제외 · ${today} 현재`;
     if (!rows.length) {
-      table.innerHTML = '<tr><td colspan="6" class="gs-empty">쌓아둔 주문이 없습니다.</td></tr>';
+      table.innerHTML = '<tr><td colspan="7" class="gs-empty">쌓아둔 주문이 없습니다.</td></tr>';
       return;
     }
     table.innerHTML = rows.map((r) => {
@@ -12610,7 +12613,8 @@
         <td>${r.running ? '<b style="color:#dc2626">진행 중</b>' : (r.loose ? '일정 없음' : '종료')}</td>
         <td style="text-align:left">${escapeAttr(r.name)}</td>
         <td style="white-space:nowrap">${r.from} ~ ${r.to}</td>
-        <td class="num">${(r.lines + r.afterLines) ? (r.lines + r.afterLines).toLocaleString('ko-KR') + '줄' : '-'}</td>
+        <td class="num">${(r.lines + r.afterLines) ? (r.lines + r.afterLines).toLocaleString('ko-KR') + '건' : '-'}</td>
+        <td class="num">${(r.qty + r.afterQty) ? (r.qty + r.afterQty).toLocaleString('ko-KR') + '개' : '-'}</td>
         <td class="num"><b>${(r.amount + r.afterAmount) ? (r.amount + r.afterAmount).toLocaleString('ko-KR') : '아직 없음'}</b>${
           r.afterAmount ? `<br><span style="opacity:.65;font-size:.85em">일정 내 ${r.amount.toLocaleString('ko-KR')} + 마감 후 ${r.afterTo} 까지 ${r.afterAmount.toLocaleString('ko-KR')}</span>` : ''}</td>
         <td>${(r.amount || r.afterAmount) ? `<button type="button" class="filter-reset-btn"
