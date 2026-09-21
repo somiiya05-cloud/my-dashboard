@@ -6581,7 +6581,9 @@
     if (!syncedAt || availableDays == null) return '-';
     const days = parseInt(availableDays, 10);
     if (Number.isNaN(days)) return '-';
-    if (days <= RESTOCK_BUFFER_DAYS) return '즉시';
+    // 지금 당장 넣어야 하는 건이라 상태 배지와 같은 모양으로 눈에 띄게 한다
+    if (days <= RESTOCK_BUFFER_DAYS)
+      return '<span style="background:#d03b3b;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:5px;display:inline-block;white-space:nowrap;">즉시</span>';
     const base = new Date(syncedAt);
     base.setDate(base.getDate() + days - RESTOCK_BUFFER_DAYS);
     return base.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' });
