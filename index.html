@@ -3304,6 +3304,12 @@
           <button type="button" class="filter-reset-btn" onclick="gbFeeResetRaw()">올린 파일 전부 지우기</button>
         </form>
         <form class="deal-form">
+          <button type="button" class="btn-primary" onclick="gbFeeSaveOrderLines()">이 파일의 공구 주문 쌓아두기</button>
+          <button type="button" class="filter-reset-btn" onclick="gbFeeLoadFromDb()">쌓아둔 주문 불러오기</button>
+          <span class="panel-note" style="align-self:center;">매출DB 를 올릴 때마다 쌓아두면, 정산할 때는 파일 없이 불러오기만 하면 됩니다.</span>
+        </form>
+        <div id="gbFeeStoreResult"></div>
+        <form class="deal-form">
           <span class="panel-note" style="align-self:center;">공구 기간</span>
           <input type="date" id="gbFeeFrom" onchange="gbFeeSetPeriod()" style="width:150px;">
           <span style="align-self:center;">~</span>
@@ -11870,6 +11876,103 @@
   }
   window.gbFeeClearPeriod = gbFeeClearPeriod;
 
+  // ---- 공구 주문줄 쌓아두기 / 불러오기 ----
+  // 매출DB 는 매일 보시는 파일이라, 올릴 때 공구 주문만 골라 쌓아 두면 정산할 때 파일이
+  // 필요 없습니다. sales_transactions 는 건드리지 않습니다(캠페인·옵션 칸이 없어 수수료를
+  // 계산할 수 없고, 매일 하시는 CSV 변환 흐름도 그대로 두는 편이 안전합니다).
+  async function gbFeeSaveOrderLines() {
+    if (!gbFeeFiles.length) { alert('먼저 주문 파일을 올려주세요.'); return; }
+    // 고른 공구만이 아니라 파일에 든 공구를 전부 쌓습니다. 매일 한 번 올리면 그날 돌아가던
+    // 공구가 다 들어가므로, 나중에 어느 공구를 정산하든 파일을 다시 찾지 않아도 됩니다.
+    const rows = [];
+    gbFeeFileCampaigns.forEach((c) => {
+      if (!/공동구매|공구/.test(c.name)) return;   // 일반 상품 기획전은 뺍니다
+      rows.push(...c.rows);
+    });
+    if (!rows.length) { alert('이 파일에서 공구 주문을 찾지 못했습니다.'); return; }
+
+    // 같은 주문·옵션·날짜에 줄이 둘 이상일 수 있어 1,2,3.. 을 붙입니다.
+    // 이 번호가 있어야 같은 파일을 다시 올려도 줄이 늘지 않습니다.
+    const seq = new Map();
+    const payload = [];
+    let noDate = 0;
+    for (const r of rows) {
+      if (!r.date) { noDate++; continue; }
+      const ok = gbFeeOptionKey(r.optRaw);
+      const g = [r.no, ok, r.date].join('|');
+      const n = (seq.get(g) || 0) + 1;
+      seq.set(g, n);
+      payload.push({
+        campaign: r.campaign, campaign_key: gbFeeNameKey(r.campaign),
+        order_no: r.no, order_date: r.date, vendor: r.vendor || null,
+        product_name: r.product || null, option_name: r.optRaw.replace(/^\s*옵션\s*=\s*/, ''),
+        option_key: ok, qty: r.qty, amount: r.amount, cs_status: r.status || null,
+        line_seq: n, updated_at: new Date().toISOString()
+      });
+    }
+    if (!confirm(`공구 ${gbFeeFileCampaigns.filter((c) => /공동구매|공구/.test(c.name)).length}개 · 주문 ${payload.length}줄을 쌓아둡니다.\n이미 있는 줄은 새 내용으로 덮어씁니다(취소로 바뀐 건 반영).\n\n진행할까요?`)) return;
+
+    const box = document.getElementById('gbFeeStoreResult');
+    let done = 0;
+    // 한 번에 다 보내면 요청이 너무 커져서 나눠 보냅니다.
+    for (let i = 0; i < payload.length; i += 500) {
+      if (box) box.innerHTML = `<div class="gs-empty">쌓는 중... ${done} / ${payload.length}줄</div>`;
+      const { error } = await client.from('groupbuy_order_lines')
+        .upsert(payload.slice(i, i + 500), { onConflict: 'order_no,option_key,order_date,line_seq' });
+      if (error) {
+        if (box) box.innerHTML = '';
+        alert('쌓지 못했습니다: ' + error.message +
+          '\n\ngroupbuy_order_lines.sql 을 Supabase SQL Editor 에서 먼저 실행했는지 확인해주세요.');
+        return;
+      }
+      done += Math.min(500, payload.length - i);
+    }
+    if (box) {
+      box.innerHTML = `<div class="gs-empty">주문 ${payload.length}줄을 쌓았습니다.` +
+        (noDate ? ` (주문일을 못 읽은 ${noDate}줄은 뺐습니다)` : '') +
+        '<br>' + gbFeeFileCampaigns.filter((c) => /공동구매|공구/.test(c.name))
+          .map((c) => `· ${escapeAttr(c.name)} ${c.rows.length}줄`).join('<br>') + '</div>';
+    }
+  }
+  window.gbFeeSaveOrderLines = gbFeeSaveOrderLines;
+
+  async function gbFeeLoadFromDb() {
+    if (!gbFeeCampaign) { alert('먼저 공구를 고르세요.'); return; }
+    if (gbFeeCampaign === GB_FEE_DEFAULT) { alert('기준표가 아니라 공구를 고르세요.'); return; }
+    const box = document.getElementById('gbFeeStoreResult');
+    if (box) box.innerHTML = '<div class="gs-empty">불러오는 중...</div>';
+    let all = [], from = 0;
+    while (true) {
+      let q = client.from('groupbuy_order_lines').select('*')
+        .eq('campaign_key', gbFeeNameKey(gbFeeCampaign));
+      if (gbFeeFrom) q = q.gte('order_date', gbFeeFrom);
+      if (gbFeeTo) q = q.lte('order_date', gbFeeTo);
+      const { data, error } = await q.order('order_date').order('id').range(from, from + 999);
+      if (error) {
+        if (box) box.innerHTML = '';
+        alert('불러오지 못했습니다: ' + error.message); return;
+      }
+      all = all.concat(data || []);
+      if (!data || data.length < 1000) break;
+      from += 1000;
+    }
+    if (!all.length) {
+      if (box) box.innerHTML = `<div class="gs-empty">"${escapeAttr(gbFeeCampaign)}" 로 쌓아둔 주문이 없습니다. 주문 파일을 올린 뒤 "쌓아두기"를 먼저 해주세요.</div>`;
+      return;
+    }
+    // 파일에서 읽은 것과 같은 모양으로 맞춰 아래 계산을 그대로 씁니다.
+    const rows = all.map((r) => ({
+      campaign: r.campaign, vendor: r.vendor || '', product: r.product_name || '',
+      optRaw: r.option_name, amount: Number(r.amount), qty: Number(r.qty) || 1,
+      date: r.order_date, no: r.order_no, status: r.cs_status || ''
+    }));
+    gbFeeFiles = [{ name: '쌓아둔 주문 ' + rows.length + '줄', rows: rows }];
+    gbFeeFileCampaign = '';
+    gbFeeRebuild();
+    if (box) box.innerHTML = '';
+  }
+  window.gbFeeLoadFromDb = gbFeeLoadFromDb;
+
   function gbFeePickFileCampaign(key) {
     gbFeeFileCampaign = key;
     gbFeeRebuild();
@@ -12063,7 +12166,7 @@
     });
     const input = document.getElementById('gbFeeRawInput');
     if (input) input.value = '';
-    ['gbFeeWarnBox', 'gbFeeFileList', 'gbFeeCampaignPick'].forEach((id) => {
+    ['gbFeeWarnBox', 'gbFeeFileList', 'gbFeeCampaignPick', 'gbFeeStoreResult'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = '';
     });
