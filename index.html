@@ -11174,12 +11174,15 @@
   function renderGbFeeCampaigns() {
     const sel = document.getElementById('gbFeeCampaignSelect');
     if (!sel) return;
-    const names = [...new Set(gbFeeRates.map((r) => r.campaign))];
+    const names = [...new Set(gbFeeRates.map((r) => r.campaign))].filter((n) => n !== GB_FEE_DEFAULT);
     // 방금 만들었지만 아직 옵션을 하나도 안 넣은 공구도 목록에 남겨 둡니다.
-    if (gbFeeCampaign && !names.includes(gbFeeCampaign)) names.push(gbFeeCampaign);
-    sel.innerHTML = '<option value="">공구를 고르세요</option>' + names
-      .map((n) => `<option value="${escapeAttr(n)}"${n === gbFeeCampaign ? ' selected' : ''}>${escapeAttr(n)}</option>`)
-      .join('');
+    if (gbFeeCampaign && gbFeeCampaign !== GB_FEE_DEFAULT && !names.includes(gbFeeCampaign)) names.push(gbFeeCampaign);
+    // 기준표는 늘 맨 위에 둡니다. 공구가 아니라 "영업팀 공통 요율표" 자리입니다.
+    sel.innerHTML = '<option value="">공구를 고르세요</option>' +
+      `<option value="${escapeAttr(GB_FEE_DEFAULT)}"${gbFeeCampaign === GB_FEE_DEFAULT ? ' selected' : ''}>${escapeAttr(GB_FEE_DEFAULT)} — 영업팀 공통 기준표</option>` +
+      names
+        .map((n) => `<option value="${escapeAttr(n)}"${n === gbFeeCampaign ? ' selected' : ''}>${escapeAttr(n)}</option>`)
+        .join('');
     renderGbFeeRateTable();
   }
 
@@ -11212,11 +11215,19 @@
     if (!box || !table || !upload) return;
     box.style.display = gbFeeCampaign ? '' : 'none';
     const rows = gbFeeRates.filter((r) => r.campaign === gbFeeCampaign);
-    // 요율이 한 줄도 없으면 RAW 를 올려도 계산할 게 없으므로 2단계를 감춰 둡니다.
-    upload.style.display = rows.length ? '' : 'none';
+    const hasDefault = gbFeeRates.some((r) => r.campaign === GB_FEE_DEFAULT);
+    // 기준표를 고른 상태는 "표를 손보는 중"이라 주문을 올릴 자리가 아닙니다.
+    // 공구를 골랐을 때는 그 공구 요율이 없어도 기준표가 있으면 바로 계산할 수 있으므로 열어 둡니다.
+    const isDefault = gbFeeCampaign === GB_FEE_DEFAULT;
+    upload.style.display = (!isDefault && (rows.length || hasDefault)) ? '' : 'none';
     if (!gbFeeCampaign) { table.innerHTML = ''; return; }
     if (!rows.length) {
-      table.innerHTML = '<tr><td colspan="4" class="gs-empty">아직 옵션이 없습니다. 위에서 한 줄씩 넣거나 "엑셀로 한 번에 넣기"를 쓰세요.</td></tr>';
+      table.innerHTML = '<tr><td colspan="4" class="gs-empty">' + (isDefault
+        ? '기준표가 비어 있습니다. "엑셀로 한 번에 넣기"로 영업팀 수수료 기준표를 올리세요.'
+        : (hasDefault
+          ? '이 공구만의 요율은 없습니다. 기준표의 요율로 계산됩니다. 다르게 합의한 옵션만 여기에 넣으세요.'
+          : '아직 옵션이 없습니다. 위에서 한 줄씩 넣거나 "엑셀로 한 번에 넣기"를 쓰세요.'))
+        + '</td></tr>';
       return;
     }
     table.innerHTML = rows.map((r) => `
@@ -11363,6 +11374,7 @@
   // 이 칸이 아예 없는 파일(옛날 CSV 등)은 전부 한 덩어리로 봅니다.
   const GB_RAW_CAMPAIGN_COLS = ['판매처 상품명', '판매처상품명', '기획전명', '캠페인'];
   const GB_RAW_VENDOR_COLS = ['판매처', '판매채널', '채널'];
+  const GB_RAW_PRODUCT_COLS = ['상품명', '제품명'];
   const GB_RAW_OPTION_COLS = ['판매처 옵션', '판매처옵션', '옵션명', '옵션'];
   const GB_RAW_AMOUNT_COLS = ['판매가', '판매금액', '결제금액', '금액'];
   const GB_RAW_QTY_COLS = ['주문수량', '수량'];
@@ -11397,6 +11409,34 @@
   // 옵션명과 같은 방식으로 비교용 키를 만들어 맞춰 봅니다.
   const gbFeeNameKey = gbFeeOptionKey;
 
+  // 영업팀 공구는 정해진 기준표를 따릅니다. 그 표를 이 이름의 "공구"로 한 벌 저장해 두고,
+  // 공구별로 따로 등록한 요율이 없으면 여기서 찾아 씁니다. 공구마다 다시 넣지 않아도 됩니다.
+  const GB_FEE_DEFAULT = '(기본 요율)';
+
+  // 상품명 앞에 붙는 "[코드니처]" 같은 머리표를 떼고 비교용 키를 만듭니다.
+  function gbFeeProductKey(name) {
+    return gbFeeOptionKey(String(name || '').replace(/^\s*\[[^\]]*\]\s*/, ''));
+  }
+
+  // 기준표는 제품명이 "하수구 악취 세정 서버 1+1 (20ea)" 인데 주문 RAW 의 옵션명은
+  // "옵션=하수구 악취 세정서버 1+1 (20ea)" 라 이름으로는 맞출 수 없습니다.
+  // 대신 공구판매가로 찾고, 같은 값이 여러 개면 RAW 의 상품명이 제품명 안에 들어 있는 것만 남깁니다.
+  // (27,900원은 기준표에 4줄이나 있습니다 — 하수구 1+1, 변기수조+하수구 1+1, 텀블러 SET, 세탁망 2개)
+  // 그래도 여러 개면 요율이 모두 같을 때만 씁니다. 요율이 갈리면 사람이 정해야 하므로 되돌립니다.
+  function gbFeeDefaultRate(unitPrice, productName) {
+    const defs = gbFeeRates.filter((r) => r.campaign === GB_FEE_DEFAULT && Number(r.unit_price) === unitPrice);
+    if (!defs.length) return null;
+    let cand = defs;
+    const pk = gbFeeProductKey(productName);
+    if (pk) {
+      const narrowed = defs.filter((r) => gbFeeOptionKey(r.option_name).includes(pk));
+      if (narrowed.length) cand = narrowed;
+    }
+    const rates = [...new Set(cand.map((r) => Number(r.commission_rate)))];
+    if (rates.length !== 1) return { ambiguous: true, candidates: cand };
+    return cand[0];
+  }
+
   // 한 줄에서 필요한 값만 뽑아 둡니다. "합계" 줄과 세트 구성품 줄(판매가 0)은 여기서 빠집니다.
   function gbFeeExtract(rows) {
     const out = [];
@@ -11411,6 +11451,7 @@
       out.push({
         campaign: String(gbFeePick(r, GB_RAW_CAMPAIGN_COLS) || '').trim(),
         vendor: String(gbFeePick(r, GB_RAW_VENDOR_COLS) || '').trim(),
+        product: String(gbFeePick(r, GB_RAW_PRODUCT_COLS) || '').trim(),
         optRaw: optRaw,
         amount: amount,
         qty: Number.isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1,
@@ -11521,19 +11562,36 @@
     const rateByKey = new Map(gbFeeRates.filter((r) => r.campaign === gbFeeCampaign).map((r) => [r.option_key, r]));
     const detail = [];
     const unmatched = new Map();
+    const fromDefault = new Map();  // 기준표에서 가져다 쓴 옵션
+    const differs = new Map();      // 공구별 요율이 기준표와 다른 옵션
     let cancelled = 0;
     for (const r of rows) {
       if (/취소|반품|환불|교환/.test(r.status)) { cancelled++; continue; }
       const key = gbFeeOptionKey(r.optRaw);
-      const rate = rateByKey.get(key);
+      const optName = r.optRaw.replace(/^\s*옵션\s*=\s*/, '');
+      const unit = Math.round(r.amount / r.qty);
+      let rate = rateByKey.get(key);
+      let usedDefault = false;
+      const std = gbFeeDefaultRate(unit, r.product);
+      if (rate) {
+        // 공구별로 따로 정한 요율이 기준표와 다르면 알려 줍니다(특약일 수도, 오기일 수도 있어서).
+        if (std && !std.ambiguous && Number(std.commission_rate) !== Number(rate.commission_rate)) {
+          differs.set(rate.option_name, { mine: Number(rate.commission_rate), std: Number(std.commission_rate) });
+        }
+      } else if (std && !std.ambiguous) {
+        rate = std;
+        usedDefault = true;
+      }
       // 요율을 모르는 옵션은 0 원으로 넘기지 않고 따로 모아 화면에 띄웁니다.
-      if (!rate) { unmatched.set(key, r.optRaw.replace(/^\s*옵션\s*=\s*/, '')); continue; }
+      if (!rate) { unmatched.set(key, optName + (std && std.ambiguous ? ' — 기준표에 같은 값이 여러 개라 요율을 정하지 못했습니다' : '')); continue; }
       const pct = Number(rate.commission_rate);
+      if (usedDefault) fromDefault.set(optName, (fromDefault.get(optName) || 0) + 1);
       detail.push({
         date: r.date,
         no: r.no,
-        opt: rate.option_name,
-        unit: rate.unit_price != null ? Number(rate.unit_price) : Math.round(r.amount / r.qty),
+        // 기준표에서 가져온 경우 제품명이 아니라 실제 판매된 옵션명을 씁니다(업체가 아는 이름이라).
+        opt: usedDefault ? optName : rate.option_name,
+        unit: rate.unit_price != null ? Number(rate.unit_price) : unit,
         qty: r.qty,
         amt: r.amount,
         rate: pct,
@@ -11549,7 +11607,12 @@
     });
     gbFeeDetail = detail;
     gbFeeAgg = Object.values(map).sort((a, b) => b.fee - a.fee);
-    gbFeeSkipped = { cancelled: cancelled, unmatched: [...unmatched.values()] };
+    gbFeeSkipped = {
+      cancelled: cancelled,
+      unmatched: [...unmatched.values()],
+      fromDefault: [...fromDefault.entries()],
+      differs: [...differs.entries()]
+    };
     renderGbFeeResult();
   }
 
@@ -11582,6 +11645,18 @@
     }
     if (gbFeeSkipped.cancelled) {
       bits.push(`<div class="gs-empty">취소·반품으로 표시된 ${gbFeeSkipped.cancelled}줄은 뺐습니다.</div>`);
+    }
+    // 공구별로 정한 요율이 기준표와 다르면 눈에 띄게 알립니다. 특약이면 그대로 두시면 되고,
+    // 잘못 넣은 것이면 1단계에서 고쳐야 하므로 조용히 넘기지 않습니다.
+    if ((gbFeeSkipped.differs || []).length) {
+      bits.push('<div class="gs-empty error">이 공구에 따로 정한 요율이 기준표와 다릅니다. 특약이면 그대로 두세요.<br>' +
+        gbFeeSkipped.differs.map(([n, d]) =>
+          `· ${escapeAttr(n)} — 이 공구 ${(d.mine * 100).toFixed(2).replace(/\.?0+$/, '')}% / 기준표 ${(d.std * 100).toFixed(2).replace(/\.?0+$/, '')}%`
+        ).join('<br>') + '</div>');
+    }
+    if ((gbFeeSkipped.fromDefault || []).length) {
+      const n = gbFeeSkipped.fromDefault.reduce((s, [, c]) => s + c, 0);
+      bits.push(`<div class="gs-empty">옵션 ${gbFeeSkipped.fromDefault.length}종 · ${n}줄은 영업팀 공통 기준표의 요율로 계산했습니다.</div>`);
     }
     warn.innerHTML = bits.join('');
 
