@@ -2221,7 +2221,8 @@
         </div>
         <div class="topbar-right">
           <span class="panel-note" id="rsUpdatedAt"></span>
-          <button type="button" class="btn-primary" id="rsRefreshBtn" onclick="loadRestock(true)">새로고침</button>
+          <span class="panel-note" id="rsRequestStatus"></span>
+          <button type="button" class="btn-primary" id="rsRefreshBtn" onclick="requestRestockRefresh()">새로고침</button>
         </div>
       </div>
 
@@ -6430,25 +6431,82 @@
     return `${restockNum(r.available)}개${r.available_days ? ` (${r.available_days})` : ''}`;
   }
 
-  async function loadRestock(manual) {
+  // 새로고침 버튼: 사무실 PC에 "지금 수집해달라"고 요청을 넣고, 끝날 때까지 지켜본다.
+  // 웹페이지가 사무실 PC를 직접 부를 수는 없어서, refresh_requests 테이블을 우체통처럼 쓴다.
+  const RESTOCK_POLL_MS = 3000;
+  const RESTOCK_TIMEOUT_MS = 240000; // 4분까지 기다린다 (로그인이 필요하면 오래 걸릴 수 있음)
+  let restockRequesting = false;
+
+  function setRestockBtn(text, disabled) {
+    const btn = document.getElementById('rsRefreshBtn');
+    if (!btn) return;
+    btn.textContent = text;
+    btn.disabled = !!disabled;
+  }
+
+  function setRestockStatus(html) {
+    const el = document.getElementById('rsRequestStatus');
+    if (el) el.innerHTML = html || '';
+  }
+
+  async function requestRestockRefresh() {
+    if (restockRequesting) return;
+    restockRequesting = true;
+    setRestockBtn('수집 요청 중...', true);
+    setRestockStatus('');
+
+    try {
+      const { data: inserted, error: insErr } = await client
+        .from('refresh_requests')
+        .insert([{ source: 'dashboard', status: 'pending' }])
+        .select('id')
+        .single();
+
+      if (insErr) {
+        setRestockStatus('<span class="error">요청을 넣지 못했습니다: ' + insErr.message + '</span>');
+        return;
+      }
+
+      setRestockBtn('수집 중...', true);
+      setRestockStatus('사무실 PC에서 쿠팡 재고를 읽고 있습니다. 보통 20초~1분 걸립니다.');
+
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < RESTOCK_TIMEOUT_MS) {
+        await new Promise((r) => setTimeout(r, RESTOCK_POLL_MS));
+        const { data: row } = await client
+          .from('refresh_requests')
+          .select('status,message')
+          .eq('id', inserted.id)
+          .single();
+        if (!row) continue;
+
+        if (row.status === 'running') {
+          setRestockStatus('쿠팡 화면을 읽는 중입니다... (로그인 화면이 떴다면 사무실 PC에서 로그인해주세요)');
+        }
+        if (row.status === 'done') {
+          setRestockStatus(row.message || '갱신했습니다.');
+          await loadRestock();
+          return;
+        }
+        if (row.status === 'failed') {
+          setRestockStatus('<span class="error">실패: ' + (row.message || '알 수 없는 오류') + '</span>');
+          return;
+        }
+      }
+      setRestockStatus(
+        '<span class="error">시간이 초과됐습니다. 사무실 PC가 켜져 있고 감시 프로그램(watch.bat)이 실행 중인지 확인해주세요.</span>'
+      );
+    } finally {
+      restockRequesting = false;
+      setRestockBtn('새로고침', false);
+    }
+  }
+
+  async function loadRestock() {
     const updatedEl = document.getElementById('rsUpdatedAt');
     const needNote = document.getElementById('rsNeedNote');
     const incomingNote = document.getElementById('rsIncomingNote');
-    const btn = document.getElementById('rsRefreshBtn');
-
-    // 이 버튼은 저장된 최신 수집 결과를 다시 읽어오는 것입니다.
-    // 쿠팡에서 새로 긁어오는 것은 사무실 PC의 로컬 도구가 합니다(평일 09:10 / 14:10 자동).
-    if (manual && btn) {
-      btn.disabled = true;
-      btn.textContent = '불러오는 중...';
-    }
-
     const { data, error } = await client.from('coupang_restock').select('*');
-
-    if (manual && btn) {
-      btn.disabled = false;
-      btn.textContent = '새로고침';
-    }
 
     if (error) {
       updatedEl.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
