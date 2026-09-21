@@ -3398,17 +3398,10 @@
       </section>
       <section class="panel">
         <div class="panel-head">
-          <h2>1단계 · 공구 선택과 옵션 수수료율</h2>
-          <span class="panel-note">공구마다 한 번만 등록해 두면 다음 정산부터 그대로 다시 씁니다.</span>
+          <h2>1단계 · 옵션 수수료율</h2>
+          <span class="panel-note" id="gbFeeRateWho">위 현황에서 "정산하기" 를 누르면 그 공구의 요율이 여기에 나옵니다.</span>
+          <button type="button" class="filter-reset-btn" onclick="gbFeeOpenDefaultRates()">영업팀 공통 기준표</button>
         </div>
-        <form class="deal-form" id="gbFeeCampaignForm">
-          <select id="gbFeeCampaignSelect" style="flex:2; min-width:260px;" onchange="gbFeeSelectCampaign(this.value)">
-            <option value="">공구를 고르세요</option>
-          </select>
-          <input type="text" id="gbFeeNewCampaign" placeholder="새 공구명 (예: 코드니처 X 로라도라홈 공동구매)" style="flex:2; min-width:240px;">
-          <input type="text" id="gbFeeNewPartner" placeholder="정산 대상 업체명 (예: 로라도라홈)" style="flex:1; min-width:170px;">
-          <button type="submit" class="btn-primary">공구 만들기</button>
-        </form>
         <div id="gbFeeRateBox" style="display:none">
           <form class="deal-form" id="gbFeeRateForm">
             <input type="text" name="optionName" placeholder="옵션명 (RAW 의 '판매처 옵션' 과 같게)" required style="flex:3; min-width:280px;">
@@ -12465,7 +12458,6 @@
   let gbFeeFrom = '';
   let gbFeeTo = '';
   let gbFeeOutOfPeriod = 0;     // 기간 밖이라 뺀 줄 수
-  let gbFeeStoredCampaigns = [];  // groupbuy_order_lines 에 쌓여 있는 공구 목록(뷰)
   let gbFeeSchedule = [];         // 공구 일정표(groupbuy_schedule) 중 우리 팀 건
   let gbFeeDays = [];             // 공구 × 날짜 매출 (뷰)
   // 컨텐츠팀 공구는 영업팀이 정산하는 건이 아닙니다. 일정표의 부서로 가립니다.
@@ -12505,21 +12497,11 @@
     const day = await client.from('groupbuy_campaign_days').select('*').order('order_date');
     // 뷰를 아직 안 만들었어도 화면은 돌아가야 하므로 조용히 넘깁니다.
     gbFeeDays = day.error ? [] : (day.data || []);
-    const byKey = new Map();
-    gbFeeDays.forEach((d) => {
-      const c = byKey.get(d.campaign_key) || { campaign_key: d.campaign_key, campaign: d.campaign,
-        line_count: 0, total_amount: 0, first_date: d.order_date, last_date: d.order_date };
-      c.line_count += Number(d.line_count); c.total_amount += Number(d.total_amount);
-      if (d.order_date < c.first_date) c.first_date = d.order_date;
-      if (d.order_date > c.last_date) c.last_date = d.order_date;
-      byKey.set(d.campaign_key, c);
-    });
-    gbFeeStoredCampaigns = [...byKey.values()].sort((a, b) => String(b.last_date).localeCompare(String(a.last_date)));
     // 공구 일정표에서 우리 팀 건의 시작·종료일을 가져와 "진행 중" 을 가립니다.
     const sch = await client.from('groupbuy_schedule').select('influencer_name,start_date,end_date,status,department');
     gbFeeSchedule = sch.error ? [] : (sch.data || []).filter((r) => (r.department || '') === GB_FEE_TEAM);
-    renderGbFeeCampaigns();
     renderGbFeeOverview();
+    renderGbFeeRateTable();
   }
 
   // 공구명에서 업체 이름만 뽑습니다. "코드니처 X  수아로움 공동구매" → "수아로움"
@@ -12640,8 +12622,6 @@
   // 현황 표에서 "정산하기" 를 누르면 공구와 기간을 같이 맞춰 줍니다.
   // 기간은 마감 후 물량까지 포함해 채웁니다(대개 그걸 같이 정산합니다). 빼려면 종료일을 줄이세요.
   function gbFeeOpenCampaign(name, from, to) {
-    const sel = document.getElementById('gbFeeCampaignSelect');
-    if (sel) sel.value = name;
     gbFeeCampaign = name;
     const mine = gbFeeRates.filter((r) => r.campaign === name);
     gbFeePartner = (mine.find((r) => r.partner) || {}).partner || '';
@@ -12656,57 +12636,23 @@
   }
   window.gbFeeOpenCampaign = gbFeeOpenCampaign;
 
-  function renderGbFeeCampaigns() {
-    const sel = document.getElementById('gbFeeCampaignSelect');
-    if (!sel) return;
-    // 목록은 세 곳을 합칩니다 — 쌓아둔 주문 / 특약 요율을 넣어 둔 공구 / 방금 만든 공구.
-    // 요율표에만 기대면 특약 없는 공구(대부분)가 목록에 안 나와 고를 수가 없습니다.
-    const seen = new Map();
-    gbFeeStoredCampaigns.forEach((c) => {
-      seen.set(c.campaign_key, {
-        name: c.campaign,
-        note: `${Number(c.line_count).toLocaleString('ko-KR')}줄 · ${Number(c.total_amount).toLocaleString('ko-KR')}원 · ${c.first_date}~${c.last_date}`
-      });
-    });
-    [...new Set(gbFeeRates.map((r) => r.campaign))]
-      .filter((n) => n !== GB_FEE_DEFAULT)
-      .forEach((n) => { if (!seen.has(gbFeeNameKey(n))) seen.set(gbFeeNameKey(n), { name: n, note: '요율만 등록됨' }); });
-    // 방금 만들었지만 아직 아무것도 없는 공구도 남겨 둡니다.
-    if (gbFeeCampaign && gbFeeCampaign !== GB_FEE_DEFAULT && !seen.has(gbFeeNameKey(gbFeeCampaign))) {
-      seen.set(gbFeeNameKey(gbFeeCampaign), { name: gbFeeCampaign, note: '새로 만듦' });
-    }
-    // 기준표는 늘 맨 위에 둡니다. 공구가 아니라 "영업팀 공통 요율표" 자리입니다.
-    sel.innerHTML = '<option value="">공구를 고르세요</option>' +
-      `<option value="${escapeAttr(GB_FEE_DEFAULT)}"${gbFeeCampaign === GB_FEE_DEFAULT ? ' selected' : ''}>${escapeAttr(GB_FEE_DEFAULT)} — 영업팀 공통 기준표</option>` +
-      [...seen.values()]
-        .map((c) => `<option value="${escapeAttr(c.name)}"${c.name === gbFeeCampaign ? ' selected' : ''}>${escapeAttr(c.name)}  —  ${escapeAttr(c.note)}</option>`)
-        .join('');
-    renderGbFeeRateTable();
-  }
-
+  // 공구를 고르면 그 공구의 요율을 보여 주고 쌓아둔 주문을 바로 불러옵니다.
   function gbFeeSelectCampaign(campaign) {
     gbFeeCampaign = campaign || '';
     const mine = gbFeeRates.filter((r) => gbFeeNameKey(r.campaign) === gbFeeNameKey(gbFeeCampaign));
     gbFeePartner = (mine.find((r) => r.partner) || {}).partner || '';
     gbFeeResetRaw();
     renderGbFeeRateTable();
-    // 공구를 고르면 쌓아둔 주문을 바로 불러와 계산합니다. 정산할 때 할 일은 이게 전부입니다.
     if (gbFeeCampaign && gbFeeCampaign !== GB_FEE_DEFAULT) gbFeeLoadFromDb();
   }
-  window.gbFeeSelectCampaign = gbFeeSelectCampaign;
 
-  document.getElementById('gbFeeCampaignForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const name = document.getElementById('gbFeeNewCampaign').value.trim();
-    const partner = document.getElementById('gbFeeNewPartner').value.trim();
-    if (!name) { alert('새 공구명을 적어주세요.'); return; }
-    gbFeeCampaign = name;
-    gbFeePartner = partner;
-    document.getElementById('gbFeeNewCampaign').value = '';
-    document.getElementById('gbFeeNewPartner').value = '';
-    gbFeeResetRaw();
-    renderGbFeeCampaigns();
-  });
+  // 기준표는 공구가 아니라 영업팀 공통 요율표라, 현황 표에 나오지 않습니다. 버튼으로 들어갑니다.
+  function gbFeeOpenDefaultRates() {
+    gbFeeSelectCampaign(GB_FEE_DEFAULT);
+    const box = document.getElementById('gbFeeRateBox');
+    if (box) box.scrollIntoView({ block: 'center' });
+  }
+  window.gbFeeOpenDefaultRates = gbFeeOpenDefaultRates;
 
   function renderGbFeeRateTable() {
     const box = document.getElementById('gbFeeRateBox');
@@ -12714,6 +12660,13 @@
     const upload = document.getElementById('gbFeeUploadPanel');
     if (!box || !table || !upload) return;
     box.style.display = gbFeeCampaign ? '' : 'none';
+    const who = document.getElementById('gbFeeRateWho');
+    if (who) {
+      who.textContent = gbFeeCampaign
+        ? (gbFeeCampaign === GB_FEE_DEFAULT ? '영업팀 공통 기준표를 보고 있습니다. 모든 공구가 이 요율로 계산됩니다.'
+          : gbFeeCampaign + ' — 이 공구만의 특약 요율')
+        : '위 현황에서 "정산하기" 를 누르면 그 공구의 요율이 여기에 나옵니다.';
+    }
     const rows = gbFeeRates.filter((r) => gbFeeNameKey(r.campaign) === gbFeeNameKey(gbFeeCampaign));
     const hasDefault = gbFeeRates.some((r) => r.campaign === GB_FEE_DEFAULT);
     // 기준표를 고른 상태는 "표를 손보는 중"이라 주문을 올릴 자리가 아닙니다.
