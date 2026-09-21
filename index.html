@@ -3303,6 +3303,14 @@
           <input type="file" id="gbFeeRawInput" accept=".xlsx,.xls,.csv" multiple onchange="gbFeeReadRaw(this)" style="flex:2; min-width:260px;">
           <button type="button" class="filter-reset-btn" onclick="gbFeeResetRaw()">올린 파일 전부 지우기</button>
         </form>
+        <form class="deal-form">
+          <span class="panel-note" style="align-self:center;">공구 기간</span>
+          <input type="date" id="gbFeeFrom" onchange="gbFeeSetPeriod()" style="width:150px;">
+          <span style="align-self:center;">~</span>
+          <input type="date" id="gbFeeTo" onchange="gbFeeSetPeriod()" style="width:150px;">
+          <button type="button" class="filter-reset-btn" onclick="gbFeeClearPeriod()">기간 지우기</button>
+          <span class="panel-note" style="align-self:center;">같은 셀러가 공구를 두 번 하면 기획전명이 같아 섞입니다. 그때 기간으로 자르세요.</span>
+        </form>
         <div id="gbFeeFileList"></div>
         <div id="gbFeeCampaignPick"></div>
         <div id="gbFeeWarnBox"></div>
@@ -11402,6 +11410,11 @@
   let gbFeeFiles = [];          // 올린 주문 파일들 [{name, rows}]
   let gbFeeFileCampaigns = [];  // 그 파일들에 들어 있던 공구(캠페인) 목록
   let gbFeeFileCampaign = '';   // 그중 지금 정산할 공구의 키
+  // 같은 셀러가 공구를 두 번 하면 기획전명("코드니처 X  수아로움 공동구매")이 같아 한 덩어리로
+  // 들어옵니다. 그때 주문일로 잘라 내려고 씁니다. 비어 있으면 자르지 않습니다.
+  let gbFeeFrom = '';
+  let gbFeeTo = '';
+  let gbFeeOutOfPeriod = 0;     // 기간 밖이라 뺀 줄 수
 
   // RAW 는 "옵션=변기수조 세정서버 1+1세트 (12ea)" 처럼 들어오고 요율 표는 사람이 손으로 적습니다.
   // 괄호·공백·별표가 조금 달라도 같은 옵션으로 붙도록 비교용 키를 만듭니다.
@@ -11829,8 +11842,33 @@
     }
     renderGbFeeFiles();
     const picked = gbFeeFileCampaigns.find((c) => c.key === gbFeeFileCampaign);
-    gbFeeCompute(picked ? picked.rows : []);
+    let use = picked ? picked.rows : [];
+    // 기간을 적어 두면 그 밖의 주문은 뺍니다(주문일을 못 읽은 줄은 남겨 둡니다).
+    const before = use.length;
+    if (gbFeeFrom) use = use.filter((r) => !r.date || r.date >= gbFeeFrom);
+    if (gbFeeTo) use = use.filter((r) => !r.date || r.date <= gbFeeTo);
+    gbFeeOutOfPeriod = before - use.length;
+    gbFeeCompute(use);
   }
+
+  function gbFeeSetPeriod() {
+    gbFeeFrom = document.getElementById('gbFeeFrom').value || '';
+    gbFeeTo = document.getElementById('gbFeeTo').value || '';
+    if (gbFeeFrom && gbFeeTo && gbFeeFrom > gbFeeTo) {
+      alert('시작일이 종료일보다 늦습니다. 다시 골라주세요.');
+      return;
+    }
+    gbFeeRebuild();
+  }
+  window.gbFeeSetPeriod = gbFeeSetPeriod;
+
+  function gbFeeClearPeriod() {
+    gbFeeFrom = ''; gbFeeTo = '';
+    const a = document.getElementById('gbFeeFrom'), b = document.getElementById('gbFeeTo');
+    if (a) a.value = ''; if (b) b.value = '';
+    gbFeeRebuild();
+  }
+  window.gbFeeClearPeriod = gbFeeClearPeriod;
 
   function gbFeePickFileCampaign(key) {
     gbFeeFileCampaign = key;
@@ -11957,7 +11995,10 @@
         gbFeeSkipped.unmatched.map((n) => '· ' + escapeAttr(n)).join('<br>') + '</div>');
     }
     if (gbFeeSkipped.cancelled) {
-      bits.push(`<div class="gs-empty">취소·반품으로 표시된 ${gbFeeSkipped.cancelled}줄은 뺐습니다.</div>`);
+      bits.push(`<div class="gs-empty">취소·반품으로 표시된 ${gbFeeSkipped.cancelled}줄은 뺐습니다. (교환은 매출이 살아 있어 포함합니다)</div>`);
+    }
+    if (gbFeeOutOfPeriod) {
+      bits.push(`<div class="gs-empty">적어 두신 기간(${gbFeeFrom || '처음'} ~ ${gbFeeTo || '끝'}) 밖의 주문 ${gbFeeOutOfPeriod}줄은 뺐습니다.</div>`);
     }
     // 공구별로 정한 요율이 기준표와 다르면 눈에 띄게 알립니다. 특약이면 그대로 두시면 되고,
     // 잘못 넣은 것이면 1단계에서 고쳐야 하므로 조용히 넘기지 않습니다.
@@ -12014,6 +12055,12 @@
   function gbFeeResetRaw() {
     gbFeeDetail = []; gbFeeAgg = []; gbFeeSkipped = { cancelled: 0, unmatched: [] };
     gbFeeFiles = []; gbFeeFileCampaigns = []; gbFeeFileCampaign = '';
+    // 공구를 바꿀 때도 불리므로 기간도 같이 비웁니다. 앞 공구 기간이 남아 있으면 헷갈립니다.
+    gbFeeFrom = ''; gbFeeTo = ''; gbFeeOutOfPeriod = 0;
+    ['gbFeeFrom', 'gbFeeTo'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
     const input = document.getElementById('gbFeeRawInput');
     if (input) input.value = '';
     ['gbFeeWarnBox', 'gbFeeFileList', 'gbFeeCampaignPick'].forEach((id) => {
