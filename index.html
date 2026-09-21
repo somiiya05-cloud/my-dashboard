@@ -6540,8 +6540,8 @@
     '93468123471': ['S04917'],           // 킬파이어 가글 캔디 1개 (집중형)
     '93468123473': ['S04917'],           // 킬파이어 가글 캔디 2개 (집중형)
     '93129149485': ['S04893'],           // 통세탁 사계절 방수토퍼, 베이지 S/SS
-    // 데일리 풋쿠션 삭스 2종(92859326184 / 92859326173)은 칼로리삭스 중
-    // 어느 종류인지 확정되면 여기에 추가한다.
+    '92859326184': ['S05159'],           // 데일리 풋쿠션 삭스 S 블랙  = 발목형 칼로리삭스 S 스탠다드 블랙
+    '92859326173': ['S05160'],           // 데일리 풋쿠션 삭스 S 화이트 = 발목형 칼로리삭스 S 스탠다드 화이트
   };
 
   let restockEzStock = {}; // 상품코드 → 가용재고
@@ -11368,8 +11368,7 @@
   }
 
   // 머리글이 1행에 없는 파일(위에 제목 줄이 붙은 경우)도 있어서 위에서부터 훑어 찾습니다.
-  function gbFeeSheetToRows(ws) {
-    const grid = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+  function gbFeeGridToRows(grid) {
     const hit = (cells, names) => cells.some((c) => names.includes(c));
     let h = -1;
     for (let i = 0; i < Math.min(grid.length, 20); i++) {
@@ -11383,6 +11382,37 @@
       head.forEach((k, i) => { if (k) o[k] = r[i] == null ? '' : String(r[i]).trim(); });
       return o;
     });
+  }
+
+  function gbFeeSheetToRows(ws) {
+    return gbFeeGridToRows(XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false }));
+  }
+
+  // 이지어드민 "확장주문검색" 내보내기는 확장자만 .xls 이고 속은 HTML <table> 입니다.
+  // 게다가 파일이 <meta ...> 로 시작해서 SheetJS 가 HTML 로 알아보지 못하고 그냥 글자로 읽어
+  // 버립니다(머리글을 못 찾아 통째로 실패합니다). 그래서 먼저 여기서 알아보고 브라우저의
+  // HTML 파서로 표를 읽습니다. 엑셀 파일이면 null 을 돌려주어 원래 경로로 넘깁니다.
+  function gbFeeHtmlRows(buf) {
+    const bytes = new Uint8Array(buf);
+    const head = new TextDecoder('utf-8', { fatal: false }).decode(bytes.slice(0, 4096)).toLowerCase();
+    if (!/<table|<html|<meta|<!doctype/.test(head)) return null;
+    // 내보내기에 따라 euc-kr 로 오기도 해서 파일이 적어 둔 charset 을 그대로 씁니다.
+    const cs = (head.match(/charset\s*=\s*["']?([\w-]+)/) || [])[1] || 'utf-8';
+    let text;
+    try { text = new TextDecoder(cs).decode(bytes); }
+    catch (err) { text = new TextDecoder('utf-8').decode(bytes); }
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    // 표가 여러 개면 줄이 가장 많은 것을 주문 내역으로 봅니다.
+    let table = null;
+    doc.querySelectorAll('table').forEach((t) => {
+      if (!table || t.rows.length > table.rows.length) table = t;
+    });
+    if (!table || table.rows.length < 2) return null;
+    const grid = [];
+    for (let i = 0; i < table.rows.length; i++) {
+      grid.push([...table.rows[i].cells].map((c) => (c.textContent || '').replace(/ /g, ' ').trim()));
+    }
+    return gbFeeGridToRows(grid);
   }
 
   // 캠페인명도 "코드니처 X  로라도라홈" 처럼 공백이 두 칸씩 들어가는 등 표기가 흔들리므로
@@ -11457,11 +11487,16 @@
     for (const file of files) {
       let rows = null;
       try {
-        const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
-        // 요율 시트가 같이 들어 있는 파일도 있으므로 주문 칸이 있는 시트를 찾을 때까지 넘깁니다.
-        for (const name of wb.SheetNames) {
-          rows = gbFeeSheetToRows(wb.Sheets[name]);
-          if (rows) break;
+        const buf = await file.arrayBuffer();
+        // 이지어드민 내보내기(HTML 을 .xls 로 준 파일)를 먼저 걸러 냅니다.
+        rows = gbFeeHtmlRows(buf);
+        if (!rows) {
+          const wb = XLSX.read(buf, { type: 'array' });
+          // 요율 시트가 같이 들어 있는 파일도 있으므로 주문 칸이 있는 시트를 찾을 때까지 넘깁니다.
+          for (const name of wb.SheetNames) {
+            rows = gbFeeSheetToRows(wb.Sheets[name]);
+            if (rows) break;
+          }
         }
       } catch (err) { alert(`"${file.name}" 을 읽지 못했습니다: ` + err.message); continue; }
       if (!rows) {
