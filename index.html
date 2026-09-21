@@ -3279,13 +3279,15 @@
 
       <section class="panel" id="gbFeeUploadPanel" style="display:none">
         <div class="panel-head">
-          <h2>2단계 · 주문 RAW 올리기</h2>
-          <span class="panel-note" id="gbFeeUploadNote">주문 내역 엑셀을 그대로 올리면 됩니다. 손볼 필요 없습니다.</span>
+          <h2>2단계 · 주문 내역 올리기</h2>
+          <span class="panel-note" id="gbFeeUploadNote">매일 받으시는 매출DB 파일을 그대로 올리면 됩니다. 여러 날이면 이어서 올리세요.</span>
         </div>
         <form class="deal-form">
-          <input type="file" id="gbFeeRawInput" accept=".xlsx,.xls,.csv" onchange="gbFeeReadRaw(this)" style="flex:2; min-width:260px;">
-          <button type="button" class="filter-reset-btn" onclick="gbFeeResetRaw()">지우기</button>
+          <input type="file" id="gbFeeRawInput" accept=".xlsx,.xls,.csv" multiple onchange="gbFeeReadRaw(this)" style="flex:2; min-width:260px;">
+          <button type="button" class="filter-reset-btn" onclick="gbFeeResetRaw()">올린 파일 전부 지우기</button>
         </form>
+        <div id="gbFeeFileList"></div>
+        <div id="gbFeeCampaignPick"></div>
         <div id="gbFeeWarnBox"></div>
       </section>
 
@@ -11134,6 +11136,9 @@
   let gbFeeDetail = [];     // RAW 에서 뽑아낸 과금 줄
   let gbFeeAgg = [];        // 옵션별 집계
   let gbFeeSkipped = { cancelled: 0, unmatched: [] };
+  let gbFeeFiles = [];          // 올린 주문 파일들 [{name, rows}]
+  let gbFeeFileCampaigns = [];  // 그 파일들에 들어 있던 공구(캠페인) 목록
+  let gbFeeFileCampaign = '';   // 그중 지금 정산할 공구의 키
 
   // RAW 는 "옵션=변기수조 세정서버 1+1세트 (12ea)" 처럼 들어오고 요율 표는 사람이 손으로 적습니다.
   // 괄호·공백·별표가 조금 달라도 같은 옵션으로 붙도록 비교용 키를 만듭니다.
@@ -11353,6 +11358,11 @@
 
   // ---- 주문 RAW 읽기 ----
   // 판매처마다 칸 이름이 조금씩 다르므로 후보를 여러 개 두고 먼저 찾히는 것을 씁니다.
+  // 매일 받는 매출DB 파일에는 공구가 여러 개 섞여 있습니다(9/9 하루에만 4개 캠페인, 127줄).
+  // "판매처 상품명" 이 "코드니처 X  로라도라홈 공동구매" 처럼 캠페인을 구분해 주므로 이 칸으로 갈라냅니다.
+  // 이 칸이 아예 없는 파일(옛날 CSV 등)은 전부 한 덩어리로 봅니다.
+  const GB_RAW_CAMPAIGN_COLS = ['판매처 상품명', '판매처상품명', '기획전명', '캠페인'];
+  const GB_RAW_VENDOR_COLS = ['판매처', '판매채널', '채널'];
   const GB_RAW_OPTION_COLS = ['판매처 옵션', '판매처옵션', '옵션명', '옵션'];
   const GB_RAW_AMOUNT_COLS = ['판매가', '판매금액', '결제금액', '금액'];
   const GB_RAW_QTY_COLS = ['주문수량', '수량'];
@@ -11383,32 +11393,13 @@
     });
   }
 
-  async function gbFeeReadRaw(input) {
-    const file = input.files && input.files[0];
-    if (!file) return;
-    if (!gbFeeCampaign) { alert('먼저 공구를 고르세요.'); input.value = ''; return; }
-    let rows = null;
-    try {
-      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
-      // 요율 시트가 같이 들어 있는 파일도 있으므로 주문 칸이 있는 시트를 찾을 때까지 넘깁니다.
-      for (const name of wb.SheetNames) {
-        rows = gbFeeSheetToRows(wb.Sheets[name]);
-        if (rows) break;
-      }
-    } catch (err) { alert('엑셀을 읽지 못했습니다: ' + err.message); return; }
-    if (!rows) {
-      alert('주문 내역 시트를 찾지 못했습니다.\n"판매처 옵션"(또는 옵션명)과 "판매가" 칸이 있는 시트가 필요합니다.');
-      return;
-    }
-    gbFeeCompute(rows);
-  }
-  window.gbFeeReadRaw = gbFeeReadRaw;
+  // 캠페인명도 "코드니처 X  로라도라홈" 처럼 공백이 두 칸씩 들어가는 등 표기가 흔들리므로
+  // 옵션명과 같은 방식으로 비교용 키를 만들어 맞춰 봅니다.
+  const gbFeeNameKey = gbFeeOptionKey;
 
-  function gbFeeCompute(rows) {
-    const rateByKey = new Map(gbFeeRates.filter((r) => r.campaign === gbFeeCampaign).map((r) => [r.option_key, r]));
-    const detail = [];
-    const unmatched = new Map();
-    let cancelled = 0;
+  // 한 줄에서 필요한 값만 뽑아 둡니다. "합계" 줄과 세트 구성품 줄(판매가 0)은 여기서 빠집니다.
+  function gbFeeExtract(rows) {
+    const out = [];
     for (const r of rows) {
       const optRaw = String(gbFeePick(r, GB_RAW_OPTION_COLS) || '').trim();
       const amount = Number(String(gbFeePick(r, GB_RAW_AMOUNT_COLS)).replace(/[^0-9.]/g, ''));
@@ -11416,24 +11407,138 @@
       // 같은 주문을 두 번 계산하게 되므로 판매가가 있는 줄만 씁니다.
       // 맨 아래 "합계" 줄은 옵션 칸이 비어 있어 여기서 같이 걸러집니다.
       if (!optRaw || !Number.isFinite(amount) || amount <= 0) continue;
-      if (/취소|반품|환불|교환/.test(String(gbFeePick(r, GB_RAW_STATUS_COLS)))) { cancelled++; continue; }
-      const key = gbFeeOptionKey(optRaw);
-      const rate = rateByKey.get(key);
-      // 요율을 모르는 옵션은 0 원으로 넘기지 않고 따로 모아 화면에 띄웁니다.
-      if (!rate) { unmatched.set(key, optRaw.replace(/^\s*옵션\s*=\s*/, '')); continue; }
       const qtyRaw = Number(String(gbFeePick(r, GB_RAW_QTY_COLS)).replace(/[^0-9.]/g, ''));
-      const qty = Number.isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1;
-      const pct = Number(rate.commission_rate);
-      detail.push({
+      out.push({
+        campaign: String(gbFeePick(r, GB_RAW_CAMPAIGN_COLS) || '').trim(),
+        vendor: String(gbFeePick(r, GB_RAW_VENDOR_COLS) || '').trim(),
+        optRaw: optRaw,
+        amount: amount,
+        qty: Number.isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1,
         date: quoteParseDate(gbFeePick(r, GB_RAW_DATE_COLS)) || '',
         no: String(gbFeePick(r, GB_RAW_NO_COLS) || ''),
+        status: String(gbFeePick(r, GB_RAW_STATUS_COLS) || '')
+      });
+    }
+    // "판매처 상품명" 은 공구뿐 아니라 모든 판매처 상품에 붙어 있어서, 매출DB 하루치를 그냥
+    // 갈라내면 기획전명이 100개 넘게 나옵니다(9/9: 1,819줄 중 공구는 127줄, 이름 116개).
+    // 판매처가 "공동구매(영업팀/컨텐츠팀)" 인 줄이 있으면 그 줄만 남겨 공구만 봅니다.
+    // 로라도라홈 건처럼 자사몰(코드니처) 판매처로 들어오는 공구 전용 파일에는 그런 줄이
+    // 없으므로, 그때는 파일 전체를 그대로 씁니다.
+    const onlyGb = out.filter((r) => /공동구매/.test(r.vendor));
+    return onlyGb.length ? onlyGb : out;
+  }
+
+  async function gbFeeReadRaw(input) {
+    const files = [...(input.files || [])];
+    input.value = '';
+    if (!files.length) return;
+    if (!gbFeeCampaign) { alert('먼저 공구를 고르세요.'); return; }
+    for (const file of files) {
+      let rows = null;
+      try {
+        const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+        // 요율 시트가 같이 들어 있는 파일도 있으므로 주문 칸이 있는 시트를 찾을 때까지 넘깁니다.
+        for (const name of wb.SheetNames) {
+          rows = gbFeeSheetToRows(wb.Sheets[name]);
+          if (rows) break;
+        }
+      } catch (err) { alert(`"${file.name}" 을 읽지 못했습니다: ` + err.message); continue; }
+      if (!rows) {
+        alert(`"${file.name}" 에서 주문 내역 시트를 찾지 못했습니다.\n"판매처 옵션"(또는 옵션명)과 "판매가" 칸이 있는 시트가 필요합니다.`);
+        continue;
+      }
+      gbFeeFiles.push({ name: file.name, rows: gbFeeExtract(rows) });
+    }
+    gbFeeRebuild();
+  }
+  window.gbFeeReadRaw = gbFeeReadRaw;
+
+  // 올린 파일들을 합치고(중복 제거), 캠페인을 갈라낸 뒤 고른 캠페인만 계산합니다.
+  function gbFeeRebuild() {
+    // 같은 날짜 파일을 실수로 두 번 올리는 일이 있어 중복을 걸러 냅니다. 다만 한 파일 안에
+    // 똑같은 줄이 정말 두 번 있을 수도 있으므로(같은 주문의 같은 옵션), 키마다 줄 수는
+    // "가장 많이 들어 있던 파일" 기준으로 잡습니다. 그래야 진짜 두 줄짜리를 한 줄로 깎지 않습니다.
+    const best = new Map();
+    for (const f of gbFeeFiles) {
+      const per = new Map();
+      for (const r of f.rows) {
+        const k = [r.no, gbFeeOptionKey(r.optRaw), r.amount, r.date].join('|');
+        if (!per.has(k)) per.set(k, []);
+        per.get(k).push(r);
+      }
+      for (const [k, list] of per) {
+        const cur = best.get(k);
+        if (!cur || list.length > cur.length) best.set(k, list);
+      }
+    }
+    const allRows = [].concat(...best.values());
+
+    // 캠페인별로 나눕니다.
+    const campMap = new Map();
+    for (const r of allRows) {
+      const key = gbFeeNameKey(r.campaign);
+      if (!campMap.has(key)) campMap.set(key, { key: key, name: r.campaign || '(기획전명 없음)', rows: [] });
+      campMap.get(key).rows.push(r);
+    }
+    gbFeeFileCampaigns = [...campMap.values()].sort((a, b) => b.rows.length - a.rows.length);
+
+    // 고른 공구와 이름이 맞는 캠페인을 먼저 찾고, 없으면 파일에 하나뿐일 때만 그것을 씁니다.
+    if (!gbFeeFileCampaigns.some((c) => c.key === gbFeeFileCampaign)) {
+      const matched = gbFeeFileCampaigns.find((c) => c.key === gbFeeNameKey(gbFeeCampaign));
+      gbFeeFileCampaign = matched ? matched.key
+        : (gbFeeFileCampaigns.length === 1 ? gbFeeFileCampaigns[0].key : '');
+    }
+    renderGbFeeFiles();
+    const picked = gbFeeFileCampaigns.find((c) => c.key === gbFeeFileCampaign);
+    gbFeeCompute(picked ? picked.rows : []);
+  }
+
+  function gbFeePickFileCampaign(key) {
+    gbFeeFileCampaign = key;
+    gbFeeRebuild();
+  }
+  window.gbFeePickFileCampaign = gbFeePickFileCampaign;
+
+  function renderGbFeeFiles() {
+    const list = document.getElementById('gbFeeFileList');
+    const pick = document.getElementById('gbFeeCampaignPick');
+    if (!list || !pick) return;
+    list.innerHTML = gbFeeFiles.length
+      ? `<div class="gs-empty">올린 파일 ${gbFeeFiles.length}개 · ${gbFeeFiles.map((f) => escapeAttr(f.name)).join(', ')}</div>`
+      : '';
+    // 파일에 공구가 하나뿐이고 고른 공구와 맞으면 굳이 고르게 하지 않습니다.
+    if (gbFeeFileCampaigns.length <= 1) { pick.innerHTML = ''; return; }
+    pick.innerHTML = '<div class="gs-empty">이 파일에 공구가 ' + gbFeeFileCampaigns.length +
+      '개 들어 있습니다. 정산할 공구를 고르세요.<br>' +
+      gbFeeFileCampaigns.map((c) => {
+        const on = c.key === gbFeeFileCampaign;
+        return `<button type="button" class="${on ? 'btn-primary' : 'filter-reset-btn'}" style="margin:4px 4px 0 0;"
+          onclick="gbFeePickFileCampaign('${escapeAttr(c.key)}')">${escapeAttr(c.name)} (${c.rows.length}줄)</button>`;
+      }).join('') + '</div>';
+  }
+
+  function gbFeeCompute(rows) {
+    const rateByKey = new Map(gbFeeRates.filter((r) => r.campaign === gbFeeCampaign).map((r) => [r.option_key, r]));
+    const detail = [];
+    const unmatched = new Map();
+    let cancelled = 0;
+    for (const r of rows) {
+      if (/취소|반품|환불|교환/.test(r.status)) { cancelled++; continue; }
+      const key = gbFeeOptionKey(r.optRaw);
+      const rate = rateByKey.get(key);
+      // 요율을 모르는 옵션은 0 원으로 넘기지 않고 따로 모아 화면에 띄웁니다.
+      if (!rate) { unmatched.set(key, r.optRaw.replace(/^\s*옵션\s*=\s*/, '')); continue; }
+      const pct = Number(rate.commission_rate);
+      detail.push({
+        date: r.date,
+        no: r.no,
         opt: rate.option_name,
-        unit: rate.unit_price != null ? Number(rate.unit_price) : Math.round(amount / qty),
-        qty: qty,
-        amt: amount,
+        unit: rate.unit_price != null ? Number(rate.unit_price) : Math.round(r.amount / r.qty),
+        qty: r.qty,
+        amt: r.amount,
         rate: pct,
         // 줄마다 반올림해 둡니다. 그래야 옵션별 합계와 총액이 상세 줄의 합과 1원도 안 어긋납니다.
-        fee: Math.round(amount * pct)
+        fee: Math.round(r.amount * pct)
       });
     }
     detail.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.no < b.no ? -1 : 1)));
@@ -11482,12 +11587,18 @@
 
     if (!gbFeeDetail.length) {
       panel.style.display = 'none';
-      if (!bits.length) warn.innerHTML = '<div class="gs-empty">계산할 주문을 찾지 못했습니다.</div>';
+      // 공구를 아직 안 고른 상태면 위 선택 버튼이 이미 안내하고 있으므로 겹쳐 쓰지 않습니다.
+      const needPick = gbFeeFileCampaigns.length > 1 && !gbFeeFileCampaign;
+      if (!bits.length && !needPick && gbFeeFiles.length) {
+        warn.innerHTML = '<div class="gs-empty">계산할 주문을 찾지 못했습니다.</div>';
+      }
       return;
     }
     panel.style.display = '';
     const T = gbFeeTotals();
-    note.textContent = `${gbFeePeriod()} · 주문 ${new Set(gbFeeDetail.map((d) => d.no)).size}건`;
+    const picked = gbFeeFileCampaigns.find((c) => c.key === gbFeeFileCampaign);
+    note.textContent = (picked ? picked.name + ' · ' : '') +
+      `${gbFeePeriod()} · 주문 ${new Set(gbFeeDetail.map((d) => d.no)).size}건`;
     kpi.innerHTML = `
       <div class="kpi-card"><div class="kpi-label">판매수량</div><div class="kpi-value">${T.qty.toLocaleString('ko-KR')}개</div></div>
       <div class="kpi-card"><div class="kpi-label">판매금액</div><div class="kpi-value">${won(T.amt)}</div></div>
@@ -11514,10 +11625,13 @@
 
   function gbFeeResetRaw() {
     gbFeeDetail = []; gbFeeAgg = []; gbFeeSkipped = { cancelled: 0, unmatched: [] };
+    gbFeeFiles = []; gbFeeFileCampaigns = []; gbFeeFileCampaign = '';
     const input = document.getElementById('gbFeeRawInput');
     if (input) input.value = '';
-    const warn = document.getElementById('gbFeeWarnBox');
-    if (warn) warn.innerHTML = '';
+    ['gbFeeWarnBox', 'gbFeeFileList', 'gbFeeCampaignPick'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '';
+    });
     const panel = document.getElementById('gbFeeResultPanel');
     if (panel) panel.style.display = 'none';
   }
