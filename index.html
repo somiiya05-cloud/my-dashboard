@@ -13125,7 +13125,6 @@
   // 손으로 맞춰 둔 값을 덮으면 안 되므로, 매출이 이미 있거나 상태가 "완료" 인 줄은 건드리지
   // 않고 따로 알려 줍니다. 계산이 다르면 사람이 보고 정해야 합니다.
   async function gbFeeFillSettlements() {
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
     const done = gbFeeOverviewRows.filter((r) => !r.running && !r.loose && (r.amount + r.afterAmount) > 0);
     if (!done.length) { alert('끝난 공구가 없습니다.'); return; }
 
@@ -13154,38 +13153,52 @@
       const fee = gbFeeAgg.reduce((s2, a) => s2 + a.fee, 0);
       const rev = gbFeeAgg.reduce((s2, a) => s2 + a.amt, 0);
       const unmatched = gbFeeSkipped.unmatched.length;
+      // 실제로 주문이 들어온 날짜 범위. 일정표 기간과 다를 수 있어 이걸로 맞춰 줍니다.
+      const ds = gbFeeDetail.map((d) => d.date).filter(Boolean).sort();
+      const realFrom = ds[0] || r.from, realTo = ds[ds.length - 1] || to;
 
-      // 정산 목록에서 그 줄을 찾습니다. 인플루언서명은 "수아로움/루튼" 처럼 대행사가 붙습니다.
       const hit = (st.data || []).filter((x) =>
         gbFeeOptionKey(String(x.partner || '').split('/')[0]) === r.who && x.period_start === r.from);
       if (!hit.length) { skip.push(`${r.name} — 정산 목록에 그 기간 줄이 없습니다`); continue; }
       const row = hit[0];
       if (row.status === '완료') { skip.push(`${r.name} — 이미 "완료" 라 두었습니다 (매출 ${Number(row.revenue || 0).toLocaleString('ko-KR')})`); continue; }
-      if (row.revenue != null) {
-        skip.push(`${r.name} — 매출이 이미 ${Number(row.revenue).toLocaleString('ko-KR')} 로 적혀 있습니다`
-          + (Number(row.revenue) === rev ? ' (계산과 같음)' : ` (계산은 ${rev.toLocaleString('ko-KR')})`));
-        continue;
+
+      const patch = {};
+      // 매출·수수료는 비어 있을 때만 씁니다. 손으로 맞춰 둔 값을 덮으면 안 됩니다.
+      if (row.revenue == null) { patch.revenue = rev; patch.commission_amount = fee; }
+      // 기간은 실제 주문 기간으로 맞춥니다. 정산일은 계약으로 정한 날일 수 있어 두었습니다.
+      if (row.period_start !== realFrom) patch.period_start = realFrom;
+      if (row.period_end !== realTo) patch.period_end = realTo;
+
+      if (!Object.keys(patch).length) { skip.push(`${r.name} — 이미 맞게 들어 있습니다`); continue; }
+      if (row.revenue != null && Number(row.revenue) !== rev) {
+        skip.push(`${r.name} — 매출이 ${Number(row.revenue).toLocaleString('ko-KR')} 로 적혀 있는데 계산은 ${rev.toLocaleString('ko-KR')} 입니다 (기간만 고칩니다)`);
       }
-      plan.push({ id: row.id, name: r.name, partner: row.partner, rev: rev, fee: fee, unmatched: unmatched,
-        period: r.from + '~' + to, dup: hit.length > 1 });
+      plan.push({ id: row.id, name: r.name, partner: row.partner, patch: patch, unmatched: unmatched,
+        was: row.period_start + '~' + row.period_end, now: realFrom + '~' + realTo, dup: hit.length > 1 });
     }
     gbFeeDetail = save[0]; gbFeeAgg = save[1]; gbFeeSkipped = save[2];
 
     if (!plan.length) {
-      alert('새로 넣을 줄이 없습니다.\n\n' + (skip.join('\n') || '끝난 공구가 없습니다.'));
+      alert('고칠 줄이 없습니다.\n\n' + (skip.join('\n') || '끝난 공구가 없습니다.'));
       return;
     }
-    const msg = plan.map((p) => `· ${p.partner} (${p.period})\n    매출 ${p.rev.toLocaleString('ko-KR')} / 수수료 ${p.fee.toLocaleString('ko-KR')}`
-      + (p.unmatched ? `  ⚠ 요율 없는 옵션 ${p.unmatched}개 빠짐` : '') + (p.dup ? '  ⚠ 같은 기간 줄이 여러 개' : '')).join('\n');
-    if (!confirm(`정산 목록 ${plan.length}줄에 매출·수수료를 넣습니다.\n\n${msg}\n\n`
-      + (skip.length ? `건너뜀 ${skip.length}건:\n${skip.join('\n')}\n\n` : '') + '넣을까요?')) return;
+    const msg = plan.map((p) => {
+      const bits = [];
+      if (p.patch.revenue != null) bits.push(`매출 ${p.patch.revenue.toLocaleString('ko-KR')} / 수수료 ${p.patch.commission_amount.toLocaleString('ko-KR')}`);
+      if (p.patch.period_start || p.patch.period_end) bits.push(`기간 ${p.was} → ${p.now}`);
+      return `· ${p.partner}\n    ${bits.join('\n    ')}`
+        + (p.unmatched ? `\n    ⚠ 요율 없는 옵션 ${p.unmatched}개 빠짐` : '')
+        + (p.dup ? '\n    ⚠ 같은 기간 줄이 여러 개' : '');
+    }).join('\n');
+    if (!confirm(`정산 목록 ${plan.length}줄을 고칩니다. 정산일은 그대로 둡니다.\n\n${msg}\n\n`
+      + (skip.length ? `건너뜀 ${skip.length}건:\n${skip.join('\n')}\n\n` : '') + '진행할까요?')) return;
 
     for (const p of plan) {
-      const { error } = await client.from('settlements')
-        .update({ revenue: p.rev, commission_amount: p.fee }).eq('id', p.id);
-      if (error) { alert('넣지 못했습니다: ' + error.message); return; }
+      const { error } = await client.from('settlements').update(p.patch).eq('id', p.id);
+      if (error) { alert('고치지 못했습니다: ' + error.message); return; }
     }
-    alert(`정산 목록 ${plan.length}줄에 넣었습니다.` + (skip.length ? `\n\n건너뛴 ${skip.length}건:\n${skip.join('\n')}` : ''));
+    alert(`정산 목록 ${plan.length}줄을 고쳤습니다.` + (skip.length ? `\n\n건너뛴 ${skip.length}건:\n${skip.join('\n')}` : ''));
     loadTeamSchedule();
   }
   window.gbFeeFillSettlements = gbFeeFillSettlements;
