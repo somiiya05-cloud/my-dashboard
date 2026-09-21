@@ -3383,6 +3383,19 @@
       </div>
 
       <div id="scheduleSubFeeCalc" style="display:none">
+      <section class="kpi-row" id="gbFeeOverviewKpi"></section>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>공구 현황</h2>
+          <span class="panel-note" id="gbFeeOverviewNote"></span>
+        </div>
+        <div class="scroll-box">
+          <table class="table-center-head">
+            <thead><tr><th>상태</th><th>공구</th><th>기간</th><th class="num">주문</th><th class="num">누적 매출</th><th></th></tr></thead>
+            <tbody id="gbFeeOverviewTable"></tbody>
+          </table>
+        </div>
+      </section>
       <section class="panel">
         <div class="panel-head">
           <h2>1단계 · 공구 선택과 옵션 수수료율</h2>
@@ -12453,6 +12466,10 @@
   let gbFeeTo = '';
   let gbFeeOutOfPeriod = 0;     // 기간 밖이라 뺀 줄 수
   let gbFeeStoredCampaigns = [];  // groupbuy_order_lines 에 쌓여 있는 공구 목록(뷰)
+  let gbFeeSchedule = [];         // 공구 일정표(groupbuy_schedule) 중 우리 팀 건
+  let gbFeeDays = [];             // 공구 × 날짜 매출 (뷰)
+  // 컨텐츠팀 공구는 영업팀이 정산하는 건이 아닙니다. 일정표의 부서로 가립니다.
+  const GB_FEE_TEAM = '영업팀';
 
   // RAW 는 "옵션=변기수조 세정서버 1+1세트 (12ea)" 처럼 들어오고 요율 표는 사람이 손으로 적습니다.
   // 괄호·공백·별표가 조금 달라도 같은 옵션으로 붙도록 비교용 키를 만듭니다.
@@ -12484,11 +12501,160 @@
     gbFeeRates = data || [];
     // 쌓아둔 주문에만 있고 요율표에는 없는 공구도 고를 수 있어야 합니다.
     // (특약이 없는 공구는 groupbuy_commission_rates 에 줄이 없습니다)
-    const camp = await client.from('groupbuy_campaigns').select('*').order('last_date', { ascending: false });
+    // 공구 × 날짜로 줄인 뷰를 읽어 화면에서 기간별로 잘라 씁니다.
+    const day = await client.from('groupbuy_campaign_days').select('*').order('order_date');
     // 뷰를 아직 안 만들었어도 화면은 돌아가야 하므로 조용히 넘깁니다.
-    gbFeeStoredCampaigns = camp.error ? [] : (camp.data || []);
+    gbFeeDays = day.error ? [] : (day.data || []);
+    const byKey = new Map();
+    gbFeeDays.forEach((d) => {
+      const c = byKey.get(d.campaign_key) || { campaign_key: d.campaign_key, campaign: d.campaign,
+        line_count: 0, total_amount: 0, first_date: d.order_date, last_date: d.order_date };
+      c.line_count += Number(d.line_count); c.total_amount += Number(d.total_amount);
+      if (d.order_date < c.first_date) c.first_date = d.order_date;
+      if (d.order_date > c.last_date) c.last_date = d.order_date;
+      byKey.set(d.campaign_key, c);
+    });
+    gbFeeStoredCampaigns = [...byKey.values()].sort((a, b) => String(b.last_date).localeCompare(String(a.last_date)));
+    // 공구 일정표에서 우리 팀 건의 시작·종료일을 가져와 "진행 중" 을 가립니다.
+    const sch = await client.from('groupbuy_schedule').select('influencer_name,start_date,end_date,status,department');
+    gbFeeSchedule = sch.error ? [] : (sch.data || []).filter((r) => (r.department || '') === GB_FEE_TEAM);
     renderGbFeeCampaigns();
+    renderGbFeeOverview();
   }
+
+  // 공구명에서 업체 이름만 뽑습니다. "코드니처 X  수아로움 공동구매" → "수아로움"
+  function gbFeeWhoOf(campaign) {
+    return gbFeeOptionKey(String(campaign || '').match(/[xX×]\s*(.+?)\s*공동구매\s*$/)?.[1] || '');
+  }
+  // 일정표는 "수아로움/루튼 (자사몰)" 처럼 대행사·채널이 붙어 있어 앞부분만 봅니다.
+  function gbFeeWhoOfSchedule(s) {
+    return gbFeeOptionKey(String(s.influencer_name || '').split('/')[0]);
+  }
+
+  // 요율표에 이미 쓰고 있는 공구명이 있으면 그 표기를 씁니다.
+  // 파일마다 "X " / "X  " 가 섞여 들어와, 새로 넣을 때마다 표기가 갈리면 표가 지저분해집니다.
+  function gbFeeCanonCampaign(name) {
+    const k = gbFeeNameKey(name);
+    const hit = gbFeeRates.find((r) => gbFeeNameKey(r.campaign) === k);
+    return hit ? hit.campaign : name;
+  }
+
+  // 화면 맨 위 "공구 현황". 공구가 아니라 **일정 한 건**을 한 줄로 봅니다.
+  // 같은 셀러가 두 번 하면 기획전명이 같아서, 공구로 묶으면 2차 기간에 1차 매출이 붙습니다.
+  // 그래서 일정표의 기간으로 주문을 잘라 각각 셉니다.
+  //
+  // 주문은 마감 뒤 1~3일 더 들어옵니다(거의 모든 공구가 그렇습니다). 그걸 따로 줄로 빼면
+  // 표가 조각나서, 바로 앞 공구에 "마감 후" 로 붙여 보여 주고 정산에 넣을지는 고르게 합니다.
+  function renderGbFeeOverview() {
+    const table = document.getElementById('gbFeeOverviewTable');
+    const note = document.getElementById('gbFeeOverviewNote');
+    const kpi = document.getElementById('gbFeeOverviewKpi');
+    if (!table) return;
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+
+    const byWho = new Map();
+    gbFeeDays.forEach((d) => {
+      const w = gbFeeWhoOf(d.campaign);
+      if (!byWho.has(w)) byWho.set(w, []);
+      byWho.get(w).push(d);
+    });
+
+    // 셀러별로 일정을 시작일 순으로 세워 둡니다. 다음 공구가 시작하기 전까지가 그 공구 몫입니다.
+    const schedByWho = new Map();
+    gbFeeSchedule.forEach((sc) => {
+      const w = gbFeeWhoOfSchedule(sc);
+      if (!w) return;
+      if (!schedByWho.has(w)) schedByWho.set(w, []);
+      schedByWho.get(w).push(sc);
+    });
+    schedByWho.forEach((list) => list.sort((a, b) => String(a.start_date).localeCompare(String(b.start_date))));
+
+    const used = new Set();
+    const rows = [];
+    schedByWho.forEach((list, w) => {
+      const days = byWho.get(w) || [];
+      list.forEach((sc, idx) => {
+        const next = list[idx + 1];
+        const inRange = days.filter((d) => d.order_date >= sc.start_date && d.order_date <= sc.end_date);
+        // 마감 다음 날부터 다음 공구 시작 전까지 들어온 주문 = 마감 후 물량
+        const after = days.filter((d) => d.order_date > sc.end_date
+          && (!next || d.order_date < next.start_date));
+        const running = sc.start_date <= today && today <= sc.end_date;
+        if (!inRange.length && !after.length && !running) return;
+        [...inRange, ...after].forEach((d) => used.add(d.campaign_key + '|' + d.order_date));
+        const sum = (a) => a.reduce((x, d) => x + Number(d.total_amount), 0);
+        const cnt = (a) => a.reduce((x, d) => x + Number(d.line_count), 0);
+        rows.push({
+          name: (inRange[0] || after[0] || {}).campaign || String(sc.influencer_name || '').split('/')[0].trim(),
+          running: running, from: sc.start_date, to: sc.end_date,
+          lines: cnt(inRange), amount: sum(inRange),
+          afterLines: cnt(after), afterAmount: sum(after),
+          afterTo: after.length ? after[after.length - 1].order_date : ''
+        });
+      });
+    });
+
+    // 일정표에 아예 없는 공구의 주문도 빠뜨리지 않습니다.
+    const left = new Map();
+    gbFeeDays.forEach((d) => {
+      if (used.has(d.campaign_key + '|' + d.order_date)) return;
+      const c = left.get(d.campaign_key) || { name: d.campaign, running: false,
+        from: d.order_date, to: d.order_date, lines: 0, amount: 0, afterLines: 0, afterAmount: 0, loose: true };
+      c.lines += Number(d.line_count); c.amount += Number(d.total_amount);
+      if (d.order_date < c.from) c.from = d.order_date;
+      if (d.order_date > c.to) c.to = d.order_date;
+      left.set(d.campaign_key, c);
+    });
+    rows.push(...left.values());
+
+    rows.sort((a, b) => (b.running - a.running) || String(b.to).localeCompare(String(a.to)));
+
+    const live = rows.filter((r) => r.running);
+    const total = (r) => r.amount + r.afterAmount;
+    kpi.innerHTML = `
+      <div class="kpi-card"><div class="kpi-label">진행 중 공구</div><div class="kpi-value">${live.length}건</div></div>
+      <div class="kpi-card"><div class="kpi-label">진행 중 누적 매출</div><div class="kpi-value">${won(live.reduce((s, r) => s + total(r), 0))}</div></div>
+      <div class="kpi-card"><div class="kpi-label">끝난 공구 매출</div><div class="kpi-value">${won(rows.filter((r) => !r.running).reduce((s, r) => s + total(r), 0))}</div></div>
+    `;
+    note.textContent = `${GB_FEE_TEAM} 기준 · 취소·반품 제외 · ${today} 현재`;
+    if (!rows.length) {
+      table.innerHTML = '<tr><td colspan="6" class="gs-empty">쌓아둔 주문이 없습니다.</td></tr>';
+      return;
+    }
+    table.innerHTML = rows.map((r) => {
+      const to = r.afterAmount ? r.afterTo : r.to;   // 마감 후 물량까지 넣어 정산하도록
+      return `
+      <tr class="${r.running ? 'gs-row-due' : ''}">
+        <td>${r.running ? '<b style="color:#dc2626">진행 중</b>' : (r.loose ? '일정 없음' : '종료')}</td>
+        <td style="text-align:left">${escapeAttr(r.name)}</td>
+        <td style="white-space:nowrap">${r.from} ~ ${r.to}</td>
+        <td class="num">${r.lines ? r.lines.toLocaleString('ko-KR') + '줄' : '-'}</td>
+        <td class="num"><b>${r.amount ? r.amount.toLocaleString('ko-KR') : '아직 없음'}</b>${
+          r.afterAmount ? `<br><span style="opacity:.65;font-size:.85em">마감 후 ${r.afterTo} 까지 ${r.afterLines}줄 +${r.afterAmount.toLocaleString('ko-KR')}</span>` : ''}</td>
+        <td>${(r.amount || r.afterAmount) ? `<button type="button" class="filter-reset-btn"
+          onclick="gbFeeOpenCampaign('${escapeAttr(r.name)}','${r.from}','${to}')">정산하기</button>` : ''}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // 현황 표에서 "정산하기" 를 누르면 공구와 기간을 같이 맞춰 줍니다.
+  // 기간은 마감 후 물량까지 포함해 채웁니다(대개 그걸 같이 정산합니다). 빼려면 종료일을 줄이세요.
+  function gbFeeOpenCampaign(name, from, to) {
+    const sel = document.getElementById('gbFeeCampaignSelect');
+    if (sel) sel.value = name;
+    gbFeeCampaign = name;
+    const mine = gbFeeRates.filter((r) => r.campaign === name);
+    gbFeePartner = (mine.find((r) => r.partner) || {}).partner || '';
+    gbFeeResetRaw();
+    renderGbFeeRateTable();
+    if (from) document.getElementById('gbFeeFrom').value = from;
+    if (to) document.getElementById('gbFeeTo').value = to;
+    gbFeeFrom = from || ''; gbFeeTo = to || '';
+    gbFeeLoadFromDb();
+    const box = document.getElementById('gbFeeRateBox');
+    if (box) box.scrollIntoView({ block: 'center' });
+  }
+  window.gbFeeOpenCampaign = gbFeeOpenCampaign;
 
   function renderGbFeeCampaigns() {
     const sel = document.getElementById('gbFeeCampaignSelect');
@@ -12520,7 +12686,7 @@
 
   function gbFeeSelectCampaign(campaign) {
     gbFeeCampaign = campaign || '';
-    const mine = gbFeeRates.filter((r) => r.campaign === gbFeeCampaign);
+    const mine = gbFeeRates.filter((r) => gbFeeNameKey(r.campaign) === gbFeeNameKey(gbFeeCampaign));
     gbFeePartner = (mine.find((r) => r.partner) || {}).partner || '';
     gbFeeResetRaw();
     renderGbFeeRateTable();
@@ -12548,7 +12714,7 @@
     const upload = document.getElementById('gbFeeUploadPanel');
     if (!box || !table || !upload) return;
     box.style.display = gbFeeCampaign ? '' : 'none';
-    const rows = gbFeeRates.filter((r) => r.campaign === gbFeeCampaign);
+    const rows = gbFeeRates.filter((r) => gbFeeNameKey(r.campaign) === gbFeeNameKey(gbFeeCampaign));
     const hasDefault = gbFeeRates.some((r) => r.campaign === GB_FEE_DEFAULT);
     // 기준표를 고른 상태는 "표를 손보는 중"이라 주문을 올릴 자리가 아닙니다.
     // 공구를 골랐을 때는 그 공구 요율이 없어도 기준표가 있으면 바로 계산할 수 있으므로 열어 둡니다.
@@ -12588,7 +12754,7 @@
     if (rate == null) { alert('수수료율을 숫자로 적어주세요 (예: 25).'); return; }
     const unitRaw = gsMoneyValue(form.unitPrice.value);
     const { error } = await client.from('groupbuy_commission_rates').upsert({
-      campaign: gbFeeCampaign,
+      campaign: gbFeeCanonCampaign(gbFeeCampaign),
       partner: gbFeePartner || null,
       option_name: optionName,
       option_key: gbFeeOptionKey(optionName),
@@ -12681,7 +12847,7 @@
       seen.add(key);
       const unit = Number(String(pick(r, ['공구판매가', '판매가', '단가'])).replace(/[^0-9.]/g, ''));
       payload.push({
-        campaign: gbFeeCampaign,
+        campaign: gbFeeCanonCampaign(gbFeeCampaign),
         partner: gbFeePartner || null,
         option_name: name.replace(/^\s*옵션\s*=\s*/, ''),
         option_key: key,
@@ -12796,7 +12962,7 @@
   window.gbFeeLoadFromDb = gbFeeLoadFromDb;
 
   function gbFeeCompute(rows) {
-    const rateByKey = new Map(gbFeeRates.filter((r) => r.campaign === gbFeeCampaign).map((r) => [r.option_key, r]));
+    const rateByKey = new Map(gbFeeRates.filter((r) => gbFeeNameKey(r.campaign) === gbFeeNameKey(gbFeeCampaign)).map((r) => [r.option_key, r]));
     const detail = [];
     const unmatched = new Map();
     const fromDefault = new Map();  // 기준표에서 가져다 쓴 옵션
