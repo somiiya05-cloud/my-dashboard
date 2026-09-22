@@ -3220,16 +3220,8 @@
         </div>
 
         <section class="panel">
-          <div id="jwPaneAmpm" class="jw-pane">
-            <div class="jw-section">
-              <div class="jw-section-title">오전</div>
-              <div id="jwAmBody"></div>
-            </div>
-            <div class="jw-section">
-              <div class="jw-section-title">오후</div>
-              <div id="jwPmBody"></div>
-            </div>
-          </div>
+          <!-- 구획(오전/오후 또는 담당자별 구분)은 renderJwSections 가 채웁니다 -->
+          <div id="jwPaneAmpm" class="jw-pane"></div>
 
         </section>
       </div>
@@ -8559,7 +8551,10 @@
   const JW_ASSIGNEE = '전휘원';
   function renderTaskView() {
     const isPersonal = !!taskFilterAssignee;
-    const isJw = taskFilterAssignee === JW_ASSIGNEE;
+    // 예전에는 이 화면을 "전휴원" 한 사람에게만 보여줬습니다.
+    // 지금은 담당자를 고르면 누구든 같은 화면으로 봅니다(오전/오후가 없는 담당자는
+    // 자기 업무 구분이 그대로 구획 제목이 됩니다).
+    const isJw = isPersonal;
     document.getElementById('taskTopbarActions').style.display = isPersonal ? '' : 'none';
     document.getElementById('personalTaskArea').style.display = (isPersonal && !isJw) ? '' : 'none';
     document.getElementById('jwPersonalTaskArea').style.display = (isPersonal && isJw) ? '' : 'none';
@@ -8632,10 +8627,28 @@
     jwOpenDetailIds.forEach((id) => jwGrowInput(document.getElementById('jwPurpose' + id)));
   }
 
+  // 구획(오전/오후 또는 담당자별 구분)을 만들고 각 목록을 채웁니다.
+  function jwSectionBodyId(i) { return 'jwSecBody' + i; }
+
+  function renderJwSections() {
+    const pane = document.getElementById('jwPaneAmpm');
+    const secs = jwSections();
+    // 구획 구성이 그대로면 다시 만들지 않습니다(입력 중이던 글이 날아가지 않게).
+    const sig = secs.map(x => x[1]).join('|');
+    if (pane.dataset.sig !== sig) {
+      pane.dataset.sig = sig;
+      pane.innerHTML = secs.map(([title], i) => `
+        <div class="jw-section">
+          <div class="jw-section-title">${escapeAttr(title)}</div>
+          <div id="${jwSectionBodyId(i)}"></div>
+        </div>`).join('');
+    }
+    secs.forEach(([, category], i) => renderJwTaskList(jwSectionBodyId(i), category));
+  }
+
   function renderJwView() {
     renderJwToolbar();
-    renderJwTaskList('jwAmBody', '오전 필수업무');
-    renderJwPmChecklist();
+    renderJwSections();
     jwGrowOpenPurposes();
     // 공구 일정·런칭 건수는 별도 테이블이라 비동기로 받아온 뒤 목록을 다시 그립니다.
     Promise.all([loadJwGroupbuyToday(), loadJwLaunchCount()]).then(renderJwGroupbuyLists);
@@ -8643,10 +8656,9 @@
     loadJwUrgentNotes();
   }
 
-  // 공구 배너가 붙을 수 있는 목록(오전·오후)만 다시 그림
+  // 공구 배너가 붙을 수 있는 목록만 다시 그림
   function renderJwGroupbuyLists() {
-    renderJwTaskList('jwAmBody', '오전 필수업무');
-    renderJwPmChecklist();
+    renderJwSections();
     jwGrowOpenPurposes();
   }
 
@@ -8772,7 +8784,8 @@
   function renderJwSettleBanner() {
     const box = document.getElementById('jwSettleBanner');
     if (!box) return;
-    if (!jwSettleDue.length) { box.innerHTML = ''; return; }
+    // 공구 정산은 루틴 업무를 맡은 담당자의 일입니다. 다른 담당자 화면에는 띄우지 않습니다.
+    if (!jwHasRoutine() || !jwSettleDue.length) { box.innerHTML = ''; return; }
 
     // 배너에는 건수만 씁니다. 어떤 정산인지는 누르면 넘어가는 정산 목록에서
     // 해당 줄이 연한 파랑으로 떠 보이게 표시됩니다.
@@ -9205,6 +9218,9 @@
     const board = document.getElementById('jwMemoBoard');
     const wrap = board && board.closest('.jw-memo-wrap');
     if (!board || !wrap) return;
+    // 메모는 담당자를 나눠 적는 칸이 없어서, 지금은 루틴 업무 담당자 화면에만 둡니다.
+    // (다른 담당자에게도 보여주려면 jw_urgent_notes 에 담당자 칸을 먼저 만들어야 합니다)
+    if (!jwHasRoutine()) { wrap.style.display = 'none'; return; }
 
     // 머리줄("+ 메모 붙이기")은 항상 보여야 합니다.
     // 메모가 없을 때 영역째 숨기면 첫 메모를 붙일 방법이 없어집니다.
@@ -9582,11 +9598,33 @@
 
   // 선택한 날짜의 업무만 추립니다.
   // due_date가 없는 예전 업무는 오늘 화면에서만 보이게 둡니다(날짜를 알 수 없어 과거로 못 보냄).
+  // 지금 화면에 띄운 담당자. 담당자를 안 고른 경우에만 기본값으로 떨어집니다.
+  function jwViewAssignee() { return taskFilterAssignee || JW_ASSIGNEE; }
+  // 매일 자동 생성되는 루틴 업무(오전/오후 필수업무)를 쓰는 담당자인지.
+  // 이 사람만 정해진 순서(AM_TASK_ORDER/PM_TASK_ORDER)와 그룹 묶기를 적용합니다.
+  function jwHasRoutine() { return jwViewAssignee() === JW_ASSIGNEE; }
+
+  // 이 담당자의 업무에 실제로 쓰인 구분들을, 화면 구획으로 만들 순서대로 돌려줍니다.
+  function jwSections() {
+    if (jwHasRoutine()) return [['오전', '오전 필수업무'], ['오후', '오후 필수업무']];
+    const date = jwSelectedDate();
+    const today = jwIsToday();
+    const mine = currentTasks.filter(t =>
+      t.assignee === jwViewAssignee() &&
+      (t.due_date ? t.due_date === date : (today && !t.archived_at))
+    );
+    const cats = [];
+    mine.forEach(t => { const c = t.category || '기타'; if (!cats.includes(c)) cats.push(c); });
+    cats.sort((a, b) => a.localeCompare(b, 'ko'));
+    // 업무가 하나도 없는 날도 빈 목록을 보여줘야 해서 구획 하나는 남겨 둡니다.
+    return (cats.length ? cats : ['업무']).map(c => [c, c]);
+  }
+
   function jwScopedTasks(category) {
     const date = jwSelectedDate();
     const today = jwIsToday();
     return currentTasks.filter(t =>
-      t.assignee === JW_ASSIGNEE && t.category === category &&
+      t.assignee === jwViewAssignee() && (t.category || '기타') === category &&
       (t.due_date ? t.due_date === date : (today && !t.archived_at))
     );
   }
@@ -9596,12 +9634,14 @@
   }
 
   // 긴급 업무 요청 — 새 업무 패널을 "그 날짜 오후 업무 맨 끝" 기준으로 미리 채워서 엽니다.
-  // 오후 필수업무 중 PM_TASK_ORDER에 없는 항목은 renderJwPmChecklist에서 목록 끝에 붙으므로,
+  // 오후 필수업무 중 PM_TASK_ORDER에 없는 항목은 목록 끝에 붙으므로,
   // 여기서 등록한 업무는 루틴 업무를 다 끝낸 다음 스텝으로 자연스럽게 들어갑니다.
   function openJwUrgentTask() {
+    const secs = jwSections();
     openTaskPanel(null, {
-      category: '오후 필수업무',
-      assignee: JW_ASSIGNEE,
+      // 루틴이 있는 담당자는 오후 목록 끝에, 그 외는 그 사람이 쓰는 마지막 구분에 붙입니다.
+      category: jwHasRoutine() ? '오후 필수업무' : secs[secs.length - 1][1],
+      assignee: jwViewAssignee(),
       priority: '높음',
       dueDate: jwSelectedDate(),
       titlePlaceholder: '긴급 업무 내용',
@@ -9631,13 +9671,18 @@
     return [...rest.slice(0, idx), ...urgent, ...rest.slice(idx)];
   }
 
+  // 구획 하나를 그립니다. 루틴 업무가 있는 담당자는 정해진 순서로 먼저 깔고
+  // 직접 추가한 업무를 뒤에 붙이며, 그 외 담당자는 순서번호(없으면 만든 순)대로만 놓습니다.
   function renderJwTaskList(bodyId, category) {
-    // 오후와 같은 방식 — 루틴 업무를 정해진 순서로 먼저 깔고, 직접 추가한 업무는 그 뒤에 붙입니다.
+    const body = document.getElementById(bodyId);
+    if (!body) return;
     const scoped = jwScopedTasks(category);
-    const ordered = AM_TASK_ORDER.map(title => scoped.find(t => t.title === title)).filter(Boolean);
-    const extras = scoped.filter(t => !AM_TASK_ORDER.includes(t.title)).sort(jwExtraOrder);
+    const order = !jwHasRoutine() ? []
+      : (category === '오후 필수업무' ? PM_TASK_ORDER : AM_TASK_ORDER);
+    const ordered = order.map(title => scoped.find(t => t.title === title)).filter(Boolean);
+    const extras = scoped.filter(t => !order.includes(t.title)).sort(jwExtraOrder);
     const items = jwArrangeUrgent(ordered.concat(extras));
-    document.getElementById(bodyId).innerHTML = items.length
+    body.innerHTML = items.length
       ? `<div class="jw-task-list">${jwTaskListHtml(items)}</div>`
       : `<div class="jw-task-empty">${jwEmptyMessage()}</div>`;
   }
@@ -9693,16 +9738,6 @@
   // 매일 자동으로 생기는 루틴 업무 이름 모음. 여기 없으면 사람이 직접 추가한 업무로 보고
   // 목록에서 다른 색으로 구분합니다 (api/refresh-daily-tasks.js가 만드는 업무들과 같은 목록).
   const JW_ROUTINE_TITLES = new Set([...AM_TASK_ORDER, ...PM_TASK_ORDER]);
-
-  function renderJwPmChecklist() {
-    const items = jwScopedTasks('오후 필수업무');
-    const ordered = PM_TASK_ORDER.map(title => items.find(t => t.title === title)).filter(Boolean);
-    const extras = items.filter(t => !PM_TASK_ORDER.includes(t.title)).sort(jwExtraOrder);
-    const all = jwArrangeUrgent(ordered.concat(extras));
-    document.getElementById('jwPmBody').innerHTML = all.length
-      ? `<div class="jw-task-list">${jwTaskListHtml(all)}</div>`
-      : `<div class="jw-task-empty">${jwEmptyMessage()}</div>`;
-  }
 
   // 담당자 완료 체크 후 파트장 확인 체크까지 되어야 최종 확인완료로 집계됨 (team_tasks.status 재사용)
   function deriveTaskDualStatus(kind, value, cur) {
