@@ -276,6 +276,10 @@
   .jw-row-del:hover { background: #fef2f2; border-color: rgba(220,38,38,.6); }
   .jw-row-del.armed { background: #dc2626; border-color: #dc2626; color: #fff; }
   .jw-task-row-wrap.jw-dragging { opacity: .45; }
+  /* 그룹 머리줄도 끌 수 있어서 같은 표시를 붙입니다 */
+  .jw-task-group-title.jw-dragging { opacity: .45; }
+  .jw-task-group-title.jw-drop-before { box-shadow: 0 -3px 0 -1px #7c3aed; }
+  .jw-task-group-title.jw-drop-after { box-shadow: 0 3px 0 -1px #7c3aed; }
   /* 놓을 자리를 보라색 선으로 미리 보여줍니다 */
   .jw-task-row-wrap.jw-drop-before > .jw-task-row { box-shadow: 0 -3px 0 -1px #7c3aed; }
   .jw-task-row-wrap.jw-drop-after > .jw-task-row { box-shadow: 0 3px 0 -1px #7c3aed; }
@@ -9482,6 +9486,10 @@
 
   // 끌어서 옮길 수 있는 업무 = 직접 추가한 업무. 루틴 업무는 자리가 고정입니다.
   function jwMovable(t) {
+    return jwOrderEdit;
+  }
+  // 루틴 업무는 매일 자동으로 다시 생기므로 지우지 못하게 둡니다.
+  function jwDeletable(t) {
     return jwOrderEdit && !JW_ROUTINE_TITLES.has(t.title);
   }
 
@@ -9547,13 +9555,21 @@
     const target = currentTasks.find(t => t.id === targetId);
     if (!drag || !target || drag.category !== target.category) return;
 
-    const list = jwScopedTasks(drag.category).filter(t => !JW_ROUTINE_TITLES.has(t.title)).sort(jwExtraOrder);
-    const rest = list.filter(t => t.id !== dragId);
-    const at = rest.findIndex(t => t.id === targetId);
-    if (at < 0) return;
-    rest.splice(after ? at + 1 : at, 0, drag);
+    // 그룹은 통째로 움직여야 해서 덩어리 단위로 자리를 옮깁니다.
+    const units = jwUnitsOf(jwSectionItems(drag.category));
+    const from = units.findIndex(u => u.some(t => t.id === dragId));
+    const toRaw = units.findIndex(u => u.some(t => t.id === targetId));
+    if (from < 0 || toRaw < 0 || from === toRaw) return;
 
+    const moved = units[from];
+    const rest0 = units.filter((_, i) => i !== from);
+    const at = rest0.findIndex(u => u.some(t => t.id === targetId));
+    if (at < 0) return;
+    rest0.splice(after ? at + 1 : at, 0, moved);
+
+    // 이때 루틴 업무까지 전부 번호를 받습니다. 그래야 다음부터 이 순서가 그대로 쓰입니다.
     // 10씩 띄워 두면 나중에 한 건만 끼워 넣을 때 여유가 있습니다.
+    const rest = rest0.flat();
     const rows = rest.map((t, i) => ({ id: t.id, seq_no: (i + 1) * 10 }));
     rows.forEach(r => { const t = currentTasks.find(x => x.id === r.id); if (t) t.seq_no = r.seq_no; });
     renderJwView();
@@ -9671,17 +9687,47 @@
     return [...rest.slice(0, idx), ...urgent, ...rest.slice(idx)];
   }
 
-  // 구획 하나를 그립니다. 루틴 업무가 있는 담당자는 정해진 순서로 먼저 깔고
-  // 직접 추가한 업무를 뒤에 붙이며, 그 외 담당자는 순서번호(없으면 만든 순)대로만 놓습니다.
-  function renderJwTaskList(bodyId, category) {
-    const body = document.getElementById(bodyId);
-    if (!body) return;
+  // 이 구획에 놓일 업무를, 화면에 보일 순서대로 돌려줍니다.
+  //  · 아직 손으로 순서를 잡은 적이 없으면 = 루틴 업무(정해진 순서) 먼저, 추가 업무 뒤
+  //  · 한 번이라도 끌어서 옮겼으면 = 모든 줄에 순서번호가 붙으므로 그 번호대로
+  //    (이래야 추가한 업무를 데일리 업무보다 위로 올릴 수 있습니다)
+  function jwSectionItems(category) {
     const scoped = jwScopedTasks(category);
     const order = !jwHasRoutine() ? []
       : (category === '오후 필수업무' ? PM_TASK_ORDER : AM_TASK_ORDER);
     const ordered = order.map(title => scoped.find(t => t.title === title)).filter(Boolean);
     const extras = scoped.filter(t => !order.includes(t.title)).sort(jwExtraOrder);
-    const items = jwArrangeUrgent(ordered.concat(extras));
+    const base = ordered.concat(extras);
+    const 손으로잡음 = base.length > 0 && base.every(t => t.seq_no != null);
+    if (손으로잡음) return base.slice().sort((a, b) => a.seq_no - b.seq_no || a.id - b.id);
+    return jwArrangeUrgent(base);
+  }
+
+  // 화면에 보이는 덩어리 단위로 묶습니다. 그룹(신제품 광고세팅 등)은 통째로 한 덩어리라
+  // 끌 때도 같이 움직이고, 중간에 다른 업무가 끼어들지 않습니다.
+  function jwUnitsOf(items) {
+    const units = [];
+    let i = 0;
+    while (i < items.length) {
+      const g = jwTaskGroupName(items[i]);
+      if (g) {
+        const unit = [];
+        while (i < items.length && jwTaskGroupName(items[i]) === g) { unit.push(items[i]); i++; }
+        units.push(unit);
+      } else {
+        units.push([items[i]]);
+        i++;
+      }
+    }
+    return units;
+  }
+
+  // 구획 하나를 그립니다. 루틴 업무가 있는 담당자는 정해진 순서로 먼저 깔고
+  // 직접 추가한 업무를 뒤에 붙이며, 그 외 담당자는 순서번호(없으면 만든 순)대로만 놓습니다.
+  function renderJwTaskList(bodyId, category) {
+    const body = document.getElementById(bodyId);
+    if (!body) return;
+    const items = jwSectionItems(category);
     body.innerHTML = items.length
       ? `<div class="jw-task-list">${jwTaskListHtml(items)}</div>`
       : `<div class="jw-task-empty">${jwEmptyMessage()}</div>`;
@@ -9831,8 +9877,15 @@
         const groupCounted = groupItems.filter(t => t.status !== TASK_STATUS_NA);
         const groupDone = groupCounted.filter(t => t.status === '확인완료').length;
         const groupNa = groupItems.length - groupCounted.length;
+        // 순서 편집 중에는 그룹도 한 덩어리로 끌 수 있습니다. 대표로 첫 업무의 id 를 씁니다.
+        const gLead = groupItems[0].id;
+        const gDrag = jwOrderEdit
+          ? ` draggable="true" onmousedown="jwDragArm(event)" ondragstart="jwDragStart(event, ${gLead})"`
+            + ` ondragend="jwDragEnd()" ondragover="jwDragOver(event, ${gLead})" ondrop="jwDrop(event, ${gLead})"`
+          : '';
         parts.push(`
-          <div class="jw-task-group-title" onclick="toggleJwGroup('${id}')">
+          <div class="jw-task-group-title"${gDrag} onclick="toggleJwGroup('${id}')">
+            ${jwOrderEdit ? '<span class="jw-drag-grip" onclick="event.stopPropagation()" title="끌어서 순서를 바꿉니다">⠿</span>' : ''}
             <span class="jw-task-group-arrow" id="${id}-arrow">▾</span>
             <span class="jw-task-no">${groupNo}.</span>${escapeAttr(group)}${jwIsToday() && group === JW_LAUNCH_GROUP ? jwLaunchBadgeHtml() : ''}${group === JW_INVOICE_GROUP ? jwInvoiceBadgeHtml() : ''}${group === JW_REG_GROUP ? jwNewProductBadgeHtml() + jwRegBadgeHtml() : ''}
             <span class="jw-task-group-count${groupCounted.length && groupDone === groupCounted.length ? ' all-done' : ''}">${groupCounted.length ? `${groupDone}/${groupCounted.length} 완료` : '해당 없음'}${groupNa && groupCounted.length ? ` · 해당없음 ${groupNa}` : ''}</span>
@@ -9923,6 +9976,7 @@
   function jwTaskRowHtml(t, indented, no) {
     // 그룹 하위 항목(1-1 같은 줄)은 그룹 안에서 순서가 정해져 있어 옮기지 않습니다.
     const movable = !indented && jwMovable(t);
+    const deletable = !indented && jwDeletable(t);
     const notApplicable = t.status === TASK_STATUS_NA;
     const staffDone = t.status === '검수대기' || t.status === '확인완료';
     const leadDone = t.status === '확인완료';
@@ -9940,7 +9994,7 @@
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}${isAdded ? ' added' : ''}">
         <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${movable ? '<span class="jw-drag-grip" onclick="event.stopPropagation()" title="끌어서 순서를 바꿉니다">⠿</span>' : ''}${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwCommentTagsHtml(t.id)}${(t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}${isAdded ? `<button type="button" class="jw-title-edit-btn" title="업무명 수정" onclick="event.stopPropagation(); jwEditTitle(${t.id})">&#9998;</button>` : ''}</div>
         <div class="jw-task-row-checks">
-          ${movable ? `<button type="button" class="jw-row-del" onmousedown="event.stopPropagation()" onclick="jwRowDeleteClick(event, ${t.id})" title="두 번 누르면 이 업무를 지웁니다">삭제</button>` : ''}
+          ${deletable ? `<button type="button" class="jw-row-del" onmousedown="event.stopPropagation()" onclick="jwRowDeleteClick(event, ${t.id})" title="두 번 누르면 이 업무를 지웁니다">삭제</button>` : ''}
           ${gbBtn}
           <button type="button" class="jw-detail-btn${jwOpenDetailIds.has(t.id) ? ' open' : ''}"
             onclick="jwToggleDetail(${t.id})">업무목적</button>
