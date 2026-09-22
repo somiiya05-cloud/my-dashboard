@@ -5546,14 +5546,21 @@
   const QUOTE_VAT_DIVISOR = 11;      // 부가세 = 공급액 ÷ 11 (단가가 부가세 포함이라 역산)
 
   let quoteCostRows = [];            // product_cost 중 원가가 들어 있는 것만
+  let quoteCostAliasById = new Map(); // 견적서 품명 키 → product_cost.id
 
   async function loadQuoteCosts() {
     // 원가가 0인 행이 6개 있습니다(미입력으로 보입니다). 이걸 끌어오면 손익이 부풀려지므로 뺍니다.
-    const { data, error } = await client.from('product_cost')
-      .select('id,brand,product_name,option_size,unit_cost_krw')
-      .gt('unit_cost_krw', 0);
-    quoteCostRows = error ? [] : (data || []);
-    if (error) console.warn('원가를 불러오지 못했습니다:', error.message);
+    const [costRes, aliasRes] = await Promise.all([
+      client.from('product_cost').select('id,brand,product_name,option_size,unit_cost_krw').gt('unit_cost_krw', 0),
+      client.from('product_cost_aliases').select('quote_product_key,cost_product_id'),
+    ]);
+    quoteCostRows = costRes.error ? [] : (costRes.data || []);
+    if (costRes.error) console.warn('원가를 불러오지 못했습니다:', costRes.error.message);
+    // 연결표가 아직 없어도 화면이 죽지 않게 둡니다.
+    quoteCostAliasById = new Map();
+    if (!aliasRes.error) {
+      for (const a of aliasRes.data || []) quoteCostAliasById.set(a.quote_product_key, a.cost_product_id);
+    }
   }
 
   // 상품명으로 원가를 찾습니다. 띄어쓰기·괄호는 무시합니다.
@@ -5569,6 +5576,22 @@
   function findQuoteCost(productName) {
     const key = quoteProductKey(productName);
     if (!key) return null;
+
+    // 연결표에 손으로 이어 둔 것이 있으면 그것이 최우선입니다.
+    const linkedId = quoteCostAliasById.get(key);
+    if (linkedId != null) {
+      const c = quoteCostRows.find((x) => x.id === linkedId);
+      if (c) {
+        return {
+          id: c.id,
+          unitCost: Number(c.unit_cost_krw),
+          label: `${quoteCostBareName(c.product_name)}${c.option_size && c.option_size !== '-' ? ' / ' + c.option_size : ''}`,
+          ambiguous: null,
+          linked: true,
+        };
+      }
+    }
+
     let hits = quoteCostRows.filter((c) => quoteProductKey(quoteCostBareName(c.product_name)) === key);
     if (!hits.length) {
       // 이름이 조금 다른 경우(“에어컨제습서버” ↔ “스트롱 에어컨 제습 서버”)를 위해 포함 관계도 봅니다.
