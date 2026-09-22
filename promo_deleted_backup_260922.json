@@ -1,0 +1,121 @@
+{
+  "note": "2026-09-22에 프로모션 매출에서 뺀 행사들의 백업입니다. 되살리려면 items 를 떼고 promo_events 에 넣은 뒤, 받은 id 로 promo_event_items 를 넣으면 됩니다.",
+  "removed": [
+    {
+      "reason": "외부몰이 아니라 수출 — 사용자 지시로 제외",
+      "source": "매출DB 9/1~9/21 + 일정(mall_events)",
+      "events": [
+        {
+          "mall": "마쿠아케",
+          "title": "마쿠아케 펀딩(수면양말)",
+          "start_date": "2026-09-15",
+          "end_date": "2026-10-30",
+          "status": "진행중",
+          "baseline_sales": null,
+          "memo": null,
+          "items": [],
+          "also_deleted_from": "mall_events #12 (일정 화면의 외부몰 행사)"
+        },
+        {
+          "mall": "마쿠아케",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "items": [
+            { "product_name": "스트롱 제습 서버", "list_price": null, "promo_price": 8189.233954451346, "qty": 483 },
+            { "product_name": "러닝 슈즈 제습 서버", "list_price": null, "promo_price": 8400, "qty": 97 },
+            { "product_name": "스트롱 제습 서버 대형 파우치백", "list_price": null, "promo_price": 0, "qty": 40 }
+          ]
+        }
+      ]
+    },
+    {
+      "reason": "외부몰이 아님 — 사용자 지시로 제외",
+      "source": "구글시트 영업팀_OKR 진척도 > 이혜원_외부몰 행사 분석 (2~5월)",
+      "events": [
+        {
+          "mall": "카카오 선물하기",
+          "title": "설날 기획전",
+          "start_date": "2026-02-02",
+          "end_date": "2026-02-18",
+          "status": "종료",
+          "baseline_sales": 16771700,
+          "memo": null,
+          "month": null,
+          "items": [
+            { "product_name": "Mini Lighting", "list_price": 49900, "promo_price": 32900, "qty": 22 },
+            { "product_name": "Mind Lighting", "list_price": 59000, "promo_price": 49000, "qty": 2 },
+            { "product_name": "Full Lighting", "list_price": 69000, "promo_price": 59000, "qty": 4 },
+            { "product_name": "허리베개", "list_price": 29900, "promo_price": 24900, "qty": 2 },
+            { "product_name": "라인핏시트", "list_price": 29900, "promo_price": 27900, "qty": 16 },
+            { "product_name": "경추베개", "list_price": 19900, "promo_price": 19900, "qty": 6 },
+            { "product_name": "피로회복 왕베개", "list_price": 29900, "promo_price": 29900, "qty": 84 },
+            { "product_name": "1인 좌식 소파", "list_price": 32900, "promo_price": 30900, "qty": 39 },
+            { "product_name": "찹쌀떡 등쿠션", "list_price": 29900, "promo_price": 29900, "qty": 251 }
+          ]
+        },
+        {
+          "mall": "카카오 선물하기",
+          "title": "요즘 선물 구좌",
+          "start_date": "2026-02-16",
+          "end_date": "2026-02-22",
+          "status": "종료",
+          "baseline_sales": 105600,
+          "memo": null,
+          "month": null,
+          "items": [
+            { "product_name": "Mini Lighting", "list_price": 49900, "promo_price": 29900, "qty": 21 }
+          ]
+        },
+        {
+          "mall": "카카오 선물하기",
+          "title": "카카오쇼핑페스타",
+          "start_date": "2026-03-16",
+          "end_date": "2026-03-29",
+          "status": "종료",
+          "baseline_sales": 732400,
+          "memo": null,
+          "month": null,
+          "items": [
+            { "product_name": "Mini Lighting", "list_price": 49900, "promo_price": 32900, "qty": 13 },
+            { "product_name": "Mind Lighting", "list_price": 59000, "promo_price": 49000, "qty": 0 },
+            { "product_name": "Full Lighting", "list_price": 69000, "promo_price": 59000, "qty": 1 }
+          ]
+        },
+        {
+          "mall": "카카오 선물하기",
+          "title": "포미위크",
+          "start_date": "2026-04-13",
+          "end_date": "2026-04-19",
+          "status": "종료",
+          "baseline_sales": 352100,
+          "memo": null,
+          "month": null,
+          "items": [
+            { "product_name": "Mini Lighting", "list_price": 49900, "promo_price": 29900, "qty": 2 },
+            { "product_name": "Mind Lighting", "list_price": 59000, "promo_price": 35900, "qty": 0 },
+            { "product_name": "Full Lighting", "list_price": 69000, "promo_price": 39900, "qty": 2 }
+          ]
+        },
+        {
+          "mall": "카카오 선물하기",
+          "title": "쟁쟁한특가",
+          "start_date": "2026-04-27",
+          "end_date": "2026-05-03",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": null,
+          "month": null,
+          "items": [
+            { "product_name": "Mini Lighting", "list_price": 49900, "promo_price": 29900, "qty": 2 },
+            { "product_name": "Mind Lighting", "list_price": 59000, "promo_price": 35900, "qty": 1 },
+            { "product_name": "Full Lighting", "list_price": 69000, "promo_price": 39900, "qty": 1 }
+          ]
+        }
+      ]
+    }
+  ]
+}
