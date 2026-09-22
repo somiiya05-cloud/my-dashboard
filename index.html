@@ -3558,6 +3558,7 @@
       <div class="gs-modal-actions">
         <button type="button" class="btn-primary" onclick="saveQuote()">저장</button>
         <button type="button" class="btn-ghost" onclick="saveQuote(true)">저장 후 인쇄</button>
+        <button type="button" class="btn-ghost" onclick="downloadQuoteProfitSheet()">손익 엑셀</button>
         <button type="button" class="btn-ghost" onclick="closeQuoteEditor()">닫기</button>
         <button type="button" class="btn-danger" id="qfDeleteBtn" style="margin-left:auto" onclick="deleteQuoteFromEditor()">삭제</button>
       </div>
@@ -5691,6 +5692,68 @@
   function quotePercentText(v) {
     return (Number(v) * 100).toFixed(1) + '%';
   }
+
+  // ---- 손익 엑셀 내려받기 ----
+  // 거래처별로 쓰시던 "매입 손익.xlsx" 와 같은 칸 배치로 뽑습니다.
+  // (히트유통 파일 기준: B제품명 C소비자가 D수량 E공급가 F공급율 G최종공급액
+  //  H원가 I물류비 J부가세 K경비 L손익 M손익율)
+  function downloadQuoteProfitSheet() {
+    const trs = [...document.querySelectorAll('#qfItemBody tr')];
+    const rows = trs.map((tr) => ({
+      name: tr.querySelector('.qf-name').value.trim(),
+      qty: Number(gsMoneyValue(tr.querySelector('.qf-qty').value)) || 0,
+      price: Number(gsMoneyValue(tr.querySelector('.qf-price').value)) || 0,
+      cost: Number(gsMoneyValue(tr.querySelector('.qf-cost').value)) || 0,
+      logi: Number(gsMoneyValue(tr.querySelector('.qf-logi').value)) || 0,
+    })).filter((r) => r.name);
+    if (!rows.length) { alert('품목이 없습니다.'); return; }
+
+    const rateRaw = (document.getElementById('qfExpenseRate').value || '').replace(/[^0-9.]/g, '');
+    const rate = rateRaw === '' ? QUOTE_EXPENSE_RATE : Number(rateRaw) / 100;
+    const commonLogi = Number(gsMoneyValue(document.getElementById('qfLogistics').value)) || 0;
+    const partnerSel = document.getElementById('qfPartner');
+    const partnerName = partnerSel.options[partnerSel.selectedIndex] ? partnerSel.options[partnerSel.selectedIndex].text : '';
+    const date = document.getElementById('qfDate').value || taxToday();
+
+    // 공통 물류비는 첫 줄에 얹어 총합이 화면과 같아지게 합니다.
+    const aoa = [];
+    aoa[0] = [];
+    aoa[1] = ['', `${partnerName} 매입`];
+    const r3 = []; r3[10] = rate; aoa[2] = r3;
+    aoa[3] = ['', '제품명', '소비자가', '수량', '공급가', '공급율', '최종공급액',
+      '원가', '물류비', '부가세', '경비', '손익', '손익율'];
+
+    let tSupply = 0, tCost = 0, tLogi = 0, tVat = 0, tExp = 0, tProfit = 0;
+    rows.forEach((r, i) => {
+      const logi = r.logi + (i === 0 ? commonLogi : 0);
+      const supply = r.qty * r.price;
+      const cost = r.qty * r.cost;
+      const vat = supply / QUOTE_VAT_DIVISOR;
+      const expense = supply * rate;
+      const profit = supply - (cost + logi + vat + expense);
+      tSupply += supply; tCost += cost; tLogi += logi; tVat += vat; tExp += expense; tProfit += profit;
+      aoa.push(['', r.name, null, r.qty, r.price, null, supply,
+        cost, logi, Math.round(vat), Math.round(expense), Math.round(profit),
+        supply ? profit / supply : 0]);
+    });
+    aoa.push([]);
+    aoa.push(['', '합계', null, null, null, null, tSupply,
+      tCost, tLogi, Math.round(tVat), Math.round(tExp), Math.round(tProfit),
+      tSupply ? tProfit / tSupply : 0]);
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 3 }, { wch: 30 }, { wch: 11 }, { wch: 8 }, { wch: 11 }, { wch: 9 },
+      { wch: 14 }, { wch: 13 }, { wch: 11 }, { wch: 12 }, { wch: 13 }, { wch: 14 }, { wch: 9 }];
+    // 손익율은 백분율로 보이게 합니다.
+    for (let r = 4; r < aoa.length; r++) {
+      const ref = XLSX.utils.encode_cell({ c: 12, r: r });
+      if (ws[ref] && typeof ws[ref].v === 'number') ws[ref].z = '0.0%';
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '매입 손익');
+    XLSX.writeFile(wb, `${String(date).replace(/-/g, '').slice(2)}_${partnerName}_매입 손익.xlsx`);
+  }
+  window.downloadQuoteProfitSheet = downloadQuoteProfitSheet;
 
   // ==================== 세금계산서 발행 요청 ====================
   // 거래 건을 "입금 완료"로 표시하면 여기에 쌓입니다.

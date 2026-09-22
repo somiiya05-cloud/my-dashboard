@@ -29,3 +29,25 @@ insert into product_cost_aliases (quote_product_key, quote_product_name, cost_pr
 select '가글', '가글', 307, '[빠이러스] ♡킬파이어 꽃 가글 1,720원'
 where exists (select 1 from product_cost c where c.id = 307)
   and not exists (select 1 from product_cost_aliases a where a.quote_product_key = '가글');
+
+
+-- ─────────────────────────────────────────────
+-- 추가 — 확인받은 나머지 4건
+--   액막이(루비)          → 액막이 명퉤 (하이곤 아님)
+--   리모드매트리스_네이비   → 리모드 매트리스 NEW / Q (SS 아님)
+--   기름흡수 프로 행주     → 기름제거 프로 행주 (이름만 다르고 같은 상품)
+--   미니라이트            → [폴크] 미니 무드등
+-- ─────────────────────────────────────────────
+insert into product_cost_aliases (quote_product_key, quote_product_name, cost_product_id, memo)
+select v.k, v.n, v.id, v.memo
+from (values
+  ('액막이루비',          '액막이(루비)',           374, '[명퉤] 액막이 명퉤 6,291원 — 하이곤(id383)이 아님'),
+  ('리모드매트리스네이비',  '리모드매트리스_네이비',    350, '[잠비에] 리모드 매트리스 NEW / Q 20,700원 — SS(id348)가 아님'),
+  ('기름흡수프로행주',     '기름흡수 프로 행주',      488, '[코드니처] 기름제거 프로 행주 390원 — 이름만 다르고 같은 상품'),
+  ('미니라이트',          '미니라이트',             331, '[폴크] 미니 무드등 5,820원')
+) as v(k, n, id, memo)
+where exists (select 1 from product_cost c where c.id = v.id)
+  and not exists (select 1 from product_cost_aliases a where a.quote_product_key = v.k);
+
+-- 확인 — 연결이 14건이 되면 성공입니다.
+select count(*) as "연결 건수" from product_cost_aliases;
