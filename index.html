@@ -3431,8 +3431,9 @@
         <div class="panel-head">
           <h2>월별 행사 매출</h2>
           <span class="panel-note" id="promoMonthNote"></span>
+          <button type="button" class="filter-reset-btn" id="promoMonthToggle" onclick="togglePromoMonths()">펼치기</button>
         </div>
-        <div class="scroll-box">
+        <div class="scroll-box" id="promoMonthBox" style="display:none">
           <table class="table-center-head">
             <thead><tr><th>월</th><th class="num">행사 매출</th><th class="num">월 목표</th><th class="num">달성률</th><th class="num">직전 동일기간</th><th class="num">증감</th><th class="num">증감률</th><th class="num">행사</th></tr></thead>
             <tbody id="promoMonthTable"></tbody>
@@ -12496,6 +12497,16 @@
         <div class="kpi-sub">전체 ${promoEventRows.length}건</div>
       </div>
     `;
+  }
+
+  // 월별 표는 접어둔 채로 엽니다 — 평소에는 KPI와 행사별 성과만 보면 되니까요.
+  function togglePromoMonths() {
+    const box = document.getElementById('promoMonthBox');
+    const btn = document.getElementById('promoMonthToggle');
+    if (!box || !btn) return;
+    const open = box.style.display === 'none';
+    box.style.display = open ? '' : 'none';
+    btn.textContent = open ? '접기' : '펼치기';
   }
 
   // 행사 시작일이 속한 달로 묶습니다(시트도 월별로 나눠 TOTAL을 냅니다).
