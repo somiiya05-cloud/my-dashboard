@@ -277,6 +277,12 @@
   .jw-row-del.armed { background: #dc2626; border-color: #dc2626; color: #fff; }
   .jw-task-row-wrap.jw-dragging { opacity: .45; }
   /* 그룹 머리줄도 끌 수 있어서 같은 표시를 붙입니다 */
+  /* 마감일이 지났는데 아직 진행중이라 오늘 목록에 딸려 온 업무 */
+  .jw-carry-tag {
+    display: inline-block; margin-left: 7px; padding: 1px 7px; border-radius: 999px;
+    background: rgba(217,119,6,.12); color: #b45309; font-size: 10.5px; font-weight: 800;
+    vertical-align: 1px;
+  }
   .jw-task-group-title.jw-dragging { opacity: .45; }
   .jw-task-group-title.jw-drop-before { box-shadow: 0 -3px 0 -1px #7c3aed; }
   .jw-task-group-title.jw-drop-after { box-shadow: 0 3px 0 -1px #7c3aed; }
@@ -9674,15 +9680,19 @@
   // 이 사람만 정해진 순서(AM_TASK_ORDER/PM_TASK_ORDER)와 그룹 묶기를 적용합니다.
   function jwHasRoutine() { return jwViewAssignee() === JW_ASSIGNEE; }
 
+  // 파트장 확인 단계를 쓰지 않는 담당자. 본인이 확인해 줄 사람이라 두 번 체크할 이유가 없어,
+  // 화면에서 「파트장」 버튼을 빼고 담당자 체크만으로 완료 처리합니다.
+  const JW_NO_LEAD_CHECK = ['윤효선'];
+  function jwUsesLeadCheck(assignee) {
+    return !JW_NO_LEAD_CHECK.includes(assignee || jwViewAssignee());
+  }
+
   // 이 담당자의 업무에 실제로 쓰인 구분들을, 화면 구획으로 만들 순서대로 돌려줍니다.
   function jwSections() {
     if (jwHasRoutine()) return [['오전', '오전 필수업무'], ['오후', '오후 필수업무']];
     const date = jwSelectedDate();
     const today = jwIsToday();
-    const mine = currentTasks.filter(t =>
-      t.assignee === jwViewAssignee() &&
-      (t.due_date ? t.due_date === date : (today && !t.archived_at))
-    );
+    const mine = currentTasks.filter(jwBelongsToView);
     const cats = [];
     mine.forEach(t => { const c = t.category || '기타'; if (!cats.includes(c)) cats.push(c); });
     cats.sort((a, b) => a.localeCompare(b, 'ko'));
@@ -9690,13 +9700,23 @@
     return (cats.length ? cats : ['업무']).map(c => [c, c]);
   }
 
-  function jwScopedTasks(category) {
+  // 마감일이 지났는데 아직 「진행중」인 업무. 오늘 화면에서만 같이 끌어옵니다.
+  // (그냥 두면 지난 날짜에 묻혀서 다시 안 보입니다)
+  function jwIsCarriedOver(t) {
+    return jwIsToday() && !t.archived_at && t.status === '진행중'
+      && !!t.due_date && t.due_date < jwSelectedDate();
+  }
+
+  function jwBelongsToView(t) {
     const date = jwSelectedDate();
     const today = jwIsToday();
-    return currentTasks.filter(t =>
-      t.assignee === jwViewAssignee() && (t.category || '기타') === category &&
-      (t.due_date ? t.due_date === date : (today && !t.archived_at))
-    );
+    if (t.assignee !== jwViewAssignee()) return false;
+    if (t.due_date ? t.due_date === date : (today && !t.archived_at)) return true;
+    return jwIsCarriedOver(t);
+  }
+
+  function jwScopedTasks(category) {
+    return currentTasks.filter(t => jwBelongsToView(t) && (t.category || '기타') === category);
   }
 
   function jwEmptyMessage() {
@@ -9840,7 +9860,7 @@
   const JW_ROUTINE_TITLES = new Set([...AM_TASK_ORDER, ...PM_TASK_ORDER]);
 
   // 담당자 완료 체크 후 파트장 확인 체크까지 되어야 최종 확인완료로 집계됨 (team_tasks.status 재사용)
-  function deriveTaskDualStatus(kind, value, cur) {
+  function deriveTaskDualStatus(kind, value, cur, useLead = true) {
     // 해당없음인 줄에서 담당자/파트장을 누르면 해당없음이 풀리고 보통 흐름으로 돌아갑니다.
     let staffDone = cur.status === '검수대기' || cur.status === '확인완료';
     let leadDone = cur.status === '확인완료';
@@ -9851,6 +9871,9 @@
       leadDone = value;
       if (value) staffDone = true;
     }
+    // 파트장 확인을 쓰지 않는 담당자는 담당자 체크가 곧 완료입니다.
+    // (검수대기에서 멈추면 영영 완료가 안 되고 완료율도 0으로 남습니다)
+    if (!useLead) return staffDone ? '확인완료' : '할일';
     return leadDone ? '확인완료' : (staffDone ? '검수대기' : '할일');
   }
 
@@ -9865,7 +9888,7 @@
   function updateTaskDualStatus(id, kind, value) {
     const t = currentTasks.find(x => x.id === id);
     if (!t) return;
-    updateTaskStatus(id, deriveTaskDualStatus(kind, value, t));
+    updateTaskStatus(id, deriveTaskDualStatus(kind, value, t, jwUsesLeadCheck(t.assignee)));
   }
 
   // DB(team_tasks.detail)를 건드리지 않고 화면에서만 묶어 보여주는 그룹 — 업무명 기준.
@@ -10046,7 +10069,7 @@
     const isAdded = !indented && !JW_ROUTINE_TITLES.has(t.title);
     const row = `
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}${isAdded ? ' added' : ''}">
-        <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${movable ? '<span class="jw-drag-grip" onclick="event.stopPropagation()" title="끌어서 순서를 바꿉니다">⠿</span>' : ''}${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwCommentTagsHtml(t.id)}${(t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}${isAdded ? `<button type="button" class="jw-title-edit-btn" title="업무명 수정" onclick="event.stopPropagation(); jwEditTitle(${t.id})">&#9998;</button>` : ''}</div>
+        <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${movable ? '<span class="jw-drag-grip" onclick="event.stopPropagation()" title="끌어서 순서를 바꿉니다">⠿</span>' : ''}${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwCommentTagsHtml(t.id)}${(t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}${isAdded ? `<button type="button" class="jw-title-edit-btn" title="업무명 수정" onclick="event.stopPropagation(); jwEditTitle(${t.id})">&#9998;</button>` : ''}${jwIsCarriedOver(t) ? `<span class="jw-carry-tag" title="마감일이 지났는데 아직 진행중이라 오늘 목록에 같이 올렸습니다">${escapeAttr((t.due_date || '').slice(5).replace('-', '/'))}부터</span>` : ''}</div>
         <div class="jw-task-row-checks">
           ${deletable ? `<button type="button" class="jw-row-del" onmousedown="event.stopPropagation()" onclick="jwRowDeleteClick(event, ${t.id})" title="두 번 누르면 이 업무를 지웁니다">삭제</button>` : ''}
           ${gbBtn}
@@ -10057,8 +10080,8 @@
             onclick="jwToggleCarry(${t.id})">이어가기</button>` : ''}
           <button type="button" class="jw-task-toggle-btn${staffDone ? ' active' : ''}"
             onclick="updateTaskDualStatus(${t.id}, 'staff', ${!staffDone})">담당자</button>
-          <button type="button" class="jw-task-toggle-btn${leadDone ? ' active' : ''}" ${!staffDone ? 'disabled' : ''}
-            onclick="updateTaskDualStatus(${t.id}, 'lead', ${!leadDone})">파트장</button>
+          ${jwUsesLeadCheck() ? `<button type="button" class="jw-task-toggle-btn${leadDone ? ' active' : ''}" ${!staffDone ? 'disabled' : ''}
+            onclick="updateTaskDualStatus(${t.id}, 'lead', ${!leadDone})">파트장</button>` : ''}
           <button type="button" class="jw-na-btn${notApplicable ? ' active' : ''}"
             title="오늘 이 업무가 생기지 않았으면 눌러두세요. 완료율 계산에서 빠집니다."
             onclick="jwToggleNotApplicable(${t.id})">해당없음</button>
