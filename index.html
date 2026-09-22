@@ -932,49 +932,6 @@
   .wr-day-h { font-size: 11.5px; font-weight: 800; color: #1d4ed8; margin: 8px 0 3px; }
   .wr-day-h:first-child { margin-top: 0; }
 
-  /* 생각 기록 — 대리님이 그날 적은 글과 파트장 답을 날짜순으로 읽는 칸 */
-  .wr-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-  .wr-chip {
-    font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 4px 11px; cursor: pointer;
-    border: 1px solid rgba(15,23,42,.12); background: #ffffff; color: #64748b; font-family: inherit;
-  }
-  .wr-chip:hover { border-color: rgba(29,78,216,.4); color: #1d4ed8; }
-  .wr-chip.active { background: #1d4ed8; border-color: #1d4ed8; color: #ffffff; }
-  .wr-chip.need.active { background: #c2410c; border-color: #c2410c; }
-
-  .wr-think { padding: 11px 2px 12px; border-bottom: 1px solid #f1f5f9; }
-  .wr-think:last-child { border-bottom: 0; }
-  .wr-think-head { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 800; color: #0f172a; }
-  .wr-need-tag {
-    font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 7px;
-    background: #fff7ed; color: #c2410c; white-space: nowrap;
-  }
-  .wr-think-day { display: flex; gap: 9px; margin-top: 7px; }
-  .wr-think-date {
-    flex: none; width: 54px; font-size: 11px; font-weight: 700; color: #94a3b8;
-    font-variant-numeric: tabular-nums; padding-top: 2px;
-  }
-  .wr-think-body { flex: 1; min-width: 0; border-left: 2px solid #eef2f7; padding-left: 10px; }
-  .wr-say { font-size: 12.5px; line-height: 1.65; margin-top: 3px; word-break: break-word; }
-  .wr-say:first-child { margin-top: 0; }
-  .wr-say.staff { color: #3b63d4; }
-  .wr-say.lead { color: #be185d; }
-  .wr-say .who { font-weight: 700; margin-right: 5px; }
-  .wr-say .at { font-size: 10.5px; color: #cbd5e1; margin-left: 5px; }
-  .wr-reply { display: flex; gap: 6px; margin-top: 7px; }
-  .wr-reply input {
-    flex: 1; min-width: 0; border: 1px solid rgba(15,23,42,.14); border-radius: 7px;
-    padding: 5px 9px; font-size: 12px; font-family: inherit; color: #0f172a; background: #fff;
-  }
-  .wr-reply input:focus { outline: 1px solid #4d7cfe; }
-  .wr-reply button {
-    border: 0; background: #4d7cfe; color: #fff; font-family: inherit; font-size: 11.5px;
-    font-weight: 700; border-radius: 7px; padding: 5px 13px; cursor: pointer; white-space: nowrap;
-  }
-  .wr-reply button:hover { background: #3b63d4; }
-  .wr-quiet { font-size: 12px; color: #64748b; line-height: 1.8; }
-  .wr-quiet b { color: #0f172a; font-weight: 600; }
-
   /* ---- 자사몰 검수 ---- */
   .ma-table { width: 100%; border-collapse: collapse; font-size: 13px; color: #1e293b; min-width: 720px; }
   .ma-table th, .ma-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(15,23,42,.07); }
@@ -3307,15 +3264,6 @@
       </div>
 
       <div id="wrSummary" class="wr-sum-row"></div>
-
-      <section class="panel">
-        <div class="panel-head">
-          <h2>생각 기록</h2>
-          <div class="panel-note" id="wrThinkNote"></div>
-        </div>
-        <div class="wr-chip-row" id="wrThinkChips"></div>
-        <div id="wrThink"></div>
-      </section>
 
       <section class="panel">
         <div class="panel-head">
@@ -7867,7 +7815,6 @@
 
   const WR_ASSIGNEE = '전휘원';
   const WR_DOW = ['월', '화', '수', '목', '금'];
-  function wrDow(dateStr) { return '일월화수목금토'[new Date(dateStr + 'T00:00:00Z').getUTCDay()]; }
 
   let wrWeekStart = '';
   let wrTasks = [];
@@ -8005,126 +7952,9 @@
     const extra = wrTasks.filter((t) => !wrIsDaily(t));
     wrRenderHead(daily, extra);
     wrRenderSummary(daily);
-    wrRenderThink();
     wrRenderGrid(daily);
     wrRenderExtra(extra);
   }
-
-  // ---- 생각 기록 ----
-  // 대리님이 그날 적은 글과 파트장이 단 답을 업무별·날짜순으로 읽는 칸입니다.
-  // 업무 목적(team_task_daily_purposes)은 엔터를 치면 담당자 댓글로 넘어가는 구조라
-  // 실제 글은 전부 team_task_comments 에 쌓입니다. 그래서 댓글만 봅니다.
-  // 답글도 따로 계층이 없고 author 로만 구분되므로, "그 날 마지막 글이 담당자 글"이면
-  // 아직 파트장이 답하지 않은 것으로 봅니다.
-  let wrThinkFilter = '';   // '' 전체 | 'need' 답글 필요 | 'quiet' 글 없는 업무
-
-  function wrSetThink(k) { wrThinkFilter = wrThinkFilter === k ? '' : k; wrRenderThink(); }
-  window.wrSetThink = wrSetThink;
-
-  function wrSaid(list) {
-    return list.slice().sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
-  }
-  function wrNeedsReply(list) {
-    return !!list.length && list[list.length - 1].author !== '파트장';
-  }
-  function wrTimeText(iso) {
-    return new Date(iso).toLocaleTimeString('ko-KR', {
-      timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false,
-    });
-  }
-
-  // 글이 있는 업무를 업무명으로 묶고, 그 아래 날짜순으로 답니다.
-  function wrThinkGroups() {
-    const map = new Map();
-    wrTasks.forEach((t) => {
-      const list = wrSaid(wrComments[t.id] || []);
-      if (!list.length) return;
-      if (!map.has(t.title)) map.set(t.title, []);
-      map.get(t.title).push({ t, list });
-    });
-    return [...map.entries()].map(([title, days]) => {
-      days.sort((a, b) => String(a.t.due_date).localeCompare(String(b.t.due_date)));
-      const need = days.filter((d) => wrNeedsReply(d.list)).length;
-      const last = days[days.length - 1].list.slice(-1)[0].created_at;
-      return { title, days, need, last };
-    }).sort((a, b) => (b.need > 0) - (a.need > 0) || String(b.last).localeCompare(String(a.last)));
-  }
-
-  function wrRenderThink() {
-    const box = document.getElementById('wrThink');
-    const groups = wrThinkGroups();
-    const needN = groups.filter((g) => g.need).length;
-    const wrote = new Set();
-    groups.forEach((g) => g.days.forEach((d) => wrote.add(d.t.id)));
-    // 글이 하나도 없는 업무 (해당없음·미래는 빼고 — 아직 할 차례가 아니라 쓸 말도 없습니다)
-    const quiet = wrTasks.filter((t) => !wrote.has(t.id) && WR_COUNTED.has(wrState(t)));
-
-    document.getElementById('wrThinkNote').textContent =
-      `글 있는 업무 ${groups.length}종 · 답글 필요 ${needN}종 · 글 없는 업무 ${quiet.length}건`;
-    document.getElementById('wrThinkChips').innerHTML = [
-      ['', '전체', groups.length],
-      ['need', '답글 필요', needN],
-      ['quiet', '글 없는 업무', quiet.length],
-    ].map(([k, label, n]) => `<button type="button"
-      class="wr-chip${k === 'need' ? ' need' : ''}${wrThinkFilter === k ? ' active' : ''}"
-      onclick="wrSetThink('${k}')">${label} ${n}</button>`).join('');
-
-    if (wrThinkFilter === 'quiet') {
-      box.innerHTML = quiet.length
-        ? `<div class="wr-quiet">${quiet
-            .slice().sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)))
-            .map((t) => `${wrMD(t.due_date)} <b>${escapeAttr(t.title)}</b>`).join('<br>')}</div>`
-        : '<div class="gs-empty">집계 대상 업무에는 모두 글이 있습니다.</div>';
-      return;
-    }
-
-    const list = wrThinkFilter === 'need' ? groups.filter((g) => g.need) : groups;
-    if (!list.length) {
-      box.innerHTML = `<div class="gs-empty">${wrThinkFilter === 'need'
-        ? '답을 기다리는 글이 없습니다.' : '이번 주에 적어둔 글이 없습니다.'}</div>`;
-      return;
-    }
-
-    box.innerHTML = list.map((g) => `
-      <div class="wr-think">
-        <div class="wr-think-head">
-          ${escapeAttr(g.title)}
-          ${g.days.length > 1 ? `<span class="wr-tag days">${g.days.length}일</span>` : ''}
-          ${g.need ? `<span class="wr-need-tag">답글 필요 ${g.need}</span>` : ''}
-        </div>
-        ${g.days.map((d) => `
-          <div class="wr-think-day">
-            <span class="wr-think-date">${wrMD(d.t.due_date)} (${wrDow(d.t.due_date)})</span>
-            <div class="wr-think-body">
-              ${d.list.map((c) => `<div class="wr-say ${c.author === '파트장' ? 'lead' : 'staff'}">
-                <span class="who">${escapeAttr(c.author)}</span>${escapeAttr((c.body || '').trim())}
-                <span class="at">${wrTimeText(c.created_at)}</span>
-              </div>`).join('')}
-              ${wrNeedsReply(d.list) ? `<div class="wr-reply">
-                <input type="text" id="wrReply${d.t.id}" placeholder="파트장 답글 — 엔터로 등록"
-                  onkeydown="if(event.key==='Enter'){event.preventDefault();wrSendReply(${d.t.id});}">
-                <button type="button" onclick="wrSendReply(${d.t.id})">답글</button>
-              </div>` : ''}
-            </div>
-          </div>`).join('')}
-      </div>`).join('');
-  }
-
-  // 여기서 단 답글은 할일 관리 댓글과 같은 표에 같은 모양으로 들어갑니다.
-  async function wrSendReply(taskId) {
-    const el = document.getElementById('wrReply' + taskId);
-    if (!el) return;
-    const body = el.value.trim();
-    if (!body) return;
-    el.disabled = true;
-    const { data, error } = await client.from('team_task_comments')
-      .insert({ task_id: taskId, parent_id: null, author: '파트장', body })
-      .select().single();
-    if (error) { alert('답글을 저장하지 못했습니다: ' + error.message); el.disabled = false; return; }
-    (wrComments[taskId] = wrComments[taskId] || []).push(data);
-    wrRender();
-  }
-  window.wrSendReply = wrSendReply;
 
   function wrRenderHead(daily, extra) {
     const cut = wrCutoffDate();
