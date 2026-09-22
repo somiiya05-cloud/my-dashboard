@@ -280,9 +280,19 @@
   /* 마감일이 지났는데 아직 진행중이라 오늘 목록에 딸려 온 업무 */
   .jw-carry-tag {
     display: inline-block; margin-left: 7px; padding: 1px 7px; border-radius: 999px;
-    background: rgba(217,119,6,.12); color: #b45309; font-size: 10.5px; font-weight: 800;
+    background: rgba(100,116,139,.14); color: #475569; font-size: 10.5px; font-weight: 800;
     vertical-align: 1px;
   }
+  /* 3일 넘게 묵으면 주황, 7일 넘으면 빨강 */
+  .jw-carry-tag.mid { background: rgba(217,119,6,.14); color: #b45309; }
+  .jw-carry-tag.old { background: rgba(220,38,38,.14); color: #b91c1c; }
+  /* 오늘 다시 챙겼다고 표시하는 버튼 */
+  .jw-touch-btn {
+    background: #fff; border: 1px solid rgba(15,23,42,.15); color: #475569;
+    font-size: 11.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px;
+    cursor: pointer; font-family: inherit; flex-shrink: 0;
+  }
+  .jw-touch-btn:hover { border-color: rgba(77,124,254,.45); color: #0f172a; }
   .jw-task-group-title.jw-dragging { opacity: .45; }
   .jw-task-group-title.jw-drop-before { box-shadow: 0 -3px 0 -1px #7c3aed; }
   .jw-task-group-title.jw-drop-after { box-shadow: 0 3px 0 -1px #7c3aed; }
@@ -9771,6 +9781,42 @@
   // 마감일이 지났는데 아직 안 끝난 업무(할일·진행중). 오늘 화면에서만 같이 끌어옵니다.
   // (그냥 두면 지난 날짜에 묻혀서 다시 안 보입니다. 확인완료·해당없음은 올리지 않습니다)
   const JW_CARRY_STATUSES = ['할일', '진행중'];
+
+  // 마감일에서 며칠이 지났는지. 팔로우업 업무가 얼마나 묵었는지 보는 데 씁니다.
+  function jwAgeDays(t) {
+    if (!t.due_date) return 0;
+    const a = Date.parse(t.due_date + 'T00:00:00Z');
+    const b = Date.parse(jwSelectedDate() + 'T00:00:00Z');
+    if (isNaN(a) || isNaN(b)) return 0;
+    return Math.max(0, Math.round((b - a) / 86400000));
+  }
+
+  // 오래 묵을수록 진하게. 3일·7일을 넘기면 눈에 띄게 합니다.
+  function jwAgeClass(days) {
+    if (days >= 7) return ' old';
+    if (days >= 3) return ' mid';
+    return '';
+  }
+
+  // 「오늘 챙김」 — 오늘 다시 연락했다는 뜻으로 기준일을 오늘로 당깁니다.
+  // 경과일이 0부터 다시 시작하고, 넘어온 업무 표시도 사라집니다.
+  async function jwTouchToday(e, id) {
+    e.stopPropagation();
+    const t = currentTasks.find(x => x.id === id);
+    if (!t) return;
+    const before = t.due_date;
+    const today = jwTodayKST();
+    t.due_date = today;           // 먼저 화면에 반영하고
+    renderJwView();
+    const { error } = await client.from('team_tasks').update({ due_date: today }).eq('id', id);
+    if (error) {
+      t.due_date = before;        // 저장이 안 되면 되돌립니다
+      renderJwView();
+      alert('바꾸지 못했습니다: ' + error.message);
+      return;
+    }
+    loadTeamTasks();
+  }
   function jwIsCarriedOver(t) {
     return jwIsToday() && !t.archived_at && JW_CARRY_STATUSES.includes(t.status)
       && !!t.due_date && t.due_date < jwSelectedDate();
@@ -9843,6 +9889,13 @@
     const base = ordered.concat(extras);
     const 손으로잡음 = base.length > 0 && base.every(t => t.seq_no != null);
     if (손으로잡음) return base.slice().sort((a, b) => a.seq_no - b.seq_no || a.id - b.id);
+
+    // 루틴 업무가 아닌 구획은 팔로우업 성격이라, 오래 묵은 것을 위로 올립니다.
+    // (며칠째 안 끝난 건이 아래로 밀려 잊히지 않게)
+    const 루틴구획 = ['오전 필수업무', '오후 필수업무'].includes(category);
+    if (!루틴구획) {
+      return base.slice().sort((a, b) => jwAgeDays(b) - jwAgeDays(a) || a.id - b.id);
+    }
     return jwArrangeUrgent(base);
   }
 
@@ -10138,8 +10191,9 @@
     const isAdded = !indented && !JW_ROUTINE_TITLES.has(t.title);
     const row = `
       <div class="jw-task-row${rowClass ? ' ' + rowClass : ''}${indented ? ' jw-task-row-sub' : ' top'}${isAdded ? ' added' : ''}">
-        <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${movable ? '<span class="jw-drag-grip" onclick="event.stopPropagation()" title="끌어서 순서를 바꿉니다">⠿</span>' : ''}${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwCommentTagsHtml(t.id)}${(t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}${isAdded ? `<button type="button" class="jw-title-edit-btn" title="업무명 수정" onclick="event.stopPropagation(); jwEditTitle(${t.id})">&#9998;</button>` : ''}${jwIsCarriedOver(t) ? `<span class="jw-carry-tag" title="마감일이 지났는데 아직 진행중이라 오늘 목록에 같이 올렸습니다">${escapeAttr((t.due_date || '').slice(5).replace('-', '/'))}부터</span>` : ''}</div>
+        <div class="jw-task-row-title clickable" onclick="jwToggleCriteria(${t.id})" title="누르면 업무 기준이 펼쳐집니다">${movable ? '<span class="jw-drag-grip" onclick="event.stopPropagation()" title="끌어서 순서를 바꿉니다">⠿</span>' : ''}${no ? `<span class="jw-task-no${indented ? ' sub' : ''}">${no}</span>` : (indented ? 'ㄴ ' : '')}${escapeAttr(t.title || '(제목 없음)')}${t.priority === '높음' ? jwUrgentTagHtml(t) : ''}${jwCommentTagsHtml(t.id)}${(t.title || '').includes(JW_SCM_TASK_KEYWORD) ? jwScmBadgeHtml() : ''}${isAdded ? `<button type="button" class="jw-title-edit-btn" title="업무명 수정" onclick="event.stopPropagation(); jwEditTitle(${t.id})">&#9998;</button>` : ''}${jwIsCarriedOver(t) ? `<span class="jw-carry-tag${jwAgeClass(jwAgeDays(t))}" title="${escapeAttr(t.due_date || '')}부터 아직 안 끝난 업무라 오늘 목록에 같이 올렸습니다">${jwAgeDays(t)}일째</span>` : ''}</div>
         <div class="jw-task-row-checks">
+          ${jwIsCarriedOver(t) ? `<button type="button" class="jw-touch-btn" onmousedown="event.stopPropagation()" onclick="jwTouchToday(event, ${t.id})" title="오늘 다시 챙겼으면 누르세요. 경과일이 0부터 다시 시작합니다">오늘 챙김</button>` : ''}
           ${deletable ? `<button type="button" class="jw-row-del" onmousedown="event.stopPropagation()" onclick="jwRowDeleteClick(event, ${t.id})" title="두 번 누르면 이 업무를 지웁니다">삭제</button>` : ''}
           ${gbBtn}
           <button type="button" class="jw-detail-btn${jwOpenDetailIds.has(t.id) ? ' open' : ''}"
