@@ -25,9 +25,24 @@
           "baseline_sales": null,
           "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
           "items": [
-            { "product_name": "스트롱 제습 서버", "list_price": null, "promo_price": 8189.233954451346, "qty": 483 },
-            { "product_name": "러닝 슈즈 제습 서버", "list_price": null, "promo_price": 8400, "qty": 97 },
-            { "product_name": "스트롱 제습 서버 대형 파우치백", "list_price": null, "promo_price": 0, "qty": 40 }
+            {
+              "product_name": "스트롱 제습 서버",
+              "list_price": null,
+              "promo_price": 8189.233954451346,
+              "qty": 483
+            },
+            {
+              "product_name": "러닝 슈즈 제습 서버",
+              "list_price": null,
+              "promo_price": 8400,
+              "qty": 97
+            },
+            {
+              "product_name": "스트롱 제습 서버 대형 파우치백",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 40
+            }
           ]
         }
       ]
@@ -46,15 +61,60 @@
           "memo": null,
           "month": null,
           "items": [
-            { "product_name": "Mini Lighting", "list_price": 49900, "promo_price": 32900, "qty": 22 },
-            { "product_name": "Mind Lighting", "list_price": 59000, "promo_price": 49000, "qty": 2 },
-            { "product_name": "Full Lighting", "list_price": 69000, "promo_price": 59000, "qty": 4 },
-            { "product_name": "허리베개", "list_price": 29900, "promo_price": 24900, "qty": 2 },
-            { "product_name": "라인핏시트", "list_price": 29900, "promo_price": 27900, "qty": 16 },
-            { "product_name": "경추베개", "list_price": 19900, "promo_price": 19900, "qty": 6 },
-            { "product_name": "피로회복 왕베개", "list_price": 29900, "promo_price": 29900, "qty": 84 },
-            { "product_name": "1인 좌식 소파", "list_price": 32900, "promo_price": 30900, "qty": 39 },
-            { "product_name": "찹쌀떡 등쿠션", "list_price": 29900, "promo_price": 29900, "qty": 251 }
+            {
+              "product_name": "Mini Lighting",
+              "list_price": 49900,
+              "promo_price": 32900,
+              "qty": 22
+            },
+            {
+              "product_name": "Mind Lighting",
+              "list_price": 59000,
+              "promo_price": 49000,
+              "qty": 2
+            },
+            {
+              "product_name": "Full Lighting",
+              "list_price": 69000,
+              "promo_price": 59000,
+              "qty": 4
+            },
+            {
+              "product_name": "허리베개",
+              "list_price": 29900,
+              "promo_price": 24900,
+              "qty": 2
+            },
+            {
+              "product_name": "라인핏시트",
+              "list_price": 29900,
+              "promo_price": 27900,
+              "qty": 16
+            },
+            {
+              "product_name": "경추베개",
+              "list_price": 19900,
+              "promo_price": 19900,
+              "qty": 6
+            },
+            {
+              "product_name": "피로회복 왕베개",
+              "list_price": 29900,
+              "promo_price": 29900,
+              "qty": 84
+            },
+            {
+              "product_name": "1인 좌식 소파",
+              "list_price": 32900,
+              "promo_price": 30900,
+              "qty": 39
+            },
+            {
+              "product_name": "찹쌀떡 등쿠션",
+              "list_price": 29900,
+              "promo_price": 29900,
+              "qty": 251
+            }
           ]
         },
         {
@@ -67,7 +127,12 @@
           "memo": null,
           "month": null,
           "items": [
-            { "product_name": "Mini Lighting", "list_price": 49900, "promo_price": 29900, "qty": 21 }
+            {
+              "product_name": "Mini Lighting",
+              "list_price": 49900,
+              "promo_price": 29900,
+              "qty": 21
+            }
           ]
         },
         {
@@ -80,9 +145,24 @@
           "memo": null,
           "month": null,
           "items": [
-            { "product_name": "Mini Lighting", "list_price": 49900, "promo_price": 32900, "qty": 13 },
-            { "product_name": "Mind Lighting", "list_price": 59000, "promo_price": 49000, "qty": 0 },
-            { "product_name": "Full Lighting", "list_price": 69000, "promo_price": 59000, "qty": 1 }
+            {
+              "product_name": "Mini Lighting",
+              "list_price": 49900,
+              "promo_price": 32900,
+              "qty": 13
+            },
+            {
+              "product_name": "Mind Lighting",
+              "list_price": 59000,
+              "promo_price": 49000,
+              "qty": 0
+            },
+            {
+              "product_name": "Full Lighting",
+              "list_price": 69000,
+              "promo_price": 59000,
+              "qty": 1
+            }
           ]
         },
         {
@@ -95,9 +175,24 @@
           "memo": null,
           "month": null,
           "items": [
-            { "product_name": "Mini Lighting", "list_price": 49900, "promo_price": 29900, "qty": 2 },
-            { "product_name": "Mind Lighting", "list_price": 59000, "promo_price": 35900, "qty": 0 },
-            { "product_name": "Full Lighting", "list_price": 69000, "promo_price": 39900, "qty": 2 }
+            {
+              "product_name": "Mini Lighting",
+              "list_price": 49900,
+              "promo_price": 29900,
+              "qty": 2
+            },
+            {
+              "product_name": "Mind Lighting",
+              "list_price": 59000,
+              "promo_price": 35900,
+              "qty": 0
+            },
+            {
+              "product_name": "Full Lighting",
+              "list_price": 69000,
+              "promo_price": 39900,
+              "qty": 2
+            }
           ]
         },
         {
@@ -110,9 +205,1693 @@
           "memo": null,
           "month": null,
           "items": [
-            { "product_name": "Mini Lighting", "list_price": 49900, "promo_price": 29900, "qty": 2 },
-            { "product_name": "Mind Lighting", "list_price": 59000, "promo_price": 35900, "qty": 1 },
-            { "product_name": "Full Lighting", "list_price": 69000, "promo_price": 39900, "qty": 1 }
+            {
+              "product_name": "Mini Lighting",
+              "list_price": 49900,
+              "promo_price": 29900,
+              "qty": 2
+            },
+            {
+              "product_name": "Mind Lighting",
+              "list_price": 59000,
+              "promo_price": 35900,
+              "qty": 1
+            },
+            {
+              "product_name": "Full Lighting",
+              "list_price": 69000,
+              "promo_price": 39900,
+              "qty": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "reason": "스마트스토어(스토어팜)는 외부몰이 아님 — 사용자 지시로 9월 외부몰에서 제외",
+      "source": "매출DB 9/1~9/21 + 일정(mall_events)",
+      "note": "코드니처/빠이러스 스마트스토어 행사 4건은 일정(mall_events)에 그대로 있어서 \"일정에서 외부몰 행사 가져오기\"로 다시 들어옵니다. 단가는 plan.txt 표기에서 복원해 소수점 셋째 자리까지만 남아 있습니다.",
+      "events": [
+        {
+          "mall": "코드니처 스마트스토어",
+          "title": "추석",
+          "start_date": "2026-09-07",
+          "end_date": "2026-09-22",
+          "status": "진행중",
+          "memo": null,
+          "month": null,
+          "baseline_sales": null,
+          "items": [
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 39900,
+              "qty": 45
+            },
+            {
+              "product_name": "자켓 보호 6중 에어쿠션 세탁망",
+              "list_price": null,
+              "promo_price": 35900,
+              "qty": 20
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 34900,
+              "qty": 17
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 27900,
+              "qty": 16
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 24900,
+              "qty": 14
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 22900,
+              "qty": 14
+            },
+            {
+              "product_name": "자켓 보호 6중 에어쿠션 세탁망",
+              "list_price": null,
+              "promo_price": 29950,
+              "qty": 10
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 36900,
+              "qty": 8
+            },
+            {
+              "product_name": "자켓 보호 6중 에어쿠션 세탁망",
+              "list_price": null,
+              "promo_price": 32900,
+              "qty": 8
+            },
+            {
+              "product_name": "자켓 보호 6중 에어쿠션 세탁망",
+              "list_price": null,
+              "promo_price": 31450,
+              "qty": 8
+            },
+            {
+              "product_name": "자켓 보호 6중 에어쿠션 세탁망",
+              "list_price": null,
+              "promo_price": 30900,
+              "qty": 7
+            },
+            {
+              "product_name": "딥클렌징 벽지 얼룩제거제",
+              "list_price": null,
+              "promo_price": 13950,
+              "qty": 12
+            },
+            {
+              "product_name": "메가 스크럽티슈",
+              "list_price": null,
+              "promo_price": 36900,
+              "qty": 4
+            },
+            {
+              "product_name": "자켓 보호 6중 에어쿠션 세탁망",
+              "list_price": null,
+              "promo_price": 27900,
+              "qty": 5
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 22400,
+              "qty": 6
+            },
+            {
+              "product_name": "메가 스크럽티슈",
+              "list_price": null,
+              "promo_price": 32900,
+              "qty": 3
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 11450,
+              "qty": 8
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 23900,
+              "qty": 3
+            },
+            {
+              "product_name": "스트롱 에어컨 제습 서버",
+              "list_price": null,
+              "promo_price": 16900,
+              "qty": 4
+            },
+            {
+              "product_name": "벽지 보호코팅 프로 미스트",
+              "list_price": null,
+              "promo_price": 32000,
+              "qty": 2
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 30900,
+              "qty": 2
+            },
+            {
+              "product_name": "베개 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 14950,
+              "qty": 4
+            },
+            {
+              "product_name": "자켓 보호 6중 에어쿠션 세탁망",
+              "list_price": null,
+              "promo_price": 28950,
+              "qty": 2
+            },
+            {
+              "product_name": "자켓 보호 6중 에어쿠션 세탁망",
+              "list_price": null,
+              "promo_price": 28900,
+              "qty": 2
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 18900,
+              "qty": 3
+            },
+            {
+              "product_name": "벽지 보호코팅 프로 미스트",
+              "list_price": null,
+              "promo_price": 27000,
+              "qty": 2
+            },
+            {
+              "product_name": "컬러캐치 고체탈취제",
+              "list_price": null,
+              "promo_price": 13450,
+              "qty": 4
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 8950,
+              "qty": 6
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 26400,
+              "qty": 2
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 25650,
+              "qty": 2
+            },
+            {
+              "product_name": "방수 베개커버 / 50x70",
+              "list_price": null,
+              "promo_price": 25443.5,
+              "qty": 2
+            },
+            {
+              "product_name": "다한증 케어 패드",
+              "list_price": null,
+              "promo_price": 15900,
+              "qty": 3
+            },
+            {
+              "product_name": "통세탁 사계절 방수토퍼",
+              "list_price": null,
+              "promo_price": 40900,
+              "qty": 1
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 38400,
+              "qty": 1
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 37900,
+              "qty": 1
+            },
+            {
+              "product_name": "스트롱 에어컨 제습 서버",
+              "list_price": null,
+              "promo_price": 18900,
+              "qty": 2
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 37310,
+              "qty": 1
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 36210,
+              "qty": 1
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 35900,
+              "qty": 1
+            },
+            {
+              "product_name": "키즈 성장 서포터 삭스",
+              "list_price": null,
+              "promo_price": 11966.667,
+              "qty": 3
+            },
+            {
+              "product_name": "목 라인 방패 세탁망",
+              "list_price": null,
+              "promo_price": 17900,
+              "qty": 2
+            },
+            {
+              "product_name": "패딩 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 35400,
+              "qty": 1
+            },
+            {
+              "product_name": "자켓 보호 6중 에어쿠션 세탁망",
+              "list_price": null,
+              "promo_price": 34400,
+              "qty": 1
+            },
+            {
+              "product_name": "패딩 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 33900,
+              "qty": 1
+            },
+            {
+              "product_name": "딥클렌징 벽지 얼룩제거제",
+              "list_price": null,
+              "promo_price": 16450,
+              "qty": 2
+            },
+            {
+              "product_name": "목 라인 방패 세탁망",
+              "list_price": null,
+              "promo_price": 10900,
+              "qty": 3
+            },
+            {
+              "product_name": "메가 스크럽티슈",
+              "list_price": null,
+              "promo_price": 31900,
+              "qty": 1
+            },
+            {
+              "product_name": "베개 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 31900,
+              "qty": 1
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 31900,
+              "qty": 1
+            },
+            {
+              "product_name": "키즈 성장 서포터 삭스",
+              "list_price": null,
+              "promo_price": 10300,
+              "qty": 3
+            },
+            {
+              "product_name": "자켓 보호 6중 에어쿠션 세탁망",
+              "list_price": null,
+              "promo_price": 29610,
+              "qty": 1
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 29400,
+              "qty": 1
+            },
+            {
+              "product_name": "베개 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 28900,
+              "qty": 1
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 28110,
+              "qty": 1
+            },
+            {
+              "product_name": "코스메틱 스팟 클리너",
+              "list_price": null,
+              "promo_price": 27900,
+              "qty": 1
+            },
+            {
+              "product_name": "스트롱 에어컨 제습 서버",
+              "list_price": null,
+              "promo_price": 13900,
+              "qty": 2
+            },
+            {
+              "product_name": "세제 톡 버블 클리너",
+              "list_price": null,
+              "promo_price": 13450,
+              "qty": 2
+            },
+            {
+              "product_name": "베개 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 26900,
+              "qty": 1
+            },
+            {
+              "product_name": "딥클렌징 벽지 얼룩제거제",
+              "list_price": null,
+              "promo_price": 13075,
+              "qty": 2
+            },
+            {
+              "product_name": "패딩 2중 압축 세탁망 V2",
+              "list_price": null,
+              "promo_price": 24400,
+              "qty": 1
+            },
+            {
+              "product_name": "베개 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 23900,
+              "qty": 1
+            },
+            {
+              "product_name": "목 라인 방패 세탁망",
+              "list_price": null,
+              "promo_price": 11900,
+              "qty": 2
+            },
+            {
+              "product_name": "코스메틱 스팟 클리너",
+              "list_price": null,
+              "promo_price": 22900,
+              "qty": 1
+            },
+            {
+              "product_name": "베개 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 22900,
+              "qty": 1
+            },
+            {
+              "product_name": "노잔여 텀블러 세정제",
+              "list_price": null,
+              "promo_price": 10950,
+              "qty": 2
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 21900,
+              "qty": 1
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 10700,
+              "qty": 2
+            },
+            {
+              "product_name": "스트롱 제습서버",
+              "list_price": null,
+              "promo_price": 19900,
+              "qty": 1
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 9950,
+              "qty": 2
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 19900,
+              "qty": 1
+            },
+            {
+              "product_name": "다한증 케어 패드",
+              "list_price": null,
+              "promo_price": 9450,
+              "qty": 2
+            },
+            {
+              "product_name": "음식물싹캐처",
+              "list_price": null,
+              "promo_price": 18500,
+              "qty": 1
+            },
+            {
+              "product_name": "벽지 보호코팅 프로 미스트",
+              "list_price": null,
+              "promo_price": 18000,
+              "qty": 1
+            },
+            {
+              "product_name": "목 라인 방패 세탁망",
+              "list_price": null,
+              "promo_price": 5900,
+              "qty": 3
+            },
+            {
+              "product_name": "스트롱 에어컨 제습 서버",
+              "list_price": null,
+              "promo_price": 17400,
+              "qty": 1
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 17400,
+              "qty": 1
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 7450,
+              "qty": 2
+            },
+            {
+              "product_name": "세제 톡 버블 클리너",
+              "list_price": null,
+              "promo_price": 13900,
+              "qty": 1
+            },
+            {
+              "product_name": "다한증 케어 패드",
+              "list_price": null,
+              "promo_price": 12900,
+              "qty": 1
+            },
+            {
+              "product_name": "음식물쓰레기 스탠딩봉투",
+              "list_price": null,
+              "promo_price": 12900,
+              "qty": 1
+            },
+            {
+              "product_name": "목 라인 방패 세탁망",
+              "list_price": null,
+              "promo_price": 12400,
+              "qty": 1
+            },
+            {
+              "product_name": "스트롱 에어컨 제습 서버",
+              "list_price": null,
+              "promo_price": 10900,
+              "qty": 1
+            },
+            {
+              "product_name": "물때 박멸 롱빨대 세척솔",
+              "list_price": null,
+              "promo_price": 9900,
+              "qty": 1
+            },
+            {
+              "product_name": "목 라인 방패 세탁망",
+              "list_price": null,
+              "promo_price": 7400,
+              "qty": 1
+            },
+            {
+              "product_name": "통세탁 사계절 방수토퍼",
+              "list_price": null,
+              "promo_price": 13,
+              "qty": 1
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 75
+            },
+            {
+              "product_name": "노잔여 텀블러 세정제",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 5
+            },
+            {
+              "product_name": "물때 박멸 롱빨대 세척솔",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 2
+            },
+            {
+              "product_name": "베개 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 4
+            },
+            {
+              "product_name": "딥클렌징 벽지 얼룩제거제",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 4
+            },
+            {
+              "product_name": "코스메틱 스팟 클리너",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 4
+            },
+            {
+              "product_name": "기름 앤 색소 의류 리무버",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 2
+            },
+            {
+              "product_name": "패딩 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 2
+            },
+            {
+              "product_name": "기름제거 프로 행주",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "mall": "코드니처 스마트스토어",
+          "title": "주방 슈퍼신상",
+          "start_date": "2026-08-31",
+          "end_date": "2026-09-06",
+          "status": "종료",
+          "memo": "리뷰이벤트 : 텍스트 50자 이상 + 포토3장 첨부시 5% 증정",
+          "month": "2026-09",
+          "baseline_sales": null,
+          "items": [
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 39900,
+              "qty": 29
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 27900,
+              "qty": 14
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 33900,
+              "qty": 11
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 25200,
+              "qty": 10
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 16900,
+              "qty": 8
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 21400,
+              "qty": 6
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 26400,
+              "qty": 3
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 25900,
+              "qty": 3
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 35400,
+              "qty": 2
+            },
+            {
+              "product_name": "딥클렌징 벽지 얼룩제거제",
+              "list_price": null,
+              "promo_price": 16450,
+              "qty": 4
+            },
+            {
+              "product_name": "음식물싹캐처",
+              "list_price": null,
+              "promo_price": 19900,
+              "qty": 3
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 19233.333,
+              "qty": 3
+            },
+            {
+              "product_name": "스트롱 에어컨 제습 서버",
+              "list_price": null,
+              "promo_price": 18900,
+              "qty": 3
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 11450,
+              "qty": 4
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 22900,
+              "qty": 2
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 21900,
+              "qty": 2
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 20910,
+              "qty": 2
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 38900,
+              "qty": 1
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 19410,
+              "qty": 2
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 37900,
+              "qty": 1
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 36210,
+              "qty": 1
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 34900,
+              "qty": 1
+            },
+            {
+              "product_name": "패딩 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 15450,
+              "qty": 2
+            },
+            {
+              "product_name": "메가 스크럽티슈",
+              "list_price": null,
+              "promo_price": 30900,
+              "qty": 1
+            },
+            {
+              "product_name": "베개 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 29900,
+              "qty": 1
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 28900,
+              "qty": 1
+            },
+            {
+              "product_name": "스트롱 에어컨 제습 서버",
+              "list_price": null,
+              "promo_price": 14400,
+              "qty": 2
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 28110,
+              "qty": 1
+            },
+            {
+              "product_name": "딥클렌징 벽지 얼룩제거제",
+              "list_price": null,
+              "promo_price": 13950,
+              "qty": 2
+            },
+            {
+              "product_name": "딥클렌징 벽지 얼룩제거제",
+              "list_price": null,
+              "promo_price": 13450,
+              "qty": 2
+            },
+            {
+              "product_name": "베개 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 25900,
+              "qty": 1
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 25110,
+              "qty": 1
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 24900,
+              "qty": 1
+            },
+            {
+              "product_name": "목 라인 방패 세탁망",
+              "list_price": null,
+              "promo_price": 12400,
+              "qty": 2
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 11350,
+              "qty": 2
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 8450,
+              "qty": 2
+            },
+            {
+              "product_name": "수건 케어 드라이서버",
+              "list_price": null,
+              "promo_price": 15900,
+              "qty": 1
+            },
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 7700,
+              "qty": 2
+            },
+            {
+              "product_name": "음식물싹캐처",
+              "list_price": null,
+              "promo_price": 13900,
+              "qty": 1
+            },
+            {
+              "product_name": "기름제거 프로 행주",
+              "list_price": null,
+              "promo_price": 3633.333,
+              "qty": 3
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 46
+            },
+            {
+              "product_name": "베개 2중 압축 세탁망",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 2
+            },
+            {
+              "product_name": "노잔여 텀블러 세정제",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 4
+            }
+          ]
+        },
+        {
+          "mall": "빠이러스 스마트스토어",
+          "title": "오늘끝딜_테마딜 (꽃가글 1개입)",
+          "start_date": "2026-09-18",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "memo": "10245920632 빠이러스 킬파이어 꽃 가글 500ml",
+          "month": null,
+          "baseline_sales": null,
+          "items": [
+            {
+              "product_name": "♡킬파이어 꽃 가글",
+              "list_price": null,
+              "promo_price": 39650,
+              "qty": 2
+            },
+            {
+              "product_name": "♡킬파이어 꽃 가글",
+              "list_price": null,
+              "promo_price": 39400,
+              "qty": 1
+            },
+            {
+              "product_name": "♡킬파이어 꽃 가글",
+              "list_price": null,
+              "promo_price": 29400,
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "mall": "코드니처 스마트스토어",
+          "title": "추석+세일프로모션(기름행주+노잔여 / 대형세척솔+노잔여)",
+          "start_date": "2026-09-19",
+          "end_date": "2026-09-22",
+          "status": "진행중",
+          "memo": null,
+          "month": null,
+          "baseline_sales": null,
+          "items": [
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 20900,
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "mall": "스토어팜(빠이러스_법인)",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "baseline_sales": null,
+          "items": [
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 10966.667,
+              "qty": 87
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 10466.667,
+              "qty": 57
+            },
+            {
+              "product_name": "♡킬파이어 꽃 가글",
+              "list_price": null,
+              "promo_price": 39900,
+              "qty": 7
+            },
+            {
+              "product_name": "♡킬파이어 꽃 가글",
+              "list_price": null,
+              "promo_price": 29900,
+              "qty": 9
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 10300,
+              "qty": 24
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 10216.667,
+              "qty": 18
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 9966.667,
+              "qty": 15
+            },
+            {
+              "product_name": "킬파이어 가글캔디",
+              "list_price": null,
+              "promo_price": 23900,
+              "qty": 4
+            },
+            {
+              "product_name": "킬파이어 가글캔디",
+              "list_price": null,
+              "promo_price": 22400,
+              "qty": 4
+            },
+            {
+              "product_name": "♡킬파이어 꽃 가글",
+              "list_price": null,
+              "promo_price": 28400,
+              "qty": 3
+            },
+            {
+              "product_name": "♡킬파이어 꽃 가글",
+              "list_price": null,
+              "promo_price": 38650,
+              "qty": 2
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 10753.333,
+              "qty": 6
+            },
+            {
+              "product_name": "킬파이어 가글캔디",
+              "list_price": null,
+              "promo_price": 21400,
+              "qty": 3
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 10383.333,
+              "qty": 6
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 9883.333,
+              "qty": 6
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 9850,
+              "qty": 6
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 9800,
+              "qty": 6
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 9466.667,
+              "qty": 6
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 13900,
+              "qty": 4
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 16900,
+              "qty": 3
+            },
+            {
+              "product_name": "킬파이어 가글캔디",
+              "list_price": null,
+              "promo_price": 23650,
+              "qty": 2
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 3850,
+              "qty": 10
+            },
+            {
+              "product_name": "♡킬파이어 꽃 가글",
+              "list_price": null,
+              "promo_price": 38400,
+              "qty": 1
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 4200,
+              "qty": 9
+            },
+            {
+              "product_name": "스나이퍼 혀클리너",
+              "list_price": null,
+              "promo_price": 9400,
+              "qty": 4
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 11833.333,
+              "qty": 3
+            },
+            {
+              "product_name": "8P 패키지 박스",
+              "list_price": null,
+              "promo_price": 34000,
+              "qty": 1
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 10800,
+              "qty": 3
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 10643.333,
+              "qty": 3
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 5300,
+              "qty": 6
+            },
+            {
+              "product_name": "스나이퍼 혀클리너",
+              "list_price": null,
+              "promo_price": 7400,
+              "qty": 4
+            },
+            {
+              "product_name": "♡킬파이어 꽃 가글",
+              "list_price": null,
+              "promo_price": 29400,
+              "qty": 1
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 9776.667,
+              "qty": 3
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 9633.333,
+              "qty": 3
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 4550,
+              "qty": 6
+            },
+            {
+              "product_name": "♡킬파이어 꽃 가글",
+              "list_price": null,
+              "promo_price": 26610,
+              "qty": 1
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 8760,
+              "qty": 3
+            },
+            {
+              "product_name": "킬파이어 가글캔디",
+              "list_price": null,
+              "promo_price": 25900,
+              "qty": 1
+            },
+            {
+              "product_name": "킬파이어 가글캔디",
+              "list_price": null,
+              "promo_price": 25400,
+              "qty": 1
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 4166.667,
+              "qty": 6
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 4150,
+              "qty": 6
+            },
+            {
+              "product_name": "킬파이어 가글캔디",
+              "list_price": null,
+              "promo_price": 24900,
+              "qty": 1
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 4116.667,
+              "qty": 6
+            },
+            {
+              "product_name": "킬파이어 가글캔디",
+              "list_price": null,
+              "promo_price": 24400,
+              "qty": 1
+            },
+            {
+              "product_name": "킬파이어 가글캔디",
+              "list_price": null,
+              "promo_price": 23780,
+              "qty": 1
+            },
+            {
+              "product_name": "킹스나이퍼 치실",
+              "list_price": null,
+              "promo_price": 5825,
+              "qty": 4
+            },
+            {
+              "product_name": "킬파이어 가글캔디",
+              "list_price": null,
+              "promo_price": 22900,
+              "qty": 1
+            },
+            {
+              "product_name": "스나이퍼 혀클리너",
+              "list_price": null,
+              "promo_price": 11400,
+              "qty": 2
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 4400,
+              "qty": 5
+            },
+            {
+              "product_name": "킬파이어 가글캔디",
+              "list_price": null,
+              "promo_price": 21970,
+              "qty": 1
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 20900,
+              "qty": 1
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 20630,
+              "qty": 1
+            },
+            {
+              "product_name": "퍼펙트 치약 짜개",
+              "list_price": null,
+              "promo_price": 3133.333,
+              "qty": 6
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 18570,
+              "qty": 1
+            },
+            {
+              "product_name": "스나이퍼 혀클리너",
+              "list_price": null,
+              "promo_price": 7900,
+              "qty": 2
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 5133.333,
+              "qty": 3
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 5066.667,
+              "qty": 3
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 15020,
+              "qty": 1
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 14990,
+              "qty": 1
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 4866.667,
+              "qty": 3
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 4800,
+              "qty": 3
+            },
+            {
+              "product_name": "킹스나이퍼 치실",
+              "list_price": null,
+              "promo_price": 6950,
+              "qty": 2
+            },
+            {
+              "product_name": "퍼펙트 치약 짜개",
+              "list_price": null,
+              "promo_price": 4400,
+              "qty": 3
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 4366.667,
+              "qty": 3
+            },
+            {
+              "product_name": "스나이퍼 혀클리너",
+              "list_price": null,
+              "promo_price": 12400,
+              "qty": 1
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 12400,
+              "qty": 1
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 4080,
+              "qty": 3
+            },
+            {
+              "product_name": "퍼펙트 치약 짜개",
+              "list_price": null,
+              "promo_price": 3633.333,
+              "qty": 3
+            },
+            {
+              "product_name": "킹스나이퍼 치실",
+              "list_price": null,
+              "promo_price": 5450,
+              "qty": 2
+            },
+            {
+              "product_name": "퍼펙트 치약 짜개",
+              "list_price": null,
+              "promo_price": 2966.667,
+              "qty": 3
+            },
+            {
+              "product_name": "킹스나이퍼 치실",
+              "list_price": null,
+              "promo_price": 7900,
+              "qty": 1
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 6900,
+              "qty": 1
+            },
+            {
+              "product_name": "스나이퍼 혀클리너",
+              "list_price": null,
+              "promo_price": 6900,
+              "qty": 1
+            },
+            {
+              "product_name": "스나이퍼 혀클리너",
+              "list_price": null,
+              "promo_price": 5900,
+              "qty": 1
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 5280,
+              "qty": 1
+            },
+            {
+              "product_name": "퍼펙트 치약 짜개",
+              "list_price": null,
+              "promo_price": 2900,
+              "qty": 1
+            },
+            {
+              "product_name": "킬파이어 가글캔디",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 28
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 17
+            },
+            {
+              "product_name": "빠이러스 쇼핑백 大",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 1
+            },
+            {
+              "product_name": "스케일링 설명서",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 1
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 13
+            },
+            {
+              "product_name": "칫솔&치약 전용 케이스",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 2
+            },
+            {
+              "product_name": "킹스나이퍼 칫솔꽂이",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "mall": "스토어팜(잠비에)",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "baseline_sales": null,
+          "items": [
+            {
+              "product_name": "리모드 매트리스 NEW",
+              "list_price": null,
+              "promo_price": 84500,
+              "qty": 6
+            },
+            {
+              "product_name": "리모드 매트리스 NEW",
+              "list_price": null,
+              "promo_price": 94500,
+              "qty": 4
+            },
+            {
+              "product_name": "리모드 매트리스 전용 가방",
+              "list_price": null,
+              "promo_price": 128500,
+              "qty": 2
+            },
+            {
+              "product_name": "리모드 매트리스 NEW",
+              "list_price": null,
+              "promo_price": 119500,
+              "qty": 2
+            },
+            {
+              "product_name": "리모드 매트리스 NEW",
+              "list_price": null,
+              "promo_price": 104500,
+              "qty": 2
+            },
+            {
+              "product_name": "리모드 매트리스 전용 커버",
+              "list_price": null,
+              "promo_price": 60000,
+              "qty": 1
+            },
+            {
+              "product_name": "리모드 매트리스 전용 커버",
+              "list_price": null,
+              "promo_price": 55000,
+              "qty": 1
+            },
+            {
+              "product_name": "리모드 매트리스 전용 가방",
+              "list_price": null,
+              "promo_price": 12950,
+              "qty": 4
+            },
+            {
+              "product_name": "리모드 매트리스 전용 커버",
+              "list_price": null,
+              "promo_price": 50000,
+              "qty": 1
+            },
+            {
+              "product_name": "매트리스 세탁망",
+              "list_price": null,
+              "promo_price": 15900,
+              "qty": 2
+            },
+            {
+              "product_name": "리모드 매트리스 전용 커버",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 3
+            },
+            {
+              "product_name": "리모드 매트리스 NEW",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 2
+            }
+          ]
+        },
+        {
+          "mall": "스토어팜(미니멀룸스토어)",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "baseline_sales": null,
+          "items": [
+            {
+              "product_name": "찹쌀떡 베개 필로우(등쿠션)",
+              "list_price": null,
+              "promo_price": 34900,
+              "qty": 9
+            },
+            {
+              "product_name": "이불 세탁망",
+              "list_price": null,
+              "promo_price": 11900,
+              "qty": 18
+            },
+            {
+              "product_name": "찹쌀떡 피로회복 왕베개",
+              "list_price": null,
+              "promo_price": 35900,
+              "qty": 5
+            },
+            {
+              "product_name": "이불 세탁망",
+              "list_price": null,
+              "promo_price": 10400,
+              "qty": 16
+            },
+            {
+              "product_name": "수면 호흡 베개",
+              "list_price": null,
+              "promo_price": 53400,
+              "qty": 3
+            },
+            {
+              "product_name": "쫀득한 떡볶이 수면 필로우",
+              "list_price": null,
+              "promo_price": 33400,
+              "qty": 4
+            },
+            {
+              "product_name": "알래스카 쿨링토퍼",
+              "list_price": null,
+              "promo_price": 49400,
+              "qty": 2
+            },
+            {
+              "product_name": "부스터발열 토퍼",
+              "list_price": null,
+              "promo_price": 66900,
+              "qty": 1
+            },
+            {
+              "product_name": "알래스카 쿨링 방수 토퍼",
+              "list_price": null,
+              "promo_price": 63400,
+              "qty": 1
+            },
+            {
+              "product_name": "자가발열 양면토퍼 NEW",
+              "list_price": null,
+              "promo_price": 62900,
+              "qty": 1
+            },
+            {
+              "product_name": "알래스카 쿨링 방수 토퍼",
+              "list_price": null,
+              "promo_price": 59900,
+              "qty": 1
+            },
+            {
+              "product_name": "알래스카 쿨링토퍼",
+              "list_price": null,
+              "promo_price": 59400,
+              "qty": 1
+            },
+            {
+              "product_name": "수면 호흡 베개",
+              "list_price": null,
+              "promo_price": 48400,
+              "qty": 1
+            },
+            {
+              "product_name": "이불 세탁망",
+              "list_price": null,
+              "promo_price": 8900,
+              "qty": 5
+            },
+            {
+              "product_name": "허리베개",
+              "list_price": null,
+              "promo_price": 29900,
+              "qty": 1
+            },
+            {
+              "product_name": "결림타파 경추베개(원통형)",
+              "list_price": null,
+              "promo_price": 26500,
+              "qty": 1
+            },
+            {
+              "product_name": "압축팩",
+              "list_price": null,
+              "promo_price": 8166.667,
+              "qty": 3
+            },
+            {
+              "product_name": "이불 세탁망",
+              "list_price": null,
+              "promo_price": 9650,
+              "qty": 2
+            },
+            {
+              "product_name": "매트리스 스트랩",
+              "list_price": null,
+              "promo_price": 14400,
+              "qty": 1
+            },
+            {
+              "product_name": "이불 세탁망",
+              "list_price": null,
+              "promo_price": 7000,
+              "qty": 2
+            }
+          ]
+        },
+        {
+          "mall": "스토어팜(명퉤)",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "baseline_sales": null,
+          "items": [
+            {
+              "product_name": "길운 오행 염주",
+              "list_price": null,
+              "promo_price": 45900,
+              "qty": 5
+            },
+            {
+              "product_name": "부귀 재물 비방",
+              "list_price": null,
+              "promo_price": 45900,
+              "qty": 2
+            },
+            {
+              "product_name": "길운 오행 염주",
+              "list_price": null,
+              "promo_price": 35900,
+              "qty": 1
+            },
+            {
+              "product_name": "학업성취 대운 금부적",
+              "list_price": null,
+              "promo_price": 26910,
+              "qty": 1
+            },
+            {
+              "product_name": "길운 오행 염주 / 더스트백",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 1
+            }
           ]
         }
       ]
