@@ -9689,21 +9689,27 @@
 
   // 이 담당자의 업무에 실제로 쓰인 구분들을, 화면 구획으로 만들 순서대로 돌려줍니다.
   function jwSections() {
-    if (jwHasRoutine()) return [['오전', '오전 필수업무'], ['오후', '오후 필수업무']];
-    const date = jwSelectedDate();
-    const today = jwIsToday();
     const mine = currentTasks.filter(jwBelongsToView);
     const cats = [];
     mine.forEach(t => { const c = t.category || '기타'; if (!cats.includes(c)) cats.push(c); });
     cats.sort((a, b) => a.localeCompare(b, 'ko'));
+
+    if (jwHasRoutine()) {
+      // 오전/오후는 늘 자리를 지키고, 그 밖의 구분으로 들어온 업무가 있으면 뒤에 덧붙입니다.
+      // (넘어온 업무는 구분이 오전/오후가 아닌 경우가 많아, 이게 없으면 통째로 안 보입니다)
+      const fixed = ['오전 필수업무', '오후 필수업무'];
+      const extraCats = cats.filter(c => !fixed.includes(c));
+      return [['오전', '오전 필수업무'], ['오후', '오후 필수업무']].concat(extraCats.map(c => [c, c]));
+    }
     // 업무가 하나도 없는 날도 빈 목록을 보여줘야 해서 구획 하나는 남겨 둡니다.
     return (cats.length ? cats : ['업무']).map(c => [c, c]);
   }
 
-  // 마감일이 지났는데 아직 「진행중」인 업무. 오늘 화면에서만 같이 끌어옵니다.
-  // (그냥 두면 지난 날짜에 묻혀서 다시 안 보입니다)
+  // 마감일이 지났는데 아직 안 끝난 업무(할일·진행중). 오늘 화면에서만 같이 끌어옵니다.
+  // (그냥 두면 지난 날짜에 묻혀서 다시 안 보입니다. 확인완료·해당없음은 올리지 않습니다)
+  const JW_CARRY_STATUSES = ['할일', '진행중'];
   function jwIsCarriedOver(t) {
-    return jwIsToday() && !t.archived_at && t.status === '진행중'
+    return jwIsToday() && !t.archived_at && JW_CARRY_STATUSES.includes(t.status)
       && !!t.due_date && t.due_date < jwSelectedDate();
   }
 
