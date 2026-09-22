@@ -5207,7 +5207,9 @@
     const c = findQuoteCostByGroup(name);
     const add = (t) => { hint.textContent = (hint.textContent ? hint.textContent + ' · ' : '') + t; };
     if (!c) {
-      add('원가를 못 찾았습니다 — 개당원가를 직접 넣어주세요.');
+      const near = quoteCostSuggestions(name, 3);
+      add('원가 대시보드에 없는 상품입니다 — 개당원가를 직접 넣어주세요.' +
+        (near.length ? ' 비슷한 항목: ' + near.map((s) => `${s.label} ${s.cost.toLocaleString()}원`).join(' · ') : ''));
       return;
     }
     if (c.unitCost == null) {
@@ -5546,9 +5548,10 @@
   let quoteCostRows = [];            // product_cost 중 원가가 들어 있는 것만
 
   async function loadQuoteCosts() {
+    // 원가가 0인 행이 6개 있습니다(미입력으로 보입니다). 이걸 끌어오면 손익이 부풀려지므로 뺍니다.
     const { data, error } = await client.from('product_cost')
       .select('id,brand,product_name,option_size,unit_cost_krw')
-      .not('unit_cost_krw', 'is', null);
+      .gt('unit_cost_krw', 0);
     quoteCostRows = error ? [] : (data || []);
     if (error) console.warn('원가를 불러오지 못했습니다:', error.message);
   }
@@ -5590,6 +5593,34 @@
       label: `${pick.product_name}${pick.option_size && pick.option_size !== '-' ? ' / ' + pick.option_size : ''}`,
       ambiguous: null,
     };
+  }
+
+  // 원가를 못 찾았을 때, 원가 대시보드에서 이름이 비슷한 항목을 골라 보여줍니다.
+  // 견적서 품명과 원가 대시보드 품명이 다른 경우가 많아서입니다.
+  // (견적서 "오행염주" ↔ 원가 대시보드 "[명퉤] 길운 오행 염주 / 여자")
+  function quoteCostSuggestions(productName, limit) {
+    const key = quoteProductKey(productName);
+    if (key.length < 2) return [];
+    // 두 이름이 공통으로 가진 가장 긴 조각의 길이로 비슷한 정도를 잽니다.
+    const common = (a, b) => {
+      let best = 0;
+      for (let i = 0; i < a.length; i++) {
+        for (let j = i + best + 1; j <= a.length; j++) {
+          if (b.includes(a.slice(i, j))) best = j - i; else break;
+        }
+      }
+      return best;
+    };
+    const seen = new Map();
+    for (const c of quoteCostRows) {
+      const k = quoteProductKey(quoteCostBareName(c.product_name));
+      const score = common(key, k);
+      if (score < 2) continue;
+      const label = `${quoteCostBareName(c.product_name)}${c.option_size && c.option_size !== '-' ? ' / ' + c.option_size : ''}`;
+      const prev = seen.get(label);
+      if (!prev || score > prev.score) seen.set(label, { label, score, cost: Number(c.unit_cost_krw) });
+    }
+    return [...seen.values()].sort((a, b) => b.score - a.score).slice(0, limit || 3);
   }
 
   // 품명이 달라 못 찾은 줄은, 같은 상품으로 묶어 둔 다른 품명으로 한 번 더 찾아봅니다.
