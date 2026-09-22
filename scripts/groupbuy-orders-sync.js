@@ -233,12 +233,50 @@ function readFile(path) {
   return readCsv(buf.toString('utf8'));
 }
 
+// 폴더를 주면 그 안의 매출 파일을 모두 돌립니다. 날짜별 자동 실행이 한 줄로 끝나게 하려고요.
+// 이름 앞의 날짜(20260921_일매출.xlsx)가 최근 GB_DAYS 일(기본 14) 안인 것만 봅니다.
+// 오래된 파일까지 매일 다시 읽을 이유가 없습니다. 다시 돌려도 줄이 늘지는 않습니다.
+function expandPaths(args) {
+  const out = [];
+  const days = Number(process.env.GB_DAYS || 14);
+  const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
+  for (const p of args) {
+    let stat = null;
+    try { stat = fs.statSync(p); } catch (e) { console.error('없는 경로라 건너뜁니다: ' + p); continue; }
+    if (!stat.isDirectory()) { out.push(p); continue; }
+    fs.readdirSync(p)
+      .filter((n) => /\.(xlsx|xls|csv)$/i.test(n) && !n.startsWith('~$'))
+      .sort()
+      .forEach((n) => {
+        // 20260918-0920_일매출.xlsx 처럼 여러 날짜가 붙은 파일은 앞 날짜로 봅니다.
+        const m = n.match(/(\d{8})/);
+        if (m && m[1] < since) return;
+        out.push(p.replace(/[\\/]$/, '') + '/' + n);
+      });
+  }
+  return out;
+}
+
 async function main() {
-  const path = process.argv[2];
-  if (!path) {
-    console.error('파일 경로를 넣어주세요.\n  node scripts/groupbuy-orders-sync.js "C:/.../260921_매출DB.xlsx"');
+  const paths = expandPaths(process.argv.slice(2));
+  if (!paths.length) {
+    console.error('파일이나 폴더 경로를 넣어주세요.\n  node scripts/groupbuy-orders-sync.js "C:/.../260921_매출DB.xlsx"\n  node scripts/groupbuy-orders-sync.js "//172.30.1.100/영업팀/.../2026.09"');
     process.exit(1);
   }
+  if (paths.length > 1) {
+    // 여러 개면 하나씩 이 스크립트를 다시 돌립니다. 파일마다 결과를 따로 보여 주려고요.
+    const { execFileSync } = require('child_process');
+    let fail = 0;
+    for (const p of paths) {
+      console.log('\n────────── ' + p.split(/[\\/]/).pop());
+      try {
+        execFileSync(process.execPath, [__filename, p], { stdio: 'inherit', env: process.env });
+      } catch (e) { fail++; console.error('  ↑ 실패'); }
+    }
+    console.log(`\n전체 ${paths.length}개 중 ${paths.length - fail}개 성공` + (fail ? `, ${fail}개 실패` : ''));
+    process.exit(fail ? 1 : 0);
+  }
+  const path = paths[0];
   const rows = readFile(path);
   if (!rows) {
     console.error('주문 내역을 찾지 못했습니다. "판매처 옵션"(또는 옵션명)과 "판매가" 칸이 있어야 합니다.');
