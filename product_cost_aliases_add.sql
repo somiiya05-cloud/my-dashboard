@@ -18,3 +18,14 @@ select a.quote_product_name as "견적서 품명",
 from product_cost_aliases a
 join product_cost c on c.id = a.cost_product_id
 order by a.created_at;
+
+
+-- ─────────────────────────────────────────────
+-- 추가 — 가글
+-- 개당원가는 원가 대시보드의 1,720원이 맞다고 확인받았습니다.
+-- 집다운 손익 파일이 1,837원으로 잡고 있던 것이 잘못된 값이었습니다.
+-- ─────────────────────────────────────────────
+insert into product_cost_aliases (quote_product_key, quote_product_name, cost_product_id, memo)
+select '가글', '가글', 307, '[빠이러스] ♡킬파이어 꽃 가글 1,720원'
+where exists (select 1 from product_cost c where c.id = 307)
+  and not exists (select 1 from product_cost_aliases a where a.quote_product_key = '가글');
