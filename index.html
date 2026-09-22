@@ -1901,6 +1901,7 @@
           <div class="nav-item" id="navTeamSchedule" onclick="switchView('team-schedule', 'main')"><span class="dot dot-team"></span>프로모션</div>
           <div id="navScheduleSub">
             <div class="nav-subitem" data-schedulesub="main" onclick="switchView('team-schedule', 'main')">일정</div>
+            <div class="nav-subitem" data-schedulesub="sales" onclick="switchView('team-schedule', 'sales')">프로모션 매출</div>
             <div class="nav-subitem" data-schedulesub="settlement" onclick="switchView('team-schedule', 'settlement')">정산</div>
             <div class="nav-subitem" data-schedulesub="feecalc" onclick="switchView('team-schedule', 'feecalc')">공구 정산 계산</div>
           </div>
@@ -3364,6 +3365,57 @@
           <table>
             <thead><tr><th>몰/채널</th><th>행사명</th><th>시작일</th><th>종료일</th><th>메모</th><th></th></tr></thead>
             <tbody id="mallEventTable"></tbody>
+          </table>
+        </div>
+      </section>
+      </div>
+
+      <!-- 프로모션 매출 — 구글시트 "이혜원_외부몰 행사 분석"을 옮겨온 화면입니다.
+           행사 한 건에 참여상품 여러 줄을 달고, 할인율·매출액·증감은 전부 여기서 계산합니다. -->
+      <div id="scheduleSubSales" style="display:none">
+      <section class="kpi-row" id="promoKpiRow"></section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>월별 행사 매출</h2>
+          <span class="panel-note" id="promoMonthNote"></span>
+        </div>
+        <div class="scroll-box">
+          <table class="table-center-head">
+            <thead><tr><th>월</th><th class="num">행사 매출</th><th class="num">월 목표</th><th class="num">달성률</th><th class="num">직전 동일기간</th><th class="num">증감</th><th class="num">증감률</th><th class="num">행사</th></tr></thead>
+            <tbody id="promoMonthTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>행사 등록</h2></div>
+        <form class="deal-form" id="promoEventForm">
+          <input type="text" name="mall" placeholder="판매처 (예: 오늘의집, 지그재그)" style="flex:1; min-width:150px;">
+          <input type="text" name="title" placeholder="기획전명" required style="flex:2; min-width:180px;">
+          <input type="date" name="startDate" required>
+          <input type="date" name="endDate" required>
+          <select name="status">
+            <option value="시작전">시작전</option>
+            <option value="진행중">진행중</option>
+            <option value="종료">종료</option>
+          </select>
+          <input type="number" name="baseline" placeholder="기획전 전 동일기간 매출" style="flex:1; min-width:170px;">
+          <button type="submit" class="btn-primary">추가</button>
+          <button type="button" class="filter-reset-btn" onclick="promoImportFromSchedule()">일정에서 행사 가져오기</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>행사별 성과</h2>
+          <input type="text" id="promoSearch" class="settlement-search" placeholder="판매처·기획전명·참여상품 검색" oninput="renderPromoEvents()">
+          <span class="panel-note" id="promoEventNote"></span>
+        </div>
+        <div class="scroll-box">
+          <table class="table-center-head">
+            <thead><tr><th>진행일정</th><th>판매처</th><th>기획전명</th><th>상태</th><th class="num">참여상품</th><th class="num">판매수량</th><th class="num">총 매출액</th><th class="num">기획전 전 동일기간</th><th class="num">증감</th><th class="num">증감률</th><th></th></tr></thead>
+            <tbody id="promoEventTable"></tbody>
           </table>
         </div>
       </section>
@@ -6287,12 +6339,14 @@
     if (view === 'team-schedule') {
       currentScheduleSub = brandChannel || currentScheduleSub;
       document.getElementById('scheduleSubMain').style.display = currentScheduleSub === 'main' ? '' : 'none';
+      document.getElementById('scheduleSubSales').style.display = currentScheduleSub === 'sales' ? '' : 'none';
       document.getElementById('scheduleSubSettlement').style.display = currentScheduleSub === 'settlement' ? '' : 'none';
       document.getElementById('scheduleSubFeeCalc').style.display = currentScheduleSub === 'feecalc' ? '' : 'none';
       // 제목·부제는 화면마다 다르게 답니다. 셋이 같은 머리말을 쓰고 있어서, 정산 화면에도
       // 일정 설명이 그대로 떠 있었습니다.
       const head = {
         main: ['프로모션', '공구 일정은 인플루언서 매니저에서 자동 동기화되고, 외부몰 행사는 아래에서 직접 등록합니다.'],
+        sales: ['프로모션 매출', '외부몰 기획전별 참여상품·판매수량을 넣으면 할인율과 매출, 직전 동일기간 대비 증감을 계산합니다.'],
         settlement: ['공동구매 정산', '공구별 매출·수수료·수금을 관리합니다. 매출과 수수료는 공구 정산 계산에서 넣을 수 있습니다.'],
         feecalc: ['공구 정산 계산', '끝난 공구를 고르면 쌓아둔 주문으로 수수료를 계산하고 정산서를 뽑습니다.']
       }[currentScheduleSub] || ['프로모션', ''];
@@ -6300,6 +6354,7 @@
       document.getElementById('scheduleSubtitle').textContent = head[1];
       // 요율 표는 이 화면에 들어올 때만 불러옵니다(일정·정산 화면에는 쓰이지 않습니다).
       if (currentScheduleSub === 'feecalc') loadGbFeeRates();
+      if (currentScheduleSub === 'sales') loadPromoSales();
     }
     if (view === 'monthly-trend') renderMonthlyTrendView();
     if (view === 'pipeline') loadPipeline();
@@ -12197,6 +12252,329 @@
     const { error } = await client.from('mall_events').delete().eq('id', id);
     if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
     loadTeamSchedule();
+  }
+
+  // ---- 프로모션 매출 (외부몰 기획전 성과) ----
+  // 구글시트 "영업팀_OKR 진척도 > 이혜원_외부몰 행사 분석"과 같은 계산입니다.
+  //   할인율    = 1 - 프로모션가 / 판매가
+  //   품별 매출액 = 프로모션가 × 판매수량
+  //   총 매출액  = 품별 매출액 합
+  //   증감      = 총 매출액 - 기획전 전 동일기간 매출 (기준이 0이면 증감률은 계산하지 않습니다)
+  // 표는 promo_sales.sql 로 만든 세 테이블을 씁니다.
+  const PROMO_DEFAULT_TARGET = 3000000; // 시트의 "월 행사 목표매출" 기본값
+  const PROMO_STATUSES = ['시작전', '진행중', '종료'];
+  let promoEventRows = [];
+  let promoItemRows = [];
+  let promoTargetRows = [];
+  const promoOpenIds = new Set(); // 참여상품 줄을 펼쳐둔 행사 id
+
+  async function loadPromoSales() {
+    const table = document.getElementById('promoEventTable');
+    if (table) table.innerHTML = '<tr><td colspan="11" class="gs-empty">불러오는 중...</td></tr>';
+    const [eventRes, itemRes, targetRes] = await Promise.all([
+      client.from('promo_events').select('*').order('start_date', { ascending: false }),
+      client.from('promo_event_items').select('*').order('id', { ascending: true }),
+      client.from('promo_monthly_targets').select('*')
+    ]);
+    if (eventRes.error) {
+      if (table) table.innerHTML = `<tr><td colspan="11" class="gs-empty error">행사를 불러오지 못했습니다: ${escapeAttr(eventRes.error.message)} — promo_sales.sql 을 Supabase SQL Editor에서 먼저 실행해 주세요.</td></tr>`;
+      return;
+    }
+    promoEventRows = eventRes.data || [];
+    promoItemRows = itemRes.error ? [] : (itemRes.data || []);
+    promoTargetRows = targetRes.error ? [] : (targetRes.data || []);
+    renderPromoKpis();
+    renderPromoMonths();
+    renderPromoEvents();
+  }
+
+  function promoItemsOf(eventId) { return promoItemRows.filter((it) => it.event_id === eventId); }
+  function promoItemRevenue(it) {
+    // 프로모션가가 비어 있으면 판매가로 계산합니다(할인 없이 참여한 상품).
+    const price = Number(it.promo_price) || Number(it.list_price) || 0;
+    return price * (Number(it.qty) || 0);
+  }
+  function promoEventTotal(ev) { return promoItemsOf(ev.id).reduce((s, it) => s + promoItemRevenue(it), 0); }
+  function promoEventQty(ev) { return promoItemsOf(ev.id).reduce((s, it) => s + (Number(it.qty) || 0), 0); }
+  function promoMonthOf(ev) { return (ev.start_date || '').slice(0, 7); }
+  function promoTargetOf(month) {
+    const hit = promoTargetRows.find((t) => t.month === month);
+    return hit ? Number(hit.target) : PROMO_DEFAULT_TARGET;
+  }
+  function promoPct(v, digits = 1) { return v == null ? '-' : (v * 100).toFixed(digits) + '%'; }
+  // 기준 매출이 없으면 증감률을 낼 수 없습니다 — 시트에서 #DIV/0! 이 뜨던 자리입니다.
+  function promoRate(diff, base) { return base ? diff / base : null; }
+  // 시트와 같이 늘면 빨강 ▲, 줄면 파랑 ▼.
+  function promoDiffCell(diff, base) {
+    if (!base) return '<span style="color:#94a3b8;">-</span>';
+    const color = diff >= 0 ? '#dc2626' : '#2563eb';
+    return `<span style="color:${color}; font-weight:600;">${diff >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(diff)).toLocaleString('ko-KR')}</span>`;
+  }
+
+  function renderPromoKpis() {
+    const root = document.getElementById('promoKpiRow');
+    if (!root) return;
+    const thisMonth = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(0, 7);
+    const monthEvents = promoEventRows.filter((ev) => promoMonthOf(ev) === thisMonth);
+    const monthTotal = monthEvents.reduce((s, ev) => s + promoEventTotal(ev), 0);
+    const monthBase = monthEvents.reduce((s, ev) => s + (Number(ev.baseline_sales) || 0), 0);
+    const target = promoTargetOf(thisMonth);
+    const achieved = target ? monthTotal / target : null;
+    const running = promoEventRows.filter((ev) => ev.status === '진행중').length;
+    root.innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label">이번 달 행사 매출</div>
+        <div class="kpi-value">${won(Math.round(monthTotal))}</div>
+        <div class="kpi-sub">${Number(thisMonth.slice(5))}월 · 행사 ${monthEvents.length}건</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">월 목표 달성률</div>
+        <div class="kpi-value" style="color:${achieved != null && achieved >= 1 ? '#15803d' : '#b45309'}">${promoPct(achieved, 0)}</div>
+        <div class="kpi-sub">목표 ${won(target)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">직전 동일기간 대비</div>
+        <div class="kpi-value">${promoDiffCell(monthTotal - monthBase, monthBase)}</div>
+        <div class="kpi-sub">${monthBase ? '기준 ' + won(Math.round(monthBase)) : '기준 매출 미입력'}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">진행 중 행사</div>
+        <div class="kpi-value">${running}건</div>
+        <div class="kpi-sub">전체 ${promoEventRows.length}건</div>
+      </div>
+    `;
+  }
+
+  // 행사 시작일이 속한 달로 묶습니다(시트도 월별로 나눠 TOTAL을 냅니다).
+  function renderPromoMonths() {
+    const note = document.getElementById('promoMonthNote');
+    const table = document.getElementById('promoMonthTable');
+    if (!table) return;
+    const months = new Map();
+    promoEventRows.forEach((ev) => {
+      const m = promoMonthOf(ev);
+      if (!m) return;
+      if (!months.has(m)) months.set(m, { total: 0, base: 0, count: 0 });
+      const cur = months.get(m);
+      cur.total += promoEventTotal(ev);
+      cur.base += Number(ev.baseline_sales) || 0;
+      cur.count += 1;
+    });
+    const keys = [...months.keys()].sort().reverse();
+    if (note) note.textContent = keys.length ? keys.length + '개월' : '';
+    if (!keys.length) {
+      table.innerHTML = '<tr><td colspan="8" class="gs-empty">등록된 행사가 없습니다.</td></tr>';
+      return;
+    }
+    table.innerHTML = keys.map((m) => {
+      const v = months.get(m);
+      const target = promoTargetOf(m);
+      const diff = v.total - v.base;
+      const achieved = target ? v.total / target : null;
+      return `
+      <tr>
+        <td>${Number(m.slice(0, 4))}년 ${Number(m.slice(5))}월</td>
+        <td class="num" style="font-weight:700;">${Math.round(v.total).toLocaleString('ko-KR')}</td>
+        <td class="num"><input type="number" class="inline-edit" style="width:110px; text-align:right;" value="${target}"
+          onchange="updatePromoTarget('${m}', this.value)"></td>
+        <td class="num" style="font-weight:600; color:${achieved != null && achieved >= 1 ? '#15803d' : '#b45309'}">${promoPct(achieved, 0)}</td>
+        <td class="num">${v.base ? Math.round(v.base).toLocaleString('ko-KR') : '-'}</td>
+        <td class="num">${promoDiffCell(diff, v.base)}</td>
+        <td class="num">${promoPct(promoRate(diff, v.base))}</td>
+        <td class="num">${v.count}건</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderPromoEvents() {
+    const note = document.getElementById('promoEventNote');
+    const table = document.getElementById('promoEventTable');
+    if (!table) return;
+    const q = (document.getElementById('promoSearch')?.value || '').trim().toLowerCase();
+    const rows = promoEventRows.filter((ev) => {
+      if (!q) return true;
+      const hay = [ev.mall, ev.title, ev.memo].concat(promoItemsOf(ev.id).map((it) => it.product_name));
+      return hay.filter(Boolean).join(' ').toLowerCase().includes(q);
+    });
+    if (note) note.textContent = rows.length + '건';
+    if (!rows.length) {
+      table.innerHTML = `<tr><td colspan="11" class="gs-empty">${q ? '검색 결과가 없습니다.' : '등록된 행사가 없습니다. 위에서 행사를 먼저 추가해 주세요.'}</td></tr>`;
+      return;
+    }
+    table.innerHTML = rows.map((ev) => {
+      const items = promoItemsOf(ev.id);
+      const total = promoEventTotal(ev);
+      const base = Number(ev.baseline_sales) || 0;
+      const diff = total - base;
+      const open = promoOpenIds.has(ev.id);
+      const row = `
+      <tr class="${ev.status === '종료' ? 'gs-row-done' : ''}">
+        <td style="white-space:nowrap;">${gsShortDate(ev.start_date)} - ${gsShortDate(ev.end_date)}</td>
+        <td>${escapeAttr(ev.mall || '-')}</td>
+        <td>${escapeAttr(ev.title || '')}</td>
+        <td>
+          <select class="inline-edit" onchange="updatePromoEventField(${ev.id}, 'status', this.value)">
+            ${PROMO_STATUSES.map((s) => `<option value="${s}"${ev.status === s ? ' selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </td>
+        <td class="num"><button type="button" class="filter-reset-btn" onclick="promoToggleItems(${ev.id})">${open ? '▾' : '▸'} ${items.length}개</button></td>
+        <td class="num">${promoEventQty(ev).toLocaleString('ko-KR')}</td>
+        <td class="num" style="font-weight:700;">${Math.round(total).toLocaleString('ko-KR')}</td>
+        <td class="num"><input type="number" class="inline-edit" style="width:110px; text-align:right;" value="${ev.baseline_sales ?? ''}"
+          onchange="updatePromoEventField(${ev.id}, 'baseline_sales', this.value)"></td>
+        <td class="num">${promoDiffCell(diff, base)}</td>
+        <td class="num">${promoPct(promoRate(diff, base))}</td>
+        <td><button class="btn-danger" onclick="deletePromoEvent(${ev.id})">삭제</button></td>
+      </tr>`;
+      return row + (open ? promoItemsRowHtml(ev, items) : '');
+    }).join('');
+  }
+
+  // 행사 아래에 펼쳐지는 참여상품 표 + 상품 추가 줄.
+  function promoItemsRowHtml(ev, items) {
+    const body = items.length ? items.map((it) => {
+      const list = Number(it.list_price) || 0;
+      const promo = Number(it.promo_price) || 0;
+      const disc = list && promo ? 1 - promo / list : null;
+      return `
+        <tr>
+          <td><input type="text" class="inline-edit" value="${escapeAttr(it.product_name || '')}"
+            onchange="updatePromoItemField(${it.id}, 'product_name', this.value)"></td>
+          <td class="num"><input type="number" class="inline-edit" style="width:100px; text-align:right;" value="${it.list_price ?? ''}"
+            onchange="updatePromoItemField(${it.id}, 'list_price', this.value)"></td>
+          <td class="num"><input type="number" class="inline-edit" style="width:100px; text-align:right;" value="${it.promo_price ?? ''}"
+            onchange="updatePromoItemField(${it.id}, 'promo_price', this.value)"></td>
+          <td class="num">${promoPct(disc, 0)}</td>
+          <td class="num"><input type="number" class="inline-edit" style="width:80px; text-align:right;" value="${it.qty ?? 0}"
+            onchange="updatePromoItemField(${it.id}, 'qty', this.value)"></td>
+          <td class="num" style="font-weight:600;">${Math.round(promoItemRevenue(it)).toLocaleString('ko-KR')}</td>
+          <td><button class="btn-danger" onclick="deletePromoItem(${it.id})">삭제</button></td>
+        </tr>`;
+    }).join('') : '<tr><td colspan="7" class="gs-empty">참여상품이 없습니다. 아래에서 추가해 주세요.</td></tr>';
+    return `
+      <tr><td colspan="11" style="background:#f8fafc;">
+        <table class="table-center-head" style="width:100%;">
+          <thead><tr><th>참여상품</th><th class="num">판매가</th><th class="num">프로모션가</th><th class="num">할인율</th><th class="num">판매수량</th><th class="num">품별 매출액</th><th></th></tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+        <form class="deal-form" style="margin-top:8px;" onsubmit="return addPromoItem(event, ${ev.id})">
+          <input type="text" name="productName" placeholder="참여상품" required style="flex:2; min-width:160px;">
+          <input type="number" name="listPrice" placeholder="판매가" style="width:110px;">
+          <input type="number" name="promoPrice" placeholder="프로모션가" style="width:120px;">
+          <input type="number" name="qty" placeholder="판매수량" style="width:100px;">
+          <button type="submit" class="btn-primary">상품 추가</button>
+        </form>
+      </td></tr>`;
+  }
+
+  function promoToggleItems(id) {
+    if (promoOpenIds.has(id)) promoOpenIds.delete(id); else promoOpenIds.add(id);
+    renderPromoEvents();
+  }
+
+  document.getElementById('promoEventForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const title = form.title.value.trim();
+    const startDate = form.startDate.value;
+    const endDate = form.endDate.value;
+    if (!title || !startDate || !endDate) return;
+    const { error } = await client.from('promo_events').insert([{
+      mall: form.mall.value.trim() || null,
+      title,
+      start_date: startDate,
+      end_date: endDate,
+      status: form.status.value,
+      baseline_sales: form.baseline.value.trim() === '' ? null : Number(form.baseline.value)
+    }]);
+    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+    form.reset();
+    loadPromoSales();
+  });
+
+  async function updatePromoEventField(id, field, rawValue) {
+    const text = String(rawValue).trim();
+    const value = field === 'baseline_sales'
+      ? (text === '' ? null : Number(text))
+      : (text || null);
+    const { error } = await client.from('promo_events').update({ [field]: value }).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadPromoSales();
+  }
+
+  async function deletePromoEvent(id) {
+    if (!confirm('이 행사를 참여상품까지 함께 삭제할까요?')) return;
+    const { error } = await client.from('promo_events').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    promoOpenIds.delete(id);
+    loadPromoSales();
+  }
+
+  async function addPromoItem(e, eventId) {
+    e.preventDefault();
+    const form = e.target;
+    const productName = form.productName.value.trim();
+    if (!productName) return false;
+    const num = (v) => (String(v).trim() === '' ? null : Number(v));
+    const { error } = await client.from('promo_event_items').insert([{
+      event_id: eventId,
+      product_name: productName,
+      list_price: num(form.listPrice.value),
+      promo_price: num(form.promoPrice.value),
+      qty: Number(form.qty.value) || 0
+    }]);
+    if (error) { alert('상품을 추가하지 못했습니다: ' + error.message); return false; }
+    promoOpenIds.add(eventId);
+    loadPromoSales();
+    return false;
+  }
+
+  async function updatePromoItemField(id, field, rawValue) {
+    const text = String(rawValue).trim();
+    let value;
+    if (field === 'product_name') value = text || null;
+    else if (field === 'qty') value = Number(text) || 0;
+    else value = text === '' ? null : Number(text);
+    const { error } = await client.from('promo_event_items').update({ [field]: value }).eq('id', id);
+    if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
+    loadPromoSales();
+  }
+
+  async function deletePromoItem(id) {
+    if (!confirm('이 참여상품을 삭제할까요?')) return;
+    const { error } = await client.from('promo_event_items').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadPromoSales();
+  }
+
+  async function updatePromoTarget(month, rawValue) {
+    const target = Number(rawValue) || 0;
+    const { error } = await client.from('promo_monthly_targets')
+      .upsert([{ month, target, updated_at: new Date().toISOString() }], { onConflict: 'month' });
+    if (error) { alert('목표를 저장하지 못했습니다: ' + error.message); return; }
+    loadPromoSales();
+  }
+
+  // 일정 화면(외부몰 행사)에 등록해 둔 행사를 그대로 끌어옵니다.
+  // 행사명+시작일이 같은 건은 이미 있는 것으로 보고 건너뜁니다.
+  async function promoImportFromSchedule() {
+    const { data, error } = await client.from('mall_events').select('*').order('start_date', { ascending: false });
+    if (error) { alert('일정을 불러오지 못했습니다: ' + error.message); return; }
+    const seen = new Set(promoEventRows.map((ev) => `${ev.title}|${ev.start_date}`));
+    const fresh = (data || []).filter((ev) => !seen.has(`${ev.title}|${ev.start_date}`));
+    if (!fresh.length) { alert('가져올 새 행사가 없습니다.'); return; }
+    if (!confirm(`일정에 등록된 외부몰 행사 ${fresh.length}건을 가져올까요?`)) return;
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    const { error: insertError } = await client.from('promo_events').insert(fresh.map((ev) => ({
+      mall: ev.mall,
+      title: ev.title,
+      start_date: ev.start_date,
+      end_date: ev.end_date,
+      status: ev.end_date < todayStr ? '종료' : (ev.start_date > todayStr ? '시작전' : '진행중'),
+      memo: ev.memo
+    })));
+    if (insertError) { alert('가져오지 못했습니다: ' + insertError.message); return; }
+    loadPromoSales();
   }
 
   // ---- 정산 (공동구매 · 수출) ----
