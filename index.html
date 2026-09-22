@@ -3445,6 +3445,7 @@
           <h2>행사별 성과</h2>
           <input type="text" id="promoSearch" class="settlement-search" placeholder="판매처·기획전명·참여상품 검색" oninput="renderPromoEvents()">
           <span class="panel-note" id="promoEventNote"></span>
+          <button type="button" class="filter-reset-btn" onclick="promoImportFromSchedule()">일정에서 외부몰 행사 가져오기</button>
         </div>
         <div class="scroll-box">
           <table class="table-center-head">
@@ -12687,6 +12688,33 @@
     const { error } = await client.from('promo_monthly_targets')
       .upsert([{ month, target, updated_at: new Date().toISOString() }], { onConflict: 'month' });
     if (error) { alert('목표를 저장하지 못했습니다: ' + error.message); return; }
+    loadPromoSales();
+  }
+
+  // 일정 화면의 "외부몰 행사"(mall_events)만 끌어옵니다 — 공구 일정은 가져오지 않습니다.
+  // 기획전명+시작일이 같은 건은 이미 있는 것으로 보고 건너뜁니다.
+  // 실적 월은 비워둡니다(시작일이 속한 달로 셉니다). 필요하면 표에서 고치면 됩니다.
+  async function promoImportFromSchedule() {
+    const { data, error } = await client.from('mall_events').select('*').order('start_date', { ascending: false });
+    if (error) { alert('일정을 불러오지 못했습니다: ' + error.message); return; }
+    const seen = new Set(promoEventRows.map((ev) => `${ev.title}|${ev.start_date}`));
+    const fresh = (data || []).filter((ev) => ev.title && ev.start_date && ev.end_date
+      && !seen.has(`${ev.title}|${ev.start_date}`));
+    if (!fresh.length) { alert('일정에 있는 외부몰 행사는 이미 전부 들어와 있습니다.'); return; }
+    const preview = fresh.slice(0, 8).map((ev) => `· ${ev.start_date} ${ev.mall ? '[' + ev.mall + '] ' : ''}${ev.title}`).join('\n');
+    const more = fresh.length > 8 ? `\n… 외 ${fresh.length - 8}건` : '';
+    if (!confirm(`일정의 외부몰 행사 ${fresh.length}건을 가져옵니다.\n\n${preview}${more}`)) return;
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    const { error: insertError } = await client.from('promo_events').insert(fresh.map((ev) => ({
+      mall: ev.mall,
+      title: ev.title,
+      start_date: ev.start_date,
+      end_date: ev.end_date,
+      // 오늘 기준으로 상태를 미리 찍어둡니다(표에서 바꿀 수 있습니다).
+      status: ev.end_date < todayStr ? '종료' : (ev.start_date > todayStr ? '시작전' : '진행중'),
+      memo: ev.memo
+    })));
+    if (insertError) { alert('가져오지 못했습니다: ' + insertError.message); return; }
     loadPromoSales();
   }
 
