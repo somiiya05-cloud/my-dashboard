@@ -419,6 +419,11 @@
     font-size: 12.5px; font-weight: 800; color: #3b63d4; flex-shrink: 0;
   }
   .jw-cmt-who.staff { color: #15803d; }
+  /* 이어가는 업무에서 지난 날짜에 적힌 댓글임을 알려주는 표시 */
+  .jw-cmt-day {
+    flex-shrink: 0; font-size: 10.5px; font-weight: 800; color: #94a3b8;
+    background: rgba(100,116,139,.1); border-radius: 999px; padding: 1px 6px;
+  }
   .jw-cmt-who::after { content: " :"; }
   /* 시간·답글·삭제는 본문 뒤에 작게 따라붙습니다 */
   .jw-cmt-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
@@ -10352,8 +10357,27 @@
     const detail = t.detail || '';
     return /^그룹:/.test(detail) ? '' : detail;
   }
+  // 「이어가기」로 며칠에 걸쳐 만든 업무는 날마다 줄이 새로 생깁니다. 댓글은 줄(task_id)에
+  // 붙어 있어서, 그냥 두면 다음 날 줄에서는 어제 적은 담당자 댓글이 안 보입니다.
+  // 그래서 같은 담당자·같은 업무명의 줄들을 한 갈래로 보고 댓글을 모아서 보여줍니다.
+  // 매일 자동으로 생기는 루틴 업무는 그날 이야기만 남아야 하므로 그대로 둡니다.
+  function jwCommentTaskIds(t) {
+    if (!t || JW_ROUTINE_TITLES.has(t.title)) return t ? [t.id] : [];
+    const ids = currentTasks
+      .filter((x) => x.assignee === t.assignee && x.title === t.title)
+      .map((x) => x.id);
+    return ids.length ? ids : [t.id];
+  }
+
+  function jwCommentsOf(taskId) {
+    const t = currentTasks.find((x) => x.id === taskId);
+    const out = [];
+    jwCommentTaskIds(t).forEach((id) => { (jwTaskComments[id] || []).forEach((c) => out.push(c)); });
+    return out.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  }
+
   function jwHasComment(id) {
-    return (jwTaskComments[id] || []).length > 0;
+    return jwCommentsOf(id).length > 0;
   }
 
   // 배지는 누가 썼는지에 따라 다릅니다.
@@ -10361,7 +10385,7 @@
   //   파트장이 쓴 글             → "코멘트 있음"
   // 둘 다 있으면 배지도 둘 다 붙습니다.
   function jwCommentTagsHtml(id) {
-    const list = jwTaskComments[id] || [];
+    const list = jwCommentsOf(id);
     if (!list.length) return '';
     const byStaff = list.some((c) => c.author !== '파트장');
     const byLead = list.some((c) => c.author === '파트장');
@@ -10584,25 +10608,33 @@
     return new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
-  function jwCommentRowHtml(c, isReply) {
+  function jwCommentRowHtml(c, isReply, viewTaskId) {
+    const on = viewTaskId == null ? c.task_id : viewTaskId;
+    // 오늘 줄이 아닌 날에 적힌 댓글이면 언제 적은 것인지 앞에 표시합니다.
+    const src = currentTasks.find((x) => x.id === c.task_id);
+    const view = currentTasks.find((x) => x.id === on);
+    const 다른날 = src && view && src.due_date && view.due_date && src.due_date !== view.due_date;
     return `
       <div class="jw-cmt${isReply ? ' reply' : ''}">
+        ${다른날 ? `<span class="jw-cmt-day" title="${escapeAttr(src.due_date)} 업무에 적은 댓글입니다">${escapeAttr(src.due_date.slice(5).replace('-', '/'))}</span>` : ''}
         <span class="jw-cmt-who${c.author === '담당자' ? ' staff' : ''}">${escapeAttr(c.author)}</span>
         <span class="jw-cmt-body">${escapeAttr(c.body)}</span>
         <span class="jw-cmt-meta">
           <span class="jw-cmt-time">${escapeAttr(jwCmtTime(c.created_at))}</span>
-          ${isReply ? '' : `<button type="button" class="jw-cmt-act" onclick="jwSetReplyTarget(${c.task_id}, ${c.id})">답글</button>`}
-          <button type="button" class="jw-cmt-act danger" onclick="jwDeleteComment(${c.task_id}, ${c.id})">삭제</button>
+          ${isReply ? '' : `<button type="button" class="jw-cmt-act" onclick="jwSetReplyTarget(${on}, ${c.id})">답글</button>`}
+          <button type="button" class="jw-cmt-act danger" onclick="jwDeleteComment(${on}, ${c.id})">삭제</button>
         </span>
       </div>`;
   }
 
   function jwCommentBoxHtml(taskId) {
-    const all = (jwTaskComments[taskId] || []).slice().sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    const all = jwCommentsOf(taskId);
     const roots = all.filter(c => !c.parent_id);
     const repliesOf = (pid) => all.filter(c => c.parent_id === pid);
 
-    const listHtml = roots.map(r => jwCommentRowHtml(r, false) + repliesOf(r.id).map(x => jwCommentRowHtml(x, true)).join('')).join('');
+    // 답글·삭제 단추는 지금 보고 있는 줄을 기준으로 달아야 그 자리에서 다시 그려집니다.
+    const listHtml = roots.map(r => jwCommentRowHtml(r, false, taskId)
+      + repliesOf(r.id).map(x => jwCommentRowHtml(x, true, taskId)).join('')).join('');
 
     const replyingTo = jwReplyTarget[taskId]
       ? all.find(c => c.id === jwReplyTarget[taskId])
@@ -10668,7 +10700,10 @@
     // 대댓글을 먼저 지우고 댓글을 지웁니다 (남아서 떠도는 답글이 없도록).
     const del = await client.from('team_task_comments').delete().or('id.eq.' + commentId + ',parent_id.eq.' + commentId);
     if (del.error) { alert('삭제하지 못했습니다: ' + del.error.message); return; }
-    jwTaskComments[taskId] = (jwTaskComments[taskId] || []).filter(c => c.id !== commentId && c.parent_id !== commentId);
+    // 이어가는 업무는 어제 줄에 달린 댓글도 함께 보이므로, 모든 줄에서 지웁니다.
+    Object.keys(jwTaskComments).forEach((k) => {
+      jwTaskComments[k] = jwTaskComments[k].filter(c => c.id !== commentId && c.parent_id !== commentId);
+    });
     if (jwReplyTarget[taskId] === commentId) jwReplyTarget[taskId] = null;
     jwRenderCommentBox(taskId);
   }
