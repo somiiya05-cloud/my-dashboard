@@ -3441,25 +3441,6 @@
       </section>
 
       <section class="panel">
-        <div class="panel-head"><h2>행사 등록</h2></div>
-        <form class="deal-form" id="promoEventForm">
-          <input type="text" name="mall" placeholder="판매처 (예: 오늘의집, 지그재그)" style="flex:1; min-width:150px;">
-          <input type="text" name="title" placeholder="기획전명" required style="flex:2; min-width:180px;">
-          <input type="date" name="startDate" required>
-          <input type="date" name="endDate" required>
-          <select name="status">
-            <option value="시작전">시작전</option>
-            <option value="진행중">진행중</option>
-            <option value="종료">종료</option>
-          </select>
-          <input type="number" name="baseline" placeholder="기획전 전 동일기간 매출" style="flex:1; min-width:170px;">
-          <input type="month" name="month" title="실적 월 — 비우면 시작일이 속한 달로 셉니다." style="width:130px;">
-          <button type="submit" class="btn-primary">추가</button>
-          <button type="button" class="filter-reset-btn" onclick="promoImportFromSchedule()">일정에서 행사 가져오기</button>
-        </form>
-      </section>
-
-      <section class="panel">
         <div class="panel-head">
           <h2>행사별 성과</h2>
           <input type="text" id="promoSearch" class="settlement-search" placeholder="판매처·기획전명·참여상품 검색" oninput="renderPromoEvents()">
@@ -12646,27 +12627,6 @@
     renderPromoEvents();
   }
 
-  document.getElementById('promoEventForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const title = form.title.value.trim();
-    const startDate = form.startDate.value;
-    const endDate = form.endDate.value;
-    if (!title || !startDate || !endDate) return;
-    const { error } = await client.from('promo_events').insert([{
-      mall: form.mall.value.trim() || null,
-      title,
-      start_date: startDate,
-      end_date: endDate,
-      status: form.status.value,
-      baseline_sales: form.baseline.value.trim() === '' ? null : Number(form.baseline.value),
-      month: form.month.value || null
-    }]);
-    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
-    form.reset();
-    loadPromoSales();
-  });
-
   async function updatePromoEventField(id, field, rawValue) {
     const text = String(rawValue).trim();
     const value = field === 'baseline_sales'
@@ -12727,28 +12687,6 @@
     const { error } = await client.from('promo_monthly_targets')
       .upsert([{ month, target, updated_at: new Date().toISOString() }], { onConflict: 'month' });
     if (error) { alert('목표를 저장하지 못했습니다: ' + error.message); return; }
-    loadPromoSales();
-  }
-
-  // 일정 화면(외부몰 행사)에 등록해 둔 행사를 그대로 끌어옵니다.
-  // 행사명+시작일이 같은 건은 이미 있는 것으로 보고 건너뜁니다.
-  async function promoImportFromSchedule() {
-    const { data, error } = await client.from('mall_events').select('*').order('start_date', { ascending: false });
-    if (error) { alert('일정을 불러오지 못했습니다: ' + error.message); return; }
-    const seen = new Set(promoEventRows.map((ev) => `${ev.title}|${ev.start_date}`));
-    const fresh = (data || []).filter((ev) => !seen.has(`${ev.title}|${ev.start_date}`));
-    if (!fresh.length) { alert('가져올 새 행사가 없습니다.'); return; }
-    if (!confirm(`일정에 등록된 외부몰 행사 ${fresh.length}건을 가져올까요?`)) return;
-    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-    const { error: insertError } = await client.from('promo_events').insert(fresh.map((ev) => ({
-      mall: ev.mall,
-      title: ev.title,
-      start_date: ev.start_date,
-      end_date: ev.end_date,
-      status: ev.end_date < todayStr ? '종료' : (ev.start_date > todayStr ? '시작전' : '진행중'),
-      memo: ev.memo
-    })));
-    if (insertError) { alert('가져오지 못했습니다: ' + insertError.message); return; }
     loadPromoSales();
   }
 
