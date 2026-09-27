@@ -1898,9 +1898,11 @@
         <button type="button" class="workspace-menu-item" data-ws="team" onclick="switchWorkspace('team')">
           <span class="dot dot-team"></span>영업 운영관리
         </button>
-        <button type="button" class="workspace-menu-item" data-ws="task" onclick="switchWorkspace('task')">
-          <span class="dot dot-task"></span>업무관리
-        </button>
+        <!-- 업무관리는 따로 뗀 페이지입니다(tasks.html). 광고 마케팅처럼 새 탭으로 엽니다.
+             매출 10만 행을 받지 않아 바로 뜨고, 보던 매출 화면도 그대로 남습니다. -->
+        <a class="workspace-menu-item" href="tasks.html" target="_blank" rel="noopener">
+          <span class="dot dot-task"></span>업무관리 ↗
+        </a>
       </nav>
 
       <div id="salesNavGroups">
@@ -7336,16 +7338,8 @@
   // 사이드바 워크스페이스 버튼은 항상 노출된 상태라 별도 열고 닫는 로직이 없습니다.
   function switchWorkspace(ws) {
     if (ws === currentWorkspace) return;
-    // 영업 운영관리(team)는 잠금을 풀었고, 업무관리(task)만 비밀번호를 받습니다.
-    if (ws === 'task' && sessionStorage.getItem('teamUnlocked') !== '1') {
-      const input = prompt('워크스페이스 비밀번호를 입력하세요');
-      if (input === null) return;
-      if (input !== TEAM_WORKSPACE_PASSWORD) { alert('비밀번호가 올바르지 않습니다.'); return; }
-      sessionStorage.setItem('teamUnlocked', '1');
-    }
-    // 업무관리는 따로 뗀 페이지입니다. 매출 10만 행을 받지 않아 바로 열립니다.
-    if (ws === 'task') { location.href = 'tasks.html'; return; }
-
+    // 업무관리는 tasks.html 로 빠졌고 비밀번호도 그쪽에서 받습니다.
+    // 여기 남은 워크스페이스는 매출관리와 영업 운영관리 둘뿐이라 잠금이 없습니다.
     currentWorkspace = ws;
 
     document.querySelectorAll('.workspace-menu-item').forEach((el) => {
@@ -9484,6 +9478,10 @@
     }
     statusEl.textContent = '저장됨 · ' + new Date().toISOString().slice(0, 10);
   }
+
+  // 업무관리 페이지에서 "영업 운영관리"를 누르면 index.html#team 으로 옵니다.
+  // 그 표시를 보고 해당 워크스페이스로 바로 넘겨 줍니다.
+  if (location.hash === '#team') switchWorkspace('team');
 
   refreshReviewAlertBadge();
   setupOpsScrollSpy();
