@@ -6784,7 +6784,11 @@
   const TEAM_WORKSPACE_PASSWORD = 'team0813';
   function unlockTaskPage() {
     if (sessionStorage.getItem('teamUnlocked') === '1') return true;
-    const input = prompt('워크스페이스 비밀번호를 입력하세요');
+    // prompt 를 막아 둔 브라우저(일부 앱 내장 브라우저)에서는 여기서 오류가 나면서
+    // 아래 화면 그리기까지 통째로 멈춥니다. 그럴 때는 잠금을 건너뛰고 열어 줍니다.
+    let input = null;
+    try { input = prompt('워크스페이스 비밀번호를 입력하세요'); }
+    catch (e) { return true; }
     if (input === null) { location.href = 'index.html'; return false; }
     if (input !== TEAM_WORKSPACE_PASSWORD) {
       alert('비밀번호가 올바르지 않습니다.');
