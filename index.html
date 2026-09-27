@@ -3422,10 +3422,29 @@
       .reduce((s, r) => s + Number(r.amount), 0);
   }
 
-  let allRows = [];
+  // ---- 매출 데이터는 "고른 달"만 받습니다 ----
+  // 예전에는 열 때마다 전체를 받았습니다. 10만 행 20MB 요청 100회 11.7초였고
+  // 하루 1,400행씩 늘어 계속 느려졌습니다. 화면이 실제로 쓰는 건 대부분 한 달치라,
+  // 달 목록과 증감추이는 요약 뷰로 대신하고 본문은 필요한 달만 받아 쌓아 둡니다.
+  //   · sales_month_list / sales_date_list : sales_summary_views.sql 로 만듭니다
+  let allRows = [];                    // 지금까지 받아둔 행 (달 단위로 쌓임)
+  const loadedMonths = new Set();      // 이미 받은 달
+  let monthSummary = [];               // [{ month, amount, quantity, row_count }]
+  let saleDates = [];                  // 거래가 있었던 날짜 전체 (품별 일자 드롭다운)
 
-  async function loadData() {
-    // Supabase는 한 번에 최대 1000행만 돌려주므로 나눠서 전부 가져옵니다.
+  function salesNote(text) {
+    const el = document.getElementById('subtitle');
+    if (el) el.innerHTML = text;
+  }
+
+  function monthRange(month) {
+    const [y, m] = month.split('-').map(Number);
+    const next = m === 12 ? (y + 1) + '-01-01' : y + '-' + String(m + 1).padStart(2, '0') + '-01';
+    return [month + '-01', next];
+  }
+
+  // 한 달치를 받아 옵니다. 한 달이 1000행을 넘으므로 여기서도 나눠 받습니다.
+  async function fetchRowsBetween(fromDate, toDateExclusive) {
     const pageSize = 1000;
     let from = 0;
     let all = [];
@@ -3433,26 +3452,87 @@
       const { data, error } = await client
         .from('sales_transactions')
         .select('*')
+        .gte('sale_date', fromDate)
+        .lt('sale_date', toDateExclusive)
         .order('sale_date', { ascending: true })
         .order('id', { ascending: true })
         .range(from, from + pageSize - 1);
-
-      if (error) {
-        document.getElementById('subtitle').innerHTML =
-          '<span class="error">데이터를 불러오지 못했습니다: ' + error.message + '</span>';
-        return;
-      }
+      if (error) throw new Error(error.message);
       all = all.concat(data || []);
       if (!data || data.length < pageSize) break;
       from += pageSize;
     }
-    allRows = all;
+    return all;
+  }
+
+  // 필요한 달이 아직 없으면 받아서 allRows 에 더합니다. 이미 있으면 아무것도 안 합니다.
+  async function ensureMonths(months) {
+    const want = (Array.isArray(months) ? months : [months]).filter(m => m && !loadedMonths.has(m));
+    if (!want.length) return true;
+    salesNote('불러오는 중… (' + want.join(', ') + ')');
+    try {
+      for (const m of want) {
+        const [a, b] = monthRange(m);
+        const rows = await fetchRowsBetween(a, b);
+        allRows = allRows.concat(rows);
+        loadedMonths.add(m);
+      }
+    } catch (e) {
+      salesNote('<span class="error">데이터를 불러오지 못했습니다: ' + e.message + '</span>');
+      return false;
+    }
+    allRows.sort((x, y) => (x.sale_date < y.sale_date ? -1 : x.sale_date > y.sale_date ? 1 : x.id - y.id));
+    return true;
+  }
+
+  // 증감추이처럼 전 기간이 필요한 화면에서만 부릅니다.
+  async function ensureAllMonths() {
+    return ensureMonths(monthSummary.map(m => m.month));
+  }
+
+  // 요약 뷰가 없을 때 쓰는 예전 방식 (전체 받기)
+  async function loadAllRowsOnce() {
+    salesNote('불러오는 중… (전체)');
+    try {
+      allRows = await fetchRowsBetween('1900-01-01', '2999-12-31');
+    } catch (e) {
+      salesNote('<span class="error">데이터를 불러오지 못했습니다: ' + e.message + '</span>');
+      return;
+    }
+    const ms = Array.from(new Set(allRows.map(r => r.sale_date.slice(0, 7)))).sort();
+    ms.forEach(m => loadedMonths.add(m));
+    monthSummary = ms.map(m => ({
+      month: m,
+      amount: allRows.filter(r => r.sale_date.slice(0, 7) === m).reduce((t, r) => t + Number(r.amount), 0),
+    }));
+    saleDates = Array.from(new Set(allRows.map(r => r.sale_date))).sort();
+    setupMonthSelector();
+  }
+
+  async function loadData() {
+    const [mRes, dRes] = await Promise.all([
+      client.from('sales_month_list').select('month,amount,quantity,row_count').order('month'),
+      client.from('sales_date_list').select('sale_date').order('sale_date'),
+    ]);
+    if (mRes.error || dRes.error) {
+      // 요약 뷰가 아직 없으면(= sales_summary_views.sql 미실행) 예전처럼 전체를 받습니다.
+      // 화면은 그대로 동작하고, SQL 을 실행하는 순간부터 빨라집니다.
+      console.warn('요약 뷰가 없어 전체를 받습니다 — sales_summary_views.sql 을 실행하면 빨라집니다.',
+        (mRes.error || dRes.error).message);
+      await loadAllRowsOnce();
+      return;
+    }
+    monthSummary = mRes.data || [];
+    saleDates = (dRes.data || []).map(r => r.sale_date);
+    // 맨 처음에는 가장 최근 달만 받습니다. 다른 달은 고를 때 받습니다.
+    const latest = monthSummary.length ? monthSummary[monthSummary.length - 1].month : '';
+    if (latest) await ensureMonths([latest]);
     setupMonthSelector();
   }
 
   function setupMonthSelector() {
     const monthSelect = document.getElementById('monthSelect');
-    const months = Array.from(new Set(allRows.map(r => r.sale_date.slice(0, 7)))).sort();
+    const months = monthSummary.map(m => m.month);
     const prevSelected = monthSelect.value;
 
     monthSelect.innerHTML = months.map(m => {
@@ -3467,7 +3547,8 @@
     renderMonth(monthToShow);
   }
 
-  function renderMonth(monthStr) {
+  async function renderMonth(monthStr) {
+    if (monthStr && !(await ensureMonths([monthStr]))) return;
     const rows = monthStr ? allRows.filter(r => r.sale_date.slice(0, 7) === monthStr) : allRows;
     render(rows, monthStr);
   }
@@ -3939,7 +4020,18 @@
       `).join('');
     }
 
-    function refreshVendorDetailAll(keepSelection) {
+    // 기간을 직접 고른 경우, 그 기간에 걸친 달을 먼저 받아 둡니다.
+    function monthsBetween(from, to) {
+      if (!from && !to) return [];
+      const all = monthSummary.map(m => m.month);
+      const a = (from || '').slice(0, 7);
+      const b = (to || '').slice(0, 7);
+      return all.filter(m => (!a || m >= a) && (!b || m <= b));
+    }
+
+    async function refreshVendorDetailAll(keepSelection) {
+      const need = monthsBetween(vdFromInput.value, vdToInput.value);
+      if (need.length && !(await ensureMonths(need))) return;
       rebuildVendorDetailMaps();
       refreshVendorSelect(keepSelection);
       refreshProductSelect(keepSelection);
@@ -4008,11 +4100,9 @@
 
   // ==================== 월별 매출 증감추이 ====================
   function renderMonthlyTrendView() {
+    // 달별 합계만 있으면 되는 화면이라, 행을 받지 않고 요약 뷰 값을 그대로 씁니다.
     const monthlyTotals = {};
-    allRows.forEach(r => {
-      const mKey = r.sale_date.slice(0, 7);
-      monthlyTotals[mKey] = (monthlyTotals[mKey] || 0) + Number(r.amount);
-    });
+    monthSummary.forEach(m => { monthlyTotals[m.month] = Number(m.amount); });
     const monthKeys = Object.keys(monthlyTotals).sort();
     const monthlyAmounts = monthKeys.map(mKey => {
       const override = COMPANY_ACTUALS_BY_MONTH[mKey];
@@ -5778,8 +5868,8 @@
     const dailyBtn = document.getElementById('productModeDaily');
     const monthlyBtn = document.getElementById('productModeMonthly');
 
-    const dates = Array.from(new Set(allRows.map(r => r.sale_date))).sort();
-    const months = Array.from(new Set(allRows.map(r => r.sale_date.slice(0, 7)))).sort();
+    const dates = saleDates;                       // 거래가 있었던 날짜 전체 (요약 뷰)
+    const months = monthSummary.map(m => m.month);
     if (!dates.length) return; // 데이터 로딩 전
 
     const prevDay = daySelect.value;
@@ -5839,12 +5929,14 @@
     `).join('');
   }
 
-  function renderProductDay(dateStr) {
+  async function renderProductDay(dateStr) {
+    if (!(await ensureMonths([dateStr.slice(0, 7)]))) return;
     const rows = allRows.filter(r => r.sale_date === dateStr);
     renderProductRankTable(rows, dateStr);
   }
 
-  function renderProductMonth(monthStr) {
+  async function renderProductMonth(monthStr) {
+    if (!(await ensureMonths([monthStr]))) return;
     const rows = allRows.filter(r => r.sale_date.slice(0, 7) === monthStr);
     renderProductRankTable(rows, monthStr);
   }
@@ -5883,10 +5975,10 @@
   }
 
   function renderChannelView() {
-    if (!allRows.length) return; // 데이터 로딩 전
+    if (!monthSummary.length) return; // 데이터 로딩 전
 
     const monthSelect = document.getElementById('channelMonthSelect');
-    const months = Array.from(new Set(allRows.map(r => r.sale_date.slice(0, 7)))).sort();
+    const months = monthSummary.map(m => m.month);
     if (!months.length) return;
 
     const prevSelected = monthSelect.value;
@@ -5901,8 +5993,9 @@
     renderChannelMonth(monthToShow);
   }
 
-  function renderChannelMonth(monthStr) {
+  async function renderChannelMonth(monthStr) {
     currentChannelMonth = monthStr;
+    if (!(await ensureMonths([monthStr]))) return;
     const rows = allRows.filter(r => r.sale_date.slice(0, 7) === monthStr);
     const days = Array.from(new Set(rows.map(r => r.sale_date))).sort();
 
