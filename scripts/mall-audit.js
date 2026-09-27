@@ -260,7 +260,12 @@ async function main() {
       // 카페24 상품번호는 자동 증가라 새 상품은 항상 기존 최대 번호보다 위에 생깁니다.
       // 그래서 "알고 있는 최대 번호 위쪽"만 훑으면 진열 여부와 관계없이 당일에 잡힙니다.
       // 몰당 20여 번만 조회하면 되어서 전수 탐색(몰당 수백~1,500번)보다 훨씬 가볍습니다.
+      // 기준이 되는 "알던 최대 번호"는 절대 뒤로 물러나면 안 됩니다.
+      // 공개 목록·감시 목록에서만 뽑으면, 상품을 숨기거나 목록을 정리하는 순간
+      // 기준이 내려가서 이미 알던 상품이 "새 코드"로 다시 잡힙니다.
+      // 그래서 한 번 본 최대 번호를 mall_sites.max_product_no 에 따로 적어 둡니다.
       const knownNos = [
+        site.max_product_no,
         ...publicMap.keys(),
         ...(hiddenByBrand.get(site.brand) || []).map((l) => l.product_code),
         ...(isFirstRun ? [] : (prevRows[0].products || []).map((p) => p.product_no))
@@ -292,16 +297,32 @@ async function main() {
         if (!hits.length) break;
       }
 
+      // "실재하는 상품 중 가장 큰 번호"만 기록합니다.
+      // 훑어본 마지막 번호(cursor)를 적으면 안 됩니다. 상품번호는 1씩 올라가므로
+      // 지금 최대가 45라면 다음 상품은 46번으로 생깁니다. 65까지 봤다고 65를 적어 두면
+      // 다음 검수가 66번부터 보게 되어 46~65 로 만들어진 상품을 통째로 놓칩니다.
+      const seenMax = Math.max(maxKnown, ...createdCodes.map((c) => Number(c.product_no)));
+      if (MODE !== 'debug' && seenMax > (Number(site.max_product_no) || 0)) {
+        await fetch(`${SUPABASE_URL}/rest/v1/mall_sites?id=eq.${site.id}`, {
+          method: 'PATCH', headers, body: JSON.stringify({ max_product_no: seenMax })
+        });
+      }
+
       // 사이트맵 비교에서 이미 잡힌 번호는 빼서 두 번 세지 않습니다.
       const alreadyNew = new Set(newProducts.map((p) => String(p.product_no)));
       for (const c of createdCodes) {
         if (!alreadyNew.has(String(c.product_no))) newProducts.push(c);
       }
 
-      // 새로 생긴 미진열 상품은 곧 히든링크이므로 감시 목록에 바로 등록해 둡니다.
-      // 나중에 실수로 공개되면 이름에 표시가 없어도 잡히게 하기 위해서입니다.
+      // 미진열 상품 전부를 히든링크로 등록하면 안 됩니다.
+      // 미진열은 대부분 "아직 진열 전"인 정식 상품이고, 나중에 진열되는 게 정상입니다.
+      // 그걸 감시 목록에 넣어두면 정상 출시가 전부 "노출 사고"로 잡힙니다.
+      // (실제로 명퉤 띠별 염주 12종이 출시되자 한꺼번에 경고가 떴습니다)
+      //
+      // 그래서 이름에 "비밀링크·공동구매" 같은 표시가 있는 것만 등록합니다.
+      // 표시 없이 링크로만 돌리는 상품은 mall_hidden_links 에 직접 넣어 주세요.
       const freshHidden = createdCodes
-        .filter((c) => c.kind === '미진열')
+        .filter((c) => c.kind === '미진열' && looksHiddenByName(c.name).length)
         .map((c) => ({
           brand: site.brand,
           product_code: c.product_no,
