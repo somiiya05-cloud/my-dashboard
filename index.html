@@ -8831,6 +8831,9 @@
       if (input !== TEAM_WORKSPACE_PASSWORD) { alert('비밀번호가 올바르지 않습니다.'); return; }
       sessionStorage.setItem('teamUnlocked', '1');
     }
+    // 업무관리는 따로 뗀 페이지입니다. 매출 10만 행을 받지 않아 바로 열립니다.
+    if (ws === 'task') { location.href = 'tasks.html'; return; }
+
     currentWorkspace = ws;
 
     document.querySelectorAll('.workspace-menu-item').forEach((el) => {
