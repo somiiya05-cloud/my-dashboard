@@ -5026,11 +5026,15 @@
     const 손으로잡음 = base.length > 0 && base.every(t => t.seq_no != null);
     if (손으로잡음) return base.slice().sort((a, b) => a.seq_no - b.seq_no || a.id - b.id);
 
-    // 루틴 업무가 아닌 구획은 팔로우업 성격이라, 오래 묵은 것을 위로 올립니다.
-    // (며칠째 안 끝난 건이 아래로 밀려 잊히지 않게)
+    // 루틴 업무가 아닌 구획은 팔로우업 성격이라 오래 묵은 것을 눈에 띄게 둡니다.
+    // 다만 오늘 잡은 일이 묵은 것들 밑으로 밀리면 안 되므로,
+    // 오늘 것을 먼저 놓고 넘어온 것은 그 아래에 오래된 순으로 둡니다.
     const 루틴구획 = ['오전 필수업무', '오후 필수업무'].includes(category);
     if (!루틴구획) {
-      return base.slice().sort((a, b) => jwAgeDays(b) - jwAgeDays(a) || a.id - b.id);
+      const 오늘 = base.filter(t => !jwIsCarriedOver(t));
+      const 넘어온 = base.filter(t => jwIsCarriedOver(t))
+        .sort((x, y) => jwAgeDays(y) - jwAgeDays(x) || x.id - y.id);
+      return 오늘.concat(넘어온);
     }
     return jwArrangeUrgent(base);
   }
