@@ -3443,20 +3443,35 @@
     return [month + '-01', next];
   }
 
-  // 한 달치를 받아 옵니다. 한 달이 1000행을 넘으므로 여기서도 나눠 받습니다.
-  async function fetchRowsBetween(fromDate, toDateExclusive) {
+  // 한 달치를 받아 옵니다. 1000행씩 나눠 받습니다.
+  //
+  // 평소에는 sales_daily_rollup(날짜×판매처×브랜드×상품으로 미리 묶은 뷰)에서 받습니다.
+  // 8월부터 주문 한 줄씩 넣기 시작해 한 달이 3~5만 행인데, 화면은 어차피 그 단위로
+  // 합쳐서 쓰기 때문입니다. 9월 기준 34,485행 → 2,807행이라 요청이 35회에서 3회가 됩니다.
+  // 묶기 전 주문 줄 수는 tx_count 에 들어 있어 "거래 건수"는 그대로 나옵니다.
+  async function fetchRowsBetween(fromDate, toDateExclusive, table) {
+    const src = table || 'sales_daily_rollup';
+    const cols = src === 'sales_daily_rollup'
+      ? 'sale_date,vendor,brand,product_name,quantity,amount,tx_count'
+      : '*';
     const pageSize = 1000;
     let from = 0;
     let all = [];
     while (true) {
-      const { data, error } = await client
-        .from('sales_transactions')
-        .select('*')
+      // ⚠️ 정렬이 한 값(sale_date)만으로는 안 됩니다. 같은 날짜 행이 수천 개라
+      // 페이지 경계에서 순서가 흔들려 어떤 행은 두 번, 어떤 행은 아예 안 옵니다.
+      // (행 수는 그대로인데 합계만 틀리게 나와서 알아채기 어렵습니다)
+      // 그래서 줄을 하나로 정하는 값까지 넣어 정렬합니다.
+      let q = client
+        .from(src)
+        .select(cols)
         .gte('sale_date', fromDate)
         .lt('sale_date', toDateExclusive)
-        .order('sale_date', { ascending: true })
-        .order('id', { ascending: true })
-        .range(from, from + pageSize - 1);
+        .order('sale_date', { ascending: true });
+      q = src === 'sales_daily_rollup'
+        ? q.order('vendor').order('brand').order('product_name')   // 뷰의 묶음 기준 = 한 줄로 정해짐
+        : q.order('id', { ascending: true });
+      const { data, error } = await q.range(from, from + pageSize - 1);
       if (error) throw new Error(error.message);
       all = all.concat(data || []);
       if (!data || data.length < pageSize) break;
@@ -3465,7 +3480,16 @@
     return all;
   }
 
+  // 화면에 쓰는 "거래 건수". 묶음 뷰에서 받았으면 묶기 전 줄 수를 더하고,
+  // 원본에서 받았으면 행 수가 곧 건수입니다.
+  function txCount(rows) {
+    return rows.reduce((n, r) => n + (r.tx_count == null ? 1 : Number(r.tx_count)), 0);
+  }
+
   // 필요한 달이 아직 없으면 받아서 allRows 에 더합니다. 이미 있으면 아무것도 안 합니다.
+  // 묶음 뷰가 아직 없으면(= sales_rollup_view.sql 미실행) 원본 표에서 받습니다.
+  let rollupTable = 'sales_daily_rollup';
+
   async function ensureMonths(months) {
     const want = (Array.isArray(months) ? months : [months]).filter(m => m && !loadedMonths.has(m));
     if (!want.length) return true;
@@ -3473,7 +3497,18 @@
     try {
       for (const m of want) {
         const [a, b] = monthRange(m);
-        const rows = await fetchRowsBetween(a, b);
+        let rows;
+        try {
+          rows = await fetchRowsBetween(a, b, rollupTable);
+        } catch (err) {
+          if (rollupTable === 'sales_daily_rollup') {
+            console.warn('묶음 뷰가 없어 원본에서 받습니다 — sales_rollup_view.sql 을 실행하면 빨라집니다.', err.message);
+            rollupTable = 'sales_transactions';
+            rows = await fetchRowsBetween(a, b, rollupTable);
+          } else {
+            throw err;
+          }
+        }
         allRows = allRows.concat(rows);
         loadedMonths.add(m);
       }
@@ -3481,7 +3516,7 @@
       salesNote('<span class="error">데이터를 불러오지 못했습니다: ' + e.message + '</span>');
       return false;
     }
-    allRows.sort((x, y) => (x.sale_date < y.sale_date ? -1 : x.sale_date > y.sale_date ? 1 : x.id - y.id));
+    allRows.sort((x, y) => (x.sale_date < y.sale_date ? -1 : x.sale_date > y.sale_date ? 1 : 0));
     return true;
   }
 
@@ -3494,7 +3529,7 @@
   async function loadAllRowsOnce() {
     salesNote('불러오는 중… (전체)');
     try {
-      allRows = await fetchRowsBetween('1900-01-01', '2999-12-31');
+      allRows = await fetchRowsBetween('1900-01-01', '2999-12-31', 'sales_transactions');
     } catch (e) {
       salesNote('<span class="error">데이터를 불러오지 못했습니다: ' + e.message + '</span>');
       return;
@@ -3620,7 +3655,7 @@
 
     document.getElementById('subtitle').textContent =
       (minDate && maxDate ? minDate + ' ~ ' + maxDate + ' · ' : '') +
-      '실시간 집계 · 거래 ' + rows.length.toLocaleString('ko-KR') + '건';
+      '실시간 집계 · 거래 ' + txCount(rows).toLocaleString('ko-KR') + '건';
 
     const vendorEntries = Object.entries(byVendor).sort((a, b) => b[1].amount - a[1].amount);
     const productEntries = Object.entries(byProduct)
@@ -3727,7 +3762,7 @@
       <div class="kpi-card">
         <div class="kpi-label">${monthLabelPrefix}일 평균 매출 · 총 거래 건수</div>
         <div class="kpi-value">${wonUnit(dailyAvg)}</div>
-        <div class="kpi-sub">총 ${rows.length.toLocaleString('ko-KR')}건 · 판매처 ${vendorEntries.length}곳 · 제품 ${productEntries.length}종</div>
+        <div class="kpi-sub">총 ${txCount(rows).toLocaleString('ko-KR')}건 · 판매처 ${vendorEntries.length}곳 · 제품 ${productEntries.length}종</div>
       </div>
     `;
 
@@ -5916,7 +5951,7 @@
     const total = entries.reduce((s, [, v]) => s + v.amount, 0);
 
     document.getElementById('productDayTotal').textContent = labelText
-      ? labelText + ' 총 매출 ' + won(total) + ' · 거래 ' + rows.length.toLocaleString('ko-KR') + '건'
+      ? labelText + ' 총 매출 ' + won(total) + ' · 거래 ' + txCount(rows).toLocaleString('ko-KR') + '건'
       : '';
 
     document.getElementById('productDayTable').innerHTML = entries.map(([product, v], i) => `
