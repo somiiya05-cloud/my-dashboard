@@ -9483,6 +9483,36 @@
   // 그 표시를 보고 해당 워크스페이스로 바로 넘겨 줍니다.
   if (location.hash === '#team') switchWorkspace('team');
 
+  // 업무관리 페이지의 "공동구매 정산" 배너가 index.html#settlement 로 보냅니다.
+  // 정산 화면을 열고, 정산일이 된 첫 줄까지 스크롤해 깜빡여 줍니다.
+  if (location.hash === '#settlement') {
+    switchWorkspace('team');
+    switchView('team-schedule', 'settlement');
+    scrollToDueSettlement();
+  }
+
+  // 정산 목록은 불러온 뒤에 그려지므로, 줄이 생길 때까지 잠깐 기다렸다 스크롤합니다.
+  function scrollToDueSettlement(tries) {
+    const n = tries || 0;
+    const row = document.querySelector('#settlementTable tr.gs-row-due');
+    if (!row) {
+      if (n < 20) setTimeout(() => scrollToDueSettlement(n + 1), 300);
+      return;
+    }
+    // 표는 자체 스크롤 상자 안에 있어서 scrollIntoView 가 먹지 않는 경우가 있습니다.
+    // 상자의 스크롤 위치를 직접 잡아 가운데로 보냅니다.
+    const box = row.closest('.scroll-box');
+    if (box) {
+      const target = row.offsetTop - (box.clientHeight / 2) + (row.offsetHeight / 2);
+      box.scrollTop = Math.max(0, target);
+    }
+    row.scrollIntoView({ block: 'center' });
+    row.classList.remove('gs-row-flash');
+    void row.offsetWidth;
+    row.classList.add('gs-row-flash');
+    setTimeout(() => row.classList.remove('gs-row-flash'), 2400);
+  }
+
   refreshReviewAlertBadge();
   setupOpsScrollSpy();
   syncOpsFilterCounts();

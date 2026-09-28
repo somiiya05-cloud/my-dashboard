@@ -4071,34 +4071,12 @@
       onclick="jwGoToSettlement()">공동구매 정산<span class="cnt">${jwSettleDue.length}</span></button>`;
   }
 
-  // 배너를 누르면 프로모션 > 정산 화면으로 가서, 정산해야 할 첫 줄까지 스크롤해 보여줍니다.
+  // 정산 화면은 매출관리 쪽(index.html)에 있습니다. 이 페이지에는 그 화면이 없어서
+  // 예전처럼 switchView 를 불러봐야 아무 일도 일어나지 않습니다.
+  // 사이드바의 "업무관리 ↗" 와 같은 방식으로, 정산 화면을 새 탭으로 엽니다.
+  // 받는 쪽(index.html)이 #settlement 를 보고 정산해야 할 첫 줄까지 스크롤해 줍니다.
   function jwGoToSettlement() {
-    switchWorkspace('team');
-    switchView('team-schedule', 'settlement');
-    jwScrollToDueSettlement();
-  }
-
-  // 정산 목록은 불러온 뒤에 그려지므로, 줄이 생길 때까지 잠깐 기다렸다 스크롤합니다.
-  function jwScrollToDueSettlement(tries) {
-    const n = tries || 0;
-    const row = document.querySelector('#settlementTable tr.gs-row-due');
-    if (!row) {
-      if (n < 20) setTimeout(() => jwScrollToDueSettlement(n + 1), 300);
-      return;
-    }
-    // 표는 자체 스크롤 상자 안에 있어서 scrollIntoView 가 먹지 않는 경우가 있습니다.
-    // 상자의 스크롤 위치를 직접 잡아 가운데로 보냅니다.
-    const box = row.closest('.scroll-box');
-    if (box) {
-      const target = row.offsetTop - (box.clientHeight / 2) + (row.offsetHeight / 2);
-      box.scrollTop = Math.max(0, target);
-    }
-    row.scrollIntoView({ block: 'center' });   // 패널 자체도 화면 안으로
-    // 어느 줄인지 놓치지 않도록 잠깐 깜빡여 줍니다.
-    row.classList.remove('gs-row-flash');
-    void row.offsetWidth;
-    row.classList.add('gs-row-flash');
-    setTimeout(() => row.classList.remove('gs-row-flash'), 2400);
+    window.open('index.html#settlement', '_blank', 'noopener');
   }
 
   // ---- "상품등록" 그룹의 등록 실패 배지 ----
