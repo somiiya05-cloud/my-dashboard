@@ -1895,6 +1895,835 @@
           ]
         }
       ]
+    },
+    {
+      "reason": "기획전 없이 팔린 상시판매는 프로모션 매출이 아님 — 2026-09-28 사용자 기준",
+      "source": "매출DB 9/1~9/21",
+      "note": "프로모션 매출은 실제 기획전에 참여해 발생한 매출만 센다. 기획전이 없는 상시판매는 그 프로모션 덕에 오른 매출이라고 보기 어려워 제외한다. 같은 이유로 스마트스토어는 기획전을 하더라도 매출에서 뺀다.",
+      "events": [
+        {
+          "mall": "오늘의집(미니멀룸)",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "찹쌀떡 베개 필로우(등쿠션)",
+              "list_price": null,
+              "promo_price": 32900,
+              "qty": 15
+            },
+            {
+              "product_name": "찹쌀떡 쫀득 토퍼",
+              "list_price": null,
+              "promo_price": 57900,
+              "qty": 2
+            },
+            {
+              "product_name": "찹쌀떡 피로회복 왕베개",
+              "list_price": null,
+              "promo_price": 37900,
+              "qty": 2
+            },
+            {
+              "product_name": "삼각김밥 수면유도 필로우",
+              "list_price": null,
+              "promo_price": 34150,
+              "qty": 2
+            },
+            {
+              "product_name": "찹쌀떡 쫀득 토퍼",
+              "list_price": null,
+              "promo_price": 67900,
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "mall": "오늘의집(잠비에)",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "리모드 매트리스 전용 가방",
+              "list_price": null,
+              "promo_price": 125000,
+              "qty": 2
+            },
+            {
+              "product_name": "리모드 매트리스 NEW",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 2
+            },
+            {
+              "product_name": "리모드 매트리스 전용 커버",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "mall": "토스",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "찹쌀떡 베개 필로우(등쿠션)",
+              "list_price": null,
+              "promo_price": 33500,
+              "qty": 2
+            },
+            {
+              "product_name": "허리베개",
+              "list_price": null,
+              "promo_price": 32900,
+              "qty": 2
+            },
+            {
+              "product_name": "♡킬파이어 꽃 가글",
+              "list_price": null,
+              "promo_price": 16450,
+              "qty": 2
+            }
+          ]
+        },
+        {
+          "mall": "지그재그(PORKE)",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "조명 모자 커버",
+              "list_price": null,
+              "promo_price": 79000,
+              "qty": 2
+            },
+            {
+              "product_name": "조명",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 2
+            }
+          ]
+        },
+        {
+          "mall": "SKT_T-DEAL",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "스트롱 제습서버",
+              "list_price": null,
+              "promo_price": 9966.666666666666,
+              "qty": 12
+            }
+          ]
+        },
+        {
+          "mall": "리빙픽",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "카멜레온 변신토퍼",
+              "list_price": null,
+              "promo_price": 59900,
+              "qty": 1
+            },
+            {
+              "product_name": "찹쌀떡 베개 필로우(등쿠션)",
+              "list_price": null,
+              "promo_price": 31900,
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "mall": "G마켓",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "메가 스크럽티슈",
+              "list_price": null,
+              "promo_price": 34900,
+              "qty": 2
+            }
+          ]
+        },
+        {
+          "mall": "신세계",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "찹쌀떡 피로회복 왕베개",
+              "list_price": null,
+              "promo_price": 41400,
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "mall": "CJ몰",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "찹쌀떡 베개 필로우(등쿠션)",
+              "list_price": null,
+              "promo_price": 37300,
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "mall": "미니멀룸",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "찹쌀떡 베개 필로우(등쿠션)",
+              "list_price": null,
+              "promo_price": 33400,
+              "qty": 13
+            },
+            {
+              "product_name": "수면 호흡 베개",
+              "list_price": null,
+              "promo_price": 53400,
+              "qty": 7
+            },
+            {
+              "product_name": "충전재 토퍼",
+              "list_price": null,
+              "promo_price": 93400,
+              "qty": 3
+            },
+            {
+              "product_name": "알래스카 쿨링 방수 토퍼",
+              "list_price": null,
+              "promo_price": 59400,
+              "qty": 4
+            },
+            {
+              "product_name": "알래스카 쿨링 방수 토퍼",
+              "list_price": null,
+              "promo_price": 49400,
+              "qty": 4
+            },
+            {
+              "product_name": "수면 호흡 베개",
+              "list_price": null,
+              "promo_price": 48500,
+              "qty": 4
+            },
+            {
+              "product_name": "찹쌀떡 쫀득 토퍼",
+              "list_price": null,
+              "promo_price": 63400,
+              "qty": 3
+            },
+            {
+              "product_name": "충전재 토퍼",
+              "list_price": null,
+              "promo_price": 73400,
+              "qty": 2
+            },
+            {
+              "product_name": "찹쌀떡 자가발열 침구세트",
+              "list_price": null,
+              "promo_price": 73400,
+              "qty": 2
+            },
+            {
+              "product_name": "사계절 찹쌀떡 토퍼 NEW",
+              "list_price": null,
+              "promo_price": 69900,
+              "qty": 2
+            },
+            {
+              "product_name": "웜포레스트 토퍼",
+              "list_price": null,
+              "promo_price": 63400,
+              "qty": 2
+            },
+            {
+              "product_name": "찹쌀떡 쫀득 토퍼",
+              "list_price": null,
+              "promo_price": 59900,
+              "qty": 2
+            },
+            {
+              "product_name": "수면 호흡 베개",
+              "list_price": null,
+              "promo_price": 50250,
+              "qty": 2
+            },
+            {
+              "product_name": "알러지케어 사계절 호텔 침구세트",
+              "list_price": null,
+              "promo_price": 49900,
+              "qty": 2
+            },
+            {
+              "product_name": "자가발열 양면토퍼 NEW",
+              "list_price": null,
+              "promo_price": 49500,
+              "qty": 2
+            },
+            {
+              "product_name": "알래스카 쿨링토퍼",
+              "list_price": null,
+              "promo_price": 46900,
+              "qty": 2
+            },
+            {
+              "product_name": "알래스카 쿨링토퍼",
+              "list_price": null,
+              "promo_price": 43400,
+              "qty": 2
+            },
+            {
+              "product_name": "히말라야 쿨링 침구세트",
+              "list_price": null,
+              "promo_price": 38500,
+              "qty": 2
+            },
+            {
+              "product_name": "사계절 찹쌀떡 커버(zipper)",
+              "list_price": null,
+              "promo_price": 74500,
+              "qty": 1
+            },
+            {
+              "product_name": "몽글멜로우 매트리스",
+              "list_price": null,
+              "promo_price": 74500,
+              "qty": 1
+            },
+            {
+              "product_name": "사계절 클린 방수 토퍼",
+              "list_price": null,
+              "promo_price": 73400,
+              "qty": 1
+            },
+            {
+              "product_name": "삼각김밥 수면유도 필로우",
+              "list_price": null,
+              "promo_price": 35900,
+              "qty": 2
+            },
+            {
+              "product_name": "찹쌀떡 자가발열 침구세트",
+              "list_price": null,
+              "promo_price": 66900,
+              "qty": 1
+            },
+            {
+              "product_name": "찹쌀떡 쫀득 토퍼",
+              "list_price": null,
+              "promo_price": 66900,
+              "qty": 1
+            },
+            {
+              "product_name": "알래스카 쿨링토퍼",
+              "list_price": null,
+              "promo_price": 63400,
+              "qty": 1
+            },
+            {
+              "product_name": "사계절 클린 방수 토퍼",
+              "list_price": null,
+              "promo_price": 63400,
+              "qty": 1
+            },
+            {
+              "product_name": "허리베개",
+              "list_price": null,
+              "promo_price": 21100,
+              "qty": 3
+            },
+            {
+              "product_name": "찹쌀떡 자가발열 침구세트",
+              "list_price": null,
+              "promo_price": 59900,
+              "qty": 1
+            },
+            {
+              "product_name": "히말라야 쿨링 침구세트",
+              "list_price": null,
+              "promo_price": 58500,
+              "qty": 1
+            },
+            {
+              "product_name": "찹쌀떡 쫀득 토퍼",
+              "list_price": null,
+              "promo_price": 56900,
+              "qty": 1
+            },
+            {
+              "product_name": "인절미 변신 필로우",
+              "list_price": null,
+              "promo_price": 53400,
+              "qty": 1
+            },
+            {
+              "product_name": "자가발열 양면토퍼 NEW",
+              "list_price": null,
+              "promo_price": 53000,
+              "qty": 1
+            },
+            {
+              "product_name": "수면 호흡 베개",
+              "list_price": null,
+              "promo_price": 49900,
+              "qty": 1
+            },
+            {
+              "product_name": "알래스카 쿨링토퍼",
+              "list_price": null,
+              "promo_price": 48400,
+              "qty": 1
+            },
+            {
+              "product_name": "결림타파 경추베개(원통형)",
+              "list_price": null,
+              "promo_price": 23500,
+              "qty": 2
+            },
+            {
+              "product_name": "수면 호흡 베개 [베개커버]",
+              "list_price": null,
+              "promo_price": 23400,
+              "qty": 2
+            },
+            {
+              "product_name": "알래스카 쿨링 방수 토퍼",
+              "list_price": null,
+              "promo_price": 45900,
+              "qty": 1
+            },
+            {
+              "product_name": "결림타파 경추베개(원통형)",
+              "list_price": null,
+              "promo_price": 22450,
+              "qty": 2
+            },
+            {
+              "product_name": "부스터발열 토퍼",
+              "list_price": null,
+              "promo_price": 43400,
+              "qty": 1
+            },
+            {
+              "product_name": "수면 호흡 베개 [베개커버]",
+              "list_price": null,
+              "promo_price": 21650,
+              "qty": 2
+            },
+            {
+              "product_name": "자가발열 양면토퍼 NEW",
+              "list_price": null,
+              "promo_price": 43000,
+              "qty": 1
+            },
+            {
+              "product_name": "알래스카 쿨링토퍼",
+              "list_price": null,
+              "promo_price": 39900,
+              "qty": 1
+            },
+            {
+              "product_name": "삼각김밥 수면유도 필로우",
+              "list_price": null,
+              "promo_price": 39400,
+              "qty": 1
+            },
+            {
+              "product_name": "찹쌀떡 피로회복 왕베개",
+              "list_price": null,
+              "promo_price": 38400,
+              "qty": 1
+            },
+            {
+              "product_name": "찹쌀떡 베개 필로우(등쿠션)",
+              "list_price": null,
+              "promo_price": 36900,
+              "qty": 1
+            },
+            {
+              "product_name": "찹쌀떡 피로회복 왕베개",
+              "list_price": null,
+              "promo_price": 34900,
+              "qty": 1
+            },
+            {
+              "product_name": "눈팅이 쿨링 필로우",
+              "list_price": null,
+              "promo_price": 33400,
+              "qty": 1
+            },
+            {
+              "product_name": "찹쌀떡 베개 필로우(등쿠션)",
+              "list_price": null,
+              "promo_price": 29900,
+              "qty": 1
+            },
+            {
+              "product_name": "A_웜포레스트 커버",
+              "list_price": null,
+              "promo_price": 13400,
+              "qty": 2
+            },
+            {
+              "product_name": "압축팩",
+              "list_price": null,
+              "promo_price": 8500,
+              "qty": 1
+            },
+            {
+              "product_name": "이불 세탁망",
+              "list_price": null,
+              "promo_price": 7000,
+              "qty": 1
+            },
+            {
+              "product_name": "찹쌀떡 쫀득 커버(zipper)",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 1
+            },
+            {
+              "product_name": "사계절 찹쌀떡 커버(zipper)",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 1
+            },
+            {
+              "product_name": "사계절 클린 방수 커버",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 3
+            }
+          ]
+        },
+        {
+          "mall": "올리브영(직매입)",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "꽃 가글",
+              "list_price": null,
+              "promo_price": 15900,
+              "qty": 200
+            },
+            {
+              "product_name": "킬파이어 치약",
+              "list_price": null,
+              "promo_price": 9900,
+              "qty": 50
+            },
+            {
+              "product_name": "킬파이어 가글캔디",
+              "list_price": null,
+              "promo_price": 15900,
+              "qty": 24
+            }
+          ]
+        },
+        {
+          "mall": "와디즈",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "정화 개운 소금단지",
+              "list_price": null,
+              "promo_price": 37265.85365853659,
+              "qty": 41
+            }
+          ]
+        },
+        {
+          "mall": "에이블리",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "찹쌀떡 피로회복 왕베개",
+              "list_price": null,
+              "promo_price": 32900,
+              "qty": 19
+            },
+            {
+              "product_name": "인절미 변신 필로우",
+              "list_price": null,
+              "promo_price": 32900,
+              "qty": 8
+            },
+            {
+              "product_name": "기분전환 인테리어 변환빔",
+              "list_price": null,
+              "promo_price": 8900,
+              "qty": 13
+            },
+            {
+              "product_name": "삼각김밥 수면유도 필로우",
+              "list_price": null,
+              "promo_price": 32900,
+              "qty": 2
+            },
+            {
+              "product_name": "알래스카 쿨링토퍼",
+              "list_price": null,
+              "promo_price": 58400,
+              "qty": 1
+            },
+            {
+              "product_name": "알래스카 쿨링 방수 토퍼",
+              "list_price": null,
+              "promo_price": 49900,
+              "qty": 1
+            },
+            {
+              "product_name": "기분전환 인테리어 변환빔",
+              "list_price": null,
+              "promo_price": 0,
+              "qty": 13
+            }
+          ]
+        },
+        {
+          "mall": "원룸만들기(개인)",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "인절미 변신 필로우",
+              "list_price": null,
+              "promo_price": 36900,
+              "qty": 4
+            },
+            {
+              "product_name": "찹쌀떡 피로회복 왕베개",
+              "list_price": null,
+              "promo_price": 38400,
+              "qty": 3
+            },
+            {
+              "product_name": "찹쌀떡 피로회복 왕베개",
+              "list_price": null,
+              "promo_price": 34900,
+              "qty": 3
+            },
+            {
+              "product_name": "딥클렌징 벽지 얼룩제거제",
+              "list_price": null,
+              "promo_price": 16900,
+              "qty": 4
+            },
+            {
+              "product_name": "찹쌀떡 베개 필로우(등쿠션)",
+              "list_price": null,
+              "promo_price": 33400,
+              "qty": 2
+            },
+            {
+              "product_name": "수면 호흡 베개",
+              "list_price": null,
+              "promo_price": 63400,
+              "qty": 1
+            },
+            {
+              "product_name": "인절미 변신 필로우",
+              "list_price": null,
+              "promo_price": 40400,
+              "qty": 1
+            },
+            {
+              "product_name": "음식물싹캐처",
+              "list_price": null,
+              "promo_price": 16900,
+              "qty": 2
+            },
+            {
+              "product_name": "매트리스 스트랩",
+              "list_price": null,
+              "promo_price": 15250,
+              "qty": 2
+            },
+            {
+              "product_name": "대형 텀블러 세척솔",
+              "list_price": null,
+              "promo_price": 20900,
+              "qty": 1
+            },
+            {
+              "product_name": "음식물싹캐처",
+              "list_price": null,
+              "promo_price": 19900,
+              "qty": 1
+            },
+            {
+              "product_name": "이불 세탁망",
+              "list_price": null,
+              "promo_price": 8900,
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "mall": "오늘의집(코드니처)",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "변기 수조 세정 서버",
+              "list_price": null,
+              "promo_price": 10450,
+              "qty": 16
+            },
+            {
+              "product_name": "하수구 악취 세정 서버",
+              "list_price": null,
+              "promo_price": 24900,
+              "qty": 5
+            },
+            {
+              "product_name": "스트롱 에어컨 제습 서버",
+              "list_price": null,
+              "promo_price": 19900,
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "mall": "지그재그",
+          "title": "9월 상시판매",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-21",
+          "status": "종료",
+          "baseline_sales": null,
+          "memo": "매출DB 9/1~9/21 반영(기획전 없이 팔린 분)",
+          "month": null,
+          "items": [
+            {
+              "product_name": "삼각김밥 수면유도 필로우",
+              "list_price": null,
+              "promo_price": 37900,
+              "qty": 2
+            },
+            {
+              "product_name": "수면 호흡 베개",
+              "list_price": null,
+              "promo_price": 66400,
+              "qty": 1
+            },
+            {
+              "product_name": "찹쌀떡 베개 필로우(등쿠션)",
+              "list_price": null,
+              "promo_price": 41000,
+              "qty": 1
+            },
+            {
+              "product_name": "인절미 변신 필로우",
+              "list_price": null,
+              "promo_price": 40400,
+              "qty": 1
+            },
+            {
+              "product_name": "찹쌀떡 베개 필로우(등쿠션)",
+              "list_price": null,
+              "promo_price": 37500,
+              "qty": 1
+            },
+            {
+              "product_name": "허리베개",
+              "list_price": null,
+              "promo_price": 24900,
+              "qty": 1
+            }
+          ]
+        }
+      ]
     }
   ]
 }
