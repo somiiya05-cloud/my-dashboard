@@ -1957,6 +1957,17 @@
             <div class="nav-subitem" data-processsub="b2b" onclick="switchView('team-process', 'b2b')">직납가이드</div>
           </div>
         </div>
+        <div class="nav-group">
+          <!-- 채널관리 — 자사몰·외부몰에 상품이 제대로 올라가 있는지 보는 화면들입니다.
+               업무관리(tasks.html)에 있던 것을 영업 운영관리로 되돌렸습니다. -->
+          <div class="nav-label">채널관리</div>
+          <div class="nav-item" id="navMallAudit" onclick="switchView('mall-audit')">
+            <span class="dot dot-team"></span>자사몰 검수
+            <span class="nav-count-badge" id="mallAuditBadge" style="display:none;"></span>
+          </div>
+          <div class="nav-item" id="navCodenitProducts" onclick="switchView('codenit-products')"><span class="dot dot-team"></span>코드니처 자사몰</div>
+          <div class="nav-item" id="navMallPrices" onclick="switchView('mall-prices')"><span class="dot dot-team"></span>외부몰</div>
+        </div>
       </div>
 
 
@@ -2979,6 +2990,123 @@
           <button type="button" class="btn-primary" onclick="saveAccountingNote('export', 'acctExportContent', 'acctExportStatus')">저장</button>
         </div>
       </section>
+    </main>
+
+    <main class="main" id="mallAuditView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>자사몰 검수</h1>
+          <div class="subtitle" id="maSubtitle">불러오는 중...</div>
+        </div>
+        <div class="topbar-right">
+          <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+        </div>
+      </div>
+
+      <section class="kpi-row" id="maCards"></section>
+
+      <!-- 숨어 있어야 할 상품이 공개된 경우에만 나타납니다. -->
+      <section class="panel" id="maExposedPanel" style="display:none; border:1px solid #fecaca; background:#fef2f2;">
+        <div class="panel-head">
+          <h2 style="color:#b91c1c;">⚠️ 히든링크가 공개돼 있습니다</h2>
+          <span class="subtitle">링크를 아는 사람만 들어와야 하는 상품인데 지금은 누구나 볼 수 있습니다.</span>
+        </div>
+        <div id="maExposedList"></div>
+      </section>
+
+      <!-- 어제 없던 상품이 오늘 생기면 여기에 나타납니다. -->
+      <section class="panel" id="maNewPanel" style="display:none;">
+        <div class="panel-head">
+          <h2>🆕 새로 등록된 상품</h2>
+          <span class="subtitle" id="maNewSubtitle"></span>
+        </div>
+        <div id="maNewList"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>몰별 검수 결과</h2>
+          <span class="subtitle" id="maCheckedAt"></span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="ma-table" id="maTable">
+            <thead>
+              <tr>
+                <th>브랜드</th><th>주소</th><th class="num">공개 상품</th>
+                <th class="num">신규</th><th class="num">히든링크 노출</th><th>상태</th>
+              </tr>
+            </thead>
+            <tbody id="maTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <main class="main" id="codenitProductsView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>코드니처 자사몰</h1>
+          <div class="subtitle" id="cpSubtitle">codenit.co.kr에 등록된 상품의 이미지·판매가·배송비를 확인합니다.</div>
+        </div>
+        <div class="topbar-right">
+          <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+        </div>
+      </div>
+
+      <section class="kpi-row" id="cpCards"></section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>상품 추가</h2>
+        </div>
+        <form class="deal-form" id="cpForm">
+          <input type="text" name="productName" placeholder="상품명" required>
+          <input type="text" name="price" placeholder="판매가(원)">
+          <input type="text" name="shippingFee" placeholder="배송비(원, 무료면 0)">
+          <input type="text" name="imageUrl" placeholder="이미지 URL">
+          <input type="text" name="productUrl" placeholder="상품 페이지 URL">
+          <button type="submit" class="btn-primary">추가</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>상품 목록</h2>
+          <span class="panel-note" id="cpListNote"></span>
+        </div>
+        <div class="filter-group" style="margin-bottom: 12px; gap: 18px; flex-wrap: wrap;">
+          <input type="text" id="cpSearchInput" class="vendor-select" placeholder="상품명 검색" autocomplete="off">
+          <label class="gs-toggle"><input type="checkbox" id="cpFilterNormal" checked onchange="cpToggleFilter('normal', this.checked)"><span class="cp-toggle-dot normal"></span>일반</label>
+          <label class="gs-toggle"><input type="checkbox" id="cpFilterSecret" checked onchange="cpToggleFilter('secret', this.checked)"><span class="cp-toggle-dot secret"></span>★비밀링크</label>
+          <label class="gs-toggle"><input type="checkbox" id="cpFilterGroupbuy" checked onchange="cpToggleFilter('groupbuy', this.checked)"><span class="cp-toggle-dot groupbuy"></span>공동구매</label>
+        </div>
+        <div class="product-card-grid" id="cpGrid"></div>
+      </section>
+    </main>
+
+    <main class="main" id="mallPricesView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>외부몰</h1>
+          <div class="subtitle">사방넷 기준으로 어떤 상품이 어떤 외부몰에 올라가 있는지 확인합니다.</div>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>외부몰 등록 현황</h2>
+          <span class="panel-note" id="mrSyncNote"></span>
+        </div>
+        <div class="mr-stat" id="mrStat"></div>
+        <div class="filter-group" style="margin-bottom: 12px; gap: 10px; flex-wrap: wrap; align-items: center;">
+          <input type="text" id="mrSearch" class="vendor-select" style="flex: 0 1 300px; min-width: 200px;"
+            placeholder="런칭 상품명 또는 품번으로 검색"
+            autocomplete="off" oninput="renderMallRegResult()">
+          <div class="mr-brands" id="mrBrands"></div>
+        </div>
+        <div id="mrResult"></div>
+      </section>
+
     </main>
 
   </div>
@@ -5828,6 +5956,9 @@
     document.getElementById('teamProcessView').style.display = view === 'team-process' ? '' : 'none';
     document.getElementById('teamScheduleView').style.display = view === 'team-schedule' ? '' : 'none';
     document.getElementById('teamAccountingView').style.display = view === 'team-accounting' ? '' : 'none';
+    document.getElementById('mallAuditView').style.display = view === 'mall-audit' ? '' : 'none';
+    document.getElementById('codenitProductsView').style.display = view === 'codenit-products' ? '' : 'none';
+    document.getElementById('mallPricesView').style.display = view === 'mall-prices' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
     document.getElementById('navMonthlyTrend').classList.toggle('active', view === 'monthly-trend');
     document.getElementById('navProduct').classList.toggle('active', view === 'product');
@@ -5845,6 +5976,9 @@
     const wrNav = document.getElementById('navWeeklyReport');
     if (wrNav) wrNav.classList.toggle('active', view === 'weekly-report');
     document.getElementById('navTeamSchedule').classList.toggle('active', view === 'team-schedule');
+    document.getElementById('navMallAudit').classList.toggle('active', view === 'mall-audit');
+    document.getElementById('navCodenitProducts').classList.toggle('active', view === 'codenit-products');
+    document.getElementById('navMallPrices').classList.toggle('active', view === 'mall-prices');
     document.querySelectorAll('#navTeamAssignees .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'team-tasks' && el.dataset.assignee === brandChannel);
     });
@@ -5895,6 +6029,9 @@
     if (view === 'review-alerts') loadReviewAlerts();
     if (view === 'team-schedule') loadTeamSchedule();
     if (view === 'team-accounting') loadTeamAccounting();
+    if (view === 'mall-audit') loadMallAudit();
+    if (view === 'codenit-products') loadCodenitProducts();
+    if (view === 'mall-prices') loadMallRegistrations();
   }
 
   // ==================== 품별 (월별 / 일자별 제품 판매 순위) ====================
@@ -7264,6 +7401,7 @@
     renderReviewAlertCards();
     renderReviewAlertTable();
     refreshReviewAlertBadge();
+  refreshMallAuditBadge();
   }
 
   function renderReviewAlertCards() {
@@ -7332,6 +7470,521 @@
     if (error) { alert('처리하지 못했습니다: ' + error.message); return; }
     loadReviewAlerts();
   }
+
+  // ==================== 코드니처 자사몰 상품 ====================
+  let allCodenitProducts = [];
+  let cpSearchQuery = '';
+  let cpFiltersInitDone = false;
+  const cpCategoryFilters = { normal: true, secret: true, groupbuy: true };
+
+  // 상품명에 포함된 문구로 일반/★비밀링크/공동구매 상품을 구분함
+  function cpProductCategory(name) {
+    const n = name || '';
+    if (n.includes('★비밀링크')) return 'secret';
+    if (n.includes('공동구매')) return 'groupbuy';
+    return 'normal';
+  }
+
+  function cpToggleFilter(key, checked) {
+    cpCategoryFilters[key] = checked;
+    renderCpGrid();
+  }
+
+  async function loadCodenitProducts() {
+    const note = document.getElementById('cpListNote');
+    const { data, error } = await client
+      .from('codenit_products')
+      .select('*')
+      .order('product_name', { ascending: true });
+    if (error) {
+      note.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
+      return;
+    }
+    allCodenitProducts = data || [];
+    setupCpFilters();
+    renderCpCards();
+    renderCpGrid();
+  }
+
+  function setupCpFilters() {
+    if (cpFiltersInitDone) return;
+    cpFiltersInitDone = true;
+    document.getElementById('cpSearchInput').addEventListener('input', (e) => {
+      cpSearchQuery = e.target.value.trim().toLowerCase();
+      renderCpGrid();
+    });
+  }
+
+  function renderCpCards() {
+    const total = allCodenitProducts.length;
+    const withFee = allCodenitProducts.filter(r => r.shipping_fee != null);
+    const freeShipCount = allCodenitProducts.filter(r => r.shipping_fee === 0).length;
+    const avgPrice = total ? allCodenitProducts.reduce((s, r) => s + Number(r.price || 0), 0) / total : null;
+
+    document.getElementById('cpCards').innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label">등록된 상품 수</div>
+        <div class="kpi-value">${total.toLocaleString('ko-KR')}개</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">평균 판매가</div>
+        <div class="kpi-value">${avgPrice === null ? '-' : Math.round(avgPrice).toLocaleString('ko-KR') + '원'}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">무료배송 상품</div>
+        <div class="kpi-value">${freeShipCount.toLocaleString('ko-KR')}개</div>
+        <div class="kpi-sub">배송비 정보 있는 ${withFee.length.toLocaleString('ko-KR')}개 기준</div>
+      </div>
+    `;
+  }
+
+  function renderCpGrid() {
+    const q = cpSearchQuery;
+    const rows = allCodenitProducts.filter(r => {
+      if (!cpCategoryFilters[cpProductCategory(r.product_name)]) return false;
+      if (q) return (r.product_name || '').toLowerCase().includes(q);
+      return true;
+    });
+
+    document.getElementById('cpListNote').textContent = `${rows.length.toLocaleString('ko-KR')}개 표시 중 (전체 ${allCodenitProducts.length.toLocaleString('ko-KR')}개)`;
+
+    document.getElementById('cpGrid').innerHTML = rows.map(r => {
+      const priceText = r.price != null ? Number(r.price).toLocaleString('ko-KR') + '원' : '-';
+      const shipText = r.shipping_fee == null ? '배송비 정보 없음' : (Number(r.shipping_fee) === 0 ? '무료배송' : '배송비 ' + Number(r.shipping_fee).toLocaleString('ko-KR') + '원');
+      const imgTag = r.image_url
+        ? `<img src="${escapeAttr(r.image_url)}" alt="${escapeAttr(r.product_name || '')}" loading="lazy" onerror="this.parentElement.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:12px;&quot;>이미지 없음</div>'">`
+        : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:12px;">이미지 없음</div>`;
+      const nameHtml = r.product_url
+        ? `<a href="${escapeAttr(r.product_url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">${r.product_name || ''}</a>`
+        : (r.product_name || '');
+      const imgWrap = r.product_url
+        ? `<a href="${escapeAttr(r.product_url)}" target="_blank" rel="noopener" class="product-card-img-wrap" style="display:block;">${imgTag}</a>`
+        : `<div class="product-card-img-wrap">${imgTag}</div>`;
+      const category = cpProductCategory(r.product_name);
+      const categoryTag = category === 'secret' ? '<span class="cp-tag secret">★비밀링크</span>'
+        : category === 'groupbuy' ? '<span class="cp-tag groupbuy">공동구매</span>' : '';
+      return `
+        <div class="product-card">
+          ${imgWrap}
+          <div class="product-card-body">
+            <div class="product-card-name">${nameHtml}</div>
+            <div class="product-card-price">${priceText}</div>
+            <div class="product-card-shipping">${shipText}</div>
+            ${categoryTag}
+            <div class="product-card-actions">
+              <button class="btn-danger" onclick="deleteCodenitProduct(${r.id})">삭제</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function deleteCodenitProduct(id) {
+    if (!confirm('이 상품을 목록에서 삭제할까요?')) return;
+    const { error } = await client.from('codenit_products').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadCodenitProducts();
+  }
+
+  document.getElementById('cpForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const productName = form.productName.value.trim();
+    if (!productName) return;
+
+    const row = {
+      product_name: productName,
+      price: form.price.value.trim() ? Number(form.price.value.trim()) : null,
+      shipping_fee: form.shippingFee.value.trim() ? Number(form.shippingFee.value.trim()) : null,
+      image_url: form.imageUrl.value.trim() || null,
+      product_url: form.productUrl.value.trim() || null,
+    };
+
+    const { error } = await client.from('codenit_products').insert([row]);
+    if (error) {
+      alert('추가하지 못했습니다: ' + error.message);
+      return;
+    }
+    form.reset();
+    loadCodenitProducts();
+  });
+
+  // ==================== 자사몰 검수 ====================
+  // 데이터 원본: mall_audits 표. scripts/mall-audit.js 가 하루 여러 번(09:10·11:00·14:00·17:00)
+  // 몰당 한 줄씩 넣어줍니다.
+  //
+  // 상품 수·노출은 "가장 최근 줄"을 쓰지만, 신규 상품만은 오늘 하루치를 모아서 씁니다.
+  // 검수는 "직전 실행과 비교"라서, 11시에 잡힌 신규 상품이 14시 줄에는 안 들어갑니다.
+  // 최신 줄만 보면 오전에 올라온 상품을 오후에 놓치게 됩니다.
+  let mallAuditRows = [];
+
+  function todayInSeoul() {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+  }
+
+  // 몰별 최신 줄만 남기되, 오늘 올라온 신규 상품은 하루치를 합쳐 붙여 줍니다.
+  // checked_at 내림차순으로 받아오므로 먼저 만난 게 최신입니다.
+  function latestAuditPerBrand(rows) {
+    const today = todayInSeoul();
+    const seen = new Map();
+    const todayNew = new Map();
+
+    for (const row of rows) {
+      if (!seen.has(row.brand)) seen.set(row.brand, { ...row });
+      if (row.check_date !== today) continue;
+      if (!todayNew.has(row.brand)) todayNew.set(row.brand, new Map());
+      const bucket = todayNew.get(row.brand);
+      for (const p of row.new_products || []) {
+        // 같은 상품이 여러 줄에 걸쳐 있으면 한 번만 셉니다.
+        if (!bucket.has(String(p.product_no))) bucket.set(String(p.product_no), p);
+      }
+    }
+
+    for (const row of seen.values()) {
+      const bucket = todayNew.get(row.brand);
+      row.new_products = bucket ? Array.from(bucket.values()) : [];
+      row.new_count = row.new_products.length;
+    }
+    return Array.from(seen.values());
+  }
+
+  async function loadMallAudit() {
+    const { data, error } = await client.from('mall_audits')
+      .select('checked_at,check_date,brand,url,status,product_count,new_count,exposed_count,new_products,exposed_hidden,error_message')
+      .order('checked_at', { ascending: false })
+      .limit(300);
+
+    if (error) {
+      document.getElementById('maSubtitle').textContent = '검수 결과를 불러오지 못했습니다: ' + error.message;
+      return;
+    }
+    mallAuditRows = latestAuditPerBrand(data || []);
+    renderMallAudit();
+  }
+
+  function renderMallAudit() {
+    const rows = mallAuditRows;
+    const subtitle = document.getElementById('maSubtitle');
+
+    if (!rows.length) {
+      subtitle.textContent = '아직 검수 기록이 없습니다. mall_audits.sql 과 mall_audits_seed.sql 을 실행한 뒤 첫 검수를 돌려주세요.';
+      document.getElementById('maCards').innerHTML = '';
+      document.getElementById('maTableBody').innerHTML = '';
+      (document.getElementById('maExposedPanel') || { style: {} }).style.display = 'none';
+      (document.getElementById('maNewPanel') || { style: {} }).style.display = 'none';
+      return;
+    }
+
+    const totalProducts = rows.reduce((sum, r) => sum + (r.product_count || 0), 0);
+    const totalNew = rows.reduce((sum, r) => sum + (r.new_count || 0), 0);
+    const totalExposed = rows.reduce((sum, r) => sum + (r.exposed_count || 0), 0);
+    const errorCount = rows.filter((r) => r.status === 'error').length;
+
+    const lastChecked = rows
+      .map((r) => r.checked_at)
+      .sort()
+      .slice(-1)[0];
+    subtitle.textContent = `자사몰 ${rows.length}곳의 공개 상품을 매일 확인합니다. 새 상품이 올라오거나 히든링크가 공개되면 여기에 표시됩니다.`;
+    document.getElementById('maCheckedAt').textContent =
+      lastChecked ? '마지막 검수 ' + new Date(lastChecked).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }) : '';
+
+    // ── KPI 카드 ──
+    document.getElementById('maCards').innerHTML = `
+      <div class="kpi-card"><div class="kpi-label">검수한 자사몰</div><div class="kpi-value">${rows.length}곳</div></div>
+      <div class="kpi-card"><div class="kpi-label">공개 중인 상품</div><div class="kpi-value">${totalProducts.toLocaleString()}개</div></div>
+      <div class="kpi-card"><div class="kpi-label">새로 등록된 상품</div>
+        <div class="kpi-value" style="${totalNew ? 'color:#2563eb;' : ''}">${totalNew}개</div></div>
+      <div class="kpi-card"><div class="kpi-label">히든링크 노출</div>
+        <div class="kpi-value" style="${totalExposed ? 'color:#dc2626;' : ''}">${totalExposed}건</div></div>
+    `;
+
+    // ── 히든링크 노출 (있을 때만) ──
+    const exposedPanel = document.getElementById('maExposedPanel');
+    const exposed = [];
+    rows.forEach((r) => (r.exposed_hidden || []).forEach((e) => exposed.push({ ...e, brand: r.brand })));
+    if (exposed.length) {
+      exposedPanel.style.display = '';
+      document.getElementById('maExposedList').innerHTML = exposed.map((e) => `
+        <div class="ma-item">
+          <div>
+            <span class="ma-item-brand">${escapeAttr(e.brand)}</span>
+            <span class="ma-item-name">${escapeAttr(e.product_name || '(이름 없음)')}</span>
+          </div>
+          <div class="ma-item-reason">${escapeAttr(e.reason || '')}</div>
+          ${e.url ? `<a href="${escapeAttr(e.url)}" target="_blank" rel="noopener">상품 페이지 열기 →</a>` : ''}
+        </div>
+      `).join('');
+    } else {
+      exposedPanel.style.display = 'none';
+    }
+
+    // ── 신규 상품 (있을 때만) ──
+    const newPanel = document.getElementById('maNewPanel');
+    const newItems = [];
+    rows.forEach((r) => (r.new_products || []).forEach((p) => newItems.push({ ...p, brand: r.brand })));
+    if (newItems.length) {
+      newPanel.style.display = '';
+      document.getElementById('maNewSubtitle').textContent = `직전 검수 이후 ${newItems.length}개가 새로 올라왔습니다.`;
+      document.getElementById('maNewList').innerHTML = newItems.map((p) => {
+        // 미진열로 만든 상품(공구·제휴 전용)도 새 상품으로 알립니다. 한눈에 구분되게 표시합니다.
+        const hidden = p.kind === '미진열';
+        return `
+        <div class="ma-item">
+          <div>
+            <span class="ma-item-brand">${escapeAttr(p.brand)}</span>
+            <span class="ma-item-name">${escapeAttr(p.name || '(이름 없음)')}</span>
+            <span class="ma-kind ${hidden ? 'hidden' : 'open'}">${hidden ? '미진열' : '공개'}</span>
+          </div>
+          ${p.url ? `<a href="${escapeAttr(p.url)}" target="_blank" rel="noopener">상품 페이지 열기 →</a>` : ''}
+        </div>`;
+      }).join('');
+    } else {
+      newPanel.style.display = 'none';
+      document.getElementById('maNewSubtitle').textContent = '';
+    }
+
+    // ── 몰별 표 ──
+    const STATUS_LABEL = { ok: '정상', warn: '확인 필요', error: '읽기 실패' };
+    document.getElementById('maTableBody').innerHTML = rows.map((r) => {
+      const cls = r.status === 'warn' ? ' class="ma-row-warn"' : '';
+      const host = String(r.url || '').replace(/^https?:\/\//, '');
+      return `
+        <tr${cls}>
+          <td>${escapeAttr(r.brand)}</td>
+          <td>${r.url ? `<a href="${escapeAttr(r.url)}" target="_blank" rel="noopener" style="color:#4d7cfe;text-decoration:none;">${escapeAttr(host)}</a>` : ''}</td>
+          <td class="num">${(r.product_count || 0).toLocaleString()}</td>
+          <td class="num" style="${r.new_count ? 'color:#2563eb;font-weight:700;' : ''}">${r.new_count || 0}</td>
+          <td class="num" style="${r.exposed_count ? 'color:#dc2626;font-weight:700;' : ''}">${r.exposed_count || 0}</td>
+          <td><span class="ma-status ${r.status}">${STATUS_LABEL[r.status] || r.status}</span>
+            ${r.status === 'error' && r.error_message ? `<div class="ma-item-reason">${escapeAttr(r.error_message)}</div>` : ''}</td>
+        </tr>`;
+    }).join('');
+
+    if (errorCount) {
+      subtitle.textContent += ` (${errorCount}곳은 읽지 못했습니다)`;
+    }
+  }
+
+  // 메뉴 옆 빨간 배지 — 히든링크 노출 + 신규 상품 건수를 합쳐 보여줍니다.
+  async function refreshMallAuditBadge() {
+    const badge = document.getElementById('mallAuditBadge');
+    if (!badge) return;
+    const { data, error } = await client.from('mall_audits')
+      // check_date·new_products 는 latestAuditPerBrand 가 "오늘 신규"를 합칠 때 씁니다.
+      .select('brand,checked_at,check_date,new_count,exposed_count,new_products')
+      .order('checked_at', { ascending: false })
+      .limit(300);
+    if (error || !data || !data.length) {
+      badge.style.display = 'none';
+      return;
+    }
+    const latest = latestAuditPerBrand(data);
+    const total = latest.reduce((sum, r) => sum + (r.new_count || 0) + (r.exposed_count || 0), 0);
+    if (!total) {
+      badge.style.display = 'none';
+      return;
+    }
+    badge.textContent = total > 99 ? '99+' : String(total);
+    badge.style.display = '';
+  }
+
+  // ==================== 외부몰 등록 현황 (사방넷에서 읽어온 스냅샷) ====================
+  // 대시보드는 사방넷에 직접 접속할 수 없어서(로그인 + 다른 도메인), 사방넷 화면을 읽어
+  // mall_registrations 표에 넣어둔 결과를 그대로 보여줍니다. 실시간이 아니라 "읽어온 시점" 기준입니다.
+  let mallRegSnap = null;
+  let mallRegIndex = null;   // 품번 -> { 상품명, 브랜드, 상태, 몰: [...] }
+
+  async function loadMallRegistrations() {
+    const { data, error } = await client.from('mall_registrations')
+      .select('synced_at,malls,products,registrations,product_count,registration_count')
+      .order('synced_at', { ascending: false })
+      .limit(1);
+    mallRegSnap = (error || !data || !data.length) ? null : data[0];
+    buildMallRegIndex();
+    renderMallRegStat();
+    renderMallRegResult();
+  }
+
+  function buildMallRegIndex() {
+    mallRegIndex = new Map();
+    if (!mallRegSnap) return;
+    const products = mallRegSnap.products || [];
+
+    // 사방넷에 브랜드를 안 넣은 상품이 있습니다. 그 상품도 상품명은 브랜드로 시작하기 때문에
+    // 이미 쓰고 있는 브랜드 이름과 앞머리가 맞으면 그 브랜드로 묶어 줍니다(추정 표시를 남깁니다).
+    // 근본 해결은 사방넷 상품에 브랜드를 입력하는 것입니다 — 오늘의집처럼 브랜드가 필수인 몰은
+    // 비어 있으면 등록 자체가 실패합니다.
+    const knownBrands = [...new Set(products.map((x) => x.브랜드).filter(Boolean))]
+      .sort((a, b) => b.length - a.length);
+    const guessBrand = (name) => knownBrands.find((b) => String(name || '').trim().startsWith(b)) || '';
+
+    products.forEach((x) => {
+      const guessed = x.브랜드 ? '' : guessBrand(x.상품명);
+      mallRegIndex.set(x.품번, {
+        품번: x.품번, 상품명: x.상품명 || '', 브랜드: x.브랜드 || guessed,
+        브랜드추정: !!guessed, 상태: x.상태 || '', 몰: [],
+      });
+    });
+    (mallRegSnap.registrations || []).forEach((r) => {
+      // 상품 목록에 없는 품번이 등록돼 있을 수도 있어(단종 등) 그때는 줄을 새로 만듭니다.
+      if (!mallRegIndex.has(r.품번)) mallRegIndex.set(r.품번, { 품번: r.품번, 상품명: '', 브랜드: '', 상태: '', 몰: [] });
+      const item = mallRegIndex.get(r.품번);
+      if (!item.몰.includes(r.몰)) item.몰.push(r.몰);
+    });
+  }
+
+  // 위쪽 숫자 카드를 누르면 아래 목록이 그 내용으로 바뀝니다.
+  //   regs·malls = 몰별 등록 건수, products = 등록된 상품, missing = 미등록 상품
+  let mallRegCard = 'missing';
+  let mallRegMall = '';
+
+  const MR_CARD_MODE = { regs: 'byMall', malls: 'byMall', products: 'registered', missing: 'missing' };
+
+  function setMallRegCard(key) {
+    mallRegCard = key;
+    mallRegMall = '';
+    const box = document.getElementById('mrSearch');
+    if (box) box.value = '';
+    renderMallRegStat();
+    renderMallRegResult();
+  }
+  window.setMallRegCard = setMallRegCard;
+
+  let mallRegBrand = '';
+
+  function setMallRegBrand(brand) {
+    mallRegBrand = brand;
+    renderMallRegResult();
+  }
+  window.setMallRegBrand = setMallRegBrand;
+
+  function setMallRegMall(mall) {
+    mallRegMall = mall;
+    renderMallRegResult();
+  }
+  window.setMallRegMall = setMallRegMall;
+
+  function renderMallRegStat() {
+    const note = document.getElementById('mrSyncNote');
+    const box = document.getElementById('mrStat');
+    if (!note || !box) return;
+    if (!mallRegSnap) {
+      note.textContent = '';
+      box.innerHTML = '<div class="mr-empty">사방넷에서 읽어온 등록 현황이 아직 없습니다.</div>';
+      return;
+    }
+    note.textContent = '사방넷 기준 ' + new Date(mallRegSnap.synced_at)
+      .toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' });
+
+    const items = [...mallRegIndex.values()];
+    const missing = items.filter((x) => x.상태 === '공급중' && !x.몰.length);
+    box.innerHTML = [
+      { key: 'regs', label: '등록 건수', n: mallRegSnap.registration_count, unit: '건', cls: '' },
+      { key: 'products', label: '등록된 상품', n: items.filter((x) => x.몰.length).length, unit: '개', cls: ' ok' },
+      { key: 'missing', label: '미등록 (공급중)', n: missing.length, unit: '개', cls: ' bad' },
+      { key: 'malls', label: '연결된 몰', n: (mallRegSnap.malls || []).length, unit: '곳', cls: '' },
+    ].map((x) => `
+      <button type="button" class="mr-stat-cell${x.cls}${mallRegCard === x.key ? ' active' : ''}"
+        onclick="setMallRegCard('${x.key}')">
+        <div class="mr-stat-label">${escapeAttr(x.label)}</div>
+        <div class="mr-stat-num">${(x.n || 0).toLocaleString('ko-KR')}${x.unit}</div>
+      </button>`).join('');
+  }
+
+  function renderMallRegResult() {
+    const box = document.getElementById('mrResult');
+    if (!box || !mallRegIndex) return;
+    const q = (document.getElementById('mrSearch')?.value || '').trim().toLowerCase();
+    const allMalls = mallRegSnap ? (mallRegSnap.malls || []) : [];
+    const mode = MR_CARD_MODE[mallRegCard] || 'missing';
+
+    const brandBox = document.getElementById('mrBrands');
+
+    // "연결된 몰"을 골랐고 아직 몰을 고르지 않았으면 몰 목록을 보여줍니다.
+    if (!q && mode === 'byMall' && !mallRegMall) {
+      if (brandBox) brandBox.innerHTML = '';
+      const cnt = {};
+      (mallRegSnap && mallRegSnap.registrations || []).forEach((r) => { cnt[r.몰] = (cnt[r.몰] || 0) + 1; });
+      const rows = allMalls.slice().sort((a, b) => (cnt[b] || 0) - (cnt[a] || 0));
+      box.innerHTML = '<div class="mr-lead">몰을 누르면 그 몰에 등록된 상품이 나옵니다.</div>'
+        + rows.map((m) => `
+          <button type="button" class="mr-mall-row" onclick="setMallRegMall('${escapeAttr(m)}')">
+            <span class="mr-mall-name">${escapeAttr(m)}</span>
+            <span class="mr-mall-cnt">${cnt[m] || 0}건</span>
+          </button>`).join('');
+      return;
+    }
+
+    let items = [...mallRegIndex.values()];
+    let head = '';
+    if (q) {
+      items = items.filter((x) => (x.상품명 || '').toLowerCase().includes(q) || String(x.품번).includes(q));
+      head = `<div class="mr-lead">${items.length}개를 찾았습니다.</div>`;
+    } else if (mallRegMall) {
+      items = items.filter((x) => x.몰.includes(mallRegMall));
+      head = `<div class="mr-lead"><button type="button" class="mr-back" onclick="setMallRegMall('')">← 몰 목록</button>
+        <b>${escapeAttr(mallRegMall)}</b>에 등록된 상품 ${items.length}개입니다.</div>`;
+    } else if (mode === 'registered') {
+      items = items.filter((x) => x.몰.length);
+      head = `<div class="mr-lead">한 곳 이상에 <b>등록된 상품</b> ${items.length}개입니다.</div>`;
+    } else {
+      items = items.filter((x) => x.상태 === '공급중' && !x.몰.length);
+      head = `<div class="mr-lead">공급중인데 <b>어느 몰에도 등록되지 않은 상품</b> ${items.length}개입니다. 런칭 상품명을 위에서 검색하면 그 상품의 등록 현황만 볼 수 있습니다.</div>`;
+    }
+
+    // 지금 목록에 실제로 들어 있는 브랜드만 버튼으로 보여줍니다.
+    const brandCount = {};
+    items.forEach((x) => { const b = x.브랜드 || '(브랜드 없음)'; brandCount[b] = (brandCount[b] || 0) + 1; });
+    if (mallRegBrand && !brandCount[mallRegBrand]) mallRegBrand = '';
+    if (brandBox) {
+      const brands = Object.keys(brandCount).sort((a, b) => brandCount[b] - brandCount[a]);
+      brandBox.innerHTML = [{ name: '', label: '전체', n: items.length }]
+        .concat(brands.map((b) => ({ name: b, label: b, n: brandCount[b] })))
+        .map((b) => `
+          <button type="button" class="mr-brand-btn${mallRegBrand === b.name ? ' active' : ''}"
+            onclick="setMallRegBrand('${escapeAttr(b.name)}')">${escapeAttr(b.label)} <span>${b.n}</span></button>`)
+        .join('');
+    }
+    if (mallRegBrand) {
+      items = items.filter((x) => (x.브랜드 || '(브랜드 없음)') === mallRegBrand);
+      head += `<div class="mr-lead"><b>${escapeAttr(mallRegBrand)}</b> ${items.length}개만 보고 있습니다.</div>`;
+    }
+
+    items.sort((a, b) => (b.몰.length - a.몰.length) || String(a.상품명).localeCompare(String(b.상품명), 'ko'));
+
+    if (!items.length) {
+      box.innerHTML = head + `<div class="mr-empty">${q ? '검색 결과가 없습니다. 사방넷에 등록된 상품명인지 확인해 주세요.' : '해당하는 상품이 없습니다.'}</div>`;
+      return;
+    }
+
+    const LIMIT = 40;
+    const shown = items.slice(0, LIMIT);
+
+    box.innerHTML = head + shown.map((x) => {
+      const on = x.몰.slice().sort((a, b) => a.localeCompare(b, 'ko'));
+      const off = allMalls.filter((m) => !x.몰.includes(m));
+      return `
+        <div class="mr-item${on.length ? '' : ' none'}">
+          <div class="mr-item-head">
+            <span class="mr-name">${escapeAttr(x.상품명 || '(상품명 없음)')}</span>
+            <span class="mr-code">품번 ${escapeAttr(x.품번)}</span>
+            ${x.브랜드 ? `<span class="mr-brand">${escapeAttr(x.브랜드)}</span>` : ''}
+            ${x.브랜드추정 ? '<span class="mr-brand-warn" title="사방넷 상품에 브랜드가 비어 있어 상품명으로 묶었습니다. 사방넷에 브랜드를 입력해 주세요.">브랜드 미입력</span>' : ''}
+            ${x.상태 && x.상태 !== '공급중' ? `<span class="mr-state">${escapeAttr(x.상태)}</span>` : ''}
+          </div>
+          ${on.length
+            ? `<div class="mr-chips"><span class="mr-chips-label">등록됨</span>${on.map((m) => `<span class="mr-chip on">${escapeAttr(m)}</span>`).join('')}</div>`
+            : '<div class="mr-warn">어느 몰에도 등록되어 있지 않습니다 — 등록을 진행해야 합니다.</div>'}
+          ${off.length
+            ? `<div class="mr-chips"><span class="mr-chips-label off">미등록</span>${off.map((m) => `<span class="mr-chip off">${escapeAttr(m)}</span>`).join('')}</div>`
+            : ''}
+        </div>`;
+    }).join('') + (items.length > LIMIT
+      ? `<div class="mr-more">${items.length - LIMIT}개 더 있습니다. 검색어를 넣으면 좁혀서 볼 수 있습니다.</div>`
+      : '');
+  }
+
 
   // ==================== 워크스페이스 전환 (매출관리 ↔ 영업팀) ====================
   let currentWorkspace = 'sales';
