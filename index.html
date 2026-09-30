@@ -7918,6 +7918,7 @@
   // mall_product_prices 에 읽어둔 몰별 가격을 칸마다 채웁니다.
   // 가격도 사방넷·각 몰에서 읽어온 스냅샷이라 실시간이 아니고 "읽어온 시점" 기준입니다.
   const MSP_BRAND = '코드니처';
+  const MSP_EXTRA_MALLS = ['코드니처 자사몰'];
   let mallSalePriceRows = [];
 
   async function loadMallSalePrices() {
@@ -7952,10 +7953,15 @@
     // 코드니처가 한 번이라도 올라간 몰만 칸으로 씁니다. 많이 올라간 몰이 왼쪽입니다.
     const mallCnt = {};
     all.forEach((x) => x.몰.forEach((m) => { mallCnt[m] = (mallCnt[m] || 0) + 1; }));
-    const malls = Object.keys(mallCnt).sort((a, b) => (mallCnt[b] - mallCnt[a]) || a.localeCompare(b, 'ko'));
+    const regMalls = Object.keys(mallCnt).sort((a, b) => (mallCnt[b] - mallCnt[a]) || a.localeCompare(b, 'ko'));
 
     const priceMap = new Map();
     mallSalePriceRows.forEach((r) => priceMap.set(r.product_code + '|' + r.mall, r));
+
+    // 사방넷에 연결되지 않은 몰(코드니처 자사몰 등)은 등록 현황에 없어서,
+    // 가격이 들어와 있는 상품만 그 몰에 올라간 것으로 봅니다. 이 몰들이 맨 왼쪽입니다.
+    const extraMalls = MSP_EXTRA_MALLS.filter((m) => mallSalePriceRows.some((r) => r.mall === m));
+    const malls = extraMalls.concat(regMalls.filter((m) => !extraMalls.includes(m)));
     const latest = mallSalePriceRows.reduce((t, r) => (r.checked_at && r.checked_at > t ? r.checked_at : t), '');
     if (note) note.textContent = latest
       ? '가격 기준 ' + new Date(latest).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' })
@@ -7964,6 +7970,7 @@
     // 상품마다 몰별 가격과 최저·최고를 미리 계산해 둡니다.
     const rows = all.map((x) => {
       const cells = {};
+      extraMalls.forEach((m) => { if (priceMap.has(x.품번 + '|' + m)) cells[m] = priceMap.get(x.품번 + '|' + m); });
       x.몰.forEach((m) => { cells[m] = priceMap.get(x.품번 + '|' + m) || null; });
       const vals = Object.values(cells).filter((c) => c && c.price != null).map((c) => Number(c.price));
       const min = vals.length ? Math.min(...vals) : 0;
