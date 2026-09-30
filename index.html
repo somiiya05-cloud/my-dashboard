@@ -2507,7 +2507,7 @@
         <section class="panel">
           <div class="panel-head">
             <h2>진행 중 거래 건 관리</h2>
-            <span class="panel-note">B2B 직납 · 수출 · 해외펀딩 · 특판 영업 파이프라인 · 상품명+수량을 넣으면 견적서 초안이 자동 생성됩니다</span>
+            <span class="panel-note">B2B 직납 · 수출 · 해외펀딩 · 특판 · 기타 영업 파이프라인 · 상품명+수량을 넣으면 견적서 초안이 자동 생성됩니다</span>
           </div>
           <form class="deal-form" id="partnerDealForm">
             <select name="category" style="width:110px;">
@@ -2515,6 +2515,7 @@
               <option value="수출">수출</option>
               <option value="해외펀딩">해외펀딩</option>
               <option value="특판">특판</option>
+              <option value="기타">기타</option>
             </select>
             <select name="partnerId" id="partnerDealFormPartner" required style="flex:1; min-width:130px;"></select>
             <input type="text" id="partnerNewName" class="partner-new-input" placeholder="새 거래처명" hidden
@@ -2992,7 +2993,7 @@
         <label>거래처<select id="qfPartner"></select></label>
         <label>구분<select id="qfCategory">
           <option value="B2B 직납">B2B 직납</option><option value="수출">수출</option>
-          <option value="해외펀딩">해외펀딩</option><option value="특판">특판</option>
+          <option value="해외펀딩">해외펀딩</option><option value="특판">특판</option><option value="기타">기타</option>
         </select></label>
         <label>과세구분<select id="qfTaxType" onchange="renderQuoteTotals()">
           <option value="과세">과세 (부가세 포함)</option><option value="영세율">영세율 (부가세 0원)</option>
@@ -4360,7 +4361,7 @@
       <tr>
         <td>
           <select class="inline-edit" onchange="updatePartnerDealField(${d.id}, 'category', this.value)">
-            ${optionsHtml(['B2B 직납', '수출', '해외펀딩', '특판'], d.category)}
+            ${optionsHtml(['B2B 직납', '수출', '해외펀딩', '특판', '기타'], d.category)}
           </select>
         </td>
         <td>${escapeAttr(partnerName(d.partner_id))}</td>
