@@ -1260,7 +1260,10 @@
 
   /* ---- 외부몰 판매가 ---- */
   .msp-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #334155; cursor: pointer; }
-  .msp-wrap { overflow-x: auto; }
+  /* 표가 가로로 넓어 가로 스크롤 박스가 필요한데, 그러면 페이지 스크롤 기준 고정이 안 됩니다.
+     그래서 표 자체를 화면 높이만큼의 스크롤 박스로 만들고, 그 안에서 머리줄을 고정합니다. */
+  .msp-wrap { overflow: auto; max-height: calc(100vh - 140px); border: 1px solid rgba(15,23,42,.07); border-radius: 8px; }
+  .msp-table thead th { position: sticky; top: 0; z-index: 2; box-shadow: inset 0 -1px 0 rgba(15,23,42,.12); }
   .msp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   .msp-table th, .msp-table td { border-bottom: 1px solid rgba(15,23,42,.07); padding: 8px 10px; white-space: nowrap; }
   .msp-table th { background: #f8fafc; color: #475569; font-weight: 800; font-size: 11.5px; text-align: center; }
@@ -1278,9 +1281,11 @@
   .msp-sb { display: block; font-size: 11px; font-weight: 600; color: #94a3b8; margin-top: 2px; }
   .msp-tag { display: inline-block; font-size: 10px; font-weight: 800; color: #7c3aed; background: rgba(124,58,237,.1); border-radius: 4px; padding: 1px 4px; margin-right: 4px; vertical-align: 1px; }
   .msp-table td.msp-gb { background: #faf5ff; text-align: left; white-space: normal; min-width: 190px; }
-  .msp-gb-line { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; line-height: 1.55; }
+  /* 구성 이름 바로 옆에 가격을 붙이고, 가격끼리는 한 줄로 맞춥니다(두 칸짜리 격자). */
+  .msp-gb-grid { display: inline-grid; grid-template-columns: max-content max-content; column-gap: 12px; font-size: 11.5px; line-height: 1.55; }
+  .msp-gb-grid b { text-align: right; }
   .msp-gb-name { color: #64748b; }
-  .msp-gb-line b { color: #6d28d9; font-weight: 800; white-space: nowrap; }
+  .msp-gb-grid b { color: #6d28d9; font-weight: 800; white-space: nowrap; }
   .msp-cell.low { background: rgba(22,163,74,.08); }
   .msp-cell.low .msp-price { color: #15803d; }
   .msp-cell.high { background: rgba(220,38,38,.06); }
@@ -7920,11 +7925,13 @@
   //   useReg : 사방넷 등록 현황의 몰도 칸으로 쓸지. 명퉤는 사방넷엔 스마트스토어로 잡혀 있지만
   //            실제로는 자사몰·선물하기에서만 팔고 있어서 쓰지 않습니다.
   const MSP_BRANDS = {
-    '코드니처': { extra: ['공동구매', '코드니처 자사몰'], useReg: true },
+    '코드니처': { extra: ['공동구매', '코드니처 자사몰', '쿠팡'], useReg: true },
     '명퉤': { extra: ['명퉤 자사몰', '카카오 선물하기'], useReg: false },
   };
   // 공동구매 칸 — 구성별 공구가를 memo 에 "공구옵션:[{구성,가격}…]" 으로 넣어 둡니다.
   const MSP_GROUPBUY = '공동구매';
+  // 이 칸들은 적힌 몰 바로 뒤에 둡니다.
+  const MSP_AFTER = { '쿠팡': '스마트스토어' };
   let mspBrand = '코드니처';
   let mallSalePriceRows = [];
 
@@ -7982,7 +7989,12 @@
     // 사방넷에 연결되지 않은 몰(코드니처 자사몰 등)은 등록 현황에 없어서,
     // 가격이 들어와 있는 상품만 그 몰에 올라간 것으로 봅니다. 이 몰들이 맨 왼쪽입니다.
     const extraMalls = cfg.extra.filter((m) => mallSalePriceRows.some((r) => r.mall === m));
-    const malls = extraMalls.concat(regMalls.filter((m) => !extraMalls.includes(m)));
+    const malls = extraMalls.filter((m) => !MSP_AFTER[m]).concat(regMalls.filter((m) => !extraMalls.includes(m)));
+    // 쿠팡처럼 특정 몰 바로 뒤에 두고 싶은 칸은 그 자리에 끼워 넣습니다.
+    extraMalls.filter((m) => MSP_AFTER[m]).forEach((m) => {
+      const i = malls.indexOf(MSP_AFTER[m]);
+      malls.splice(i < 0 ? malls.length : i + 1, 0, m);
+    });
     const codes = new Set(all.map((x) => String(x.품번)));
     const latest = mallSalePriceRows.filter((r) => codes.has(String(r.product_code))).reduce((t, r) => (r.checked_at && r.checked_at > t ? r.checked_at : t), '');
     if (note) note.textContent = latest
@@ -8045,16 +8057,21 @@
         if (opts.length > 1) {
           while (words.every((w) => w.length > common + 0 && w[common] === words[0][common])) common++;
         }
-        return `<td class="msp-cell msp-gb">${opts.map((o, i) => `
-          <div class="msp-gb-line"><span class="msp-gb-name">${escapeAttr(words[i].slice(common).join(' ') || '기본')}</span><b>${won(o.가격)}</b></div>`).join('')}</td>`;
+        return `<td class="msp-cell msp-gb"><div class="msp-gb-grid">${opts.map((o, i) => `
+          <span class="msp-gb-name">${escapeAttr(words[i].slice(common).join(' ') || '기본')}</span><b>${won(o.가격)}</b>`).join('')}</div></td>`;
       }
       // memo 에는 "사방넷 판매가 23900 · 품절" 처럼 사방넷이 보낸 가격과 몰 상태가 들어 있습니다.
       const memo = (c && c.memo) || '';
       const sb = (memo.match(/사방넷 판매가 (\d+)/) || [])[1];
       const sbHtml = sb ? `<span class="msp-sb">사방넷 ${won(sb)}</span>` : '';
+      // 쿠팡은 옵션 구성(1개, 2개(1+1) …)이 몰마다 달라서 "구성 2개(1+1)"처럼 어느 옵션 가격인지 적어 둡니다.
+      const unit = (memo.match(/구성 ([^·]+?)\s*(?:·|$)/) || [])[1];
+      const unitHtml = unit && unit !== '다름' ? `<span class="msp-sb">${escapeAttr(unit)} 기준</span>` : '';
+      const ref = (memo.match(/참고 (.+)$/) || [])[1];
+      const refHtml = ref ? `<span class="msp-sb">${escapeAttr(ref)}</span>` : '';
       if (!c || c.price == null) {
-        const state = /품절/.test(memo) ? '품절' : /승인 대기/.test(memo) ? '승인 대기' : '미확인';
-        return `<td class="msp-cell msp-unknown${state === '품절' ? ' soldout' : ''}">${state}${sbHtml}</td>`;
+        const state = /품절/.test(memo) ? '품절' : /승인 대기/.test(memo) ? '승인 대기' : /구성 다름/.test(memo) ? '구성 다름' : '미확인';
+        return `<td class="msp-cell msp-unknown${state === '품절' ? ' soldout' : ''}">${state}${sbHtml}${refHtml}</td>`;
       }
       const p = Number(c.price);
       const cls = r.diff ? (p === r.min ? ' low' : p === r.max ? ' high' : '') : '';
@@ -8067,7 +8084,7 @@
       // 카카오 선물하기는 쿠폰·카드 혜택을 다 받은 "최대혜택가"를 따로 보여줍니다.
       const best = (memo.match(/최대혜택가 (\d+)/) || [])[1];
       const bestHtml = best ? `<span class="msp-sb">최대혜택가 ${won(best)}</span>` : '';
-      return `<td class="msp-cell${cls}">${list}<span class="msp-price">${coupon}${price}</span>${bestHtml}</td>`;
+      return `<td class="msp-cell${cls}">${list}<span class="msp-price">${coupon}${price}</span>${bestHtml}${unitHtml}</td>`;
     };
 
     box.innerHTML = `
