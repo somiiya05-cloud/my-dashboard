@@ -3015,13 +3015,14 @@
       <div class="topbar">
         <div>
           <h1>외부몰 판매가</h1>
-          <div class="subtitle">외부몰에 등록된 코드니처 상품이 몰마다 얼마에 올라가 있는지 봅니다.</div>
+          <div class="subtitle">브랜드 상품이 자사몰·외부몰마다 얼마에 올라가 있는지 봅니다.</div>
         </div>
       </div>
 
       <section class="panel">
         <div class="panel-head">
-          <h2>코드니처 몰별 판매가</h2>
+          <h2 id="mspTitle">코드니처 몰별 판매가</h2>
+          <div class="mr-brands" id="mspBrands" style="flex: 1; margin-left: 12px;"></div>
           <span class="panel-note" id="mspSyncNote"></span>
         </div>
         <div class="mr-stat" id="mspStat"></div>
@@ -7913,13 +7914,25 @@
   }
 
 
-  // ==================== 외부몰 판매가 (코드니처) ====================
-  // 외부몰 등록 현황(mall_registrations)에서 코드니처 상품이 올라간 몰을 뽑고,
+  // ==================== 외부몰 판매가 (브랜드별) ====================
+  // 외부몰 등록 현황(mall_registrations)에서 브랜드 상품이 올라간 몰을 뽑고,
   // mall_product_prices 에 읽어둔 몰별 가격을 칸마다 채웁니다.
   // 가격도 사방넷·각 몰에서 읽어온 스냅샷이라 실시간이 아니고 "읽어온 시점" 기준입니다.
-  const MSP_BRAND = '코드니처';
-  const MSP_EXTRA_MALLS = ['코드니처 자사몰'];
+  //   extra  : 사방넷에 연결되지 않은 몰(자사몰·선물하기 등). 맨 왼쪽 칸이 됩니다.
+  //   useReg : 사방넷 등록 현황의 몰도 칸으로 쓸지. 명퉤는 사방넷엔 스마트스토어로 잡혀 있지만
+  //            실제로는 자사몰·선물하기에서만 팔고 있어서 쓰지 않습니다.
+  const MSP_BRANDS = {
+    '코드니처': { extra: ['코드니처 자사몰'], useReg: true },
+    '명퉤': { extra: ['명퉤 자사몰', '카카오 선물하기'], useReg: false },
+  };
+  let mspBrand = '코드니처';
   let mallSalePriceRows = [];
+
+  function setMspBrand(b) {
+    mspBrand = b;
+    renderMallSalePrices();
+  }
+  window.setMspBrand = setMspBrand;
 
   async function loadMallSalePrices() {
     const box = document.getElementById('mspResult');
@@ -7949,10 +7962,18 @@
       return;
     }
 
-    const all = [...mallRegIndex.values()].filter((x) => x.브랜드 === MSP_BRAND && x.몰.length);
-    // 코드니처가 한 번이라도 올라간 몰만 칸으로 씁니다. 많이 올라간 몰이 왼쪽입니다.
+    const cfg = MSP_BRANDS[mspBrand];
+    const title = document.getElementById('mspTitle');
+    if (title) title.textContent = mspBrand + ' 몰별 판매가';
+    const brandBox = document.getElementById('mspBrands');
+    if (brandBox) brandBox.innerHTML = Object.keys(MSP_BRANDS).map((b) => `
+      <button type="button" class="mr-brand-btn${b === mspBrand ? ' active' : ''}"
+        onclick="setMspBrand('${escapeAttr(b)}')">${escapeAttr(b)}</button>`).join('');
+
+    const all = [...mallRegIndex.values()].filter((x) => x.브랜드 === mspBrand && x.몰.length);
+    // 브랜드 상품이 한 번이라도 올라간 몰만 칸으로 씁니다. 많이 올라간 몰이 왼쪽입니다.
     const mallCnt = {};
-    all.forEach((x) => x.몰.forEach((m) => { mallCnt[m] = (mallCnt[m] || 0) + 1; }));
+    if (cfg.useReg) all.forEach((x) => x.몰.forEach((m) => { mallCnt[m] = (mallCnt[m] || 0) + 1; }));
     const regMalls = Object.keys(mallCnt).sort((a, b) => (mallCnt[b] - mallCnt[a]) || a.localeCompare(b, 'ko'));
 
     const priceMap = new Map();
@@ -7960,9 +7981,10 @@
 
     // 사방넷에 연결되지 않은 몰(코드니처 자사몰 등)은 등록 현황에 없어서,
     // 가격이 들어와 있는 상품만 그 몰에 올라간 것으로 봅니다. 이 몰들이 맨 왼쪽입니다.
-    const extraMalls = MSP_EXTRA_MALLS.filter((m) => mallSalePriceRows.some((r) => r.mall === m));
+    const extraMalls = cfg.extra.filter((m) => mallSalePriceRows.some((r) => r.mall === m));
     const malls = extraMalls.concat(regMalls.filter((m) => !extraMalls.includes(m)));
-    const latest = mallSalePriceRows.reduce((t, r) => (r.checked_at && r.checked_at > t ? r.checked_at : t), '');
+    const codes = new Set(all.map((x) => String(x.품번)));
+    const latest = mallSalePriceRows.filter((r) => codes.has(String(r.product_code))).reduce((t, r) => (r.checked_at && r.checked_at > t ? r.checked_at : t), '');
     if (note) note.textContent = latest
       ? '가격 기준 ' + new Date(latest).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' })
       : '';
@@ -7971,7 +7993,7 @@
     const rows = all.map((x) => {
       const cells = {};
       extraMalls.forEach((m) => { if (priceMap.has(x.품번 + '|' + m)) cells[m] = priceMap.get(x.품번 + '|' + m); });
-      x.몰.forEach((m) => { cells[m] = priceMap.get(x.품번 + '|' + m) || null; });
+      if (cfg.useReg) x.몰.forEach((m) => { cells[m] = priceMap.get(x.품번 + '|' + m) || null; });
       const vals = Object.values(cells).filter((c) => c && c.price != null).map((c) => Number(c.price));
       const min = vals.length ? Math.min(...vals) : 0;
       const max = vals.length ? Math.max(...vals) : 0;
@@ -7982,7 +8004,7 @@
     const known = rows.reduce((t, r) => t + r.known, 0);
     const diffCnt = rows.filter((r) => r.diff).length;
     stat.innerHTML = [
-      { label: '코드니처 등록 상품', n: rows.length, unit: '개', cls: '' },
+      { label: mspBrand + ' 등록 상품', n: rows.length, unit: '개', cls: '' },
       { label: '몰 등록 건수', n: listed, unit: '건', cls: '' },
       { label: '가격 확인', n: known, unit: '건', cls: ' ok' },
       { label: '몰마다 가격이 다른 상품', n: diffCnt, unit: '개', cls: ' bad' },
@@ -8026,7 +8048,10 @@
       const list = c.list_price != null && Number(c.list_price) > p
         ? `<span class="msp-list">${won(c.list_price)}</span>` : '';
       const coupon = /쿠폰 적용가/.test(memo) ? '<span class="msp-tag">쿠폰가</span>' : '';
-      return `<td class="msp-cell${cls}">${list}<span class="msp-price">${coupon}${price}</span></td>`;
+      // 카카오 선물하기는 쿠폰·카드 혜택을 다 받은 "최대혜택가"를 따로 보여줍니다.
+      const best = (memo.match(/최대혜택가 (\d+)/) || [])[1];
+      const bestHtml = best ? `<span class="msp-sb">최대혜택가 ${won(best)}</span>` : '';
+      return `<td class="msp-cell${cls}">${list}<span class="msp-price">${coupon}${price}</span>${bestHtml}</td>`;
     };
 
     box.innerHTML = `
