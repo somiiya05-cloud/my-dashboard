@@ -2823,7 +2823,7 @@
           <h2>행사별 성과</h2>
           <input type="text" id="promoSearch" class="settlement-search" placeholder="판매처·기획전명·참여상품 검색" oninput="renderPromoEvents()">
           <span class="panel-note" id="promoEventNote"></span>
-          <button type="button" class="filter-reset-btn" onclick="promoImportFromSchedule()">일정에서 외부몰 행사 가져오기</button>
+          <button type="button" class="filter-reset-btn" onclick="promoUnignoreSchedule()" title="일정에 등록한 행사는 이 화면을 열 때 자동으로 들어옵니다. 여기서 지운 것만 다시 부를 때 누르세요.">지운 일정 행사 다시 가져오기</button>
         </div>
         <div class="scroll-box">
           <table class="table-center-head">
@@ -5873,7 +5873,7 @@
       // 일정 설명이 그대로 떠 있었습니다.
       const head = {
         main: ['프로모션', '공구 일정은 인플루언서 매니저에서 자동 동기화되고, 외부몰 행사는 아래에서 직접 등록합니다.'],
-        sales: ['프로모션 매출', '외부몰 기획전별 참여상품·판매수량을 넣으면 할인율과 매출, 직전 동일기간 대비 증감을 계산합니다.'],
+        sales: ['프로모션 매출', '일정에 등록한 외부몰 행사가 자동으로 들어옵니다. 참여상품·판매수량을 넣으면 할인율과 매출, 직전 동일기간 대비 증감을 계산합니다.'],
         settlement: ['공동구매 정산', '공구별 매출·수수료·수금을 관리합니다. 매출과 수수료는 공구 정산 계산에서 넣을 수 있습니다.'],
         feecalc: ['공구 정산 계산', '끝난 공구를 고르면 쌓아둔 주문으로 수수료를 계산하고 정산서를 뽑습니다.']
       }[currentScheduleSub] || ['프로모션', ''];
@@ -7913,9 +7913,11 @@
   let promoTargetRows = [];
   const promoOpenIds = new Set(); // 참여상품 줄을 펼쳐둔 행사 id
 
-  async function loadPromoSales() {
+  async function loadPromoSales({ sync = true } = {}) {
     const table = document.getElementById('promoEventTable');
     if (table) table.innerHTML = '<tr><td colspan="12" class="gs-empty">불러오는 중...</td></tr>';
+    // 화면에 들어올 때마다 일정에 새로 등록된 외부몰 행사를 먼저 끌어옵니다.
+    if (sync) await promoSyncFromSchedule();
     const [eventRes, itemRes, targetRes] = await Promise.all([
       client.from('promo_events').select('*').order('start_date', { ascending: false }),
       client.from('promo_event_items').select('*').order('id', { ascending: true }),
@@ -8142,6 +8144,12 @@
 
   async function deletePromoEvent(id) {
     if (!confirm('이 행사를 참여상품까지 함께 삭제할까요?')) return;
+    // 일정에서 끌어온 행사면 "안 가져오기"로 표시해 둡니다.
+    // 안 그러면 화면을 다시 열 때 자동 수집이 그대로 되살립니다.
+    const ev = promoEventRows.find((e) => e.id === id);
+    if (ev && ev.mall_event_id != null) {
+      await client.from('promo_ignored_mall_events').upsert([{ mall_event_id: ev.mall_event_id }], { onConflict: 'mall_event_id' });
+    }
     const { error } = await client.from('promo_events').delete().eq('id', id);
     if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
     promoOpenIds.delete(id);
@@ -8196,18 +8204,22 @@
   // 일정 화면의 "외부몰 행사"(mall_events)만 끌어옵니다 — 공구 일정은 가져오지 않습니다.
   // 기획전명+시작일이 같은 건은 이미 있는 것으로 보고 건너뜁니다.
   // 실적 월은 비워둡니다(시작일이 속한 달로 셉니다). 필요하면 표에서 고치면 됩니다.
-  async function promoImportFromSchedule() {
-    const { data, error } = await client.from('mall_events').select('*').order('start_date', { ascending: false });
-    if (error) { alert('일정을 불러오지 못했습니다: ' + error.message); return; }
-    const seen = new Set(promoEventRows.map((ev) => `${ev.title}|${ev.start_date}`));
-    const fresh = (data || []).filter((ev) => ev.title && ev.start_date && ev.end_date
-      && !seen.has(`${ev.title}|${ev.start_date}`));
-    if (!fresh.length) { alert('일정에 있는 외부몰 행사는 이미 전부 들어와 있습니다.'); return; }
-    const preview = fresh.slice(0, 8).map((ev) => `· ${ev.start_date} ${ev.mall ? '[' + ev.mall + '] ' : ''}${ev.title}`).join('\n');
-    const more = fresh.length > 8 ? `\n… 외 ${fresh.length - 8}건` : '';
-    if (!confirm(`일정의 외부몰 행사 ${fresh.length}건을 가져옵니다.\n\n${preview}${more}`)) return;
+  async function promoSyncFromSchedule() {
+    const [mallRes, mineRes, skipRes] = await Promise.all([
+      client.from('mall_events').select('*'),
+      client.from('promo_events').select('mall_event_id'),
+      client.from('promo_ignored_mall_events').select('mall_event_id')
+    ]);
+    // promo_auto_sync.sql 을 아직 안 돌렸으면 조용히 넘어갑니다(예전처럼 버튼으로 가져오면 됩니다).
+    if (mallRes.error || mineRes.error || skipRes.error) return 0;
+    const taken = new Set((mineRes.data || []).map((r) => r.mall_event_id).filter((v) => v != null));
+    const skipped = new Set((skipRes.data || []).map((r) => r.mall_event_id));
+    const fresh = (mallRes.data || []).filter((ev) => ev.title && ev.start_date && ev.end_date
+      && !taken.has(ev.id) && !skipped.has(ev.id));
+    if (!fresh.length) return 0;
     const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-    const { error: insertError } = await client.from('promo_events').insert(fresh.map((ev) => ({
+    const { error } = await client.from('promo_events').insert(fresh.map((ev) => ({
+      mall_event_id: ev.id,
       mall: ev.mall,
       title: ev.title,
       start_date: ev.start_date,
@@ -8216,7 +8228,17 @@
       status: ev.end_date < todayStr ? '종료' : (ev.start_date > todayStr ? '시작전' : '진행중'),
       memo: ev.memo
     })));
-    if (insertError) { alert('가져오지 못했습니다: ' + insertError.message); return; }
+    return error ? 0 : fresh.length;
+  }
+
+  // 지웠다가 다시 보고 싶을 때 씁니다 — 안 가져오기로 해둔 일정 행사를 모두 풀어줍니다.
+  async function promoUnignoreSchedule() {
+    const { data, error } = await client.from('promo_ignored_mall_events').select('mall_event_id');
+    if (error) { alert('promo_auto_sync.sql 을 Supabase SQL Editor에서 먼저 실행해 주세요.'); return; }
+    if (!data.length) { alert('일정 행사는 이미 전부 들어와 있습니다.'); return; }
+    if (!confirm(`프로모션 매출에서 지웠던 일정 행사 ${data.length}건을 다시 가져올까요?`)) return;
+    const { error: delError } = await client.from('promo_ignored_mall_events').delete().neq('mall_event_id', -1);
+    if (delError) { alert('되돌리지 못했습니다: ' + delError.message); return; }
     loadPromoSales();
   }
 
