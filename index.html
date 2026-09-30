@@ -1258,6 +1258,35 @@
   .gs-ev-card-filled.gs-accent-blue .gs-ev-card-meta { color: #2563eb; }
   .gs-ev-card-filled.gs-accent-blue .gs-ev-card-tags .gs-tag { background: rgba(37,99,235,.16); color: #1d4ed8; }
 
+  /* ---- 외부몰 판매가 ---- */
+  .msp-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #334155; cursor: pointer; }
+  .msp-wrap { overflow-x: auto; }
+  .msp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .msp-table th, .msp-table td { border-bottom: 1px solid rgba(15,23,42,.07); padding: 8px 10px; white-space: nowrap; }
+  .msp-table th { background: #f8fafc; color: #475569; font-weight: 800; font-size: 11.5px; text-align: center; }
+  .msp-table td.msp-name { white-space: normal; min-width: 220px; }
+  .msp-table td.msp-name b { color: #0f172a; font-weight: 700; }
+  .msp-table td.msp-name .mr-code { display: block; margin-top: 2px; }
+  .msp-table td.msp-cell { text-align: right; font-variant-numeric: tabular-nums; }
+  .msp-price { font-weight: 800; color: #0f172a; }
+  .msp-price a { color: inherit; text-decoration: none; }
+  .msp-price a:hover { text-decoration: underline; }
+  .msp-list { display: block; font-size: 11px; color: #94a3b8; text-decoration: line-through; }
+  .msp-table td.msp-off { color: #cbd5e1; text-align: center; }
+  .msp-table td.msp-unknown { color: #b45309; font-size: 11.5px; font-weight: 700; text-align: center; }
+  .msp-table td.msp-unknown.soldout { color: #b91c1c; }
+  .msp-sb { display: block; font-size: 11px; font-weight: 600; color: #94a3b8; margin-top: 2px; }
+  .msp-tag { display: inline-block; font-size: 10px; font-weight: 800; color: #7c3aed; background: rgba(124,58,237,.1); border-radius: 4px; padding: 1px 4px; margin-right: 4px; vertical-align: 1px; }
+  .msp-cell.low { background: rgba(22,163,74,.08); }
+  .msp-cell.low .msp-price { color: #15803d; }
+  .msp-cell.high { background: rgba(220,38,38,.06); }
+  .msp-cell.high .msp-price { color: #b91c1c; }
+  .msp-gap { text-align: right; font-weight: 800; color: #b91c1c; font-variant-numeric: tabular-nums; }
+  .msp-gap.same { color: #94a3b8; font-weight: 600; }
+  .msp-legend { font-size: 11.5px; color: #64748b; margin-bottom: 8px; line-height: 1.6; }
+  .msp-legend .low { color: #15803d; font-weight: 800; }
+  .msp-legend .high { color: #b91c1c; font-weight: 800; }
+
   /* ---- 외부몰 등록 현황 ---- */
   .mr-stat { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
   .mr-stat-cell {
@@ -1974,6 +2003,7 @@
           </div>
           <div class="nav-item" id="navCodenitProducts" onclick="switchView('codenit-products')"><span class="dot dot-team"></span>코드니처 자사몰</div>
           <div class="nav-item" id="navMallPrices" onclick="switchView('mall-prices')"><span class="dot dot-team"></span>외부몰</div>
+          <div class="nav-subitem" id="navMallSalePrices" onclick="switchView('mall-sale-prices')">외부몰 판매가</div>
         </div>
       </div>
 
@@ -2979,6 +3009,30 @@
         <div id="mrResult"></div>
       </section>
 
+    </main>
+
+    <main class="main" id="mallSalePricesView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>외부몰 판매가</h1>
+          <div class="subtitle">외부몰에 등록된 코드니처 상품이 몰마다 얼마에 올라가 있는지 봅니다.</div>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>코드니처 몰별 판매가</h2>
+          <span class="panel-note" id="mspSyncNote"></span>
+        </div>
+        <div class="mr-stat" id="mspStat"></div>
+        <div class="filter-group" style="margin-bottom: 12px; gap: 10px; flex-wrap: wrap; align-items: center;">
+          <input type="text" id="mspSearch" class="vendor-select" style="flex: 0 1 300px; min-width: 200px;"
+            placeholder="상품명 또는 품번으로 검색"
+            autocomplete="off" oninput="renderMallSalePrices()">
+          <label class="msp-toggle"><input type="checkbox" id="mspOnlyDiff" onchange="renderMallSalePrices()">몰마다 가격이 다른 상품만</label>
+        </div>
+        <div class="msp-wrap" id="mspResult"></div>
+      </section>
     </main>
 
   </div>
@@ -5831,6 +5885,7 @@
     document.getElementById('mallAuditView').style.display = view === 'mall-audit' ? '' : 'none';
     document.getElementById('codenitProductsView').style.display = view === 'codenit-products' ? '' : 'none';
     document.getElementById('mallPricesView').style.display = view === 'mall-prices' ? '' : 'none';
+    document.getElementById('mallSalePricesView').style.display = view === 'mall-sale-prices' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
     document.getElementById('navMonthlyTrend').classList.toggle('active', view === 'monthly-trend');
     document.getElementById('navProduct').classList.toggle('active', view === 'product');
@@ -5851,6 +5906,7 @@
     document.getElementById('navMallAudit').classList.toggle('active', view === 'mall-audit');
     document.getElementById('navCodenitProducts').classList.toggle('active', view === 'codenit-products');
     document.getElementById('navMallPrices').classList.toggle('active', view === 'mall-prices');
+    document.getElementById('navMallSalePrices').classList.toggle('active', view === 'mall-sale-prices');
     document.querySelectorAll('#navTeamAssignees .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'team-tasks' && el.dataset.assignee === brandChannel);
     });
@@ -5902,6 +5958,7 @@
     if (view === 'mall-audit') loadMallAudit();
     if (view === 'codenit-products') loadCodenitProducts();
     if (view === 'mall-prices') loadMallRegistrations();
+    if (view === 'mall-sale-prices') loadMallSalePrices();
   }
 
   // ==================== 품별 (월별 / 일자별 제품 판매 순위) ====================
@@ -7855,6 +7912,132 @@
       : '');
   }
 
+
+  // ==================== 외부몰 판매가 (코드니처) ====================
+  // 외부몰 등록 현황(mall_registrations)에서 코드니처 상품이 올라간 몰을 뽑고,
+  // mall_product_prices 에 읽어둔 몰별 가격을 칸마다 채웁니다.
+  // 가격도 사방넷·각 몰에서 읽어온 스냅샷이라 실시간이 아니고 "읽어온 시점" 기준입니다.
+  const MSP_BRAND = '코드니처';
+  let mallSalePriceRows = [];
+
+  async function loadMallSalePrices() {
+    const box = document.getElementById('mspResult');
+    if (box) box.innerHTML = '<div class="mr-empty">불러오는 중…</div>';
+    const [snap, prices] = await Promise.all([
+      client.from('mall_registrations')
+        .select('synced_at,malls,products,registrations,product_count,registration_count')
+        .order('synced_at', { ascending: false }).limit(1),
+      client.from('mall_product_prices')
+        .select('product_code,mall,price,list_price,url,memo,checked_at')
+        .not('product_code', 'is', null),
+    ]);
+    mallRegSnap = (snap.error || !snap.data || !snap.data.length) ? null : snap.data[0];
+    buildMallRegIndex();
+    mallSalePriceRows = prices.error ? [] : (prices.data || []);
+    renderMallSalePrices();
+  }
+
+  function renderMallSalePrices() {
+    const box = document.getElementById('mspResult');
+    const stat = document.getElementById('mspStat');
+    const note = document.getElementById('mspSyncNote');
+    if (!box || !stat) return;
+    if (!mallRegSnap) {
+      stat.innerHTML = '';
+      box.innerHTML = '<div class="mr-empty">사방넷에서 읽어온 등록 현황이 아직 없습니다.</div>';
+      return;
+    }
+
+    const all = [...mallRegIndex.values()].filter((x) => x.브랜드 === MSP_BRAND && x.몰.length);
+    // 코드니처가 한 번이라도 올라간 몰만 칸으로 씁니다. 많이 올라간 몰이 왼쪽입니다.
+    const mallCnt = {};
+    all.forEach((x) => x.몰.forEach((m) => { mallCnt[m] = (mallCnt[m] || 0) + 1; }));
+    const malls = Object.keys(mallCnt).sort((a, b) => (mallCnt[b] - mallCnt[a]) || a.localeCompare(b, 'ko'));
+
+    const priceMap = new Map();
+    mallSalePriceRows.forEach((r) => priceMap.set(r.product_code + '|' + r.mall, r));
+    const latest = mallSalePriceRows.reduce((t, r) => (r.checked_at && r.checked_at > t ? r.checked_at : t), '');
+    if (note) note.textContent = latest
+      ? '가격 기준 ' + new Date(latest).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' })
+      : '';
+
+    // 상품마다 몰별 가격과 최저·최고를 미리 계산해 둡니다.
+    const rows = all.map((x) => {
+      const cells = {};
+      x.몰.forEach((m) => { cells[m] = priceMap.get(x.품번 + '|' + m) || null; });
+      const vals = Object.values(cells).filter((c) => c && c.price != null).map((c) => Number(c.price));
+      const min = vals.length ? Math.min(...vals) : 0;
+      const max = vals.length ? Math.max(...vals) : 0;
+      return { x, cells, min, max, known: vals.length, diff: vals.length > 1 && min !== max };
+    });
+
+    const listed = rows.reduce((t, r) => t + Object.keys(r.cells).length, 0);
+    const known = rows.reduce((t, r) => t + r.known, 0);
+    const diffCnt = rows.filter((r) => r.diff).length;
+    stat.innerHTML = [
+      { label: '코드니처 등록 상품', n: rows.length, unit: '개', cls: '' },
+      { label: '몰 등록 건수', n: listed, unit: '건', cls: '' },
+      { label: '가격 확인', n: known, unit: '건', cls: ' ok' },
+      { label: '몰마다 가격이 다른 상품', n: diffCnt, unit: '개', cls: ' bad' },
+    ].map((c) => `
+      <div class="mr-stat-cell${c.cls}" style="cursor:default">
+        <div class="mr-stat-label">${escapeAttr(c.label)}</div>
+        <div class="mr-stat-num">${c.n.toLocaleString('ko-KR')}${c.unit}</div>
+      </div>`).join('');
+
+    const q = (document.getElementById('mspSearch')?.value || '').trim().toLowerCase();
+    const onlyDiff = document.getElementById('mspOnlyDiff')?.checked;
+    let shown = rows;
+    if (q) shown = shown.filter((r) => (r.x.상품명 || '').toLowerCase().includes(q) || String(r.x.품번).includes(q));
+    if (onlyDiff) shown = shown.filter((r) => r.diff);
+    // 가격 차이가 큰 상품이 위로 옵니다.
+    shown.sort((a, b) => ((b.max - b.min) - (a.max - a.min))
+      || String(a.x.상품명).localeCompare(String(b.x.상품명), 'ko'));
+
+    if (!shown.length) {
+      box.innerHTML = '<div class="mr-empty">해당하는 상품이 없습니다.</div>';
+      return;
+    }
+
+    const won = (n) => Number(n).toLocaleString('ko-KR') + '원';
+    const cellHtml = (r, m) => {
+      if (!(m in r.cells)) return '<td class="msp-cell msp-off">—</td>';
+      const c = r.cells[m];
+      // memo 에는 "사방넷 판매가 23900 · 품절" 처럼 사방넷이 보낸 가격과 몰 상태가 들어 있습니다.
+      const memo = (c && c.memo) || '';
+      const sb = (memo.match(/사방넷 판매가 (\d+)/) || [])[1];
+      const sbHtml = sb ? `<span class="msp-sb">사방넷 ${won(sb)}</span>` : '';
+      if (!c || c.price == null) {
+        const state = /품절/.test(memo) ? '품절' : /승인 대기/.test(memo) ? '승인 대기' : '미확인';
+        return `<td class="msp-cell msp-unknown${state === '품절' ? ' soldout' : ''}">${state}${sbHtml}</td>`;
+      }
+      const p = Number(c.price);
+      const cls = r.diff ? (p === r.min ? ' low' : p === r.max ? ' high' : '') : '';
+      const price = c.url
+        ? `<a href="${escapeAttr(c.url)}" target="_blank" rel="noopener">${won(p)}</a>`
+        : won(p);
+      const list = c.list_price != null && Number(c.list_price) > p
+        ? `<span class="msp-list">${won(c.list_price)}</span>` : '';
+      const coupon = /쿠폰 적용가/.test(memo) ? '<span class="msp-tag">쿠폰가</span>' : '';
+      return `<td class="msp-cell${cls}">${list}<span class="msp-price">${coupon}${price}</span></td>`;
+    };
+
+    box.innerHTML = `
+      <div class="msp-legend">몰마다 가격이 다르면 <span class="low">가장 싼 몰</span>과 <span class="high">가장 비싼 몰</span>을 색으로 표시합니다.
+        가격을 누르면 그 몰의 상품 페이지가 열립니다. <b>—</b>는 그 몰에 등록되지 않은 상품, <b>미확인</b>은 등록은 됐지만 가격을 아직 읽지 못한 곳입니다.
+        스마트스토어는 상품 페이지를 자동으로 읽을 수 없어 사방넷에 기록된 판매가만 회색으로 보여줍니다.</div>
+      <table class="msp-table">
+        <thead><tr><th style="text-align:left">상품</th>${malls.map((m) => `<th>${escapeAttr(m)}</th>`).join('')}<th>최고−최저</th></tr></thead>
+        <tbody>${shown.map((r) => `
+          <tr>
+            <td class="msp-name"><b>${escapeAttr(r.x.상품명 || '(상품명 없음)')}</b><span class="mr-code">품번 ${escapeAttr(r.x.품번)}</span></td>
+            ${malls.map((m) => cellHtml(r, m)).join('')}
+            <td class="msp-gap${r.diff ? '' : ' same'}">${r.diff ? won(r.max - r.min) : (r.known ? '같음' : '')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+  window.renderMallSalePrices = renderMallSalePrices;
 
   // ==================== 워크스페이스 전환 (매출관리 ↔ 영업팀) ====================
   let currentWorkspace = 'sales';
