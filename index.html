@@ -729,6 +729,15 @@
     font-size: 12.5px; font-family: inherit; color: #0f172a; width: 210px;
   }
   .settlement-search:focus { outline: none; border-color: rgba(77,124,254,.55); }
+
+  /* 프로모션 매출 · 행사별 성과 표 — 칸이 좁아도 판매처·숫자·버튼은 한 줄로 둡니다.
+     길게 풀어써야 하는 기획전명(4번째 칸)만 접히고, 나머지는 가로로 밀립니다.
+     참여상품을 펼쳤을 때 안쪽 표까지 걸리지 않게 바로 밑 칸만 고릅니다. */
+  .promo-event-table > thead > tr > th,
+  .promo-event-table > tbody > tr > td { white-space: nowrap; }
+  .promo-event-table > thead > tr > th:nth-child(4),
+  .promo-event-table > tbody > tr > td:nth-child(4) { white-space: normal; min-width: 180px; }
+  .promo-event-table > tbody > tr > td:nth-child(3) { padding-right: 14px; }
   .task-filter-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .task-filter-row select, .task-filter-row input {
     background: #f4f5f8; color: #0f172a; border: 1px solid rgba(15,23,42,.12);
@@ -2700,7 +2709,7 @@
           <button type="button" class="filter-reset-btn" onclick="promoUnignoreSchedule()" title="일정에 등록한 행사는 이 화면을 열 때 자동으로 들어옵니다. 여기서 지운 것만 다시 부를 때 누르세요.">지운 일정 행사 다시 가져오기</button>
         </div>
         <div class="scroll-box">
-          <table class="table-center-head">
+          <table class="table-center-head promo-event-table">
             <thead><tr><th>진행일정</th><th>실적 월</th><th>판매처</th><th>기획전명</th><th>상태</th><th class="num">참여상품</th><th class="num">판매수량</th><th class="num">총 매출액</th><th class="num">기획전 전 동일기간</th><th class="num">증감</th><th class="num">증감률</th><th></th></tr></thead>
             <tbody id="promoEventTable"></tbody>
           </table>
