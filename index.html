@@ -8025,7 +8025,7 @@
     box.innerHTML = `
       <div class="msp-legend">몰마다 가격이 다르면 <span class="low">가장 싼 몰</span>과 <span class="high">가장 비싼 몰</span>을 색으로 표시합니다.
         가격을 누르면 그 몰의 상품 페이지가 열립니다. <b>—</b>는 그 몰에 등록되지 않은 상품, <b>미확인</b>은 등록은 됐지만 가격을 아직 읽지 못한 곳입니다.
-        스마트스토어는 상품 페이지를 자동으로 읽을 수 없어 사방넷에 기록된 판매가만 회색으로 보여줍니다.</div>
+        스마트스토어는 상품 페이지를 자동으로 읽을 수 없어, 스마트스토어센터에서 내려받은 상품 엑셀의 할인가로 채웁니다.</div>
       <table class="msp-table">
         <thead><tr><th style="text-align:left">상품</th>${malls.map((m) => `<th>${escapeAttr(m)}</th>`).join('')}<th>최고−최저</th></tr></thead>
         <tbody>${shown.map((r) => `
