@@ -1260,7 +1260,10 @@
 
   /* ---- 외부몰 판매가 ---- */
   .msp-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #334155; cursor: pointer; }
-  .msp-wrap { overflow-x: auto; }
+  /* 표가 가로로 넓어 가로 스크롤 박스가 필요한데, 그러면 페이지 스크롤 기준 고정이 안 됩니다.
+     그래서 표 자체를 화면 높이만큼의 스크롤 박스로 만들고, 그 안에서 머리줄을 고정합니다. */
+  .msp-wrap { overflow: auto; max-height: calc(100vh - 140px); border: 1px solid rgba(15,23,42,.07); border-radius: 8px; }
+  .msp-table thead th { position: sticky; top: 0; z-index: 2; box-shadow: inset 0 -1px 0 rgba(15,23,42,.12); }
   .msp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   .msp-table th, .msp-table td { border-bottom: 1px solid rgba(15,23,42,.07); padding: 8px 10px; white-space: nowrap; }
   .msp-table th { background: #f8fafc; color: #475569; font-weight: 800; font-size: 11.5px; text-align: center; }
