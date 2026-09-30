@@ -8838,7 +8838,8 @@
         <td class="num"><button type="button" class="filter-reset-btn" onclick="promoToggleItems(${ev.id})">${open ? '▾' : '▸'} ${items.length}개</button></td>
         <td class="num">${promoEventQty(ev).toLocaleString('ko-KR')}</td>
         <td class="num" style="font-weight:700;">${Math.round(total).toLocaleString('ko-KR')}</td>
-        <td class="num"><input type="number" class="inline-edit" style="width:110px; text-align:right;" value="${ev.baseline_sales ?? ''}"
+        <td class="num"><input type="text" inputmode="numeric" class="inline-edit" style="width:110px; text-align:right;"
+          value="${ev.baseline_sales == null ? '' : Math.round(Number(ev.baseline_sales)).toLocaleString('ko-KR')}"
           onchange="updatePromoEventField(${ev.id}, 'baseline_sales', this.value)"></td>
         <td class="num">${promoDiffCell(diff, base)}</td>
         <td class="num">${promoPct(promoRate(diff, base))}</td>
@@ -8892,9 +8893,14 @@
 
   async function updatePromoEventField(id, field, rawValue) {
     const text = String(rawValue).trim();
-    const value = field === 'baseline_sales'
-      ? (text === '' ? null : Number(text))
-      : (text || null);
+    let value;
+    if (field === 'baseline_sales') {
+      // 콤마를 찍어 보여주므로 저장할 때 다시 떼어냅니다.
+      const bare = text.replace(/,/g, '');
+      if (bare === '') value = null;
+      else if (!Number.isFinite(Number(bare))) { alert('숫자만 넣어주세요: ' + text); loadPromoSales(); return; }
+      else value = Number(bare);
+    } else value = text || null;
     const { error } = await client.from('promo_events').update({ [field]: value }).eq('id', id);
     if (error) { alert('수정하지 못했습니다: ' + error.message); return; }
     loadPromoSales();
@@ -8996,9 +9002,6 @@
     const noMap = [...new Set(targets.filter((e) => !PROMO_MALL_VENDORS[e.mall]).map((e) => e.mall))];
     if (!vendors.length) { if (!auto) alert('매출DB 판매처를 아는 행사가 없습니다: ' + noMap.join(', ')); return 0; }
 
-    const from = targets.reduce((a, e) => (e.start_date < a ? e.start_date : a), '9999-12-31');
-    const to = targets.reduce((a, e) => (e.end_date > a ? e.end_date : a), '0000-01-01');
-
     // "기획전 전 동일기간" — 행사와 같은 일수만큼 시작일 바로 앞 구간입니다.
     const dayMs = 86400000;
     const asDate = (s) => new Date(s + 'T00:00:00Z');
@@ -9008,6 +9011,9 @@
 
     // 기준 구간까지 덮도록 조회 시작일을 앞으로 당깁니다.
     const from = targets.reduce((a, e) => { const b = baseRange(e)[0]; return b < a ? b : a; }, '9999-12-31');
+    const to = targets.reduce((a, e) => (e.end_date > a ? e.end_date : a), '0000-01-01');
+
+    // 매출은 id 순으로 넘겨야 행이 새지 않습니다(같은 날짜가 많아 날짜 정렬은 불안정).
     let sales = [], page = 0;
     while (true) {
       const { data, error } = await client.from('sales_transactions')
@@ -9056,9 +9062,6 @@
       const items = [...m.values()].sort((a, b) => b.amt - a.amt);
       const before = Math.round(promoEventTotal(e));
       const after = Math.round(items.reduce((s, i) => s + i.amt, 0));
-      if (before === after && promoItemsOf(e.id).length === items.length) continue;
-      plan.push({ event: e, items, before, after });
-    }
 
       // 기준 매출도 같은 조건(판매처·상품)으로, 행사 직전 같은 일수만큼 더합니다.
       const [bs, be] = baseRange(e);
@@ -9073,28 +9076,31 @@
       const itemsSame = before === after && promoItemsOf(e.id).length === items.length;
       if (itemsSame && baseBefore === baseline) continue;
       plan.push({ event: e, items, before, after, baseline, baseBefore, itemsSame });
+    }
+
+    if (!plan.length) {
       if (!auto) alert('매출DB와 이미 같습니다. 바뀔 것이 없습니다.'
         + (noMap.length ? '\n\n판매처를 몰라 건너뛴 행사: ' + noMap.join(', ') : ''));
       return 0;
     }
-    const lines = plan.slice(0, 12).map((p) => `· ${p.event.mall} / ${p.event.title.slice(0, 20)} : ${p.before.toLocaleString()} → ${p.after.toLocaleString()}원`);
-    const extra = [];
-    if (plan.length > 12) extra.push(`… 외 ${plan.length - 12}건`);
     const lines = plan.slice(0, 12).map((p) => `· ${p.event.mall} / ${p.event.title.slice(0, 20)}`
       + `\n   매출 ${p.before.toLocaleString()} → ${p.after.toLocaleString()}원`
       + `  ·  기준 ${p.baseBefore == null ? '없음' : p.baseBefore.toLocaleString()} → ${p.baseline.toLocaleString()}원`);
+    const extra = [];
+    if (plan.length > 12) extra.push(`… 외 ${plan.length - 12}건`);
+    if (ambiguous.size) extra.push(`기간·판매처가 겹쳐 손대지 않은 행사 ${ambiguous.size}건`);
     if (noMap.length) extra.push(`판매처를 몰라 건너뛴 곳: ${noMap.join(', ')}`);
-    if (!auto && !confirm(`매출DB로 참여상품을 다시 채웁니다 (${plan.length}건).\n\n${lines.join('\n')}\n\n${extra.join('\n')}`)) return 0;
+    if (!auto && !confirm(`매출DB로 참여상품과 기준 매출을 다시 채웁니다 (${plan.length}건).\n\n${lines.join('\n')}\n\n${extra.join('\n')}`)) return 0;
 
     for (const p of plan) {
-    if (!auto && !confirm(`매출DB로 참여상품과 기준 매출을 다시 채웁니다 (${plan.length}건).\n\n${lines.join('\n')}\n\n${extra.join('\n')}`)) return 0;
-      if (del.error) { if (!auto) alert('기존 참여상품을 지우지 못했습니다: ' + del.error.message); return 0; }
-      if (!p.items.length) continue;
       if (p.baseBefore !== p.baseline) {
         const up = await client.from('promo_events').update({ baseline_sales: p.baseline }).eq('id', p.event.id);
         if (up.error) { if (!auto) alert('기준 매출을 넣지 못했습니다: ' + up.error.message); return 0; }
       }
       if (p.itemsSame) continue;
+      const del = await client.from('promo_event_items').delete().eq('event_id', p.event.id);
+      if (del.error) { if (!auto) alert('기존 참여상품을 지우지 못했습니다: ' + del.error.message); return 0; }
+      if (!p.items.length) continue;
       const ins = await client.from('promo_event_items').insert(p.items.map((i) => ({
         event_id: p.event.id, product_name: i.product_name, list_price: null, promo_price: i.promo_price, qty: i.qty
       })));
