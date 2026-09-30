@@ -8427,7 +8427,7 @@
   let promoTargetRows = [];
   const promoOpenIds = new Set(); // 참여상품 줄을 펼쳐둔 행사 id
 
-  async function loadPromoSales({ sync = true } = {}) {
+  async function loadPromoSales({ sync = true, autofill = true } = {}) {
     const table = document.getElementById('promoEventTable');
     if (table) table.innerHTML = '<tr><td colspan="12" class="gs-empty">불러오는 중...</td></tr>';
     // 화면에 들어올 때마다 일정에 새로 등록된 외부몰 행사를 먼저 끌어옵니다.
@@ -8447,6 +8447,9 @@
     renderPromoKpis();
     renderPromoMonths();
     renderPromoEvents();
+    // 아침에 매출을 올리면 이 화면을 여는 것만으로 행사 실적이 최신이 됩니다.
+    // 바뀐 게 있을 때만 한 번 더 그립니다(그때는 자동 채우기를 끄고 불러 무한 반복을 막습니다).
+    if (autofill && await promoFillFromSales({ auto: true })) loadPromoSales({ sync: false, autofill: false });
   }
 
   function promoItemsOf(eventId) { return promoItemRows.filter((it) => it.event_id === eventId); }
@@ -8743,13 +8746,14 @@
     '오늘끝딜_테마딜 (꽃가글 1개입)': ['꽃 가글']
   };
 
-  async function promoFillFromSales() {
+  // auto:true 로 부르면 묻지 않고 조용히 채우고, 바뀐 행사 수만 돌려줍니다(화면 열 때 쓰는 길).
+  async function promoFillFromSales({ auto = false } = {}) {
     const targets = promoEventRows.filter((e) => e.mall_event_id != null);
-    if (!targets.length) { alert('일정에서 가져온 행사가 없습니다.'); return; }
+    if (!targets.length) { if (!auto) alert('일정에서 가져온 행사가 없습니다.'); return 0; }
 
     const vendors = [...new Set(targets.flatMap((e) => PROMO_MALL_VENDORS[e.mall] || []))];
     const noMap = [...new Set(targets.filter((e) => !PROMO_MALL_VENDORS[e.mall]).map((e) => e.mall))];
-    if (!vendors.length) { alert('매출DB 판매처를 아는 행사가 없습니다: ' + noMap.join(', ')); return; }
+    if (!vendors.length) { if (!auto) alert('매출DB 판매처를 아는 행사가 없습니다: ' + noMap.join(', ')); return 0; }
 
     const from = targets.reduce((a, e) => (e.start_date < a ? e.start_date : a), '9999-12-31');
     const to = targets.reduce((a, e) => (e.end_date > a ? e.end_date : a), '0000-01-01');
@@ -8761,7 +8765,7 @@
         .select('id,sale_date,vendor,product_name,quantity,amount')
         .gte('sale_date', from).lte('sale_date', to).in('vendor', vendors)
         .order('id', { ascending: true }).range(page * 1000, page * 1000 + 999);
-      if (error) { alert('매출을 불러오지 못했습니다: ' + error.message); return; }
+      if (error) { if (!auto) alert('매출을 불러오지 못했습니다: ' + error.message); return 0; }
       sales = sales.concat(data);
       if (data.length < 1000) break;
       page += 1;
@@ -8808,27 +8812,28 @@
     }
 
     if (!plan.length) {
-      alert('매출DB와 이미 같습니다. 바뀔 것이 없습니다.'
+      if (!auto) alert('매출DB와 이미 같습니다. 바뀔 것이 없습니다.'
         + (noMap.length ? '\n\n판매처를 몰라 건너뛴 행사: ' + noMap.join(', ') : ''));
-      return;
+      return 0;
     }
     const lines = plan.slice(0, 12).map((p) => `· ${p.event.mall} / ${p.event.title.slice(0, 20)} : ${p.before.toLocaleString()} → ${p.after.toLocaleString()}원`);
     const extra = [];
     if (plan.length > 12) extra.push(`… 외 ${plan.length - 12}건`);
     if (ambiguous.size) extra.push(`기간·판매처가 겹쳐 손대지 않은 행사 ${ambiguous.size}건`);
     if (noMap.length) extra.push(`판매처를 몰라 건너뛴 곳: ${noMap.join(', ')}`);
-    if (!confirm(`매출DB로 참여상품을 다시 채웁니다 (${plan.length}건).\n\n${lines.join('\n')}\n\n${extra.join('\n')}`)) return;
+    if (!auto && !confirm(`매출DB로 참여상품을 다시 채웁니다 (${plan.length}건).\n\n${lines.join('\n')}\n\n${extra.join('\n')}`)) return 0;
 
     for (const p of plan) {
       const del = await client.from('promo_event_items').delete().eq('event_id', p.event.id);
-      if (del.error) { alert('기존 참여상품을 지우지 못했습니다: ' + del.error.message); return; }
+      if (del.error) { if (!auto) alert('기존 참여상품을 지우지 못했습니다: ' + del.error.message); return 0; }
       if (!p.items.length) continue;
       const ins = await client.from('promo_event_items').insert(p.items.map((i) => ({
         event_id: p.event.id, product_name: i.product_name, list_price: null, promo_price: i.promo_price, qty: i.qty
       })));
-      if (ins.error) { alert('참여상품을 넣지 못했습니다: ' + ins.error.message); return; }
+      if (ins.error) { if (!auto) alert('참여상품을 넣지 못했습니다: ' + ins.error.message); return 0; }
     }
-    loadPromoSales();
+    if (!auto) loadPromoSales();
+    return plan.length;
   }
 
   async function promoSyncFromSchedule() {
