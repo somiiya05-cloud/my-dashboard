@@ -6741,19 +6741,19 @@
   }
 
   function renderPcCards() {
-    // 브랜드별 평균 원가. 원가가 0이거나 비어 있는 상품은 평균에서 뺍니다.
+    // 명퉤·코드니처 평균 원가. 원가가 0이거나 비어 있는 상품은 평균에서 뺍니다.
+    const CARD_BRANDS = ['명퉤', '코드니처'];
     const byBrand = {};
+    CARD_BRANDS.forEach(b => { byBrand[b] = { n: 0, sum: 0 }; });
     allProductCostRows.forEach(r => {
-      if (!r.brand || !(r.unit_cost_krw > 0)) return;
-      const b = byBrand[r.brand] || (byBrand[r.brand] = { n: 0, sum: 0 });
+      const b = byBrand[r.brand];
+      if (!b || !(r.unit_cost_krw > 0)) return;
       b.n++;
       b.sum += r.unit_cost_krw;
     });
-    const brands = Object.entries(byBrand).sort((a, b) => b[1].n - a[1].n);
+    const brands = Object.entries(byBrand).filter(([, v]) => v.n > 0);
 
-    const cards = document.getElementById('pcCards');
-    cards.style.gridTemplateColumns = 'repeat(auto-fill, minmax(180px, 1fr))';
-    cards.innerHTML = brands.map(([brand, v]) => `
+    document.getElementById('pcCards').innerHTML = brands.map(([brand, v]) => `
       <div class="kpi-card">
         <div class="kpi-label">${brand} 평균 원가</div>
         <div class="kpi-value">${Math.round(v.sum / v.n).toLocaleString('ko-KR')}원</div>
