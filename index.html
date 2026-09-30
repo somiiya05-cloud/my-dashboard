@@ -1277,6 +1277,10 @@
   .msp-table td.msp-unknown.soldout { color: #b91c1c; }
   .msp-sb { display: block; font-size: 11px; font-weight: 600; color: #94a3b8; margin-top: 2px; }
   .msp-tag { display: inline-block; font-size: 10px; font-weight: 800; color: #7c3aed; background: rgba(124,58,237,.1); border-radius: 4px; padding: 1px 4px; margin-right: 4px; vertical-align: 1px; }
+  .msp-table td.msp-gb { background: #faf5ff; text-align: left; white-space: normal; min-width: 190px; }
+  .msp-gb-line { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; line-height: 1.55; }
+  .msp-gb-name { color: #64748b; }
+  .msp-gb-line b { color: #6d28d9; font-weight: 800; white-space: nowrap; }
   .msp-cell.low { background: rgba(22,163,74,.08); }
   .msp-cell.low .msp-price { color: #15803d; }
   .msp-cell.high { background: rgba(220,38,38,.06); }
@@ -6737,31 +6741,25 @@
   }
 
   function renderPcCards() {
-    const total = allProductCostRows.length;
-    const withPrice = allProductCostRows.filter(r => r.unit_cost_krw != null && r.selling_price != null && r.selling_price > 0);
-    const avgMargin = withPrice.length
-      ? withPrice.reduce((s, r) => s + ((r.selling_price - r.unit_cost_krw) / r.selling_price * 100), 0) / withPrice.length
-      : null;
-    const negativeMarginCount = withPrice.filter(r => r.selling_price <= r.unit_cost_krw).length;
-    const noPriceCount = allProductCostRows.filter(r => r.selling_price == null).length;
+    // 브랜드별 평균 원가. 원가가 0이거나 비어 있는 상품은 평균에서 뺍니다.
+    const byBrand = {};
+    allProductCostRows.forEach(r => {
+      if (!r.brand || !(r.unit_cost_krw > 0)) return;
+      const b = byBrand[r.brand] || (byBrand[r.brand] = { n: 0, sum: 0 });
+      b.n++;
+      b.sum += r.unit_cost_krw;
+    });
+    const brands = Object.entries(byBrand).sort((a, b) => b[1].n - a[1].n);
 
-    document.getElementById('pcCards').innerHTML = `
+    const cards = document.getElementById('pcCards');
+    cards.style.gridTemplateColumns = 'repeat(auto-fill, minmax(180px, 1fr))';
+    cards.innerHTML = brands.map(([brand, v]) => `
       <div class="kpi-card">
-        <div class="kpi-label">등록된 상품 수</div>
-        <div class="kpi-value">${total.toLocaleString('ko-KR')}개</div>
-        <div class="kpi-sub">판매가 미입력 ${noPriceCount.toLocaleString('ko-KR')}개</div>
+        <div class="kpi-label">${brand} 평균 원가</div>
+        <div class="kpi-value">${Math.round(v.sum / v.n).toLocaleString('ko-KR')}원</div>
+        <div class="kpi-sub">${v.n.toLocaleString('ko-KR')}개 상품 기준</div>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-label">평균 마진율</div>
-        <div class="kpi-value">${avgMargin === null ? '-' : avgMargin.toFixed(1) + '%'}</div>
-        <div class="kpi-sub">판매가 입력된 ${withPrice.length.toLocaleString('ko-KR')}개 기준</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">마진 적자 상품</div>
-        <div class="kpi-value">${negativeMarginCount.toLocaleString('ko-KR')}개</div>
-        <div class="kpi-sub">판매가 ≤ 원가</div>
-      </div>
-    `;
+    `).join('');
   }
 
   function renderPcTable() {
@@ -7922,9 +7920,11 @@
   //   useReg : 사방넷 등록 현황의 몰도 칸으로 쓸지. 명퉤는 사방넷엔 스마트스토어로 잡혀 있지만
   //            실제로는 자사몰·선물하기에서만 팔고 있어서 쓰지 않습니다.
   const MSP_BRANDS = {
-    '코드니처': { extra: ['코드니처 자사몰'], useReg: true },
+    '코드니처': { extra: ['공동구매', '코드니처 자사몰'], useReg: true },
     '명퉤': { extra: ['명퉤 자사몰', '카카오 선물하기'], useReg: false },
   };
+  // 공동구매 칸 — 구성별 공구가를 memo 에 "공구옵션:[{구성,가격}…]" 으로 넣어 둡니다.
+  const MSP_GROUPBUY = '공동구매';
   let mspBrand = '코드니처';
   let mallSalePriceRows = [];
 
@@ -7994,7 +7994,9 @@
       const cells = {};
       extraMalls.forEach((m) => { if (priceMap.has(x.품번 + '|' + m)) cells[m] = priceMap.get(x.품번 + '|' + m); });
       if (cfg.useReg) x.몰.forEach((m) => { cells[m] = priceMap.get(x.품번 + '|' + m) || null; });
-      const vals = Object.values(cells).filter((c) => c && c.price != null).map((c) => Number(c.price));
+      // 공동구매는 구성(1+1, 2+1 …)이 자사몰·외부몰과 달라서 최저·최고 비교에 넣지 않습니다.
+      const vals = Object.entries(cells).filter(([m, c]) => m !== MSP_GROUPBUY && c && c.price != null)
+        .map(([, c]) => Number(c.price));
       const min = vals.length ? Math.min(...vals) : 0;
       const max = vals.length ? Math.max(...vals) : 0;
       return { x, cells, min, max, known: vals.length, diff: vals.length > 1 && min !== max };
@@ -8032,6 +8034,20 @@
     const cellHtml = (r, m) => {
       if (!(m in r.cells)) return '<td class="msp-cell msp-off">—</td>';
       const c = r.cells[m];
+      if (m === MSP_GROUPBUY && c) {
+        let opts = [];
+        try { opts = JSON.parse(String(c.memo || '').replace(/^공구옵션:/, '')); } catch (e) { opts = []; }
+        if (!opts.length) opts = [{ 구성: '', 가격: c.price }];
+        // 옵션 이름마다 상품명이 반복돼서("하수구 악취 세정 서버 1+1 (20ea)"), 모든 옵션에 똑같이
+        // 붙은 앞 단어는 빼고 구성만 남깁니다. 다 빠지면 "기본"으로 적습니다.
+        const words = opts.map((o) => String(o.구성 || '').trim().split(/\s+/));
+        let common = 0;
+        if (opts.length > 1) {
+          while (words.every((w) => w.length > common + 0 && w[common] === words[0][common])) common++;
+        }
+        return `<td class="msp-cell msp-gb">${opts.map((o, i) => `
+          <div class="msp-gb-line"><span class="msp-gb-name">${escapeAttr(words[i].slice(common).join(' ') || '기본')}</span><b>${won(o.가격)}</b></div>`).join('')}</td>`;
+      }
       // memo 에는 "사방넷 판매가 23900 · 품절" 처럼 사방넷이 보낸 가격과 몰 상태가 들어 있습니다.
       const memo = (c && c.memo) || '';
       const sb = (memo.match(/사방넷 판매가 (\d+)/) || [])[1];
@@ -8057,7 +8073,8 @@
     box.innerHTML = `
       <div class="msp-legend">몰마다 가격이 다르면 <span class="low">가장 싼 몰</span>과 <span class="high">가장 비싼 몰</span>을 색으로 표시합니다.
         가격을 누르면 그 몰의 상품 페이지가 열립니다. <b>—</b>는 그 몰에 등록되지 않은 상품, <b>미확인</b>은 등록은 됐지만 가격을 아직 읽지 못한 곳입니다.
-        스마트스토어는 상품 페이지를 자동으로 읽을 수 없어, 스마트스토어센터에서 내려받은 상품 엑셀의 할인가로 채웁니다.</div>
+        스마트스토어는 상품 페이지를 자동으로 읽을 수 없어, 스마트스토어센터에서 내려받은 상품 엑셀의 할인가로 채웁니다.
+        <b>공동구매</b>는 구성이 달라 구성별 공구가만 보여주고 가격 비교에는 넣지 않습니다.</div>
       <table class="msp-table">
         <thead><tr><th style="text-align:left">상품</th>${malls.map((m) => `<th>${escapeAttr(m)}</th>`).join('')}<th>최고−최저</th></tr></thead>
         <tbody>${shown.map((r) => `
