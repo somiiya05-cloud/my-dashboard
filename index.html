@@ -8236,9 +8236,10 @@
   // 상품 하나의 개당 원가를 찾습니다. { cost, how, ambiguous } — cost 가 null 이면 못 찾은 것입니다.
   function mpFindCost(r) {
     const productNo = (u) => (String(u || '').match(/product_no=(\d+)/) || [])[1];
-    // 자사몰 가격 행의 링크로 SKU손익 상품을 찾습니다.
-    const own = Object.entries(r.cells).find(([m, c]) => /자사몰$/.test(m) && c && c.url);
-    const no = own ? productNo(own[1].url) : null;
+    // 코드니처 자사몰 가격 행의 링크로 SKU손익 상품을 찾습니다. 명퉤 자사몰도 product_no 를
+    // 쓰는데 번호가 코드니처와 겹쳐서(명퉤 엽서 ↔ 코드니처 세탁망), 코드니처 자사몰만 봅니다.
+    const own = r.cells['코드니처 자사몰'];
+    const no = own && own.url ? productNo(own.url) : null;
     const cp = no ? mpCodenitRows.find((p) => productNo(p.product_url) === no) : null;
     const qty = cp ? Math.max(1, parseInt(cp.cost_qty, 10) || 1) : 1;
     if (cp && cp.cost_product_id != null) {
