@@ -110,7 +110,9 @@ function buildSettlementRows(groupbuyRows, existingSettlements) {
       return {
         category: '공동구매',
         partner: r.influencer_name,
-        amount: null,
+        // 매출·수수료 칸은 비워 둡니다. 공구가 끝난 뒤 "공구 정산 계산" 화면에서 채웁니다.
+        // (settlements 의 amount 칸은 revenue/commission_amount/collected_amount 로 갈라져 없어졌습니다.
+        //  옛 이름을 그대로 보내면 Supabase 가 400 을 돌려줘 동기화 전체가 500 으로 끝납니다.)
         period_start: r.start_date,
         period_end: r.end_date,
         settlement_date: r.end_date ? addDays(r.end_date, 14) : null,
