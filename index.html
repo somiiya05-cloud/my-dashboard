@@ -1295,6 +1295,20 @@
   .msp-legend { font-size: 11.5px; color: #64748b; margin-bottom: 8px; line-height: 1.6; }
   .msp-legend .low { color: #15803d; font-weight: 800; }
   .msp-legend .high { color: #b91c1c; font-weight: 800; }
+  /* ---- 외부몰 손익 ---- */
+  .mp-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-bottom: 12px; padding: 10px 12px; background: #f8fafc; border: 1px solid rgba(15,23,42,.07); border-radius: 8px; font-size: 12px; }
+  .mp-set-label { font-weight: 800; color: #334155; margin-right: 2px; }
+  .mp-set-item { display: inline-flex; align-items: center; gap: 4px; color: #475569; font-weight: 600; }
+  .mp-set-item input { width: 44px; padding: 3px 5px; border: 1px solid #cbd5e1; border-radius: 5px; font: inherit; text-align: right; }
+  .mp-set-item.edited input { border-color: #2563eb; background: #eff6ff; }
+  .mp-th-fee { display: block; font-size: 10px; font-weight: 600; color: #94a3b8; margin-top: 2px; }
+  .mp-price { display: block; font-size: 11px; color: #94a3b8; font-weight: 600; }
+  .mp-profit { display: block; font-weight: 800; color: #0f172a; }
+  .mp-rate { display: block; font-size: 11px; font-weight: 700; color: #15803d; }
+  .mp-cell.loss { background: rgba(220,38,38,.07); }
+  .mp-cell.loss .mp-profit, .mp-cell.loss .mp-rate { color: #b91c1c; }
+  .mp-warn { display: block; font-size: 10.5px; font-weight: 700; color: #b45309; margin-top: 2px; }
+  .nav-lock { font-size: 10px; margin-left: 4px; opacity: .7; }
 
   /* ---- 외부몰 등록 현황 ---- */
   .mr-stat { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
@@ -2013,6 +2027,7 @@
           <div class="nav-item" id="navCodenitProducts" onclick="switchView('codenit-products')"><span class="dot dot-team"></span>코드니처 자사몰</div>
           <div class="nav-item" id="navMallPrices" onclick="switchView('mall-prices')"><span class="dot dot-team"></span>외부몰</div>
           <div class="nav-subitem" id="navMallSalePrices" onclick="switchView('mall-sale-prices')">외부몰 판매가</div>
+          <div class="nav-subitem" id="navMallProfit" onclick="openFinanceView('mall-profit')" title="재무 비밀번호가 필요합니다">외부몰 손익<span class="nav-lock">🔒</span></div>
         </div>
       </div>
 
@@ -3042,6 +3057,32 @@
           <label class="msp-toggle"><input type="checkbox" id="mspOnlyDiff" onchange="renderMallSalePrices()">몰마다 가격이 다른 상품만</label>
         </div>
         <div class="msp-wrap" id="mspResult"></div>
+      </section>
+    </main>
+
+    <main class="main" id="mallProfitView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>외부몰 손익</h1>
+          <div class="subtitle">외부몰 판매가대로 한 개 팔았을 때 몰마다 얼마가 남는지 봅니다.</div>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2 id="mpTitle">코드니처 몰별 손익</h2>
+          <div class="mr-brands" id="mpBrands" style="flex: 1; margin-left: 12px;"></div>
+          <span class="panel-note" id="mpSyncNote"></span>
+        </div>
+        <div class="mr-stat" id="mpStat"></div>
+        <div class="mp-settings" id="mpSettings"></div>
+        <div class="filter-group" style="margin-bottom: 12px; gap: 10px; flex-wrap: wrap; align-items: center;">
+          <input type="text" id="mpSearch" class="vendor-select" style="flex: 0 1 300px; min-width: 200px;"
+            placeholder="상품명 또는 품번으로 검색"
+            autocomplete="off" oninput="renderMallProfit()">
+          <label class="msp-toggle"><input type="checkbox" onchange="setMpOnlyLoss(this.checked)">적자인 몰이 있는 상품만</label>
+        </div>
+        <div class="msp-wrap" id="mpResult"></div>
       </section>
     </main>
 
@@ -5896,6 +5937,7 @@
     document.getElementById('codenitProductsView').style.display = view === 'codenit-products' ? '' : 'none';
     document.getElementById('mallPricesView').style.display = view === 'mall-prices' ? '' : 'none';
     document.getElementById('mallSalePricesView').style.display = view === 'mall-sale-prices' ? '' : 'none';
+    document.getElementById('mallProfitView').style.display = view === 'mall-profit' ? '' : 'none';
     document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
     document.getElementById('navMonthlyTrend').classList.toggle('active', view === 'monthly-trend');
     document.getElementById('navProduct').classList.toggle('active', view === 'product');
@@ -5917,6 +5959,7 @@
     document.getElementById('navCodenitProducts').classList.toggle('active', view === 'codenit-products');
     document.getElementById('navMallPrices').classList.toggle('active', view === 'mall-prices');
     document.getElementById('navMallSalePrices').classList.toggle('active', view === 'mall-sale-prices');
+    document.getElementById('navMallProfit').classList.toggle('active', view === 'mall-profit');
     document.querySelectorAll('#navTeamAssignees .nav-subitem').forEach((el) => {
       el.classList.toggle('active', view === 'team-tasks' && el.dataset.assignee === brandChannel);
     });
@@ -5969,6 +6012,7 @@
     if (view === 'codenit-products') loadCodenitProducts();
     if (view === 'mall-prices') loadMallRegistrations();
     if (view === 'mall-sale-prices') loadMallSalePrices();
+    if (view === 'mall-profit') loadMallProfit();
   }
 
   // ==================== 품별 (월별 / 일자별 제품 판매 순위) ====================
@@ -7958,26 +8002,10 @@
     renderMallSalePrices();
   }
 
-  function renderMallSalePrices() {
-    const box = document.getElementById('mspResult');
-    const stat = document.getElementById('mspStat');
-    const note = document.getElementById('mspSyncNote');
-    if (!box || !stat) return;
-    if (!mallRegSnap) {
-      stat.innerHTML = '';
-      box.innerHTML = '<div class="mr-empty">사방넷에서 읽어온 등록 현황이 아직 없습니다.</div>';
-      return;
-    }
-
-    const cfg = MSP_BRANDS[mspBrand];
-    const title = document.getElementById('mspTitle');
-    if (title) title.textContent = mspBrand + ' 몰별 판매가';
-    const brandBox = document.getElementById('mspBrands');
-    if (brandBox) brandBox.innerHTML = Object.keys(MSP_BRANDS).map((b) => `
-      <button type="button" class="mr-brand-btn${b === mspBrand ? ' active' : ''}"
-        onclick="setMspBrand('${escapeAttr(b)}')">${escapeAttr(b)}</button>`).join('');
-
-    const all = [...mallRegIndex.values()].filter((x) => x.브랜드 === mspBrand && x.몰.length);
+  // 브랜드 상품마다 몰별 가격 칸을 만듭니다. 외부몰 판매가·외부몰 손익이 같이 씁니다.
+  function mspBuild(brand) {
+    const cfg = MSP_BRANDS[brand];
+    const all = [...mallRegIndex.values()].filter((x) => x.브랜드 === brand && x.몰.length);
     // 브랜드 상품이 한 번이라도 올라간 몰만 칸으로 씁니다. 많이 올라간 몰이 왼쪽입니다.
     const mallCnt = {};
     if (cfg.useReg) all.forEach((x) => x.몰.forEach((m) => { mallCnt[m] = (mallCnt[m] || 0) + 1; }));
@@ -7997,9 +8025,6 @@
     });
     const codes = new Set(all.map((x) => String(x.품번)));
     const latest = mallSalePriceRows.filter((r) => codes.has(String(r.product_code))).reduce((t, r) => (r.checked_at && r.checked_at > t ? r.checked_at : t), '');
-    if (note) note.textContent = latest
-      ? '가격 기준 ' + new Date(latest).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' })
-      : '';
 
     // 상품마다 몰별 가격과 최저·최고를 미리 계산해 둡니다.
     const rows = all.map((x) => {
@@ -8013,6 +8038,35 @@
       const max = vals.length ? Math.max(...vals) : 0;
       return { x, cells, min, max, known: vals.length, diff: vals.length > 1 && min !== max };
     });
+    return { malls, rows, latest };
+  }
+
+  function mspLatestText(latest) {
+    return latest
+      ? '가격 기준 ' + new Date(latest).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' })
+      : '';
+  }
+
+  function renderMallSalePrices() {
+    const box = document.getElementById('mspResult');
+    const stat = document.getElementById('mspStat');
+    const note = document.getElementById('mspSyncNote');
+    if (!box || !stat) return;
+    if (!mallRegSnap) {
+      stat.innerHTML = '';
+      box.innerHTML = '<div class="mr-empty">사방넷에서 읽어온 등록 현황이 아직 없습니다.</div>';
+      return;
+    }
+
+    const title = document.getElementById('mspTitle');
+    if (title) title.textContent = mspBrand + ' 몰별 판매가';
+    const brandBox = document.getElementById('mspBrands');
+    if (brandBox) brandBox.innerHTML = Object.keys(MSP_BRANDS).map((b) => `
+      <button type="button" class="mr-brand-btn${b === mspBrand ? ' active' : ''}"
+        onclick="setMspBrand('${escapeAttr(b)}')">${escapeAttr(b)}</button>`).join('');
+
+    const { malls, rows, latest } = mspBuild(mspBrand);
+    if (note) note.textContent = mspLatestText(latest);
 
     const listed = rows.reduce((t, r) => t + Object.keys(r.cells).length, 0);
     const known = rows.reduce((t, r) => t + r.known, 0);
@@ -8104,6 +8158,215 @@
       </table>`;
   }
   window.renderMallSalePrices = renderMallSalePrices;
+
+  // ==================== 외부몰 손익 (재무 비밀번호) ====================
+  // 외부몰 판매가 표의 가격마다 한 개 팔았을 때 남는 돈을 계산합니다. SKU손익과 같은 식에서
+  // 수수료만 몰별 요율로 바꿨습니다.
+  //   손익 = 판매가 − 원가 − 배송비 − 몰 수수료(판매가×요율) − 경비(판매가×24%) − 부가세(판매가×11%)
+  // 원가: 코드니처는 자사몰 상품(codenit_products)에 SKU손익에서 이어 둔 원가 × 묶음 수량을 씁니다.
+  //       이어 둔 게 없거나 명퉤 상품이면 원가 대시보드에서 상품명으로 찾습니다(견적서와 같은 규칙).
+  //       원가는 자사몰 구성 기준이라, 쿠팡처럼 구성이 다른 칸은 손익이 틀릴 수 있어 표시해 둡니다.
+  // 공동구매는 구성별 공구가라 공구 정산 계산에서 따로 보고, 여기에는 넣지 않습니다.
+  // 몰 수수료율은 계약 요율을 아직 못 받은 추정값입니다. 화면에서 고치면 이 브라우저에 기억합니다.
+  const MP_FEE_DEFAULTS = {
+    '코드니처 자사몰': 3.5, '명퉤 자사몰': 3.5, '스마트스토어': 2.5, '쿠팡': 8.58,
+    'ESM지마켓': 13, 'ESM옥션': 13, '오늘의집': 15, '카카오톡스토어': 5.5,
+    'GS shop': 30, '카카오 선물하기': 15,
+  };
+  const MP_FEE_FALLBACK = 15;
+  const MP_SHIPPING_DEFAULT = 3000;
+  const MP_STORE_KEY = 'mallProfitSettings';
+  let mpBrand = '코드니처';
+  let mpOnlyLoss = false;
+  let mpCodenitRows = [];
+  let mpSettings = { fees: {}, shipping: MP_SHIPPING_DEFAULT };
+  try {
+    const saved = JSON.parse(localStorage.getItem(MP_STORE_KEY) || 'null');
+    if (saved) mpSettings = { fees: saved.fees || {}, shipping: saved.shipping != null ? Number(saved.shipping) : MP_SHIPPING_DEFAULT };
+  } catch (e) { /* 저장소를 못 쓰면 기본값으로 계산합니다 */ }
+
+  function mpSaveSettings() {
+    try { localStorage.setItem(MP_STORE_KEY, JSON.stringify(mpSettings)); } catch (e) { /* 무시 */ }
+  }
+  function mpFeePct(mall) {
+    if (mpSettings.fees[mall] != null) return Number(mpSettings.fees[mall]);
+    return MP_FEE_DEFAULTS[mall] != null ? MP_FEE_DEFAULTS[mall] : MP_FEE_FALLBACK;
+  }
+  function setMpFee(mall, v) {
+    const n = parseFloat(String(v).replace(/[^0-9.]/g, ''));
+    if (Number.isFinite(n)) mpSettings.fees[mall] = n; else delete mpSettings.fees[mall];
+    mpSaveSettings();
+    renderMallProfit();
+  }
+  function setMpShipping(v) {
+    const n = Number(String(v).replace(/[^0-9]/g, ''));
+    mpSettings.shipping = Number.isFinite(n) ? n : MP_SHIPPING_DEFAULT;
+    mpSaveSettings();
+    renderMallProfit();
+  }
+  function setMpBrand(b) { mpBrand = b; renderMallProfit(); }
+  function setMpOnlyLoss(on) { mpOnlyLoss = on; renderMallProfit(); }
+  window.setMpFee = setMpFee;
+  window.setMpShipping = setMpShipping;
+  window.setMpBrand = setMpBrand;
+  window.setMpOnlyLoss = setMpOnlyLoss;
+
+  async function loadMallProfit() {
+    const box = document.getElementById('mpResult');
+    if (box) box.innerHTML = '<div class="mr-empty">불러오는 중…</div>';
+    const [snap, prices, cp] = await Promise.all([
+      client.from('mall_registrations')
+        .select('synced_at,malls,products,registrations,product_count,registration_count')
+        .order('synced_at', { ascending: false }).limit(1),
+      client.from('mall_product_prices')
+        .select('product_code,mall,price,list_price,url,memo,checked_at')
+        .not('product_code', 'is', null),
+      client.from('codenit_products').select('id,product_name,product_url,cost_product_id,cost_qty'),
+      loadQuoteCosts(),
+    ]);
+    mallRegSnap = (snap.error || !snap.data || !snap.data.length) ? null : snap.data[0];
+    buildMallRegIndex();
+    mallSalePriceRows = prices.error ? [] : (prices.data || []);
+    mpCodenitRows = cp.error ? [] : (cp.data || []);
+    renderMallProfit();
+  }
+
+  // 상품 하나의 개당 원가를 찾습니다. { cost, how, ambiguous } — cost 가 null 이면 못 찾은 것입니다.
+  function mpFindCost(r) {
+    const productNo = (u) => (String(u || '').match(/product_no=(\d+)/) || [])[1];
+    // 자사몰 가격 행의 링크로 SKU손익 상품을 찾습니다.
+    const own = Object.entries(r.cells).find(([m, c]) => /자사몰$/.test(m) && c && c.url);
+    const no = own ? productNo(own[1].url) : null;
+    const cp = no ? mpCodenitRows.find((p) => productNo(p.product_url) === no) : null;
+    const qty = cp ? Math.max(1, parseInt(cp.cost_qty, 10) || 1) : 1;
+    if (cp && cp.cost_product_id != null) {
+      const c = quoteCostRows.find((x) => x.id === cp.cost_product_id);
+      if (c) return { cost: Number(c.unit_cost_krw) * qty, how: qty > 1 ? `SKU손익 연결 · ${qty}개` : 'SKU손익 연결' };
+    }
+    const names = [cp && cp.product_name, r.x.상품명].filter(Boolean);
+    for (const n of names) {
+      const hit = findQuoteCost(n);
+      if (hit && hit.unitCost != null) return { cost: hit.unitCost * qty, how: qty > 1 ? `상품명으로 찾음 · ${qty}개` : '상품명으로 찾음' };
+      if (hit && hit.ambiguous) return { cost: null, ambiguous: hit.ambiguous };
+    }
+    return { cost: null };
+  }
+
+  function renderMallProfit() {
+    const box = document.getElementById('mpResult');
+    const stat = document.getElementById('mpStat');
+    if (!box || !stat) return;
+    if (!mallRegSnap) {
+      stat.innerHTML = '';
+      box.innerHTML = '<div class="mr-empty">사방넷에서 읽어온 등록 현황이 아직 없습니다.</div>';
+      return;
+    }
+    document.getElementById('mpTitle').textContent = mpBrand + ' 몰별 손익';
+    document.getElementById('mpBrands').innerHTML = Object.keys(MSP_BRANDS).map((b) => `
+      <button type="button" class="mr-brand-btn${b === mpBrand ? ' active' : ''}"
+        onclick="setMpBrand('${escapeAttr(b)}')">${escapeAttr(b)}</button>`).join('');
+
+    const built = mspBuild(mpBrand);
+    document.getElementById('mpSyncNote').textContent = mspLatestText(built.latest);
+    const malls = built.malls.filter((m) => m !== MSP_GROUPBUY);
+    const ship = mpSettings.shipping;
+
+    document.getElementById('mpSettings').innerHTML = `
+      <span class="mp-set-label">몰 수수료율</span>
+      ${malls.map((m) => `
+        <label class="mp-set-item${mpSettings.fees[m] != null ? ' edited' : ''}">${escapeAttr(m)}
+          <input type="text" inputmode="decimal" value="${mpFeePct(m)}" onchange="setMpFee(${escapeAttr(jsStr(m))}, this.value)">%</label>`).join('')}
+      <label class="mp-set-item">배송비
+        <input type="text" inputmode="numeric" style="width:58px" value="${ship}" onchange="setMpShipping(this.value)">원</label>`;
+
+    const calc = (price, mall, cost) => {
+      const fee = price * mpFeePct(mall) / 100;
+      const expense = price * SKU_EXPENSE_PCT / 100;
+      const vat = price * SKU_VAT_PCT / 100;
+      const profit = price - cost - ship - fee - expense - vat;
+      return { fee, expense, vat, profit, rate: price > 0 ? profit / price * 100 : 0 };
+    };
+
+    const rows = built.rows.map((r) => {
+      const c = mpFindCost(r);
+      const res = {};
+      if (c.cost != null) {
+        malls.forEach((m) => {
+          const cell = r.cells[m];
+          if (cell && cell.price != null) res[m] = calc(Number(cell.price), m, c.cost);
+        });
+      }
+      const vals = Object.values(res);
+      return { ...r, costInfo: c, res, loss: vals.filter((v) => v.profit < 0).length, rates: vals.map((v) => v.rate) };
+    });
+
+    const withCost = rows.filter((r) => r.costInfo.cost != null);
+    const allRates = withCost.flatMap((r) => r.rates);
+    const lossCells = withCost.reduce((t, r) => t + r.loss, 0);
+    stat.innerHTML = [
+      { label: '원가 연결 상품', n: withCost.length, unit: '개', cls: ' ok' },
+      { label: '원가 못 찾은 상품', n: rows.length - withCost.length, unit: '개', cls: '' },
+      { label: '평균 손익률', n: allRates.length ? allRates.reduce((s, v) => s + v, 0) / allRates.length : null, unit: '%', cls: '' },
+      { label: '적자인 몰 가격', n: lossCells, unit: '건', cls: ' bad' },
+    ].map((c) => `
+      <div class="mr-stat-cell${c.cls}" style="cursor:default">
+        <div class="mr-stat-label">${escapeAttr(c.label)}</div>
+        <div class="mr-stat-num">${c.n == null ? '-' : (c.unit === '%' ? c.n.toFixed(1) : c.n.toLocaleString('ko-KR'))}${c.n == null ? '' : c.unit}</div>
+      </div>`).join('');
+
+    const q = (document.getElementById('mpSearch')?.value || '').trim().toLowerCase();
+    let shown = rows;
+    if (q) shown = shown.filter((r) => (r.x.상품명 || '').toLowerCase().includes(q) || String(r.x.품번).includes(q));
+    if (mpOnlyLoss) shown = shown.filter((r) => r.loss > 0);
+    // 적자 칸이 많은 상품 → 손익률이 낮은 상품 순, 원가를 못 찾은 상품은 맨 아래입니다.
+    const minRate = (r) => (r.rates.length ? Math.min(...r.rates) : Infinity);
+    shown.sort((a, b) => (b.loss - a.loss) || (minRate(a) - minRate(b))
+      || String(a.x.상품명).localeCompare(String(b.x.상품명), 'ko'));
+
+    if (!shown.length) {
+      box.innerHTML = '<div class="mr-empty">해당하는 상품이 없습니다.</div>';
+      return;
+    }
+
+    const won = (n) => Math.round(Number(n)).toLocaleString('ko-KR') + '원';
+    const cellHtml = (r, m) => {
+      if (!(m in r.cells)) return '<td class="msp-cell msp-off">—</td>';
+      const cell = r.cells[m];
+      if (!cell || cell.price == null) return '<td class="msp-cell msp-off">가격 없음</td>';
+      const v = r.res[m];
+      if (!v) return `<td class="msp-cell"><span class="mp-price">${won(cell.price)}</span></td>`;
+      const unit = (String(cell.memo || '').match(/구성 ([^·]+?)\s*(?:·|$)/) || [])[1];
+      const unitHtml = unit && unit !== '다름'
+        ? `<span class="mp-warn" title="원가는 자사몰 구성 기준입니다. 이 몰 구성이 다르면 손익이 틀립니다.">⚠ ${escapeAttr(unit)} 기준</span>` : '';
+      const tip = `판매가 ${won(cell.price)}\n원가 ${won(r.costInfo.cost)}\n배송비 ${won(ship)}\n수수료 ${mpFeePct(m)}% ${won(v.fee)}\n경비 ${SKU_EXPENSE_PCT}% ${won(v.expense)}\n부가세 ${SKU_VAT_PCT}% ${won(v.vat)}`;
+      return `<td class="msp-cell mp-cell${v.profit < 0 ? ' loss' : ''}" title="${escapeAttr(tip)}">
+        <span class="mp-price">${won(cell.price)}</span>
+        <span class="mp-profit">${v.profit < 0 ? '−' : ''}${won(Math.abs(v.profit))}</span>
+        <span class="mp-rate">${v.rate.toFixed(1)}%</span>${unitHtml}</td>`;
+    };
+    const costHtml = (r) => {
+      const c = r.costInfo;
+      if (c.cost != null) return `<td class="msp-cell"><b>${won(c.cost)}</b><span class="msp-sb">${escapeAttr(c.how)}</span></td>`;
+      if (c.ambiguous) return `<td class="msp-cell msp-unknown" title="옵션마다 원가가 다릅니다: ${escapeAttr(c.ambiguous.map((n) => won(n)).join(' / '))}">옵션별 원가 다름<span class="msp-sb">SKU손익에서 연결</span></td>`;
+      return '<td class="msp-cell msp-unknown">원가 없음<span class="msp-sb">SKU손익에서 연결</span></td>';
+    };
+
+    box.innerHTML = `
+      <div class="msp-legend">칸마다 <b>위: 판매가</b>, <b>가운데: 1개 팔 때 손익</b>, <b>아래: 손익률</b>입니다. 칸에 마우스를 올리면 계산 내역이 보입니다.
+        손익 = 판매가 − 원가 − 배송비 − 몰 수수료 − 경비 ${SKU_EXPENSE_PCT}% − 부가세 ${SKU_VAT_PCT}% (SKU손익과 같은 식). <span class="high">빨간 칸</span>은 적자입니다.
+        몰 수수료율은 추정값이라 위에서 계약 요율로 고쳐 주세요(고친 값은 이 브라우저에 기억합니다). 공동구매는 공구 정산 계산에서 봅니다.</div>
+      <table class="msp-table">
+        <thead><tr><th style="text-align:left">상품</th><th>원가</th>${malls.map((m) => `<th>${escapeAttr(m)}<span class="mp-th-fee">수수료 ${mpFeePct(m)}%</span></th>`).join('')}</tr></thead>
+        <tbody>${shown.map((r) => `
+          <tr>
+            <td class="msp-name"><b>${escapeAttr(r.x.상품명 || '(상품명 없음)')}</b><span class="mr-code">품번 ${escapeAttr(r.x.품번)}</span></td>
+            ${costHtml(r)}
+            ${malls.map((m) => cellHtml(r, m)).join('')}
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+  window.renderMallProfit = renderMallProfit;
 
   // ==================== 워크스페이스 전환 (매출관리 ↔ 영업팀) ====================
   let currentWorkspace = 'sales';
