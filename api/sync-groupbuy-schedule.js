@@ -95,15 +95,24 @@ function addDays(dateStr, days) {
   return new Date(t).toISOString().slice(0, 10);
 }
 
+// "시와니맘/제이엘 (자사몰)" → "시와니맘". 정산 목록은 손으로 적은 줄이 많아
+// 대행사·채널·띄어쓰기 표기가 일정표와 다르므로 인플루언서 이름만 비교합니다.
+function partnerKey(name) {
+  return String(name || '').split('/')[0].replace(/\(.*?\)/g, '').replace(/\s+/g, '').toLowerCase();
+}
+
 // 영업팀이 진행하는 공구 건은 캘린더뿐 아니라 "정산" 목록에도 자동으로 올려준다.
-// 이미 같은 인플루언서·기간으로 등록된 정산 건은 건드리지 않는다(수기로 채운 정산액 보존).
+// 이미 같은 인플루언서로 기간이 겹치는 정산 건이 있으면 새로 만들지 않는다(수기로 채운 정산액 보존).
+// 기간까지 똑같아야 같은 건으로 보면, 정산 때 기간을 실제 주문일로 고친 줄을 못 알아보고 또 만듭니다.
 function buildSettlementRows(groupbuyRows, existingSettlements) {
-  const existingKeys = new Set(
-    existingSettlements.map((s) => `${s.partner || ''}|${s.period_start || ''}|${s.period_end || ''}`)
-  );
+  const overlaps = (s, r) =>
+    partnerKey(s.partner) === partnerKey(r.influencer_name) &&
+    (s.period_start || '') <= (r.end_date || '') &&
+    (r.start_date || '') <= (s.period_end || s.period_start || '');
   return groupbuyRows
     .filter((r) => r.department === '영업팀')
-    .filter((r) => !existingKeys.has(`${r.influencer_name || ''}|${r.start_date || ''}|${r.end_date || ''}`))
+    .filter((r) => partnerKey(r.influencer_name))
+    .filter((r) => !existingSettlements.some((s) => overlaps(s, r)))
     .map((r) => {
       const pct = typeof r.commission_rate === 'number' ? `${Math.round(r.commission_rate * 100)}%` : '미정';
       const settleMethod = r.settlement_method || '정산방식 미정';
