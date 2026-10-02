@@ -4709,30 +4709,36 @@
 
     jwTitleSaving = true;
     const prev = task.title;
+    const nowIso = new Date().toISOString();
+    const day = String(task.due_date || '').slice(0, 10);
 
-    // 「이어가기」로 며칠에 걸쳐 하는 업무는 날마다 줄이 따로 있고, 그 줄들을 한 업무로
-    // 묶는 열쇠가 (담당자 + 업무명)입니다. 오늘 줄 이름만 바꾸면 묶음이 끊겨서
-    // 어제까지 적어둔 담당자 댓글이 통째로 사라진 것처럼 보입니다.
-    // 그래서 같은 담당자의 같은 이름 줄(지난 날짜·앞으로 잡아둔 날짜 모두)을 함께 바꿉니다.
+    // 「이어가기」로 며칠에 걸쳐 하는 업무는 날마다 줄이 따로 있습니다.
+    // 지난 기록은 그때 쓰던 이름 그대로 남아야 하므로 지난 날짜 줄은 건드리지 않고,
+    // 누른 날과 앞으로 잡아둔 날짜만 새 이름으로 바꿉니다.
     // 매일 자동으로 생기는 루틴 업무는 몇 달치가 같은 이름이라 누른 줄만 바꿉니다.
     const renameChain = !JW_ROUTINE_TITLES.has(prev);
-    const { error } = renameChain
-      ? await client.from('team_tasks').update({ title: next }).eq('assignee', task.assignee).eq('title', prev)
+    const { error } = renameChain && day
+      ? await client.from('team_tasks').update({ title: next })
+          .eq('assignee', task.assignee).eq('title', prev).gte('due_date', day)
       : await client.from('team_tasks').update({ title: next }).eq('id', id);
     jwTitleSaving = false;
     if (error) { alert('이름을 바꾸지 못했습니다: ' + error.message); renderJwView(); return; }
 
-    // 적어둔 내용은 업무명을 열쇠로 저장돼 있어서, 이름만 바꾸면 옛 이름에 남아 사라진 것처럼 보입니다.
-    // 그래서 새 이름으로 같이 옮깁니다.
-    const nowIso = new Date().toISOString();
-    const day = String(task.due_date || '').slice(0, 10);
+    // 지난 날짜 줄은 옛 이름으로 남으므로, 이름만 보면 다른 업무처럼 보입니다.
+    // 바꾼 내역을 남겨 두 이름을 같은 업무로 묶습니다 (댓글이 계속 이어집니다).
+    // 표가 아직 없으면(team_task_renames.sql 미실행) 이름만 바뀌고 묶음은 끊깁니다.
+    if (renameChain) {
+      const { error: rErr } = await client.from('team_task_renames')
+        .insert({ assignee: task.assignee, old_title: prev, new_title: next });
+      if (rErr) console.warn('업무명 바꾼 내역을 남기지 못했습니다 — team_task_renames.sql 을 실행해주세요.', rErr.message);
+    }
 
-    // 업무 목적은 (업무명 + 날짜)로 저장됩니다. 줄을 전부 바꿨으면 날짜별 목적도 전부 옮깁니다.
+    // 업무 목적은 (업무명 + 날짜)로 저장됩니다. 이름을 바꾼 날부터만 새 이름으로 옮깁니다.
     // 옛 행은 지우지 않습니다 — 같은 이름의 다른 업무가 있을 수 있어서 건드리면 위험합니다.
     let oldDays = [];
-    if (renameChain) {
+    if (renameChain && day) {
       const { data } = await client.from('team_task_daily_purposes')
-        .select('due_date,purpose').eq('title', prev);
+        .select('due_date,purpose').eq('title', prev).gte('due_date', day);
       oldDays = data || [];
     } else if (day) {
       oldDays = [{ due_date: day, purpose: jwTaskPurposes[jwPurposeKey(prev, day)] }];
@@ -4774,6 +4780,7 @@
 
   async function loadJwNotes() {
     jwNotesLoadError = '';
+    await loadJwRenames();
     let [purposeRes, dailyRes, cmtRes] = await Promise.all([
       client.from('team_task_purposes').select('title,purpose,criteria'),
       client.from('team_task_daily_purposes').select('title,due_date,purpose'),
@@ -4815,6 +4822,49 @@
     });
   }
 
+  // ---- 업무명을 바꾼 내역 ----
+  // 지난 기록은 그때 쓰던 이름 그대로 남아야 해서, 이름을 바꿔도 지난 날짜 줄은
+  // 옛 이름으로 둡니다. 그러면 이름이 달라져 묶음이 끊기므로, 바꾼 내역을 읽어
+  // "옛 이름 ↔ 새 이름"을 한 묶음으로 봅니다. (표가 아직 없으면 묶음 없이 돕니다)
+  let jwTitleGroups = new Map();   // '담당자|업무명' -> Set(같은 업무로 볼 업무명들)
+
+  async function loadJwRenames() {
+    const { data, error } = await client.from('team_task_renames')
+      .select('assignee,old_title,new_title');
+    jwBuildTitleGroups(error ? [] : (data || []));
+  }
+
+  // A → B 로 바꾸고 다시 B → C 로 바꿔도 셋이 한 묶음이어야 해서, 이어진 것들을 모읍니다.
+  function jwBuildTitleGroups(pairs) {
+    const parent = new Map();
+    const key = (a, t) => a + '|' + t;
+    const find = (k) => {
+      if (!parent.has(k)) parent.set(k, k);
+      let root = k;
+      while (parent.get(root) !== root) root = parent.get(root);
+      while (parent.get(k) !== root) { const nx = parent.get(k); parent.set(k, root); k = nx; }
+      return root;
+    };
+    pairs.forEach((r) => {
+      const a = find(key(r.assignee, r.old_title));
+      const b = find(key(r.assignee, r.new_title));
+      if (a !== b) parent.set(a, b);
+    });
+    const byRoot = new Map();
+    [...parent.keys()].forEach((k) => {
+      const root = find(k);
+      if (!byRoot.has(root)) byRoot.set(root, new Set());
+      byRoot.get(root).add(k.slice(k.indexOf('|') + 1));
+    });
+    jwTitleGroups = new Map();
+    [...parent.keys()].forEach((k) => jwTitleGroups.set(k, byRoot.get(find(k))));
+  }
+
+  // 이 업무와 같은 업무로 볼 업무명들. 이름을 바꾼 적이 없으면 자기 이름 하나입니다.
+  function jwTitlesOf(assignee, title) {
+    return jwTitleGroups.get(assignee + '|' + title) || new Set([title]);
+  }
+
   // 업무 목적을 찾는 열쇠. 날짜는 team_tasks.due_date(YYYY-MM-DD)를 그대로 씁니다.
   function jwPurposeKey(title, dueDate) {
     return title + '|' + (dueDate || '').slice(0, 10);
@@ -4829,12 +4879,14 @@
   }
   // 「이어가기」로 며칠에 걸쳐 만든 업무는 날마다 줄이 새로 생깁니다. 댓글은 줄(task_id)에
   // 붙어 있어서, 그냥 두면 다음 날 줄에서는 어제 적은 담당자 댓글이 안 보입니다.
-  // 그래서 같은 담당자·같은 업무명의 줄들을 한 갈래로 보고 댓글을 모아서 보여줍니다.
+  // 그래서 같은 담당자·같은 업무의 줄들을 한 갈래로 보고 댓글을 모아서 보여줍니다.
+  // 중간에 업무명을 바꿨으면 옛 이름 줄도 같은 업무로 칩니다(jwTitlesOf).
   // 매일 자동으로 생기는 루틴 업무는 그날 이야기만 남아야 하므로 그대로 둡니다.
   function jwCommentTaskIds(t) {
     if (!t || JW_ROUTINE_TITLES.has(t.title)) return t ? [t.id] : [];
+    const titles = jwTitlesOf(t.assignee, t.title);
     const ids = currentTasks
-      .filter((x) => x.assignee === t.assignee && x.title === t.title)
+      .filter((x) => x.assignee === t.assignee && titles.has(x.title))
       .map((x) => x.id);
     return ids.length ? ids : [t.id];
   }
@@ -4906,8 +4958,9 @@
   function jwCarryDates(t, until) {
     const from = jwCarryFrom(t);
     if (!until || until < from) return [];
+    const takenTitles = jwTitlesOf(t.assignee, t.title);
     const taken = new Set(currentTasks
-      .filter((x) => x.assignee === t.assignee && x.title === t.title)
+      .filter((x) => x.assignee === t.assignee && takenTitles.has(x.title))
       .map((x) => x.due_date));
     const out = [];
     for (let d = from; d <= until && out.length < 60; d = jwAddDays(d, 1)) {
