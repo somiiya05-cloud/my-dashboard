@@ -4708,7 +4708,17 @@
     if (input.dataset.cancel === '1' || !task || !next || next === task.title) { renderJwView(); return; }
 
     jwTitleSaving = true;
-    const { error } = await client.from('team_tasks').update({ title: next }).eq('id', id);
+    const prev = task.title;
+
+    // 「이어가기」로 며칠에 걸쳐 하는 업무는 날마다 줄이 따로 있고, 그 줄들을 한 업무로
+    // 묶는 열쇠가 (담당자 + 업무명)입니다. 오늘 줄 이름만 바꾸면 묶음이 끊겨서
+    // 어제까지 적어둔 담당자 댓글이 통째로 사라진 것처럼 보입니다.
+    // 그래서 같은 담당자의 같은 이름 줄(지난 날짜·앞으로 잡아둔 날짜 모두)을 함께 바꿉니다.
+    // 매일 자동으로 생기는 루틴 업무는 몇 달치가 같은 이름이라 누른 줄만 바꿉니다.
+    const renameChain = !JW_ROUTINE_TITLES.has(prev);
+    const { error } = renameChain
+      ? await client.from('team_tasks').update({ title: next }).eq('assignee', task.assignee).eq('title', prev)
+      : await client.from('team_tasks').update({ title: next }).eq('id', id);
     jwTitleSaving = false;
     if (error) { alert('이름을 바꾸지 못했습니다: ' + error.message); renderJwView(); return; }
 
@@ -4717,18 +4727,26 @@
     const nowIso = new Date().toISOString();
     const day = String(task.due_date || '').slice(0, 10);
 
-    // 업무 목적은 (업무명 + 날짜)로 저장됩니다. 그날 것만 옮깁니다.
+    // 업무 목적은 (업무명 + 날짜)로 저장됩니다. 줄을 전부 바꿨으면 날짜별 목적도 전부 옮깁니다.
     // 옛 행은 지우지 않습니다 — 같은 이름의 다른 업무가 있을 수 있어서 건드리면 위험합니다.
-    const purpose = jwTaskPurposes[jwPurposeKey(task.title, day)];
-    if (day && purpose && purpose.trim()) {
-      await client.from('team_task_daily_purposes').upsert(
-        { title: next, due_date: day, purpose, updated_at: nowIso },
-        { onConflict: 'title,due_date' });
-      jwTaskPurposes[jwPurposeKey(next, day)] = purpose;
+    let oldDays = [];
+    if (renameChain) {
+      const { data } = await client.from('team_task_daily_purposes')
+        .select('due_date,purpose').eq('title', prev);
+      oldDays = data || [];
+    } else if (day) {
+      oldDays = [{ due_date: day, purpose: jwTaskPurposes[jwPurposeKey(prev, day)] }];
+    }
+    const moved = oldDays
+      .filter((r) => r.due_date && r.purpose && String(r.purpose).trim())
+      .map((r) => ({ title: next, due_date: String(r.due_date).slice(0, 10), purpose: r.purpose, updated_at: nowIso }));
+    if (moved.length) {
+      await client.from('team_task_daily_purposes').upsert(moved, { onConflict: 'title,due_date' });
+      moved.forEach((r) => { jwTaskPurposes[jwPurposeKey(next, r.due_date)] = r.purpose; });
     }
 
     // 업무 기준은 날짜와 무관한 고정 규칙이라 업무명만으로 저장됩니다.
-    const criteria = jwTaskCriteria[task.title];
+    const criteria = jwTaskCriteria[prev];
     if (criteria && criteria.trim()) {
       await client.from('team_task_purposes').upsert(
         { title: next, criteria, updated_at: nowIso }, { onConflict: 'title' });
