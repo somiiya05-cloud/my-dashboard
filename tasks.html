@@ -845,6 +845,12 @@
   .jw-cat-chip b { font-size: 10.5px; font-weight: 800; color: #94a3b8; }
   .jw-cat-chip.on { background: #4d7cfe; border-color: #4d7cfe; color: #fff; }
   .jw-cat-chip.on b { color: rgba(255,255,255,.85); }
+  .jw-cat-chip.done { margin-left: auto; border-color: rgba(22,163,74,.35); color: #15803d; background: #f0fdf4; }
+  .jw-cat-chip.done:hover { border-color: #16a34a; }
+  .jw-cat-chip.done.on { background: #16a34a; border-color: #16a34a; color: #fff; }
+  .jw-mytask-row.finished { border-left-color: #16a34a; background: #f8fdfa; }
+  .jw-mytask-row.finished .jw-mytask-title { color: #475569; }
+  .jw-mytask-done-mark { width: 18px; flex-shrink: 0; text-align: center; color: #16a34a; font-weight: 800; }
   .jw-mytask-cat {
     flex-shrink: 0; border: 1px solid #e2e8f0; border-radius: 999px;
     background: #fff; color: #475569; font-family: inherit; font-size: 11px; font-weight: 700;
@@ -4581,6 +4587,8 @@
   const JW_MYTASK_GROUPS = ['E커머스', '공구', 'B2B', '수출', '광고', 'ETC'];
   const JW_MYTASK_CATEGORY = 'ETC';     // 분류를 안 고르고 추가했을 때
   let jwMyTaskFilter = '';              // 빈 값 = 전체
+  let jwMyTaskDone = false;             // 끝낸 업무 보기
+  const JW_MYTASK_DONE_DAYS = 30;       // 끝낸 업무는 최근 한 달치만 봅니다
 
   function jwMyTaskGroupOf(t) {
     const c = String(t.category || '').trim();
@@ -4589,6 +4597,16 @@
 
   function jwMyTasks(all) {
     const today = jwTodayKST();
+    // 끝낸 업무 보기 — 체크해서 사라진 업무를 다시 찾는 칸입니다. 되돌릴 수도 있습니다.
+    if (jwMyTaskDone) {
+      const from = jwAddDays(today, -JW_MYTASK_DONE_DAYS);
+      const done = currentTasks
+        .filter((t) => t.assignee === jwViewAssignee() && t.status === '확인완료'
+          && (!t.due_date || String(t.due_date).slice(0, 10) >= from))
+        .sort((a, b) => String(b.due_date || '').localeCompare(String(a.due_date || '')) || b.id - a.id);
+      if (all || !jwMyTaskFilter) return done;
+      return done.filter((t) => jwMyTaskGroupOf(t) === jwMyTaskFilter);
+    }
     const rows = currentTasks
       .filter((t) => t.assignee === jwViewAssignee() && !t.archived_at
         && ['할일', '진행중'].includes(t.status)
@@ -4601,6 +4619,12 @@
     if (all || !jwMyTaskFilter) return rows;
     return rows.filter((t) => jwMyTaskGroupOf(t) === jwMyTaskFilter);
   }
+
+  function jwToggleMyTaskDone() {
+    jwMyTaskDone = !jwMyTaskDone;
+    renderJwMyTasks();
+  }
+  window.jwToggleMyTaskDone = jwToggleMyTaskDone;
 
   function jwSetMyTaskFilter(group) {
     jwMyTaskFilter = (jwMyTaskFilter === group) ? '' : group;
@@ -4624,11 +4648,32 @@
           전체<b>${all.length}</b></button>
         ${JW_MYTASK_GROUPS.map((g) => `
           <button type="button" class="jw-cat-chip${jwMyTaskFilter === g ? ' on' : ''}" onclick="jwSetMyTaskFilter('${g}')">
-            ${g}<b>${count(g)}</b></button>`).join('')}`;
+            ${g}<b>${count(g)}</b></button>`).join('')}
+        <button type="button" class="jw-cat-chip done${jwMyTaskDone ? ' on' : ''}" onclick="jwToggleMyTaskDone()"
+          title="체크해서 끝낸 업무를 다시 봅니다 (최근 ${JW_MYTASK_DONE_DAYS}일)">${jwMyTaskDone ? '진행중 보기' : '끝낸 업무'}</button>`;
     }
 
     if (!rows.length) {
-      box.innerHTML = `<div class="jw-task-empty">${jwMyTaskFilter ? jwMyTaskFilter + ' 로 분류한 업무가 없습니다.' : '진행중인 업무가 없습니다. 위 칸에 적어서 추가하세요.'}</div>`;
+      box.innerHTML = `<div class="jw-task-empty">${jwMyTaskDone
+        ? '최근 ' + JW_MYTASK_DONE_DAYS + '일 안에 끝낸 업무가 없습니다.'
+        : (jwMyTaskFilter ? jwMyTaskFilter + ' 로 분류한 업무가 없습니다.' : '진행중인 업무가 없습니다. 위 칸에 적어서 추가하세요.')}</div>`;
+      return;
+    }
+    if (jwMyTaskDone) {
+      box.innerHTML = rows.map((t) => `
+        <div class="jw-mytask-row finished">
+          <span class="jw-mytask-done-mark">✓</span>
+          <div class="jw-mytask-main">
+            <div class="jw-mytask-title">${escapeAttr(t.title || '')}</div>
+            <div class="jw-mytask-meta">
+              <span class="jw-mytask-state">완료</span>
+              <span>${escapeAttr(String(t.due_date || '').slice(5).replace('-', '/') || '날짜 없음')}</span>
+              <span>${escapeAttr(jwMyTaskGroupOf(t))}</span>
+            </div>
+          </div>
+          <button type="button" class="jw-mytask-btn" title="다시 진행중으로 되돌립니다"
+            onclick="jwToggleMyTask(${t.id}, '진행중')">되돌리기</button>
+        </div>`).join('');
       return;
     }
     box.innerHTML = rows.map((t) => {
