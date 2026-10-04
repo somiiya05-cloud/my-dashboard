@@ -802,6 +802,36 @@
   .jw-two > .panel { margin: 0; }
   .jw-two .jw-proj-grid { grid-template-columns: 1fr; }
 
+  .jw-two > .jw-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .jw-two .jw-col > .panel { margin: 0; }
+
+  /* 체크 누락 */
+  .jw-miss-group { font-size: 10.5px; font-weight: 800; color: #94a3b8; margin: 10px 0 6px; }
+  .jw-miss-group:first-child { margin-top: 0; }
+  .jw-miss-row {
+    display: flex; align-items: center; gap: 9px; padding: 9px 11px; margin-bottom: 7px;
+    border: 1px solid #eef2f7; border-left: 3px solid #d97706; border-radius: 10px; background: #fffbf5;
+  }
+  .jw-miss-row.skip { border-left-color: #dc2626; background: #fef8f8; }
+  .jw-miss-main { flex: 1; min-width: 0; cursor: pointer; }
+  .jw-miss-main:hover .jw-miss-title { color: #1d4ed8; }
+  .jw-miss-title { font-size: 13px; font-weight: 600; color: #0f172a; line-height: 1.4; }
+  .jw-miss-meta { display: flex; gap: 8px; align-items: center; margin-top: 3px; font-size: 10.5px; color: #94a3b8; }
+  .jw-miss-meta .who { font-weight: 800; color: #475569; }
+  .jw-miss-meta .days { color: #dc2626; font-weight: 800; }
+  .jw-miss-wrap { max-height: 300px; overflow-y: auto; }
+  .jw-miss-days { display: flex; flex-wrap: wrap; gap: 6px; }
+  .jw-miss-day {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid #eef2f7; background: #fff; color: #64748b;
+    font-family: inherit; font-size: 11px; font-weight: 700;
+    border-radius: 999px; padding: 5px 10px; cursor: pointer;
+  }
+  .jw-miss-day:hover { border-color: #dc2626; color: #0f172a; }
+  .jw-miss-day b { font-size: 11px; font-weight: 800; color: #dc2626; }
+  .jw-mytask-btn.ok { border-color: rgba(22,163,74,.4); color: #15803d; background: #f0fdf4; }
+  .jw-mytask-btn.ok:hover { background: #dcfce7; border-color: #16a34a; color: #15803d; }
+
   .jw-mytask-add { display: flex; gap: 8px; margin-bottom: 12px; }
   .jw-mytask-add input {
     flex: 1; min-width: 0; border: 1px solid #e2e8f0; border-radius: 10px;
@@ -2628,17 +2658,28 @@
             <div class="jw-proj-grid" id="jwProjGrid"></div>
           </section>
 
-          <section class="panel">
-            <div class="panel-head">
-              <h2>진행중인 업무</h2>
-              <span class="panel-note" id="jwMyTaskNote"></span>
-            </div>
-            <div class="jw-mytask-add">
-              <input type="text" id="jwMyTaskInput" placeholder="진행할 업무를 적고 엔터" autocomplete="off" onkeydown="jwMyTaskKey(event)">
-              <button type="button" class="btn-primary" onclick="jwAddMyTask()">추가</button>
-            </div>
-            <div id="jwMyTaskList"></div>
-          </section>
+          <div class="jw-col">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>진행중인 업무</h2>
+                <span class="panel-note" id="jwMyTaskNote"></span>
+              </div>
+              <div class="jw-mytask-add">
+                <input type="text" id="jwMyTaskInput" placeholder="진행할 업무를 적고 엔터" autocomplete="off" onkeydown="jwMyTaskKey(event)">
+                <button type="button" class="btn-primary" onclick="jwAddMyTask()">추가</button>
+              </div>
+              <div id="jwMyTaskList"></div>
+            </section>
+
+            <!-- 팀원 업무 중 내가 확인을 안 눌렀거나, 담당자가 체크를 건너뛴 것 -->
+            <section class="panel">
+              <div class="panel-head">
+                <h2>체크 누락</h2>
+                <span class="panel-note" id="jwMissNote"></span>
+              </div>
+              <div id="jwMissList"></div>
+            </section>
+          </div>
         </div>
 
         <!-- 체크리스트형 목록        <!-- 체크리스트형 목록 — 루틴 업무가 있는 화면(전휘원)에서만 씁니다.
@@ -3689,6 +3730,7 @@
     renderJwToolbar();
     renderJwProjects();
     renderJwMyTasks();
+    renderJwMissChecks();
     renderJwSections();
     jwGrowOpenPurposes();
     // 공구 일정·런칭 건수는 별도 테이블이라 비동기로 받아온 뒤 목록을 다시 그립니다.
@@ -4597,6 +4639,95 @@
     loadTeamTasks();
   }
   window.jwDeleteMyTask = jwDeleteMyTask;
+
+  // ---- 오른쪽 아래: 체크 누락 ----
+  // 두 가지를 봅니다. 성격이 달라 보여주는 방식도 다릅니다.
+  //  1) 내 확인 대기 — 담당자는 끝냈는데(검수대기) 내가 확인을 안 누른 채 넘어간 업무.
+  //     건수가 적고 내가 바로 처리할 수 있어서 한 줄씩 보여주고 [확인완료] 를 답니다.
+  //  2) 담당자 체크 안 됨 — 날짜가 지나도록 아무 체크가 없던 업무. 데일리 업무가 많은 날은
+  //     하루에 20~30건이라 줄줄이 늘어놓으면 못 봅니다. 그래서 날짜별 건수로 접어 보여주고,
+  //     누르면 그 날짜 화면으로 보냅니다.
+  const JW_MISS_RECENT_DAYS = 14;
+
+  function jwMissChecks() {
+    const today = jwTodayKST();
+    const from = jwAddDays(today, -JW_MISS_RECENT_DAYS);
+    const others = currentTasks.filter((t) => t.assignee && t.assignee !== jwViewAssignee());
+
+    // 치운(히스토리로 넘어간) 업무도 봅니다 — 확인 없이 마감된 게 바로 "누락"이라서요.
+    const waiting = others.filter((t) => t.status === '검수대기')
+      .sort((a, b) => String(b.due_date || '').localeCompare(String(a.due_date || '')));
+
+    const skipped = others.filter((t) => ['할일', '진행중'].includes(t.status)
+      && t.due_date && String(t.due_date).slice(0, 10) < today && String(t.due_date).slice(0, 10) >= from);
+    const byDay = {};
+    skipped.forEach((t) => {
+      const d = String(t.due_date).slice(0, 10);
+      if (!byDay[d]) byDay[d] = { date: d, n: 0, who: t.assignee };
+      byDay[d].n += 1;
+    });
+    const days = Object.values(byDay).sort((a, b) => b.date.localeCompare(a.date));
+    return { waiting, days, skippedTotal: skipped.length };
+  }
+
+  function renderJwMissChecks() {
+    const box = document.getElementById('jwMissList');
+    const note = document.getElementById('jwMissNote');
+    if (!box) return;
+    const { waiting, days, skippedTotal } = jwMissChecks();
+    if (note) note.textContent = waiting.length ? '확인 대기 ' + waiting.length + '건' : '';
+
+    if (!waiting.length && !days.length) {
+      box.innerHTML = '<div class="jw-task-empty">확인을 기다리거나 빠뜨린 체크가 없습니다.</div>';
+      return;
+    }
+
+    const waitHtml = waiting.length ? `
+      <div class="jw-miss-group">내 확인 대기 ${waiting.length}건</div>
+      <div class="jw-miss-wrap">
+        ${waiting.map((t) => {
+          const days2 = jwAgeDays(t);
+          return `
+            <div class="jw-miss-row wait">
+              <div class="jw-miss-main" onclick="tdGoTask(${t.id})" title="누르면 ${escapeAttr(t.assignee)} 화면에서 이 업무를 엽니다">
+                <div class="jw-miss-title">${escapeAttr(t.title || '')}</div>
+                <div class="jw-miss-meta">
+                  <span class="who">${escapeAttr(t.assignee)}</span>
+                  <span>${escapeAttr(String(t.due_date || '').slice(5).replace('-', '/') || '날짜 없음')}</span>
+                  ${days2 > 0 ? `<span class="days">${days2}일째</span>` : ''}
+                  ${t.archived_at ? '<span>확인 없이 마감됨</span>' : ''}
+                </div>
+              </div>
+              <button type="button" class="jw-mytask-btn ok" onclick="jwLeadConfirm(${t.id})">확인완료</button>
+            </div>`;
+        }).join('')}
+      </div>` : '';
+
+    const dayHtml = days.length ? `
+      <div class="jw-miss-group">담당자 체크 안 됨 · 최근 ${JW_MISS_RECENT_DAYS}일 ${skippedTotal}건</div>
+      <div class="jw-miss-days">
+        ${days.map((d) => `
+          <button type="button" class="jw-miss-day" onclick="jwGoDay('${escapeAttr(d.who)}', '${d.date}')"
+            title="${escapeAttr(d.who)} ${d.date} 화면으로 갑니다">
+            ${d.date.slice(5).replace('-', '/')}<b>${d.n}</b>
+          </button>`).join('')}
+      </div>` : '';
+
+    box.innerHTML = waitHtml + dayHtml;
+  }
+
+  // 그 사람의 그 날짜 화면으로 보냅니다.
+  function jwGoDay(who, date) {
+    jwViewDate = (date === jwTodayKST()) ? '' : date;
+    switchView('team-tasks', who);
+  }
+  window.jwGoDay = jwGoDay;
+
+  // 여기서 바로 파트장 확인을 눌러 끝냅니다.
+  async function jwLeadConfirm(id) {
+    await updateTaskStatus(id, '확인완료');
+  }
+  window.jwLeadConfirm = jwLeadConfirm;
 
   // ---- 등록 · 수정 패널 ----
   let jwProjPanelId = null;
