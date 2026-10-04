@@ -823,6 +823,8 @@
     color: #2f5ce4; margin-bottom: 9px;
   }
   .jw-next-title .cnt { margin-left: auto; font-size: 11px; font-weight: 700; color: #94a3b8; }
+  .jw-next-group { font-size: 11px; font-weight: 800; color: #94a3b8; margin: 12px 0 6px; }
+  .jw-next-group:first-of-type { margin-top: 2px; }
   .jw-next-row {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     border: 1px solid rgba(77,124,254,.22); border-left: 3px solid #4d7cfe;
@@ -2452,7 +2454,7 @@
       </div>
 
       <div id="jwPersonalTaskArea" style="display:none">
-        <div class="jw-toolbar">
+        <div class="jw-toolbar" id="jwToolbar">
           <div class="jw-date-btn" onclick="openJwDatePicker()" title="다른 날짜의 업무를 봅니다">
             <span class="cal">📅</span>
             <span id="jwDateLabel"></span>
@@ -2487,9 +2489,14 @@
           </section>
         </div>
 
-        <section class="panel">
-          <!-- 프로젝트마다 "다음 액션" 한 줄씩. 프로젝트 전체를 올리지는 않습니다. -->
+        <!-- 두 번째 섹션 — 각 프로젝트의 "다음 액션"만 뽑은 리스트 -->
+        <section class="panel" id="jwNextPanel">
           <div id="jwNextActions"></div>
+        </section>
+
+        <!-- 체크리스트형 목록 — 루틴 업무가 있는 화면(전휘원)에서만 씁니다.
+             윤효선 화면은 프로젝트 카드 + 다음 액션 두 섹션만 보여줍니다. -->
+        <section class="panel" id="jwChecklistPanel">
           <!-- 구획(오전/오후 또는 담당자별 구분)은 renderJwSections 가 채웁니다 -->
           <div id="jwPaneAmpm" class="jw-pane"></div>
 
@@ -4227,15 +4234,11 @@
       ? `${escapeAttr(p.next_meeting)} ${meetGone > 0 ? '(지남)' : (meetGone === 0 ? '(오늘)' : 'D-' + (-meetGone))}`
       : '<div class="empty">잡아둔 회의·보고 일정이 없습니다.</div>';
 
-    // 진척률·마지막 손댄 날은 카드를 간단히 두려고 여기로 내렸습니다.
-    const pct = Math.max(0, Math.min(100, Number(p.progress || 0)));
     const staleDays = jwProjDays(jwProjLastTouch(p)) || 0;
 
     return `
       <div class="jw-proj-detail">
         <div class="jw-proj-foot">
-          <span class="jw-proj-bar"><i style="width:${pct}%"></i></span>
-          <span class="jw-proj-pct">${pct}%</span>
           <span class="jw-proj-owner">${escapeAttr(p.owner || '')} · ${staleDays <= 0 ? '오늘' : staleDays + '일 전'} 업데이트</span>
         </div>
         ${jwProjFoldHtml(p, 'subs', '하위 업무', subs.length ? subDone + '/' + subs.length : 0, subHtml)}
@@ -4279,6 +4282,10 @@
             </div>
           </div>` : '<div class="jw-proj-line"><b>다음 액션</b>아직 정하지 않았습니다.</div>'}
         ${p.blocker ? `<div class="jw-proj-blocker">⚠ ${escapeAttr(p.blocker)}</div>` : ''}
+        <div class="jw-proj-foot">
+          <span class="jw-proj-bar"><i style="width:${Math.max(0, Math.min(100, Number(p.progress || 0)))}%"></i></span>
+          <span class="jw-proj-pct">${Math.max(0, Math.min(100, Number(p.progress || 0)))}%</span>
+        </div>
         <div class="jw-proj-btns">
           <button type="button" class="jw-proj-btn" onclick="jwToggleProjDetail(${p.id})">${open ? '접기' : '상세보기'}</button>
           <button type="button" class="jw-proj-btn" onclick="jwOpenProjectPanel(${p.id})">수정</button>
@@ -4287,7 +4294,21 @@
       </div>`;
   }
 
+  // 윤효선 화면은 "프로젝트 카드 + 다음 액션" 두 섹션만 씁니다.
+  // 체크리스트 목록과 날짜 이동·긴급 업무·순서 편집은 그 구조에 딸린 것이라 같이 감춥니다.
+  function jwApplyLayout() {
+    const routine = jwHasRoutine();
+    const hide = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+    hide('jwChecklistPanel', routine);
+    hide('jwToolbar', routine);
+    hide('jwOrderRow', routine);
+    // "오늘 업무 확인 완료"는 체크리스트를 하루 마감하는 버튼이라 같이 감춥니다.
+    const close = document.querySelector('#taskTopbarActions .btn-ghost');
+    if (close) close.style.display = routine ? '' : 'none';
+  }
+
   function renderJwProjects() {
+    jwApplyLayout();
     const area = document.getElementById('jwProjectArea');
     if (!area) return;
     // 루틴 업무가 있는 화면(전휘원)은 체크리스트형이라 이 섹션을 쓰지 않습니다.
@@ -4332,23 +4353,47 @@
     renderJwNextActions();
   }
 
-  // 오늘 할 일 맨 위 — 프로젝트마다 "다음 액션" 한 줄씩만 올립니다.
-  // 마감일이 없거나 이번 주 안이거나 이미 지난 액션을 올리고, 끝난 프로젝트는 뺍니다.
+  // 아래 리스트는 카드와 겹치지 않게, 각 프로젝트에서 "다음 액션"만 뽑아 한 줄씩 보여줍니다.
+  // 오늘(지난 것 포함) · 이번 주 · 마감일 미정 세 갈래로 나눕니다.
   function renderJwNextActions() {
     const box = document.getElementById('jwNextActions');
+    const panel = document.getElementById('jwNextPanel');
     if (!box) return;
-    if (jwHasRoutine() || !jwIsToday()) { box.innerHTML = ''; return; }
-    const rows = jwMyProjects()
-      .filter((p) => JW_PROJECT_LIVE.includes(p.status) && p.next_action)
-      .sort((a, b) => String(a.next_action_due || '9999-12-31').localeCompare(String(b.next_action_due || '9999-12-31')) || a.id - b.id);
-    if (!rows.length) { box.innerHTML = ''; return; }
+    if (jwHasRoutine()) {
+      box.innerHTML = '';
+      if (panel) panel.style.display = 'none';
+      return;
+    }
+    if (panel) panel.style.display = '';
+
+    const today = jwTodayKST();
+    const week = jwWeekRange();
+    const live = jwMyProjects().filter((p) => JW_PROJECT_LIVE.includes(p.status) && p.next_action);
+    const byDue = (a, b) => String(a.next_action_due || '').localeCompare(String(b.next_action_due || '')) || a.id - b.id;
+
+    const groups = [
+      ['오늘 처리할 액션', live.filter((p) => p.next_action_due && p.next_action_due <= today).sort(byDue)],
+      ['이번 주 마감', live.filter((p) => p.next_action_due && p.next_action_due > today && p.next_action_due <= week[1]).sort(byDue)],
+      // 마감일을 아직 안 정한 건도 아래에 모아 둡니다. 안 그러면 그 프로젝트의
+      // 다음 액션이 이 리스트에서 통째로 빠져 보이지 않습니다.
+      ['마감일 미정', live.filter((p) => !p.next_action_due).sort(byDue)],
+    ].filter(([, rows]) => rows.length);
+
+    if (!groups.length) {
+      box.innerHTML = '<div class="jw-next-title">오늘 · 이번 주 다음 액션</div>'
+        + '<div class="jw-task-empty">오늘과 이번 주에 처리할 액션이 없습니다.</div>';
+      return;
+    }
+
     box.innerHTML = `
-      <div class="jw-next-wrap">
-        <div class="jw-next-title">프로젝트 다음 액션<span class="cnt">${rows.length}건</span></div>
+      <div class="jw-next-title">오늘 · 이번 주 다음 액션<span class="cnt">${groups.reduce((n, g) => n + g[1].length, 0)}건</span></div>
+      ${groups.map(([label, rows]) => `
+        <div class="jw-next-group">${escapeAttr(label)} ${rows.length}건</div>
         ${rows.map((p) => {
           const gone = jwProjDays(p.next_action_due);
           return `
             <div class="jw-next-row${gone != null && gone > 0 ? ' over' : ''}">
+              ${p.category ? `<span class="jw-proj-cat ${JW_PROJECT_CATEGORY_CLS[p.category] || 'c0'}">${escapeAttr(p.category)}</span>` : ''}
               <span class="jw-next-proj">${escapeAttr(p.name)}</span>
               <span class="jw-next-text">${escapeAttr(p.next_action)}</span>
               <span class="jw-next-right">
@@ -4357,8 +4402,7 @@
                 <button type="button" class="jw-proj-btn main" onclick="jwOpenActionDone(${p.id})">액션 완료</button>
               </span>
             </div>`;
-        }).join('')}
-      </div>`;
+        }).join('')}`).join('')}`;
   }
 
   // ---- 진행 기록 한 줄 추가 ----
