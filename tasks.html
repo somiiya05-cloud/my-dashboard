@@ -299,6 +299,28 @@
   .jw-section { margin-bottom: 22px; }
   .jw-section:last-child { margin-bottom: 0; }
   .jw-section-title { font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 10px; }
+  /* 여러 날에 걸친 건(프로젝트)은 머리줄을 눌러 접을 수 있게 합니다.
+     전휘원 화면의 그룹 머리줄과 같은 모양으로 맞춰 "묶음"이라는 게 바로 읽히게 합니다. */
+  .jw-section-title.project {
+    display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+    background: #eef2fb; border: 1px solid rgba(77,124,254,.28); border-radius: 10px;
+    padding: 11px 14px; font-size: 13.5px; font-weight: 800; color: #2f5ce4;
+    transition: background .12s ease, border-color .12s ease;
+  }
+  .jw-section-title.project:hover { background: #e3eafb; border-color: rgba(77,124,254,.5); }
+  .jw-proj-arrow { font-size: 13px; line-height: 1; color: #4d7cfe; width: 13px; flex-shrink: 0; }
+  .jw-proj-count {
+    margin-left: auto; flex-shrink: 0; font-size: 11.5px; font-weight: 700;
+    color: #4d7cfe; background: #fff; border: 1px solid rgba(77,124,254,.3);
+    border-radius: 999px; padding: 3px 10px;
+  }
+  .jw-proj-count.all-done { color: #15803d; border-color: rgba(22,163,74,.35); background: rgba(22,163,74,.08); }
+  /* 지난 날짜에 끝낸 단계 — 기본은 접어두고 "어디까지 갔나" 볼 때만 펼칩니다 */
+  .jw-past-toggle { background: none; border: 0; padding: 5px 10px; font-size: 11px; color: #64748b; cursor: pointer; }
+  .jw-past-toggle:hover { color: #0f172a; text-decoration: underline; }
+  .jw-past-row { display: flex; align-items: center; gap: 10px; padding: 3px 10px 3px 22px; font-size: 12px; color: #64748b; }
+  .jw-past-row .d { color: #94a3b8; font-variant-numeric: tabular-nums; }
+  .jw-past-row .s { margin-left: auto; font-size: 10px; color: #94a3b8; }
   .jw-task-list { display: flex; flex-direction: column; gap: 8px; }
   .jw-task-row {
     display: flex; align-items: center; justify-content: space-between; gap: 14px;
@@ -3252,20 +3274,89 @@
     jwOpenDetailIds.forEach((id) => jwGrowInput(document.getElementById('jwPurpose' + id)));
   }
 
+  // ---- 구분(category)을 프로젝트로 보기 ----
+  // 윤효선 화면의 구분에는 이미 거래처·건 이름을 적고 계십니다(오늘의집, 스스_코드니처,
+  // 원룸만들기 …). 그래서 따로 칸을 만들지 않고 이 구분을 그대로 프로젝트로 씁니다.
+  // 2건 이상 쌓인 구분만 접히는 머리줄을 달고, 1건짜리는 머리줄 없이 한 줄로 둡니다.
+  const jwClosedProjects = new Set();   // 접어둔 프로젝트 (브라우저에서만 기억)
+  const jwOpenPastSteps = new Set();    // "지난 단계"를 펼쳐둔 프로젝트
+
+  // 그 사람의 이 구분에 속한 모든 줄 (지난 날짜 포함).
+  function jwProjectRows(category) {
+    return currentTasks.filter(t => t.assignee === jwViewAssignee()
+      && (t.category || '기타') === category && !t.archived_at);
+  }
+
+  // 오늘 화면에 올라오지 않는, 지난 날짜에 이미 끝낸 단계들.
+  function jwPastSteps(category) {
+    return jwProjectRows(category)
+      .filter(t => !jwBelongsToView(t))
+      .sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || '')) || a.id - b.id);
+  }
+
+  // 머리줄에 띄울 숫자 — 몇 단계 중 몇 개가 끝났는지, 안 끝난 것 중 가장 오래 묵은 건 며칠째인지.
+  function jwProjectStat(category) {
+    const all = jwProjectRows(category).filter(t => t.status !== TASK_STATUS_NA);
+    const done = all.filter(t => t.status === '확인완료').length;
+    const age = jwScopedTasks(category)
+      .filter(t => !jwStaffDone(t) && t.status !== TASK_STATUS_NA)
+      .reduce((m, t) => Math.max(m, jwAgeDays(t)), 0);
+    return { total: all.length, done, age };
+  }
+
+  // 머리줄을 달 만큼 쌓인 구분인지 (한 건짜리는 그냥 업무 한 줄입니다).
+  function jwIsProject(category) {
+    return !jwHasRoutine() && jwProjectRows(category).length > 1;
+  }
+
+  function jwToggleProject(category) {
+    if (jwClosedProjects.has(category)) jwClosedProjects.delete(category);
+    else jwClosedProjects.add(category);
+    renderJwSections();
+  }
+  window.jwToggleProject = jwToggleProject;
+
+  function jwTogglePastSteps(category) {
+    if (jwOpenPastSteps.has(category)) jwOpenPastSteps.delete(category);
+    else jwOpenPastSteps.add(category);
+    renderJwSections();
+  }
+  window.jwTogglePastSteps = jwTogglePastSteps;
+
   // 구획(오전/오후 또는 담당자별 구분)을 만들고 각 목록을 채웁니다.
   function jwSectionBodyId(i) { return 'jwSecBody' + i; }
+
+  // 프로젝트 머리줄 — "▾ 오늘의집  2/5 완료 · 11일째"
+  function jwProjectHeadHtml(category) {
+    const st = jwProjectStat(category);
+    const closed = jwClosedProjects.has(category);
+    const allDone = st.total > 0 && st.done === st.total;
+    return `
+      <div class="jw-section-title project" onclick="jwToggleProject('${escapeAttr(category).replace(/'/g, "&#39;")}')"
+        title="누르면 이 프로젝트를 접습니다">
+        <span class="jw-proj-arrow">${closed ? '▸' : '▾'}</span>
+        <span>${escapeAttr(category)}</span>
+        ${st.age ? `<span class="jw-carry-tag${jwAgeClass(st.age)}" title="아직 안 끝난 단계가 ${st.age}일째 멈춰 있습니다">${st.age}일째</span>` : ''}
+        <span class="jw-proj-count${allDone ? ' all-done' : ''}">${st.done}/${st.total} 완료</span>
+      </div>`;
+  }
 
   function renderJwSections() {
     const pane = document.getElementById('jwPaneAmpm');
     const secs = jwSections();
-    // 구획 구성이 그대로면 다시 만들지 않습니다(입력 중이던 글이 날아가지 않게).
-    const sig = secs.map(x => x[1]).join('|');
+    // 구획 구성이나 머리줄 숫자가 그대로면 다시 만들지 않습니다(입력 중이던 글이 날아가지 않게).
+    const sig = secs.map(([title, cat]) => {
+      if (!jwIsProject(cat)) return title + '|' + cat;
+      const st = jwProjectStat(cat);
+      return [title, cat, st.done, st.total, st.age,
+        jwClosedProjects.has(cat) ? 'c' : 'o', jwOpenPastSteps.has(cat) ? 'p' : ''].join('|');
+    }).join('//');
     if (pane.dataset.sig !== sig) {
       pane.dataset.sig = sig;
-      pane.innerHTML = secs.map(([title], i) => `
+      pane.innerHTML = secs.map(([title, cat], i) => `
         <div class="jw-section">
-          <div class="jw-section-title">${escapeAttr(title)}</div>
-          <div id="${jwSectionBodyId(i)}"></div>
+          ${jwIsProject(cat) ? jwProjectHeadHtml(cat) : `<div class="jw-section-title">${escapeAttr(title)}</div>`}
+          <div id="${jwSectionBodyId(i)}"${jwIsProject(cat) && jwClosedProjects.has(cat) ? ' style="display:none"' : ''}></div>
         </div>`).join('');
     }
     secs.forEach(([, category], i) => renderJwTaskList(jwSectionBodyId(i), category));
@@ -4227,6 +4318,17 @@
       const extraCats = cats.filter(c => !fixed.includes(c));
       return [['오전', '오전 필수업무'], ['오후', '오후 필수업무']].concat(extraCats.map(c => [c, c]));
     }
+    // 프로젝트(구분)는 오래 멈춘 것부터 위로 올립니다. 팔로우업을 놓치지 않게요.
+    // 다 끝난 프로젝트는 아래로 내리고, 그 안에서는 이름순입니다.
+    cats.sort((a, b) => {
+      const sa = jwProjectStat(a);
+      const sb = jwProjectStat(b);
+      const liveA = sa.done < sa.total ? 1 : 0;
+      const liveB = sb.done < sb.total ? 1 : 0;
+      if (liveA !== liveB) return liveB - liveA;
+      if (sb.age !== sa.age) return sb.age - sa.age;
+      return a.localeCompare(b, 'ko');
+    });
     // 업무가 하나도 없는 날도 빈 목록을 보여줘야 해서 구획 하나는 남겨 둡니다.
     return (cats.length ? cats : ['업무']).map(c => [c, c]);
   }
@@ -4377,13 +4479,32 @@
 
   // 구획 하나를 그립니다. 루틴 업무가 있는 담당자는 정해진 순서로 먼저 깔고
   // 직접 추가한 업무를 뒤에 붙이며, 그 외 담당자는 순서번호(없으면 만든 순)대로만 놓습니다.
+  // 지난 날짜에 끝낸 단계는 접어서 보여줍니다 — 오늘 할 일 목록이 길어지지 않게.
+  function jwPastStepsHtml(category) {
+    if (!jwIsProject(category)) return '';
+    const past = jwPastSteps(category);
+    if (!past.length) return '';
+    const open = jwOpenPastSteps.has(category);
+    const key = escapeAttr(category).replace(/'/g, '&#39;');
+    const rows = open ? past.map(t => `
+      <div class="jw-past-row">
+        <span class="d">${escapeAttr(String(t.due_date || '').slice(5).replace('-', '/') || '날짜없음')}</span>
+        <span>${escapeAttr(t.title || '')}</span>
+        <span class="s">${escapeAttr(t.status || '')}</span>
+      </div>`).join('') : '';
+    return `
+      <button type="button" class="jw-past-toggle" onclick="jwTogglePastSteps('${key}')">
+        ${open ? '▾' : '▸'} 지난 단계 ${past.length}건${open ? ' 접기' : ' 보기'}
+      </button>${rows}`;
+  }
+
   function renderJwTaskList(bodyId, category) {
     const body = document.getElementById(bodyId);
     if (!body) return;
     const items = jwSectionItems(category);
-    body.innerHTML = items.length
+    body.innerHTML = (items.length
       ? `<div class="jw-task-list">${jwTaskListHtml(items)}</div>`
-      : `<div class="jw-task-empty">${jwEmptyMessage()}</div>`;
+      : `<div class="jw-task-empty">${jwEmptyMessage()}</div>`) + jwPastStepsHtml(category);
   }
 
   // 오후 필수업무는 지정하신 순서 그대로 한 줄씩 나열.
