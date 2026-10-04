@@ -858,18 +858,24 @@
   .cb-col-cnt { margin-left: auto; font-size: 11px; font-weight: 800; color: #64748b; background: #fff; border-radius: 999px; padding: 2px 8px; }
   .cb-col-body { display: flex; flex-direction: column; gap: 7px; }
   .cb-card {
-    background: #fff; border: 1px solid #e7edf5; border-radius: 10px; padding: 8px 9px 7px;
-    box-shadow: 0 1px 2px rgba(15,23,42,.04); cursor: grab; position: relative;
+    background: #fff; border: 1px solid #e7edf5; border-radius: 10px; padding: 7px 9px;
+    box-shadow: 0 1px 2px rgba(15,23,42,.04); position: relative;
   }
   .cb-card:hover { border-color: #cbd5e1; }
   .cb-card.dragging { opacity: .45; }
   .cb-card.done { background: #f8fdfa; border-color: rgba(22,163,74,.25); }
   .cb-card.done .cb-body { color: #94a3b8; text-decoration: line-through; }
   .cb-card.late { border-color: rgba(220,38,38,.3); background: #fef8f8; }
-  .cb-grip { position: absolute; top: 7px; right: 8px; color: #cbd5e1; font-size: 11px; }
+  /* 카드 대부분이 글 쓰는 칸이라, 위에 잡는 줄을 따로 둡니다 (글쓰기와 끌기가 안 엉키게) */
+  .cb-grip {
+    height: 14px; margin: -2px -3px 4px; border-radius: 6px; cursor: grab;
+    color: #cbd5e1; font-size: 10px; line-height: 14px; text-align: center; letter-spacing: 2px;
+  }
+  .cb-grip:hover { background: #f1f5f9; color: #64748b; }
+  .cb-card:active .cb-grip { cursor: grabbing; }
   .cb-body {
     width: 100%; border: 0; background: transparent; resize: none; overflow: hidden;
-    font-family: inherit; font-size: 12.5px; line-height: 1.5; color: #0f172a; padding: 0 14px 0 0;
+    font-family: inherit; font-size: 12.5px; line-height: 1.5; color: #0f172a; padding: 0;
   }
   .cb-body:focus { outline: none; }
   .cb-meta { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
@@ -5188,7 +5194,7 @@
         onmousedown="cbDragArm(event)" ondragstart="cbDragStart(event, ${c.id})" ondragend="cbDragEnd()"
         ondragover="cbDragOverCol(event, '${escapeAttr(c.channel).replace(/'/g, '&#39;')}')"
         ondrop="cbDrop(event, '${escapeAttr(c.channel).replace(/'/g, '&#39;')}', ${c.id})">
-        <span class="cb-grip" title="끌어서 옮깁니다">⠿</span>
+        <div class="cb-grip" title="여기를 잡고 끌면 옮겨집니다">⠿</div>
         <textarea class="cb-body" id="cbBody${c.id}" rows="1" placeholder="할 일을 적어주세요"
           oninput="cbGrow(this)" onblur="cbSave(${c.id}, 'body', this.value)">${escapeAttr(c.body || '')}</textarea>
         <div class="cb-meta">
