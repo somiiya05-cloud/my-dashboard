@@ -4874,12 +4874,29 @@
   }
   window.ctMoveQuarter = ctMoveQuarter;
 
-  async function loadChannelTargets() {
+  async function loadChannelTargets(skipFill) {
     const { data, error } = await client.from('channel_targets')
       .select('*').in('month', ctMonths()).order('sort_no').order('id');
     ctError = error ? error.message : '';
     ctRows = error ? [] : (data || []);
+    // 채널은 있는데 어떤 달 칸이 비어 있으면 적을 데가 없습니다. 빠진 달을 채워 둡니다.
+    // (분기를 옮기거나 예전에 한 달치만 만들어둔 경우에 생깁니다)
+    if (!error && !skipFill && await ctFillMissingMonths()) return loadChannelTargets(true);
     renderChannelTracker();
+  }
+
+  async function ctFillMissingMonths() {
+    const months = ctMonths();
+    const miss = [];
+    ctChannels().forEach((ch) => {
+      const sortNo = Math.min(...ctRows.filter((r) => r.channel === ch)
+        .map((r) => (r.sort_no != null ? r.sort_no : 999)));
+      months.forEach((m) => { if (!ctCell(ch, m)) miss.push({ month: m, channel: ch, sort_no: sortNo }); });
+    });
+    if (!miss.length) return false;
+    const { error } = await client.from('channel_targets').insert(miss);
+    if (error) { console.warn('빠진 달을 채우지 못했습니다', error.message); return false; }
+    return true;
   }
 
   function ctWon(n) { return Number(n || 0).toLocaleString('ko-KR'); }
