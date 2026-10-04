@@ -45,6 +45,8 @@
   .nav-label { font-size: 11px; color: #565d70; margin-bottom: 8px; padding: 0 8px; }
   .nav-label-clickable { cursor: pointer; }
   .nav-label-clickable:hover { color: #f5f6fa; }
+  /* 메뉴 안의 작은 소제목 (담당자 줄 위에 붙습니다) */
+  .nav-sublabel { margin: 12px 0 6px; font-size: 10.5px; }
   .nav-item {
     display: flex; align-items: center; gap: 10px; cursor: pointer;
     font-size: 15px; font-weight: 700; color: #a7adc1; padding: 8px; border-radius: 8px; margin-bottom: 2px;
@@ -2152,9 +2154,9 @@
           <div class="nav-item" id="navTeamDash" onclick="switchView('team-dashboard')">
             <span class="dot dot-task"></span>팀 대시보드
           </div>
-          <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
-            <span class="dot dot-task"></span>할일 관리
-          </div>
+          <!-- "할일 관리"(담당자별 업무 현황 + 주의가 필요한 업무) 메뉴는 뺐습니다.
+               팀 대시보드가 같은 내용을 더 자세히 보여줍니다. 담당자 화면만 남깁니다. -->
+          <div class="nav-label nav-sublabel">담당자</div>
           <div id="navTeamAssignees"></div>
           <div class="nav-item" id="navWeeklyReport" onclick="switchView('weekly-report')">
             <span class="dot dot-task"></span>주간 리포트
@@ -2913,6 +2915,9 @@
     if (view === 'sample-sync') { loadSampleRequests(); setupSampleProductSelect(); loadSampleProductList(); }
     if (view === 'restock') loadRestock();
     if (view === 'review-alerts') loadReviewAlerts();
+    // 담당자를 고르지 않고 들어오는 길은 팀 대시보드로 돌립니다.
+    // (옛 "할일 관리" 요약 화면은 팀 대시보드와 겹쳐서 메뉴에서 내렸습니다)
+    if (view === 'team-tasks' && !brandChannel) { switchView('team-dashboard'); return; }
     if (view === 'team-tasks') {
       taskFilterAssignee = brandChannel || '';
       taskStatusFilter = null;
