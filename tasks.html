@@ -796,6 +796,44 @@
   .jw-proj-btn.main { border-color: rgba(77,124,254,.4); color: #2f5ce4; background: #f5f8ff; }
   .jw-proj-btn.main:hover { background: #e8efff; }
 
+  /* 윤효선 화면 두 칸 — 왼쪽 프로젝트, 오른쪽 진행중인 업무 */
+  .jw-two { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 1150px) { .jw-two { grid-template-columns: 1fr; } }
+  .jw-two > .panel { margin: 0; }
+  .jw-two .jw-proj-grid { grid-template-columns: 1fr; }
+
+  .jw-mytask-add { display: flex; gap: 8px; margin-bottom: 12px; }
+  .jw-mytask-add input {
+    flex: 1; min-width: 0; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 9px 12px; font-family: inherit; font-size: 13px;
+  }
+  .jw-mytask-add input:focus { outline: none; border-color: #4d7cfe; }
+  .jw-mytask-row {
+    display: flex; align-items: center; gap: 9px; padding: 9px 11px;
+    border: 1px solid #eef2f7; border-left: 3px solid #e2e8f0; border-radius: 10px; margin-bottom: 7px;
+  }
+  .jw-mytask-row.doing { border-left-color: #4d7cfe; }
+  .jw-mytask-row.late { border-color: rgba(220,38,38,.28); border-left-color: #dc2626; background: #fef8f8; }
+  .jw-mytask-check {
+    width: 18px; height: 18px; flex-shrink: 0; border: 2px solid #cbd5e1; border-radius: 50%;
+    background: #fff; cursor: pointer; padding: 0;
+  }
+  .jw-mytask-check:hover { border-color: #16a34a; background: #f0fdf4; }
+  .jw-mytask-main { flex: 1; min-width: 0; }
+  .jw-mytask-title { font-size: 13px; font-weight: 600; color: #0f172a; line-height: 1.4; }
+  .jw-mytask-meta { display: flex; gap: 8px; align-items: center; margin-top: 3px; font-size: 10.5px; color: #94a3b8; }
+  .jw-mytask-state { font-weight: 800; color: #94a3b8; }
+  .jw-mytask-state.doing { color: #2f5ce4; }
+  .jw-mytask-late { color: #dc2626; font-weight: 800; }
+  .jw-mytask-btn {
+    border: 1px solid #e2e8f0; background: #fff; color: #475569; flex-shrink: 0;
+    font-family: inherit; font-size: 11px; font-weight: 700;
+    border-radius: 999px; padding: 4px 10px; cursor: pointer;
+  }
+  .jw-mytask-btn:hover { border-color: #94a3b8; color: #0f172a; }
+  .jw-mytask-btn.del { padding: 4px 8px; color: #cbd5e1; }
+  .jw-mytask-btn.del:hover { color: #dc2626; border-color: rgba(220,38,38,.4); }
+
   /* 상세보기 — 안의 다섯 칸은 각각 접었다 펼칩니다 */
   .jw-proj-detail { border-top: 1px dashed #e2e8f0; padding-top: 9px; display: flex; flex-direction: column; gap: 4px; }
   .jw-proj-fold-head {
@@ -2579,9 +2617,8 @@
           <div id="jwMemoBoard" class="jw-memo-board"></div>
         </div>
 
-        <!-- 프로젝트형 업무 — 오래 끌고 가는 건은 할 일 목록과 따로 둡니다.
-             renderJwProjects 가 채우고, 윤효선처럼 루틴이 없는 화면에서만 보입니다. -->
-        <div id="jwProjectArea" style="display:none">
+        <!-- 윤효선 화면 — 왼쪽은 프로젝트형 업무, 오른쪽은 지금 진행중인 업무 둘뿐입니다. -->
+        <div class="jw-two" id="jwProjectArea" style="display:none">
           <section class="panel">
             <div class="panel-head">
               <h2>프로젝트형 업무</h2>
@@ -2590,14 +2627,21 @@
             </div>
             <div class="jw-proj-grid" id="jwProjGrid"></div>
           </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>진행중인 업무</h2>
+              <span class="panel-note" id="jwMyTaskNote"></span>
+            </div>
+            <div class="jw-mytask-add">
+              <input type="text" id="jwMyTaskInput" placeholder="진행할 업무를 적고 엔터" autocomplete="off" onkeydown="jwMyTaskKey(event)">
+              <button type="button" class="btn-primary" onclick="jwAddMyTask()">추가</button>
+            </div>
+            <div id="jwMyTaskList"></div>
+          </section>
         </div>
 
-        <!-- 두 번째 섹션 — 각 프로젝트의 "다음 액션"만 뽑은 리스트 -->
-        <section class="panel" id="jwNextPanel">
-          <div id="jwNextActions"></div>
-        </section>
-
-        <!-- 체크리스트형 목록 — 루틴 업무가 있는 화면(전휘원)에서만 씁니다.
+        <!-- 체크리스트형 목록        <!-- 체크리스트형 목록 — 루틴 업무가 있는 화면(전휘원)에서만 씁니다.
              윤효선 화면은 프로젝트 카드 + 다음 액션 두 섹션만 보여줍니다. -->
         <section class="panel" id="jwChecklistPanel">
           <!-- 구획(오전/오후 또는 담당자별 구분)은 renderJwSections 가 채웁니다 -->
@@ -3644,6 +3688,7 @@
   function renderJwView() {
     renderJwToolbar();
     renderJwProjects();
+    renderJwMyTasks();
     renderJwSections();
     jwGrowOpenPurposes();
     // 공구 일정·런칭 건수는 별도 테이블이라 비동기로 받아온 뒤 목록을 다시 그립니다.
@@ -4421,7 +4466,7 @@
     const area = document.getElementById('jwProjectArea');
     if (!area) return;
     // 루틴 업무가 있는 화면(전휘원)은 체크리스트형이라 이 섹션을 쓰지 않습니다.
-    if (jwHasRoutine()) { area.style.display = 'none'; renderJwNextActions(); return; }
+    if (jwHasRoutine()) { area.style.display = 'none'; return; }
     area.style.display = '';
 
     const note = document.getElementById('jwProjNote');
@@ -4446,59 +4491,6 @@
         ? sorted.map(jwProjCardHtml).join('')
         : '<div class="jw-task-empty">등록된 프로젝트가 없습니다. [+ 새 프로젝트] 로 추가하세요.</div>';
     }
-    renderJwNextActions();
-  }
-
-  // 아래 리스트는 카드와 겹치지 않게, 각 프로젝트에서 "다음 액션"만 뽑아 한 줄씩 보여줍니다.
-  // 오늘(지난 것 포함) · 이번 주 · 마감일 미정 세 갈래로 나눕니다.
-  function renderJwNextActions() {
-    const box = document.getElementById('jwNextActions');
-    const panel = document.getElementById('jwNextPanel');
-    if (!box) return;
-    if (jwHasRoutine()) {
-      box.innerHTML = '';
-      if (panel) panel.style.display = 'none';
-      return;
-    }
-    if (panel) panel.style.display = '';
-
-    const today = jwTodayKST();
-    const week = jwWeekRange();
-    const live = jwMyProjects().filter((p) => JW_PROJECT_LIVE.includes(p.status) && p.next_action);
-    const byDue = (a, b) => String(a.next_action_due || '').localeCompare(String(b.next_action_due || '')) || a.id - b.id;
-
-    const groups = [
-      ['오늘 처리할 액션', live.filter((p) => p.next_action_due && p.next_action_due <= today).sort(byDue)],
-      ['이번 주 마감', live.filter((p) => p.next_action_due && p.next_action_due > today && p.next_action_due <= week[1]).sort(byDue)],
-      // 마감일을 아직 안 정한 건도 아래에 모아 둡니다. 안 그러면 그 프로젝트의
-      // 다음 액션이 이 리스트에서 통째로 빠져 보이지 않습니다.
-      ['마감일 미정', live.filter((p) => !p.next_action_due).sort(byDue)],
-    ].filter(([, rows]) => rows.length);
-
-    if (!groups.length) {
-      box.innerHTML = '<div class="jw-next-title">오늘 · 이번 주 다음 액션</div>'
-        + '<div class="jw-task-empty">오늘과 이번 주에 처리할 액션이 없습니다.</div>';
-      return;
-    }
-
-    box.innerHTML = `
-      <div class="jw-next-title">오늘 · 이번 주 다음 액션<span class="cnt">${groups.reduce((n, g) => n + g[1].length, 0)}건</span></div>
-      ${groups.map(([label, rows]) => `
-        <div class="jw-next-group">${escapeAttr(label)} ${rows.length}건</div>
-        ${rows.map((p) => {
-          const gone = jwProjDays(p.next_action_due);
-          return `
-            <div class="jw-next-row${gone != null && gone > 0 ? ' over' : ''}">
-              ${p.category ? `<span class="jw-proj-cat ${JW_PROJECT_CATEGORY_CLS[p.category] || 'c0'}">${escapeAttr(p.category)}</span>` : ''}
-              <span class="jw-next-proj">${escapeAttr(p.name)}</span>
-              <span class="jw-next-text">${escapeAttr(p.next_action)}</span>
-              <span class="jw-next-right">
-                ${p.next_action_due ? `<span class="jw-proj-due">${escapeAttr(p.next_action_due)}</span>` : ''}
-                ${jwProjDdayHtml(p.next_action_due)}
-                <button type="button" class="jw-proj-btn main" onclick="jwOpenActionDone(${p.id})">액션 완료</button>
-              </span>
-            </div>`;
-        }).join('')}`).join('')}`;
   }
 
   // ---- 진행 기록 한 줄 추가 ----
@@ -4513,6 +4505,98 @@
     renderJwProjects();
   }
   window.jwAddProjNote = jwAddProjNote;
+
+  // ---- 오른쪽 칸: 진행중인 업무 ----
+  // 프로젝트처럼 길게 가는 건 말고, 지금 손에 쥐고 있는 일을 적어두는 칸입니다.
+  // 할일 관리(team_tasks)에 그대로 저장되므로 팀 대시보드와 주간 리포트에도 같이 잡힙니다.
+  const JW_MYTASK_CATEGORY = '진행중 업무';
+
+  function jwMyTasks() {
+    const today = jwTodayKST();
+    return currentTasks
+      .filter((t) => t.assignee === jwViewAssignee() && !t.archived_at
+        && ['할일', '진행중'].includes(t.status)
+        && (!t.due_date || String(t.due_date).slice(0, 10) <= today))
+      .sort((a, b) => {
+        // 진행중을 위로, 그다음 오래 묵은 순
+        if ((a.status === '진행중') !== (b.status === '진행중')) return a.status === '진행중' ? -1 : 1;
+        return String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')) || a.id - b.id;
+      });
+  }
+
+  function renderJwMyTasks() {
+    const box = document.getElementById('jwMyTaskList');
+    const note = document.getElementById('jwMyTaskNote');
+    if (!box) return;
+    const rows = jwMyTasks();
+    if (note) note.textContent = rows.length ? rows.length + '건' : '';
+    if (!rows.length) {
+      box.innerHTML = '<div class="jw-task-empty">진행중인 업무가 없습니다. 위 칸에 적어서 추가하세요.</div>';
+      return;
+    }
+    box.innerHTML = rows.map((t) => {
+      const days = jwAgeDays(t);
+      const late = !!t.due_date && days > 0;
+      const doing = t.status === '진행중';
+      return `
+        <div class="jw-mytask-row${doing ? ' doing' : ''}${late ? ' late' : ''}">
+          <button type="button" class="jw-mytask-check" title="끝났으면 누르세요"
+            onclick="jwFinishMyTask(${t.id})"></button>
+          <div class="jw-mytask-main">
+            <div class="jw-mytask-title">${escapeAttr(t.title || '')}</div>
+            <div class="jw-mytask-meta">
+              <span class="jw-mytask-state ${doing ? 'doing' : ''}">${escapeAttr(t.status)}</span>
+              ${t.due_date ? `<span>${escapeAttr(String(t.due_date).slice(5).replace('-', '/'))}</span>` : '<span>날짜 없음</span>'}
+              ${late ? `<span class="jw-mytask-late">${days}일째</span>` : ''}
+            </div>
+          </div>
+          <button type="button" class="jw-mytask-btn"
+            onclick="jwToggleMyTask(${t.id}, '${doing ? '할일' : '진행중'}')">${doing ? '보류' : '진행'}</button>
+          <button type="button" class="jw-mytask-btn del" title="이 업무를 지웁니다"
+            onclick="jwDeleteMyTask(${t.id})">✕</button>
+        </div>`;
+    }).join('');
+  }
+
+  function jwMyTaskKey(e) {
+    if (e.key === 'Enter') { e.preventDefault(); jwAddMyTask(); }
+  }
+  window.jwMyTaskKey = jwMyTaskKey;
+
+  async function jwAddMyTask() {
+    const input = document.getElementById('jwMyTaskInput');
+    const title = (input && input.value || '').trim();
+    if (!title) return;
+    const today = jwTodayKST();
+    const { error } = await client.from('team_tasks').insert({
+      title, assignee: jwViewAssignee(), status: '진행중',
+      due_date: today, start_date: today, priority: '보통',
+      category: JW_MYTASK_CATEGORY,
+    });
+    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+    if (input) input.value = '';
+    loadTeamTasks();
+  }
+  window.jwAddMyTask = jwAddMyTask;
+
+  async function jwToggleMyTask(id, next) {
+    await updateTaskStatus(id, next);
+  }
+  window.jwToggleMyTask = jwToggleMyTask;
+
+  // 끝낸 업무는 목록에서 빠집니다 (주간 리포트에는 완료로 남습니다).
+  async function jwFinishMyTask(id) {
+    await updateTaskStatus(id, '확인완료');
+  }
+  window.jwFinishMyTask = jwFinishMyTask;
+
+  async function jwDeleteMyTask(id) {
+    if (!confirm('이 업무를 지울까요?')) return;
+    const { error } = await client.from('team_tasks').delete().eq('id', id);
+    if (error) { alert('지우지 못했습니다: ' + error.message); return; }
+    loadTeamTasks();
+  }
+  window.jwDeleteMyTask = jwDeleteMyTask;
 
   // ---- 등록 · 수정 패널 ----
   let jwProjPanelId = null;
