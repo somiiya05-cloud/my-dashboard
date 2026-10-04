@@ -838,15 +838,6 @@
   .jw-next-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 
   /* ---- 팀 대시보드 (위젯형 현황판) ---- */
-  .td-kpi-row { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
-  .td-kpi { padding: 16px 18px; border-radius: 14px; border-left: 4px solid #cbd5e1; }
-  .td-kpi .kpi-label { font-size: 11.5px; font-weight: 700; color: #64748b; }
-  .td-kpi .kpi-value { font-size: 26px; font-weight: 800; color: #0f172a; margin-top: 4px; line-height: 1.1; }
-  .td-kpi-sub { font-size: 10.5px; color: #94a3b8; margin-top: 5px; }
-  .td-kpi.go { border-left-color: #2563eb; } .td-kpi.go .kpi-value { color: #1d4ed8; }
-  .td-kpi.warn { border-left-color: #d97706; } .td-kpi.warn .kpi-value { color: #b45309; }
-  .td-kpi.danger { border-left-color: #dc2626; } .td-kpi.danger .kpi-value { color: #dc2626; }
-
   .td-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start; }
   .td-w { margin: 0; }
   .td-w.wide { grid-column: span 2; }
@@ -896,48 +887,6 @@
   .td-gantt-legend i.task { background: #4d7cfe; } .td-gantt-legend i.proj { background: #7c3aed; }
   .td-gantt-legend i.late { background: #dc2626; } .td-gantt-legend i.done { background: #16a34a; }
   .td-gantt-legend .todayhint { margin-left: auto; color: #94a3b8; }
-
-  /* 담당자별 현황 표 */
-  .td-table { width: 100%; border-collapse: collapse; }
-  .td-table th, .td-table td { padding: 9px 8px; font-size: 12.5px; border-bottom: 1px solid #f1f5f9; text-align: left; }
-  .td-table th { font-size: 11px; font-weight: 700; color: #94a3b8; }
-  .td-table th.num, .td-table td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
-  .td-table tbody tr { cursor: pointer; }
-  .td-table tbody tr:hover { background: #f8fafc; }
-  .td-table .td-name { font-weight: 800; color: #1d4ed8; }
-  .td-table .blue { color: #2563eb; } .td-table .green { color: #16a34a; }
-  .td-table .orange { color: #d97706; } .td-table .red { color: #dc2626; }
-
-  /* 업무 분포 막대 */
-  .td-bar-row { padding: 10px 2px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
-  .td-bar-row:last-child { border-bottom: 0; }
-  .td-bar-row:hover .td-bar-head span { color: #2563eb; }
-  .td-bar-head { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
-  .td-bar { height: 10px; border-radius: 999px; background: #eef2f7; overflow: hidden; }
-  .td-bar > i { display: block; height: 100%; border-radius: 999px; background: #4d7cfe; }
-  .td-bar-sub { display: flex; align-items: center; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
-  .td-bar-mini { display: inline-block; width: 56px; height: 5px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }
-  .td-bar-mini > i { display: block; height: 100%; border-radius: 999px; }
-  .td-bar-mini > i.red { background: #dc2626; } .td-bar-mini > i.orange { background: #d97706; }
-  .td-bar-sub .lab { font-size: 10.5px; font-weight: 700; }
-  .td-bar-sub .lab.red { color: #dc2626; } .td-bar-sub .lab.orange { color: #b45309; }
-
-  /* 이번 주 마감 */
-  .td-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-  @media (max-width: 900px) { .td-cal { grid-template-columns: repeat(2, 1fr); } }
-  .td-day { border: 1px solid #eef2f7; border-radius: 10px; padding: 8px; min-height: 92px; background: #fcfdff; }
-  .td-day.today { border-color: rgba(77,124,254,.45); background: #f5f8ff; }
-  .td-day-head { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 6px; }
-  .td-day.today .td-day-head { color: #2f5ce4; }
-  .td-day-badge { margin-left: auto; background: #4d7cfe; color: #fff; font-size: 10px; font-weight: 800; border-radius: 999px; padding: 1px 7px; }
-  .td-day-item {
-    font-size: 11px; color: #334155; line-height: 1.4; padding: 3px 5px; border-radius: 6px;
-    background: #fff; border: 1px solid #eef2f7; margin-bottom: 4px; cursor: pointer;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .td-day-item:hover { border-color: #4d7cfe; color: #1d4ed8; }
-  .td-day-more { font-size: 10px; color: #94a3b8; }
-  .td-day-empty { font-size: 11px; color: #cbd5e1; }
 
   /* 병목 · 대기 */
   .td-block-row { border: 1px solid #eef2f7; border-left: 3px solid #cbd5e1; border-radius: 10px; padding: 9px 11px; margin-bottom: 8px; cursor: pointer; }
@@ -4746,7 +4695,6 @@
   // 세는 기준: 전휘원 업무는 「이어가기」로 앞으로 몇 주치가 미리 만들어져 있습니다
   // (오늘 기준 230건). 그걸 다 "미완료"로 세면 숫자가 부풀어 현황판이 쓸모없어지므로,
   // 미완료는 "오늘까지 마감 + 마감일 없음"만 셉니다. 앞으로 잡힌 건은 따로 표시합니다.
-  const TD_MEMBERS = ['윤효선', '전휘원'];
   const TD_OPEN_STATUSES = ['할일', '진행중', '검수대기'];
 
   function tdLiveTasks() { return currentTasks.filter((t) => !t.archived_at); }
@@ -4760,11 +4708,6 @@
   }
   function tdLate(t) { return tdIsOpen(t) && t.due_date && tdDue(t) < jwTodayKST(); }
   function tdOf(name) { return tdLiveTasks().filter((t) => t.assignee === name); }
-
-  function tdWeekDays() {
-    const [mon] = jwWeekRange();
-    return [0, 1, 2, 3, 4, 5, 6].map((i) => jwAddDays(mon, i));
-  }
 
   // ---- 멈춰 있는 업무 모으기 ----
   // 업무 표에는 "병목 사유" 칸이 없어서, 멈춘 이유를 상태에서 읽어 붙입니다.
@@ -4995,80 +4938,7 @@
     const root = document.getElementById('teamDashBody');
     if (!root) return;
     const today = jwTodayKST();
-    const week = jwWeekRange();
-    const live = tdLiveTasks();
     const blocked = tdBlocked();
-
-    // 담당자별 현황
-    const rows = TD_MEMBERS.map((name) => {
-      const mine = tdOf(name);
-      const myOpen = tdOpenNow(mine);
-      return {
-        name,
-        todo: myOpen.filter((t) => t.status === '할일').length,
-        doing: myOpen.filter((t) => t.status === '진행중').length,
-        done: mine.filter((t) => tdDue(t) === today && (t.status === '확인완료' || t.status === '검수대기')).length,
-        review: myOpen.filter((t) => t.status === '검수대기').length,
-        late: myOpen.filter(tdLate).length,
-        week: mine.filter((t) => tdIsOpen(t) && t.due_date && tdDue(t) >= week[0] && tdDue(t) <= week[1]).length,
-        total: myOpen.length,
-      };
-    });
-
-    const tableHtml = `
-      <table class="td-table">
-        <thead>
-          <tr><th>담당자</th><th class="num">할 일</th><th class="num">진행중</th><th class="num">담당자 완료</th>
-              <th class="num">확인 필요</th><th class="num">지연</th><th class="num">이번 주 마감</th></tr>
-        </thead>
-        <tbody>
-          ${rows.map((r) => `
-            <tr onclick="tdGoAssignee('${escapeAttr(r.name)}')" title="${escapeAttr(r.name)} 할 일 관리로 이동">
-              <td class="td-name">${escapeAttr(r.name)}</td>
-              <td class="num">${r.todo}</td>
-              <td class="num blue">${r.doing}</td>
-              <td class="num green">${r.done}</td>
-              <td class="num${r.review ? ' orange' : ''}">${r.review}</td>
-              <td class="num${r.late ? ' red' : ''}">${r.late}</td>
-              <td class="num">${r.week}</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-      <div class="td-note">미완료는 오늘까지 마감인 업무 기준입니다. "담당자 완료"는 오늘 마감 업무 중 담당자 체크를 끝낸 건수입니다.</div>`;
-
-    // 업무 분포 막대 (차트 라이브러리 없이 CSS 막대로)
-    const maxVal = Math.max(1, ...rows.map((r) => r.total));
-    const barHtml = rows.map((r) => `
-      <div class="td-bar-row" onclick="tdGoAssignee('${escapeAttr(r.name)}')">
-        <div class="td-bar-head"><span>${escapeAttr(r.name)}</span><b>${r.total}건</b></div>
-        <div class="td-bar"><i class="all" style="width:${Math.round(r.total / maxVal * 100)}%"></i></div>
-        <div class="td-bar-sub">
-          <span class="td-bar-mini"><i class="red" style="width:${Math.round(r.late / maxVal * 100)}%"></i></span>
-          <span class="lab red">지연 ${r.late}</span>
-          <span class="td-bar-mini"><i class="orange" style="width:${Math.round(r.review / maxVal * 100)}%"></i></span>
-          <span class="lab orange">확인 필요 ${r.review}</span>
-        </div>
-      </div>`).join('');
-
-    // 이번 주 마감 캘린더
-    const dayNames = ['월', '화', '수', '목', '금', '토', '일'];
-    const calHtml = tdWeekDays().map((d, i) => {
-      const items = live.filter((t) => tdIsOpen(t) && tdDue(t) === d);
-      const projItems = jwProjects.filter((p) => JW_PROJECT_LIVE.includes(p.status) && String(p.next_action_due || '') === d);
-      const all = items.map((t) => ({ t: t.title, who: t.assignee, go: "tdGoTask(" + t.id + ")" }))
-        .concat(projItems.map((p) => ({ t: p.next_action || p.name, who: p.owner, go: "tdGoProject(" + p.id + ")" })));
-      return `
-        <div class="td-day${d === today ? ' today' : ''}">
-          <div class="td-day-head">
-            <span>${dayNames[i]} ${d.slice(8)}</span>
-            ${all.length ? `<span class="td-day-badge">${all.length}</span>` : ''}
-          </div>
-          ${all.length
-            ? all.slice(0, 5).map((x) => `<div class="td-day-item" onclick="${x.go}" title="${escapeAttr(x.who)}">${escapeAttr(x.t)}</div>`).join('')
-              + (all.length > 5 ? `<div class="td-day-more">+${all.length - 5}건</div>` : '')
-            : '<div class="td-day-empty">—</div>'}
-        </div>`;
-    }).join('');
 
     // 병목 · 대기
     const blockedHtml = blocked.length
@@ -5152,18 +5022,6 @@
         ${tdGanttHtml()}
       </section>
       <div class="td-grid">
-        <section class="panel td-w wide">
-          <div class="panel-head"><h2>담당자별 업무 현황</h2></div>
-          ${tableHtml}
-        </section>
-        <section class="panel td-w">
-          <div class="panel-head"><h2>담당자별 업무 분포</h2></div>
-          ${barHtml}
-        </section>
-        <section class="panel td-w wide">
-          <div class="panel-head"><h2>이번 주 마감</h2><span class="panel-note">${week[0]} ~ ${week[1]}</span></div>
-          <div class="td-cal">${calHtml}</div>
-        </section>
         <section class="panel td-w">
           <div class="panel-head"><h2>병목 · 대기 업무</h2><span class="panel-note">${blocked.length}건</span></div>
           ${blockedHtml}
@@ -5176,7 +5034,7 @@
           <div class="panel-head"><h2>전휘원 데일리 업무</h2><span class="panel-note">${today}</span></div>
           ${dailyHtml}
         </section>
-        <section class="panel td-w wide">
+        <section class="panel td-w">
           <div class="panel-head"><h2>최근 업데이트</h2></div>
           ${feedHtml}
         </section>
