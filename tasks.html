@@ -948,6 +948,20 @@
   .tc-day-head { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
   .tc-dnum { font-size: 12px; font-weight: 800; color: #334155; }
   .tc-dnum.sat { color: #2563eb; } .tc-dnum.sun { color: #dc2626; }
+  .tc-day.hol { background: #fff7f7; border-color: rgba(220,38,38,.2); }
+  .tc-hol {
+    font-size: 9.5px; font-weight: 800; color: #b91c1c;
+    background: #fee2e2; border-radius: 999px; padding: 1px 6px;
+  }
+  .tc-legend i.hol { background: #fca5a5; }
+  .tc-add { display: flex; gap: 6px; margin-bottom: 10px; }
+  .tc-add select, .tc-add input {
+    border: 1px solid #e2e8f0; border-radius: 9px; padding: 7px 10px;
+    font-family: inherit; font-size: 12.5px;
+  }
+  .tc-add input { flex: 1; min-width: 0; }
+  .tc-add select { flex-shrink: 0; }
+  .tc-add input:focus, .tc-add select:focus { outline: none; border-color: #4d7cfe; }
   .tc-routine {
     margin-left: auto; font-size: 9.5px; font-weight: 800; color: #64748b;
     background: #f1f5f9; border-radius: 999px; padding: 1px 6px;
@@ -5112,6 +5126,36 @@
   //
   // 전휘원 데일리 루틴은 하루 20건이 넘어서 그대로 깔면 달력이 묻힙니다.
   // 그래서 루틴은 "루틴 N" 배지 하나로 접고, 그 밖의 업무와 프로젝트 일정만 줄로 보여줍니다.
+  // 우리나라 공휴일 (빨간날). 음력 공휴일은 해마다 날짜가 달라서 직접 적어 둡니다.
+  // 해가 바뀌면 여기에 한 해치를 더 적어주면 됩니다.
+  const KR_HOLIDAYS = {
+    // 2026
+    '2026-01-01': '신정',
+    '2026-02-16': '설날 연휴', '2026-02-17': '설날', '2026-02-18': '설날 연휴',
+    '2026-03-01': '삼일절', '2026-03-02': '대체공휴일',
+    '2026-05-05': '어린이날',
+    '2026-05-24': '부처님오신날', '2026-05-25': '대체공휴일',
+    '2026-06-06': '현충일',
+    '2026-08-15': '광복절',
+    '2026-09-24': '추석 연휴', '2026-09-25': '추석', '2026-09-26': '추석 연휴', '2026-09-28': '대체공휴일',
+    '2026-10-03': '개천절',
+    '2026-10-09': '한글날',
+    '2026-12-25': '성탄절',
+    // 2027
+    '2027-01-01': '신정',
+    '2027-02-05': '설날 연휴', '2027-02-06': '설날', '2027-02-07': '설날 연휴', '2027-02-08': '대체공휴일',
+    '2027-03-01': '삼일절',
+    '2027-05-05': '어린이날',
+    '2027-05-13': '부처님오신날',
+    '2027-06-06': '현충일',
+    '2027-08-15': '광복절', '2027-08-16': '대체공휴일',
+    '2027-09-14': '추석 연휴', '2027-09-15': '추석', '2027-09-16': '추석 연휴',
+    '2027-10-03': '개천절', '2027-10-04': '대체공휴일',
+    '2027-10-09': '한글날',
+    '2027-12-25': '성탄절',
+  };
+  function tcHoliday(date) { return KR_HOLIDAYS[date] || ''; }
+
   const tcCursor = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1 }; })();
   let tcSelected = '';          // 눌러서 펼쳐둔 날짜
 
@@ -5175,11 +5219,13 @@
     const rest = items.filter((x) => !x.routine);
     const show = rest.slice(0, 3);
     const dow = new Date(date + 'T00:00:00Z').getUTCDay();
+    const hol = tcHoliday(date);
     return `
-      <div class="tc-day${inMonth ? '' : ' out'}${date === today ? ' today' : ''}${date === tcSelected ? ' sel' : ''}"
+      <div class="tc-day${inMonth ? '' : ' out'}${date === today ? ' today' : ''}${date === tcSelected ? ' sel' : ''}${hol ? ' hol' : ''}"
         onclick="tcSelectDay('${date}')">
         <div class="tc-day-head">
-          <span class="tc-dnum${dow === 0 ? ' sun' : (dow === 6 ? ' sat' : '')}">${Number(date.slice(8))}</span>
+          <span class="tc-dnum${(hol || dow === 0) ? ' sun' : (dow === 6 ? ' sat' : '')}">${Number(date.slice(8))}</span>
+          ${hol ? `<span class="tc-hol">${escapeAttr(hol)}</span>` : ''}
           ${routine.length ? `<span class="tc-routine">루틴 ${routine.length}</span>` : ''}
         </div>
         ${show.map((x) => `
@@ -5194,8 +5240,18 @@
   function tcDayListHtml() {
     if (!tcSelected) return '';
     const items = tcItemsOf(tcSelected);
+    const hol = tcHoliday(tcSelected);
+    const head = `<div class="tc-daylist-head">${tcSelected}${hol ? ` <span class="tc-hol">${escapeAttr(hol)}</span>` : ''}${items.length ? ' · ' + items.length + '건' : ''}</div>`;
+    // 이 날짜로 일정을 바로 추가하는 칸 (할일 관리에 업무 한 줄로 들어갑니다)
+    const addBox = `
+      <div class="tc-add">
+        <select id="tcAddWho">${TC_MEMBERS.map((n) => `<option value="${n}">${n}</option>`).join('')}</select>
+        <input type="text" id="tcAddTitle" placeholder="${escapeAttr(tcSelected)} 에 추가할 일정" autocomplete="off"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();tcAddItem();}">
+        <button type="button" class="btn-primary" onclick="tcAddItem()">추가</button>
+      </div>`;
     if (!items.length) {
-      return `<div class="tc-daylist"><div class="tc-daylist-head">${tcSelected}</div>
+      return `<div class="tc-daylist">${head}${addBox}
         <div class="jw-task-empty">이 날 잡힌 일이 없습니다.</div></div>`;
     }
     const line = (x) => `
@@ -5209,11 +5265,33 @@
     const routine = items.filter((x) => x.routine);
     return `
       <div class="tc-daylist">
-        <div class="tc-daylist-head">${tcSelected} · ${items.length}건</div>
+        ${head}
+        ${addBox}
         ${rest.map(line).join('')}
         ${routine.length ? `<div class="tc-daylist-sub">전휘원 데일리 루틴 ${routine.length}건</div>${routine.map(line).join('')}` : ''}
       </div>`;
   }
+
+  // 달력에서 바로 일정 추가 — 할일 관리(team_tasks)에 그 날짜 업무 한 줄로 들어갑니다.
+  // 따로 저장소를 두지 않아 담당자 화면·팀 대시보드에도 같이 잡힙니다.
+  const TC_MEMBERS = ['윤효선', '전휘원'];
+  const TC_ADD_CATEGORY = '일정';
+
+  async function tcAddItem() {
+    const who = (document.getElementById('tcAddWho') || {}).value || TC_MEMBERS[0];
+    const input = document.getElementById('tcAddTitle');
+    const title = (input && input.value || '').trim();
+    if (!title || !tcSelected) return;
+    const { error } = await client.from('team_tasks').insert({
+      title, assignee: who, status: '할일',
+      due_date: tcSelected, start_date: tcSelected,
+      priority: '보통', category: TC_ADD_CATEGORY,
+    });
+    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+    if (input) input.value = '';
+    loadTeamTasks();
+  }
+  window.tcAddItem = tcAddItem;
 
   function renderTeamCal() {
     const root = document.getElementById('teamCalBody');
@@ -5252,6 +5330,7 @@
           <span><i class="hs"></i>윤효선</span>
           <span><i class="hw"></i>전휘원</span>
           <span><i class="pj"></i>프로젝트 액션 · 회의</span>
+          <span><i class="hol"></i>공휴일</span>
           <span class="hint">날짜를 누르면 그 날 일정이 아래에 펼쳐집니다</span>
         </div>
         ${tcDayListHtml()}
