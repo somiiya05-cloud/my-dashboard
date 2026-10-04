@@ -808,6 +808,29 @@
   .jw-proj-btn.main { border-color: rgba(77,124,254,.4); color: #2f5ce4; background: #f5f8ff; }
   .jw-proj-btn.main:hover { background: #e8efff; }
 
+  /* 업무분장 — 역할·업무 분장표를 탭으로 봅니다 */
+  .jw-duty-tabs { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: 14px; }
+  .jw-duty-tab {
+    border: 1px solid #e2e8f0; background: #fff; color: #64748b;
+    font-family: inherit; font-size: 12px; font-weight: 700;
+    border-radius: 999px; padding: 6px 13px; cursor: pointer;
+    transition: background .12s ease, border-color .12s ease, color .12s ease;
+  }
+  .jw-duty-tab:hover { border-color: #94a3b8; color: #0f172a; }
+  .jw-duty-tab.on { background: #1f3864; border-color: #1f3864; color: #fff; }
+  .jw-duty-body { margin-top: 12px; max-height: 520px; overflow-y: auto; padding-right: 4px; }
+  .jw-duty-note { font-size: 11.5px; color: #64748b; margin-bottom: 10px; }
+  .jw-duty-h { font-size: 12.5px; font-weight: 800; color: #1f3864; margin: 14px 0 7px; }
+  .jw-duty-h:first-child { margin-top: 0; }
+  .jw-duty-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  .jw-duty-table th, .jw-duty-table td {
+    border: 1px solid #e7edf5; padding: 7px 9px; font-size: 11.5px;
+    text-align: left; vertical-align: top; line-height: 1.5;
+  }
+  .jw-duty-table th { background: #edf2fb; color: #1f3864; font-weight: 800; white-space: nowrap; }
+  .jw-duty-table td.k { font-weight: 700; color: #334155; white-space: nowrap; }
+  .jw-duty-table tbody tr:nth-child(even) td { background: #f8fafc; }
+
   /* 윤효선 화면 두 칸 — 왼쪽 프로젝트, 오른쪽 진행중인 업무 */
   .jw-two { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 16px; align-items: start; }
   @media (max-width: 1150px) { .jw-two { grid-template-columns: 1fr; } }
@@ -2795,6 +2818,9 @@
           <div id="jwMemoBoard" class="jw-memo-board"></div>
         </div>
 
+        <!-- 업무분장 — 엑셀로 만든 역할·업무 분장표를 화면에도 올려 둡니다 (renderJwDuty) -->
+        <section class="panel" id="jwDutyPanel" style="display:none"></section>
+
         <!-- 윤효선 화면 — 왼쪽은 프로젝트형 업무, 오른쪽은 지금 진행중인 업무 둘뿐입니다. -->
         <div class="jw-two" id="jwProjectArea" style="display:none">
           <section class="panel">
@@ -3921,6 +3947,7 @@
 
   function renderJwView() {
     renderJwToolbar();
+    renderJwDuty();
     renderJwProjects();
     renderJwMyTasks();
     renderJwMissChecks();
@@ -4688,6 +4715,7 @@
     const hide = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
     hide('jwChecklistPanel', routine);
     hide('jwToolbar', routine);
+    hide('jwDutyPanel', !routine);
     hide('jwOrderRow', routine);
     // "오늘 업무 확인 완료"는 체크리스트를 하루 마감하는 버튼이라 같이 감춥니다.
     const close = document.querySelector('#taskTopbarActions .btn-ghost');
@@ -4743,6 +4771,193 @@
     renderJwProjects();
   }
   window.jwAddProjNote = jwAddProjNote;
+
+  // ==================== 업무분장 ====================
+  // 영업팀 역할·업무 분장표(엑셀로 만든 것)를 화면에도 올려 둡니다.
+  // 바뀌는 자료가 아니라 문서라서 DB 없이 여기 적어두고, 고칠 일이 생기면 이 표만 고칩니다.
+  const JW_DUTY_TABS = [
+    {
+      key: 'team', label: '팀 구성 · 공통업무',
+      blocks: [
+        {
+          title: '1. 팀 구성',
+          head: ['이름', '직책', '한 줄 역할', '주요 책임 영역', '확인 방식'],
+          rows: [
+            ['윤효선', '대표 · 파트장', '채널 전략을 세우고 대외 협상을 맡으며, 팀 업무를 최종 확인한다',
+              '이커머스 판매채널계획 / 공동구매 관리 / B2B / 수출 / 광고 관리 / 대만 시딩 / 큐텐',
+              '팀 대시보드에서 파트장 확인'],
+            ['전휘원', '대리', '일 · 주 · 월 단위 운영을 실행하고 데이터를 마감한다',
+              '광고 운영 / 상품등록 · 외부몰 / 공동구매 발주 / 정산 · 계산서 / 쿠팡 운영 / 월마감',
+              '담당자 체크 후 파트장 확인 요청'],
+          ],
+        },
+        {
+          title: '2. 핵심업무 관계도',
+          head: ['단계', '주체', '하는 일', '넘기는 곳', '비고'],
+          rows: [
+            ['① 기획 · 협상', '윤효선', '채널 전략, 거래처 · 대행사 협상, 조건 확정', '→ 전휘원', '대분류 7개가 곧 프로젝트'],
+            ['② 실행 · 운영', '전휘원', '상품등록, 광고 세팅, 발주 · 연동, 정산 처리', '→ 유관부서', '데일리 체크리스트로 관리'],
+            ['③ 유관부서 협업', '전휘원', 'SCM(발주 · 출고 · 연동) / CX(리뷰) / 회계(계산서 · 광고비) / 인사(광고비 공유) / 광고대행사', '→ 윤효선', '막히면 대기 업무로 올림'],
+            ['④ 확인 · 보고', '윤효선', '담당자 체크 건 확인, 지연 · 대기 건 점검', '→ 주간 리포트', '체크 누락에서 일괄 확인'],
+          ],
+        },
+        {
+          title: '3. 공통 업무',
+          head: ['업무', '주기', '담당', '산출물 · 완료 기준', '비고'],
+          rows: [
+            ['주간회의', '매주 월요일', '공통', '지난주 실적과 이번 주 계획 공유', '팀 캘린더에 등록됨'],
+            ['팀 회의', '매주 금요일', '공통', '진행 건 점검, 막힌 건 공유', '팀 캘린더에 등록됨'],
+            ['월말회의', '매월 말', '공통', '월 매출 마감과 다음 달 계획', ''],
+            ['광고보고 / 매출마감', '매일', '전휘원 작성 → 윤효선 확인', '매출 DB 반영 완료', '오전 필수업무'],
+            ['공지사항 확인', '수시', '공통', '팀 대시보드 공지 팝업 확인', '새 공지는 하루 한 번 자동으로 뜸'],
+            ['업무 체크', '매일', '전휘원 체크 → 윤효선 확인', '그날 체크 누락 0건', '미확인 건은 체크 누락에 쌓임'],
+          ],
+        },
+      ],
+    },
+    {
+      key: 'rnr', label: '개인 R&R',
+      note: '주담당 = 그 일을 끝까지 책임지는 사람 · 부담당 = 자료를 대거나 대신 처리하는 사람',
+      blocks: [
+        {
+          title: '',
+          head: ['대분류', '업무', '주담당', '부담당', '주기', '산출물 · 완료 기준', '확인'],
+          rows: [
+            ['이커머스 판매채널계획', '채널별 매출 계획 수립', '윤효선', '전휘원', '월', '채널별 목표 매출과 운영 액션 정리', '대표 확정'],
+            ['이커머스 판매채널계획', '채널 운영 점검 (스마트스토어 · 지마켓 · 쿠팡 등)', '윤효선', '전휘원', '주', '채널별 매출 · 노출 점검 결과', '대표 확정'],
+            ['이커머스 판매채널계획', '외부몰 상품등록', '전휘원', '', '매일', '사방넷 기준 등록 완료', '파트장 확인'],
+            ['이커머스 판매채널계획', '다우게시판 공유', '전휘원', '', '매일', '등록 상품 사내 공유', '파트장 확인'],
+            ['이커머스 판매채널계획', '리뷰 작업 요청 (CX팀)', '전휘원', '', '매일', 'CX팀 요청 전달 완료', '파트장 확인'],
+            ['이커머스 판매채널계획', '이지어드민 연동 (SCM팀)', '전휘원', '', '매일', '연동 확인 완료', '파트장 확인'],
+            ['이커머스 판매채널계획', '쿠팡 로켓그로스 재고 입고 · 뱃지 확인', '전휘원', '', '매일', '입고 일정 조율과 뱃지 상태 확인', '파트장 확인'],
+            ['이커머스 판매채널계획', 'SCM팀 미출 메일 확인', '전휘원', '', '매일', '미출 건 처리 또는 공유', '파트장 확인'],
+            ['이커머스 판매채널계획', '카카오 명퉤 오행염주 일자수정', '전휘원', '', '매일', '노출 일자 수정 완료', '파트장 확인'],
+            ['공동구매 관리', '공동구매 운영 관리 (일정 · 업체 · 상품 제안)', '윤효선', '전휘원', '주', '업체별 일정 확정, 신규 공구 제안', '대표 확정'],
+            ['공동구매 관리', '공동구매 발주서 전달 (SCM팀)', '전휘원', '', '매일', '발주서 전달 후 송장 기입', '파트장 확인'],
+            ['공동구매 관리', '공동구매 정산', '전휘원', '윤효선', '건별', '정산서 발행과 수금 확인', '파트장 확인'],
+            ['B2B', 'B2B 거래처 확대 (신규 발굴 · 공급가 제안)', '윤효선', '', '수시', '신규업체 공급가 작성 · 전달', '대표 확정'],
+            ['B2B', 'B2B 세금계산서 발행', '전휘원', '윤효선', '매일', '입금 확인 건 발행 완료', '파트장 확인'],
+            ['수출', '해외 수출 거래 관리 (업체 확보 · 조건 조율)', '윤효선', '전휘원', '수시', '수출 제품 리스트 전달과 조건 확정', '대표 확정'],
+            ['수출', '해외 / 수출 영세율 계산서 발행', '전휘원', '', '매일', '영세율 계산서 발행 완료', '파트장 확인'],
+            ['수출', '수출 구매확인증 확인', '전휘원', '', '건별', '구매확인증 수취 · 보관', '파트장 확인'],
+            ['광고 관리', '광고 채널 운영 관리 (대행사 · 채널별 효율)', '윤효선', '전휘원', '주', '대행사 · 채널별 효율 점검과 조정', '대표 확정'],
+            ['광고 관리', 'SA · 파워링크 · GFA · 카페침투 세팅', '전휘원', '', '신제품 런칭 시', '채널별 세팅 완료', '파트장 확인'],
+            ['광고 관리', 'SA 광고보고서 전달 (w. 김일교)', '전휘원', '', '매일', '보고서 전달 완료', '파트장 확인'],
+            ['광고 관리', '네이버 SA · GFA · 쇼핑 파트너센터 광고비 충전 (6건)', '전휘원', '', '매주 목요일', '계정별 충전 완료', '파트장 확인'],
+            ['광고 관리', '인사팀 광고비 공유', '전휘원', '', '매주 화요일', '인사팀 전달 완료', '파트장 확인'],
+            ['광고 관리', '메타 광고비 및 매출 회계팀 공유', '전휘원', '', '월말', '회계팀 전달 완료', '파트장 확인'],
+            ['대만 시딩', '대만 시딩 FLOW 구축', '윤효선', '', '수시', '국내 시딩 프로세스의 해외 버전 정리', '대표 확정'],
+            ['대만 시딩', '명퉤 시딩 제안서 번역 · 업체 리스트업', '윤효선', '전휘원', '수시', '제안서 번역본과 업체 리스트', '대표 확정'],
+            ['큐텐', 'Qoo10 상품 운영 (일본)', '윤효선', '전휘원', '수시', '명퉤 추가 상품등록과 운영 확대', '대표 확정'],
+            ['월 · 주 마감', '올리브영 발주서 마감 · 매출 보고 · 재고 확인', '전휘원', '', '매주 수 · 목', '발주 · 보고 · 재고 확인 완료', '파트장 확인'],
+            ['월 · 주 마감', '월마감 (올리브영 · 파스토 · 자사몰 광고보고서 · 쿠팡 · 오프하우스)', '전휘원', '윤효선', '매월 23일~말일', '채널별 마감 자료 제출', '파트장 확인'],
+            ['월 · 주 마감', '광고보고 / 매출마감', '전휘원', '', '매일', '매출 DB 반영', '파트장 확인'],
+            ['팀 관리', '파트장 확인 (담당자 체크 건 승인)', '윤효선', '', '매일', '체크 누락 0건 유지', '대표'],
+            ['팀 관리', '공지사항 등록 · 공유', '윤효선', '', '수시', '팀 대시보드 공지 등록', '대표'],
+            ['팀 관리', '주간 리포트 점검', '윤효선', '전휘원', '매주', '주차별 진행 상황 확인', '대표'],
+          ],
+        },
+      ],
+    },
+    {
+      key: 'report', label: '보고 · 공유 체계',
+      blocks: [
+        {
+          title: '1. 업무 처리 흐름',
+          head: ['단계', '누가', '무엇을', '어디서', '남는 것'],
+          rows: [
+            ['① 업무 발생', '윤효선 · 전휘원', '업무 등록 (또는 데일리 루틴 자동 생성)', '할일 관리 / 팀 캘린더', '업무 한 줄'],
+            ['② 진행', '담당자', '진행 내용 기록, 막히면 사유 남김', '업무 목적 · 댓글', '진행 기록'],
+            ['③ 담당자 완료', '전휘원', '끝난 업무에 담당자 체크', '할일 관리', '검수대기'],
+            ['④ 파트장 확인', '윤효선', '내용 확인 후 확인 완료', '팀 대시보드 > 체크 누락', '확인완료'],
+            ['⑤ 주간 점검', '공통', '주차별 진행 상황과 지연 건 확인', '주간 리포트 / 팀 대시보드', '주간 리포트'],
+          ],
+        },
+        {
+          title: '2. 회의체',
+          head: ['회의', '주기', '참석', '안건', '산출물'],
+          rows: [
+            ['주간회의', '매주 월요일', '대표 · 대리', '지난주 실적, 이번 주 계획, 막힌 건', '주간 계획 확정'],
+            ['팀 회의', '매주 금요일', '대표 · 대리', '진행 건 점검, 다음 주 준비', '다음 주 액션'],
+            ['월말회의', '매월 말', '대표 · 대리', '월 매출 마감, 다음 달 목표', '월 마감 보고'],
+            ['유관부서 미팅', '수시', '해당 담당', 'SCM · CX · 회계 · 대행사 협의', '협의 결과 공유'],
+            ['외근', '수시', '해당 담당', '거래처 방문 · 입점 상담', '방문 결과 공유'],
+          ],
+        },
+        {
+          title: '3. 공유 도구 (업무관리 대시보드)',
+          head: ['화면', '보는 사람', '용도', '무엇이 보이나', '주기'],
+          rows: [
+            ['팀 대시보드', '공통', '팀 전체 현황 한눈에', '진행 일정(간트) · 데일리 현황 · 대기 업무 · 프로젝트별 현황 · 최근 업데이트', '매일'],
+            ['팀 캘린더', '공통', '일정 관리', '업무 마감일 · 회의 · 외근 · 공휴일', '매일'],
+            ['윤효선 할일 관리', '윤효선', '프로젝트와 내 업무', '프로젝트 카드 · 진행중인 업무 · 체크 누락', '매일'],
+            ['전휘원 할일 관리', '전휘원', '데일리 체크리스트', '오전 · 오후 필수업무, 이어가는 업무', '매일'],
+            ['주간 리포트', '공통', '주차별 돌아보기', '업무별 목적 · 진행 기록 · 댓글', '매주'],
+            ['공지사항', '공통', '팀 알림', '팀 대시보드 상단 띠 (새 공지는 자동으로 뜸)', '수시'],
+          ],
+        },
+        {
+          title: '4. 업무 상태 읽는 법',
+          head: ['상태', '뜻', '다음에 할 일'],
+          rows: [
+            ['할일', '아직 시작 전', '담당자가 처리'],
+            ['진행중', '손대고 있는 중', '막히면 사유를 남김'],
+            ['검수대기', '담당자는 끝냄', '파트장이 확인 눌러야 완료'],
+            ['확인완료', '파트장 확인까지 끝', '없음'],
+            ['해당없음', '그날 그 업무가 생기지 않음', '없음 (완료율 계산에서 빠짐)'],
+          ],
+        },
+      ],
+    },
+  ];
+
+  let jwDutyTab = 'team';
+  let jwDutyOpen = false;     // 길어서 기본은 접어 둡니다
+
+  function jwSetDutyTab(key) {
+    jwDutyTab = key;
+    jwDutyOpen = true;
+    renderJwDuty();
+  }
+  window.jwSetDutyTab = jwSetDutyTab;
+
+  function jwToggleDuty() {
+    jwDutyOpen = !jwDutyOpen;
+    renderJwDuty();
+  }
+  window.jwToggleDuty = jwToggleDuty;
+
+  function renderJwDuty() {
+    const wrap = document.getElementById('jwDutyPanel');
+    if (!wrap) return;
+    if (jwHasRoutine()) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+
+    const tab = JW_DUTY_TABS.find((t) => t.key === jwDutyTab) || JW_DUTY_TABS[0];
+    const tabs = JW_DUTY_TABS.map((t) => `
+      <button type="button" class="jw-duty-tab${t.key === jwDutyTab && jwDutyOpen ? ' on' : ''}"
+        onclick="jwSetDutyTab('${t.key}')">${escapeAttr(t.label)}</button>`).join('');
+
+    const body = !jwDutyOpen ? '' : `
+      <div class="jw-duty-body">
+        ${tab.note ? `<div class="jw-duty-note">${escapeAttr(tab.note)}</div>` : ''}
+        ${tab.blocks.map((b) => `
+          ${b.title ? `<div class="jw-duty-h">${escapeAttr(b.title)}</div>` : ''}
+          <table class="jw-duty-table">
+            <thead><tr>${b.head.map((h) => `<th>${escapeAttr(h)}</th>`).join('')}</tr></thead>
+            <tbody>${b.rows.map((r) => `<tr>${r.map((c, i) => `<td${i === 0 ? ' class="k"' : ''}>${escapeAttr(c)}</td>`).join('')}</tr>`).join('')}</tbody>
+          </table>`).join('')}
+      </div>`;
+
+    wrap.innerHTML = `
+      <div class="panel-head">
+        <h2>업무분장</h2>
+        <span class="jw-duty-tabs">${tabs}</span>
+        <button type="button" class="jw-proj-btn" style="margin-left:auto;" onclick="jwToggleDuty()">
+          ${jwDutyOpen ? '접기' : '펼치기'}</button>
+      </div>
+      ${body}`;
+  }
 
   // ---- 오른쪽 칸: 진행중인 업무 ----
   // 프로젝트처럼 길게 가는 건 말고, 지금 손에 쥐고 있는 일을 적어두는 칸입니다.
