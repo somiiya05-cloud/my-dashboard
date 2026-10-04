@@ -862,7 +862,11 @@
     box-shadow: 0 1px 2px rgba(15,23,42,.04); position: relative;
   }
   .cb-card:hover { border-color: #cbd5e1; }
-  .cb-card.dragging { opacity: .45; }
+  .cb-card.dragging { opacity: .35; }
+  .cb-ghost {
+    position: fixed; z-index: 1200; pointer-events: none; margin: 0;
+    box-shadow: 0 8px 20px rgba(15,23,42,.18); transform: rotate(1.5deg);
+  }
   .cb-card.done { background: #f8fdfa; border-color: rgba(22,163,74,.25); }
   .cb-card.done .cb-body { color: #94a3b8; text-decoration: line-through; }
   .cb-card.late { border-color: rgba(220,38,38,.3); background: #fef8f8; }
@@ -5122,61 +5126,92 @@
   window.cbDelete = cbDelete;
 
   // ---- 끌어서 옮기기 ----
-  // 글을 쓰는 칸 위에서는 끌리지 않게 합니다 (글자 선택이 먼저라서요).
-  function cbDragArm(e) {
-    cbDragArmed = !(e && e.target && e.target.closest('textarea, input, select, button'));
-  }
-  window.cbDragArm = cbDragArm;
+  // 브라우저 기본 끌기(HTML5 drag)는 글 쓰는 칸이 있는 카드에서 잘 안 잡혀서,
+  // 마우스 좌표를 직접 따라가는 방식으로 만들었습니다.
+  let cbDrag = null;
 
-  function cbDragStart(e, id) {
-    if (!cbDragArmed) { e.preventDefault(); return; }
-    cbDragId = id;
-    if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(id)); }
-    const el = document.querySelector('.cb-card[data-id="' + id + '"]');
-    if (el) el.classList.add('dragging');
+  function cbCardAtPoint(x, y) {
+    const el = document.elementFromPoint(x, y);
+    return el ? el.closest('.cb-col') : null;
   }
-  window.cbDragStart = cbDragStart;
 
-  function cbDragEnd() {
-    cbDragId = null; cbDragArmed = false;
-    document.querySelectorAll('.cb-card.dragging').forEach((el) => el.classList.remove('dragging'));
-    document.querySelectorAll('.cb-col.over').forEach((el) => el.classList.remove('over'));
-  }
-  window.cbDragEnd = cbDragEnd;
-
-  function cbDragOverCol(e, channel) {
-    if (cbDragId == null) return;
+  function cbPointerDown(e, id) {
+    if (e.button !== 0) return;
+    // 글을 쓰거나 고르는 칸을 누른 것이면 끌지 않습니다.
+    if (e.target && e.target.closest('textarea, input, select, button')) return;
+    const el = e.currentTarget.closest ? e.currentTarget.closest('.cb-card') : null;
+    if (!el) return;
+    cbDrag = { id, el, startX: e.clientX, startY: e.clientY, moved: false, ghost: null, offX: 0, offY: 0 };
+    document.addEventListener('mousemove', cbPointerMove);
+    document.addEventListener('mouseup', cbPointerUp);
     e.preventDefault();
-    const col = document.querySelector('.cb-col[data-ch="' + CSS.escape(channel) + '"]');
-    document.querySelectorAll('.cb-col.over').forEach((el) => el.classList.remove('over'));
+  }
+  window.cbPointerDown = cbPointerDown;
+
+  function cbPointerMove(e) {
+    if (!cbDrag) return;
+    if (!cbDrag.moved) {
+      // 살짝 눌린 것만으로 끌리지 않게 조금 움직였을 때부터 시작합니다.
+      if (Math.abs(e.clientX - cbDrag.startX) + Math.abs(e.clientY - cbDrag.startY) < 5) return;
+      cbDrag.moved = true;
+      const r = cbDrag.el.getBoundingClientRect();
+      const g = cbDrag.el.cloneNode(true);
+      g.classList.add('cb-ghost');
+      g.style.width = r.width + 'px';
+      document.body.appendChild(g);
+      cbDrag.ghost = g;
+      cbDrag.offX = cbDrag.startX - r.left;
+      cbDrag.offY = cbDrag.startY - r.top;
+      cbDrag.el.classList.add('dragging');
+    }
+    cbDrag.ghost.style.left = (e.clientX - cbDrag.offX) + 'px';
+    cbDrag.ghost.style.top = (e.clientY - cbDrag.offY) + 'px';
+    const col = cbCardAtPoint(e.clientX, e.clientY);
+    document.querySelectorAll('.cb-col.over').forEach((x) => x.classList.remove('over'));
     if (col) col.classList.add('over');
   }
-  window.cbDragOverCol = cbDragOverCol;
 
-  // 카드 위에 떨어뜨리면 그 카드 앞자리로, 칸의 빈 곳에 떨어뜨리면 맨 뒤로 갑니다.
-  async function cbDrop(e, channel, beforeId) {
-    if (cbDragId == null) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const moving = cbCards.find((c) => c.id === cbDragId);
-    cbDragEnd();
+  async function cbPointerUp(e) {
+    document.removeEventListener('mousemove', cbPointerMove);
+    document.removeEventListener('mouseup', cbPointerUp);
+    const d = cbDrag;
+    cbDrag = null;
+    if (!d) return;
+    if (d.ghost) d.ghost.remove();
+    d.el.classList.remove('dragging');
+    document.querySelectorAll('.cb-col.over').forEach((x) => x.classList.remove('over'));
+    if (!d.moved) return;
+
+    const col = cbCardAtPoint(e.clientX, e.clientY);
+    if (!col) return;
+    const channel = col.dataset.ch;
+    // 커서가 어느 카드의 위쪽 절반에 있으면 그 앞자리로 들어갑니다.
+    let beforeId = null;
+    [...col.querySelectorAll('.cb-card')].forEach((c) => {
+      const cid = Number(c.dataset.id);
+      if (cid === d.id || beforeId != null) return;
+      const r = c.getBoundingClientRect();
+      if (e.clientY < r.top + r.height / 2) beforeId = cid;
+    });
+    await cbApplyMove(d.id, channel, beforeId);
+  }
+
+  async function cbApplyMove(id, channel, beforeId) {
+    const moving = cbCards.find((c) => c.id === id);
     if (!moving) return;
-
+    const fromCh = moving.channel;
     const rest = cbOf(channel).filter((c) => c.id !== moving.id);
     const at = beforeId == null ? rest.length : Math.max(0, rest.findIndex((c) => c.id === beforeId));
-    rest.splice(beforeId == null ? rest.length : at, 0, moving);
+    rest.splice(at < 0 ? rest.length : at, 0, moving);
 
-    const fromCh = moving.channel;
     moving.channel = channel;
     rest.forEach((c, i) => { c.sort_no = i; });
     renderChannelTracker();
 
-    const rows = rest.map((c, i) => ({ id: c.id, sort_no: i }));
-    for (const r of rows) {
+    for (let i = 0; i < rest.length; i++) {
       await client.from('channel_board')
-        .update({ sort_no: r.sort_no, channel, updated_at: new Date().toISOString() }).eq('id', r.id);
+        .update({ sort_no: i, channel, updated_at: new Date().toISOString() }).eq('id', rest[i].id);
     }
-    // 떠나온 칸의 차례도 다시 매깁니다.
     if (fromCh !== channel) {
       const left = cbOf(fromCh);
       for (let i = 0; i < left.length; i++) {
@@ -5185,15 +5220,12 @@
       }
     }
   }
-  window.cbDrop = cbDrop;
 
   function cbCardHtml(c) {
     const late = c.due_date && !c.done && String(c.due_date).slice(0, 10) < jwTodayKST();
     return `
-      <div class="cb-card${c.done ? ' done' : ''}${late ? ' late' : ''}" data-id="${c.id}" draggable="true"
-        onmousedown="cbDragArm(event)" ondragstart="cbDragStart(event, ${c.id})" ondragend="cbDragEnd()"
-        ondragover="cbDragOverCol(event, '${escapeAttr(c.channel).replace(/'/g, '&#39;')}')"
-        ondrop="cbDrop(event, '${escapeAttr(c.channel).replace(/'/g, '&#39;')}', ${c.id})">
+      <div class="cb-card${c.done ? ' done' : ''}${late ? ' late' : ''}" data-id="${c.id}"
+        onmousedown="cbPointerDown(event, ${c.id})">
         <div class="cb-grip" title="여기를 잡고 끌면 옮겨집니다">⠿</div>
         <textarea class="cb-body" id="cbBody${c.id}" rows="1" placeholder="할 일을 적어주세요"
           oninput="cbGrow(this)" onblur="cbSave(${c.id}, 'body', this.value)">${escapeAttr(c.body || '')}</textarea>
@@ -5348,8 +5380,7 @@
             const left = cards.filter((c) => !c.done).length;
             const key = escapeAttr(ch).replace(/'/g, '&#39;');
             return `
-              <div class="cb-col" data-ch="${escapeAttr(ch)}"
-                ondragover="cbDragOverCol(event, '${key}')" ondrop="cbDrop(event, '${key}', null)">
+              <div class="cb-col" data-ch="${escapeAttr(ch)}">
                 <div class="cb-col-head">
                   <span class="ct-dot ${CT_COLORS[i % CT_COLORS.length]}"></span>
                   <span class="cb-col-name">${escapeAttr(ch)}</span>
