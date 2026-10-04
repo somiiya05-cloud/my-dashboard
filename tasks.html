@@ -832,6 +832,26 @@
   .jw-mytask-btn.ok { border-color: rgba(22,163,74,.4); color: #15803d; background: #f0fdf4; }
   .jw-mytask-btn.ok:hover { background: #dcfce7; border-color: #16a34a; color: #15803d; }
 
+  /* 분류 버튼 (E커머스 · 공구 · B2B · 수출 · 광고 · ETC) */
+  .jw-cat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 11px; }
+  .jw-cat-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid #e2e8f0; background: #fff; color: #64748b;
+    font-family: inherit; font-size: 11.5px; font-weight: 700;
+    border-radius: 999px; padding: 5px 11px; cursor: pointer;
+    transition: border-color .12s ease, color .12s ease, background .12s ease;
+  }
+  .jw-cat-chip:hover { border-color: #94a3b8; color: #0f172a; }
+  .jw-cat-chip b { font-size: 10.5px; font-weight: 800; color: #94a3b8; }
+  .jw-cat-chip.on { background: #4d7cfe; border-color: #4d7cfe; color: #fff; }
+  .jw-cat-chip.on b { color: rgba(255,255,255,.85); }
+  .jw-mytask-cat {
+    flex-shrink: 0; border: 1px solid #e2e8f0; border-radius: 999px;
+    background: #fff; color: #475569; font-family: inherit; font-size: 11px; font-weight: 700;
+    padding: 4px 6px; cursor: pointer;
+  }
+  .jw-mytask-cat:focus { outline: none; border-color: #4d7cfe; }
+
   .jw-mytask-add { display: flex; gap: 8px; margin-bottom: 12px; }
   .jw-mytask-add input {
     flex: 1; min-width: 0; border: 1px solid #e2e8f0; border-radius: 10px;
@@ -2664,6 +2684,7 @@
                 <h2>진행중인 업무</h2>
                 <span class="panel-note" id="jwMyTaskNote"></span>
               </div>
+              <div class="jw-cat-chips" id="jwMyTaskChips"></div>
               <div class="jw-mytask-add">
                 <input type="text" id="jwMyTaskInput" placeholder="진행할 업무를 적고 엔터" autocomplete="off" onkeydown="jwMyTaskKey(event)">
                 <button type="button" class="btn-primary" onclick="jwAddMyTask()">추가</button>
@@ -4501,6 +4522,9 @@
     // "오늘 업무 확인 완료"는 체크리스트를 하루 마감하는 버튼이라 같이 감춥니다.
     const close = document.querySelector('#taskTopbarActions .btn-ghost');
     if (close) close.style.display = routine ? '' : 'none';
+    // "+ 새 업무 등록"도 감춥니다 — 윤효선 화면은 오른쪽 "진행중인 업무" 칸에서 바로 적습니다.
+    const add = document.querySelector('#taskTopbarActions .btn-primary');
+    if (add) add.style.display = routine ? '' : 'none';
   }
 
   function renderJwProjects() {
@@ -4551,11 +4575,21 @@
   // ---- 오른쪽 칸: 진행중인 업무 ----
   // 프로젝트처럼 길게 가는 건 말고, 지금 손에 쥐고 있는 일을 적어두는 칸입니다.
   // 할일 관리(team_tasks)에 그대로 저장되므로 팀 대시보드와 주간 리포트에도 같이 잡힙니다.
-  const JW_MYTASK_CATEGORY = '진행중 업무';
+  //
+  // 분류는 team_tasks.category 에 넣습니다. 위의 동그란 버튼으로 걸러 보고,
+  // 줄 오른쪽 드롭다운으로 바꿉니다.
+  const JW_MYTASK_GROUPS = ['E커머스', '공구', 'B2B', '수출', '광고', 'ETC'];
+  const JW_MYTASK_CATEGORY = 'ETC';     // 분류를 안 고르고 추가했을 때
+  let jwMyTaskFilter = '';              // 빈 값 = 전체
 
-  function jwMyTasks() {
+  function jwMyTaskGroupOf(t) {
+    const c = String(t.category || '').trim();
+    return JW_MYTASK_GROUPS.includes(c) ? c : 'ETC';
+  }
+
+  function jwMyTasks(all) {
     const today = jwTodayKST();
-    return currentTasks
+    const rows = currentTasks
       .filter((t) => t.assignee === jwViewAssignee() && !t.archived_at
         && ['할일', '진행중'].includes(t.status)
         && (!t.due_date || String(t.due_date).slice(0, 10) <= today))
@@ -4564,22 +4598,44 @@
         if ((a.status === '진행중') !== (b.status === '진행중')) return a.status === '진행중' ? -1 : 1;
         return String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')) || a.id - b.id;
       });
+    if (all || !jwMyTaskFilter) return rows;
+    return rows.filter((t) => jwMyTaskGroupOf(t) === jwMyTaskFilter);
   }
+
+  function jwSetMyTaskFilter(group) {
+    jwMyTaskFilter = (jwMyTaskFilter === group) ? '' : group;
+    renderJwMyTasks();
+  }
+  window.jwSetMyTaskFilter = jwSetMyTaskFilter;
 
   function renderJwMyTasks() {
     const box = document.getElementById('jwMyTaskList');
     const note = document.getElementById('jwMyTaskNote');
+    const chips = document.getElementById('jwMyTaskChips');
     if (!box) return;
+    const all = jwMyTasks(true);
     const rows = jwMyTasks();
-    if (note) note.textContent = rows.length ? rows.length + '건' : '';
+    if (note) note.textContent = all.length ? all.length + '건' : '';
+
+    if (chips) {
+      const count = (g) => all.filter((t) => jwMyTaskGroupOf(t) === g).length;
+      chips.innerHTML = `
+        <button type="button" class="jw-cat-chip${jwMyTaskFilter ? '' : ' on'}" onclick="jwSetMyTaskFilter('')">
+          전체<b>${all.length}</b></button>
+        ${JW_MYTASK_GROUPS.map((g) => `
+          <button type="button" class="jw-cat-chip${jwMyTaskFilter === g ? ' on' : ''}" onclick="jwSetMyTaskFilter('${g}')">
+            ${g}<b>${count(g)}</b></button>`).join('')}`;
+    }
+
     if (!rows.length) {
-      box.innerHTML = '<div class="jw-task-empty">진행중인 업무가 없습니다. 위 칸에 적어서 추가하세요.</div>';
+      box.innerHTML = `<div class="jw-task-empty">${jwMyTaskFilter ? jwMyTaskFilter + ' 로 분류한 업무가 없습니다.' : '진행중인 업무가 없습니다. 위 칸에 적어서 추가하세요.'}</div>`;
       return;
     }
     box.innerHTML = rows.map((t) => {
       const days = jwAgeDays(t);
       const late = !!t.due_date && days > 0;
       const doing = t.status === '진행중';
+      const group = jwMyTaskGroupOf(t);
       return `
         <div class="jw-mytask-row${doing ? ' doing' : ''}${late ? ' late' : ''}">
           <button type="button" class="jw-mytask-check" title="끝났으면 누르세요"
@@ -4592,6 +4648,9 @@
               ${late ? `<span class="jw-mytask-late">${days}일째</span>` : ''}
             </div>
           </div>
+          <select class="jw-mytask-cat" title="분류를 바꿉니다" onchange="jwSetMyTaskGroup(${t.id}, this.value)">
+            ${JW_MYTASK_GROUPS.map((g) => `<option value="${g}" ${g === group ? 'selected' : ''}>${g}</option>`).join('')}
+          </select>
           <button type="button" class="jw-mytask-btn"
             onclick="jwToggleMyTask(${t.id}, '${doing ? '할일' : '진행중'}')">${doing ? '보류' : '진행'}</button>
           <button type="button" class="jw-mytask-btn del" title="이 업무를 지웁니다"
@@ -4599,6 +4658,15 @@
         </div>`;
     }).join('');
   }
+
+  async function jwSetMyTaskGroup(id, group) {
+    const { error } = await client.from('team_tasks').update({ category: group }).eq('id', id);
+    if (error) { alert('분류를 바꾸지 못했습니다: ' + error.message); return; }
+    const t = currentTasks.find((x) => x.id === id);
+    if (t) t.category = group;
+    renderJwMyTasks();
+  }
+  window.jwSetMyTaskGroup = jwSetMyTaskGroup;
 
   function jwMyTaskKey(e) {
     if (e.key === 'Enter') { e.preventDefault(); jwAddMyTask(); }
@@ -4613,7 +4681,8 @@
     const { error } = await client.from('team_tasks').insert({
       title, assignee: jwViewAssignee(), status: '진행중',
       due_date: today, start_date: today, priority: '보통',
-      category: JW_MYTASK_CATEGORY,
+      // 분류 버튼을 눌러둔 상태면 그 분류로 들어갑니다.
+      category: jwMyTaskFilter || JW_MYTASK_CATEGORY,
     });
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
     if (input) input.value = '';
