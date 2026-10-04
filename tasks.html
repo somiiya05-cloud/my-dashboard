@@ -4633,13 +4633,11 @@
     const stuck = JW_PROJECT_STUCK.includes(p.status);
     const finished = p.status === '완료';
     const open = jwOpenProjects.has(p.id);
-    const cat = String(p.category || '').trim();
     const staleDays = jwProjDays(jwProjLastTouch(p)) || 0;
     const stale = !finished && staleDays >= JW_PROJECT_STALE_DAYS;
     return `
       <div class="jw-proj-card${stuck ? ' stuck' : ''}${finished ? ' done' : ''}">
         <div class="jw-proj-tags">
-          ${cat ? `<span class="jw-proj-cat ${JW_PROJECT_CATEGORY_CLS[cat] || 'c0'}">${escapeAttr(cat)}</span>` : ''}
           ${p.revenue_impact ? '<span class="jw-proj-rev" title="매출에 바로 영향을 주는 건">매출</span>' : ''}
           ${stale ? `<span class="jw-proj-stale" title="${staleDays}일째 손대지 않았습니다">${staleDays}일 미업데이트</span>` : ''}
           <span class="jw-proj-badge ${cls}">${escapeAttr(p.status)}</span>
