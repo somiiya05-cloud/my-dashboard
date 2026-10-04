@@ -746,6 +746,21 @@
   .jw-proj-badge.done   { background: #dcfce7; color: #15803d; }
   .jw-proj-badge.hold   { background: #f5f3ff; color: #6d28d9; }
 
+  .jw-proj-tags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .jw-proj-tags .jw-proj-badge { margin-left: auto; }
+  .jw-proj-cat { font-size: 10.5px; font-weight: 800; border-radius: 6px; padding: 3px 8px; background: #eef2f7; color: #475569; }
+  .jw-proj-cat.c1 { background: #e0ecff; color: #1d4ed8; }
+  .jw-proj-cat.c2 { background: #fce7f3; color: #be185d; }
+  .jw-proj-cat.c3 { background: #e0f2fe; color: #0369a1; }
+  .jw-proj-cat.c4 { background: #dcfce7; color: #15803d; }
+  .jw-proj-cat.c5 { background: #fef3c7; color: #b45309; }
+  .jw-proj-cat.c6 { background: #ede9fe; color: #6d28d9; }
+  .jw-proj-cat.c7 { background: #ffe4e6; color: #be123c; }
+  .jw-proj-rev { font-size: 10px; font-weight: 800; border-radius: 999px; padding: 2px 7px; background: #dcfce7; color: #15803d; }
+  .jw-proj-stale { font-size: 10px; font-weight: 800; border-radius: 999px; padding: 2px 7px; background: #fee2e2; color: #b91c1c; }
+  .jw-proj-kpi .kpi-card.rev { border-left: 4px solid #16a34a; }
+  .jw-proj-kpi .kpi-card.rev .kpi-value { color: #15803d; }
+  .jw-proj-card > .jw-proj-btns { justify-content: flex-end; }
   .jw-proj-line { font-size: 12px; color: #475569; line-height: 1.5; }
   .jw-proj-line b { color: #94a3b8; font-weight: 700; margin-right: 6px; font-size: 11px; }
   .jw-proj-next {
@@ -4022,14 +4037,25 @@
   //
   // 하위 업무는 따로 입력하지 않습니다 — 할일 관리의 구분(category)이 프로젝트 이름과
   // 같으면 그 업무들을 끌어와 보여줍니다 (task_category 를 적으면 그 구분을 봅니다).
-  const JW_PROJECT_STATUSES = ['기획중', '진행중', '검토중', '외부 대기', '병목', '완료', '보류'];
+  // 업무를 7개 대분류로 묶어 봅니다. 카드마다 라벨로 답니다.
+  const JW_PROJECT_CATEGORIES = [
+    '이커머스 판매채널계획', '공동구매 관리', 'B2B', '수출', '광고 관리', '대만 시딩', '큐텐',
+  ];
+  const JW_PROJECT_CATEGORY_CLS = {
+    '이커머스 판매채널계획': 'c1', '공동구매 관리': 'c2', 'B2B': 'c3', '수출': 'c4',
+    '광고 관리': 'c5', '대만 시딩': 'c6', '큐텐': 'c7',
+  };
+
+  const JW_PROJECT_STATUSES = ['기획중', '진행중', '외부 대기', '내부 검토', '병목', '완료', '보류'];
   const JW_PROJECT_STATUS_CLS = {
-    '기획중': 'plan', '진행중': 'go', '검토중': 'review',
+    '기획중': 'plan', '진행중': 'go', '내부 검토': 'review',
     '외부 대기': 'wait', '병목': 'block', '완료': 'done', '보류': 'hold',
   };
+  // 예전에 쓰던 이름 (혹시 남아 있으면 화면에서만 바꿔 읽습니다)
+  const JW_PROJECT_STATUS_LEGACY = { '검토중': '내부 검토' };
   // 아직 굴러가고 있는 상태 (요약의 "진행 중 프로젝트")
-  const JW_PROJECT_LIVE = ['기획중', '진행중', '검토중', '외부 대기', '병목'];
-  // 내가 아니라 남을 기다리는 상태 (요약의 "대기/병목")
+  const JW_PROJECT_LIVE = ['기획중', '진행중', '외부 대기', '내부 검토', '병목'];
+  // 내가 아니라 남의 회신을 기다리는 상태 (요약의 "대기 / 회신 필요")
   const JW_PROJECT_STUCK = ['외부 대기', '병목'];
   const JW_PROJECT_STALE_DAYS = 7;
 
@@ -4050,7 +4076,9 @@
       jwProjects = []; jwProjectNotes = {}; jwProjectsError = pRes.error.message;
       return;
     }
-    jwProjects = pRes.data || [];
+    jwProjects = (pRes.data || []).map((r) => ({
+      ...r, status: JW_PROJECT_STATUS_LEGACY[r.status] || r.status,
+    }));
     jwProjectNotes = {};
     (nRes.data || []).forEach((n) => {
       (jwProjectNotes[n.project_id] = jwProjectNotes[n.project_id] || []).push(n);
@@ -4101,6 +4129,7 @@
       stuck: mine.filter((p) => JW_PROJECT_STUCK.includes(p.status)).length,
       week: live.filter((p) => p.next_action_due && p.next_action_due >= week[0] && p.next_action_due <= week[1]).length,
       stale: live.filter((p) => (jwProjDays(jwProjLastTouch(p)) || 0) >= JW_PROJECT_STALE_DAYS).length,
+      revenue: live.filter((p) => p.revenue_impact).length,
     };
   }
 
@@ -4152,6 +4181,17 @@
   }
 
   function jwProjDetailHtml(p) {
+    const subs = jwProjSubTasks(p);
+    const subHtml = subs.length
+      ? subs.map((t) => `
+          <div class="jw-proj-sub">
+            <span class="d" style="color:#94a3b8;">${escapeAttr(String(t.due_date || '').slice(5).replace('-', '/') || '날짜없음')}</span>
+            <span>${escapeAttr(t.title || '')}</span>
+            <span class="s">${escapeAttr(t.status || '')}</span>
+          </div>`).join('')
+      : `<div class="empty">할일 관리에서 구분을 "${escapeAttr(p.task_category || p.name)}" 으로 적은 업무가 여기에 모입니다.</div>`;
+    const subDone = subs.filter((t) => t.status === '확인완료').length;
+
     const notes = (jwProjectNotes[p.id] || []).slice().reverse();
     const hist = (notes.length
       ? notes.map((n) => `
@@ -4166,17 +4206,6 @@
             onkeydown="if(event.key==='Enter'){event.preventDefault();jwAddProjNote(${p.id});}">
           <button type="button" class="jw-proj-btn" onclick="jwAddProjNote(${p.id})">기록</button>
         </div>`;
-
-    const subs = jwProjSubTasks(p);
-    const subHtml = subs.length
-      ? subs.map((t) => `
-          <div class="jw-proj-sub">
-            <span class="d" style="color:#94a3b8;">${escapeAttr(String(t.due_date || '').slice(5).replace('-', '/') || '날짜없음')}</span>
-            <span>${escapeAttr(t.title || '')}</span>
-            <span class="s">${escapeAttr(t.status || '')}</span>
-          </div>`).join('')
-      : `<div class="empty">할일 관리에서 구분을 "${escapeAttr(p.task_category || p.name)}" 으로 적은 업무가 여기에 모입니다.</div>`;
-    const subDone = subs.filter((t) => t.status === '확인완료').length;
 
     const memo = String(p.lead_memo || '').trim();
     const memoHtml = memo
@@ -4198,29 +4227,44 @@
       ? `${escapeAttr(p.next_meeting)} ${meetGone > 0 ? '(지남)' : (meetGone === 0 ? '(오늘)' : 'D-' + (-meetGone))}`
       : '<div class="empty">잡아둔 회의·보고 일정이 없습니다.</div>';
 
+    // 진척률·마지막 손댄 날은 카드를 간단히 두려고 여기로 내렸습니다.
+    const pct = Math.max(0, Math.min(100, Number(p.progress || 0)));
+    const staleDays = jwProjDays(jwProjLastTouch(p)) || 0;
+
     return `
       <div class="jw-proj-detail">
-        ${jwProjFoldHtml(p, 'hist', '프로젝트 히스토리', notes.length, hist)}
+        <div class="jw-proj-foot">
+          <span class="jw-proj-bar"><i style="width:${pct}%"></i></span>
+          <span class="jw-proj-pct">${pct}%</span>
+          <span class="jw-proj-owner">${escapeAttr(p.owner || '')} · ${staleDays <= 0 ? '오늘' : staleDays + '일 전'} 업데이트</span>
+        </div>
         ${jwProjFoldHtml(p, 'subs', '하위 업무', subs.length ? subDone + '/' + subs.length : 0, subHtml)}
+        ${jwProjFoldHtml(p, 'hist', '프로젝트 히스토리', notes.length, hist)}
         ${jwProjFoldHtml(p, 'memo', '파트장 메모', null, memoHtml)}
         ${jwProjFoldHtml(p, 'link', '관련 링크', links.length, linkHtml)}
         ${jwProjFoldHtml(p, 'meet', '다음 회의 · 보고 예정일', null, meetHtml)}
       </div>`;
   }
 
+  // 카드에는 핵심만 둡니다 — 대분류 · 프로젝트명 · 목적 · 현재 단계 · 다음 액션(마감일) ·
+  // 상태 · 병목 사유. 하위 업무와 히스토리, 진척률은 [상세보기] 안으로 숨깁니다.
   function jwProjCardHtml(p) {
     const cls = JW_PROJECT_STATUS_CLS[p.status] || 'wait';
     const stuck = JW_PROJECT_STUCK.includes(p.status);
     const finished = p.status === '완료';
-    const pct = Math.max(0, Math.min(100, Number(p.progress || 0)));
-    const staleDays = jwProjDays(jwProjLastTouch(p)) || 0;
     const open = jwOpenProjects.has(p.id);
+    const cat = String(p.category || '').trim();
+    const staleDays = jwProjDays(jwProjLastTouch(p)) || 0;
+    const stale = !finished && staleDays >= JW_PROJECT_STALE_DAYS;
     return `
       <div class="jw-proj-card${stuck ? ' stuck' : ''}${finished ? ' done' : ''}">
-        <div class="jw-proj-head">
-          <div class="jw-proj-name">${escapeAttr(p.name || '(이름 없음)')}</div>
+        <div class="jw-proj-tags">
+          ${cat ? `<span class="jw-proj-cat ${JW_PROJECT_CATEGORY_CLS[cat] || 'c0'}">${escapeAttr(cat)}</span>` : ''}
+          ${p.revenue_impact ? '<span class="jw-proj-rev" title="매출에 바로 영향을 주는 건">매출</span>' : ''}
+          ${stale ? `<span class="jw-proj-stale" title="${staleDays}일째 손대지 않았습니다">${staleDays}일 미업데이트</span>` : ''}
           <span class="jw-proj-badge ${cls}">${escapeAttr(p.status)}</span>
         </div>
+        <div class="jw-proj-name">${escapeAttr(p.name || '(이름 없음)')}</div>
         ${p.purpose ? `<div class="jw-proj-line"><b>목적</b>${escapeAttr(p.purpose)}</div>` : ''}
         ${p.stage ? `<div class="jw-proj-line"><b>현재 단계</b>${escapeAttr(p.stage)}</div>` : ''}
         ${p.next_action ? `
@@ -4235,16 +4279,9 @@
             </div>
           </div>` : '<div class="jw-proj-line"><b>다음 액션</b>아직 정하지 않았습니다.</div>'}
         ${p.blocker ? `<div class="jw-proj-blocker">⚠ ${escapeAttr(p.blocker)}</div>` : ''}
-        <div class="jw-proj-foot">
-          <span class="jw-proj-bar"><i style="width:${pct}%"></i></span>
-          <span class="jw-proj-pct">${pct}%</span>
-        </div>
-        <div class="jw-proj-foot">
-          <span class="jw-proj-owner">${escapeAttr(p.owner || '')} · <span class="${staleDays >= JW_PROJECT_STALE_DAYS ? 'stale' : ''}">${staleDays <= 0 ? '오늘' : staleDays + '일 전'} 업데이트</span></span>
-          <span class="jw-proj-btns" style="margin-left:auto;">
-            <button type="button" class="jw-proj-btn" onclick="jwToggleProjDetail(${p.id})">${open ? '접기' : '상세보기'}</button>
-            <button type="button" class="jw-proj-btn" onclick="jwOpenProjectPanel(${p.id})">수정</button>
-          </span>
+        <div class="jw-proj-btns">
+          <button type="button" class="jw-proj-btn" onclick="jwToggleProjDetail(${p.id})">${open ? '접기' : '상세보기'}</button>
+          <button type="button" class="jw-proj-btn" onclick="jwOpenProjectPanel(${p.id})">수정</button>
         </div>
         ${open ? jwProjDetailHtml(p) : ''}
       </div>`;
@@ -4274,10 +4311,11 @@
     if (kpi) {
       kpi.innerHTML = `
         <div class="kpi-card go"><div class="kpi-label">진행 중 프로젝트</div><div class="kpi-value">${s.live}건</div></div>
-        <div class="kpi-card${s.todayAction ? ' go' : ''}"><div class="kpi-label">오늘 처리할 액션</div><div class="kpi-value">${s.todayAction}건</div></div>
-        <div class="kpi-card${s.stuck ? ' warn' : ''}"><div class="kpi-label">대기 · 병목</div><div class="kpi-value">${s.stuck}건</div></div>
+        <div class="kpi-card${s.todayAction ? ' go' : ''}"><div class="kpi-label">오늘 해야 할 액션</div><div class="kpi-value">${s.todayAction}건</div></div>
+        <div class="kpi-card${s.stuck ? ' warn' : ''}"><div class="kpi-label">대기 / 회신 필요</div><div class="kpi-value">${s.stuck}건</div></div>
         <div class="kpi-card"><div class="kpi-label">이번 주 마감</div><div class="kpi-value">${s.week}건</div></div>
-        <div class="kpi-card${s.stale ? ' danger' : ''}"><div class="kpi-label">7일 이상 업데이트 없음</div><div class="kpi-value">${s.stale}건</div></div>`;
+        <div class="kpi-card${s.stale ? ' danger' : ''}"><div class="kpi-label">장기 미업데이트</div><div class="kpi-value">${s.stale}건</div></div>
+        <div class="kpi-card${s.revenue ? ' rev' : ''}"><div class="kpi-label">매출 영향 업무</div><div class="kpi-value">${s.revenue}건</div></div>`;
     }
 
     if (grid) {
@@ -4392,23 +4430,31 @@
     title.textContent = p ? '프로젝트 수정' : '새 프로젝트';
     const v = p || {};
     body.innerHTML = `
-      <div class="task-panel-field"><label>프로젝트명 *</label><input id="jwPfName" type="text" value="${escapeAttr(v.name || '')}" placeholder="예) 스마트스토어 매출 개선"></div>
-      <div class="task-panel-field"><label>프로젝트 목적</label><input id="jwPfPurpose" type="text" value="${escapeAttr(v.purpose || '')}" placeholder="예) 네이버 매출 전월 대비 성장"></div>
       <div class="task-panel-row">
-        <div class="task-panel-field"><label>현재 단계</label><input id="jwPfStage" type="text" value="${escapeAttr(v.stage || '')}" placeholder="예) 대행사 운영 성과 검토"></div>
+        <div class="task-panel-field"><label>대분류</label><select id="jwPfCat">
+          <option value="">(없음)</option>
+          ${JW_PROJECT_CATEGORIES.map((c) => `<option value="${escapeAttr(c)}" ${c === (v.category || '') ? 'selected' : ''}>${escapeAttr(c)}</option>`).join('')}
+        </select></div>
         <div class="task-panel-field"><label>상태</label><select id="jwPfStatus">
           ${JW_PROJECT_STATUSES.map((st) => `<option value="${st}" ${st === (v.status || '기획중') ? 'selected' : ''}>${st}</option>`).join('')}
         </select></div>
       </div>
-      <div class="task-panel-field"><label>다음 액션</label><input id="jwPfNext" type="text" value="${escapeAttr(v.next_action || '')}" placeholder="예) 9월 매출 상승 상품 확인 후 대표 보고"></div>
+      <div class="task-panel-field"><label>프로젝트명 *</label><input id="jwPfName" type="text" value="${escapeAttr(v.name || '')}" placeholder="예) 10월 공동구매 운영"></div>
+      <div class="task-panel-field"><label>프로젝트 목적</label><input id="jwPfPurpose" type="text" value="${escapeAttr(v.purpose || '')}" placeholder="예) 공동구매 매출 확보 및 일정 누락 방지"></div>
+      <div class="task-panel-field"><label>현재 단계</label><input id="jwPfStage" type="text" value="${escapeAttr(v.stage || '')}" placeholder="예) 업체 일정 조율 중"></div>
+      <div class="task-panel-field"><label>다음 액션</label><input id="jwPfNext" type="text" value="${escapeAttr(v.next_action || '')}" placeholder="예) 업체별 공구 가능 일정 확인"></div>
       <div class="task-panel-row">
         <div class="task-panel-field"><label>다음 액션 마감일</label><input id="jwPfDue" type="date" value="${escapeAttr(v.next_action_due || '')}"></div>
         <div class="task-panel-field"><label>담당자</label><input id="jwPfOwner" type="text" value="${escapeAttr(v.owner || jwViewAssignee())}"></div>
       </div>
-      <div class="task-panel-field"><label>대기 · 병목 사유</label><input id="jwPfBlocker" type="text" value="${escapeAttr(v.blocker || '')}" placeholder="예) 대행사 상세페이지 개선안 대기"></div>
+      <div class="task-panel-field"><label>대기 · 병목 사유</label><input id="jwPfBlocker" type="text" value="${escapeAttr(v.blocker || '')}" placeholder="예) 업체 회신 대기"></div>
       <div class="task-panel-row">
         <div class="task-panel-field"><label>진척률 (%)</label><input id="jwPfProgress" type="number" min="0" max="100" value="${Number(v.progress || 0)}"></div>
         <div class="task-panel-field"><label>다음 회의 · 보고 예정일</label><input id="jwPfMeeting" type="date" value="${escapeAttr(v.next_meeting || '')}"></div>
+      </div>
+      <div class="task-panel-field">
+        <label><input type="checkbox" id="jwPfRevenue" ${v.revenue_impact ? 'checked' : ''} style="margin-right:6px;vertical-align:-1px;">매출에 바로 영향을 주는 건</label>
+        <div class="task-panel-hint">체크하면 위 요약의 "매출 영향 업무"에 잡히고 카드에 매출 표가 붙습니다.</div>
       </div>
       <div class="task-panel-field"><label>하위 업무를 끌어올 구분</label>
         <input id="jwPfCategory" type="text" value="${escapeAttr(v.task_category || '')}" placeholder="비우면 프로젝트명과 같은 구분을 끌어옵니다">
@@ -4430,9 +4476,12 @@
   async function jwSaveProject() {
     const name = jwFieldVal('jwPfName');
     if (!name) { alert('프로젝트명을 적어주세요.'); return; }
+    const revEl = document.getElementById('jwPfRevenue');
     const row = {
       owner: jwFieldVal('jwPfOwner') || jwViewAssignee(),
       name,
+      category: jwFieldVal('jwPfCat') || null,
+      revenue_impact: !!(revEl && revEl.checked),
       purpose: jwFieldVal('jwPfPurpose') || null,
       stage: jwFieldVal('jwPfStage') || null,
       next_action: jwFieldVal('jwPfNext') || null,
