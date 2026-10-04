@@ -835,6 +835,113 @@
   .jw-next-text { font-size: 12.5px; font-weight: 700; color: #0f172a; }
   .jw-next-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 
+  /* ---- 팀 대시보드 (위젯형 현황판) ---- */
+  .td-kpi-row { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .td-kpi { padding: 16px 18px; border-radius: 14px; border-left: 4px solid #cbd5e1; }
+  .td-kpi .kpi-label { font-size: 11.5px; font-weight: 700; color: #64748b; }
+  .td-kpi .kpi-value { font-size: 26px; font-weight: 800; color: #0f172a; margin-top: 4px; line-height: 1.1; }
+  .td-kpi-sub { font-size: 10.5px; color: #94a3b8; margin-top: 5px; }
+  .td-kpi.go { border-left-color: #2563eb; } .td-kpi.go .kpi-value { color: #1d4ed8; }
+  .td-kpi.warn { border-left-color: #d97706; } .td-kpi.warn .kpi-value { color: #b45309; }
+  .td-kpi.danger { border-left-color: #dc2626; } .td-kpi.danger .kpi-value { color: #dc2626; }
+
+  .td-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+  .td-w { margin: 0; }
+  .td-w.wide { grid-column: span 2; }
+  @media (max-width: 1100px) { .td-w.wide { grid-column: span 1; } }
+  .td-empty { font-size: 12px; color: #94a3b8; padding: 14px 2px; }
+  .td-note { font-size: 10.5px; color: #94a3b8; margin-top: 8px; line-height: 1.5; }
+
+  /* 담당자별 현황 표 */
+  .td-table { width: 100%; border-collapse: collapse; }
+  .td-table th, .td-table td { padding: 9px 8px; font-size: 12.5px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+  .td-table th { font-size: 11px; font-weight: 700; color: #94a3b8; }
+  .td-table th.num, .td-table td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+  .td-table tbody tr { cursor: pointer; }
+  .td-table tbody tr:hover { background: #f8fafc; }
+  .td-table .td-name { font-weight: 800; color: #1d4ed8; }
+  .td-table .blue { color: #2563eb; } .td-table .green { color: #16a34a; }
+  .td-table .orange { color: #d97706; } .td-table .red { color: #dc2626; }
+
+  /* 업무 분포 막대 */
+  .td-bar-row { padding: 10px 2px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+  .td-bar-row:last-child { border-bottom: 0; }
+  .td-bar-row:hover .td-bar-head span { color: #2563eb; }
+  .td-bar-head { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+  .td-bar { height: 10px; border-radius: 999px; background: #eef2f7; overflow: hidden; }
+  .td-bar > i { display: block; height: 100%; border-radius: 999px; background: #4d7cfe; }
+  .td-bar-sub { display: flex; align-items: center; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+  .td-bar-mini { display: inline-block; width: 56px; height: 5px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }
+  .td-bar-mini > i { display: block; height: 100%; border-radius: 999px; }
+  .td-bar-mini > i.red { background: #dc2626; } .td-bar-mini > i.orange { background: #d97706; }
+  .td-bar-sub .lab { font-size: 10.5px; font-weight: 700; }
+  .td-bar-sub .lab.red { color: #dc2626; } .td-bar-sub .lab.orange { color: #b45309; }
+
+  /* 이번 주 마감 */
+  .td-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  @media (max-width: 900px) { .td-cal { grid-template-columns: repeat(2, 1fr); } }
+  .td-day { border: 1px solid #eef2f7; border-radius: 10px; padding: 8px; min-height: 92px; background: #fcfdff; }
+  .td-day.today { border-color: rgba(77,124,254,.45); background: #f5f8ff; }
+  .td-day-head { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 6px; }
+  .td-day.today .td-day-head { color: #2f5ce4; }
+  .td-day-badge { margin-left: auto; background: #4d7cfe; color: #fff; font-size: 10px; font-weight: 800; border-radius: 999px; padding: 1px 7px; }
+  .td-day-item {
+    font-size: 11px; color: #334155; line-height: 1.4; padding: 3px 5px; border-radius: 6px;
+    background: #fff; border: 1px solid #eef2f7; margin-bottom: 4px; cursor: pointer;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .td-day-item:hover { border-color: #4d7cfe; color: #1d4ed8; }
+  .td-day-more { font-size: 10px; color: #94a3b8; }
+  .td-day-empty { font-size: 11px; color: #cbd5e1; }
+
+  /* 병목 · 대기 */
+  .td-block-row { border: 1px solid #eef2f7; border-left: 3px solid #cbd5e1; border-radius: 10px; padding: 9px 11px; margin-bottom: 8px; cursor: pointer; }
+  .td-block-row:hover { border-color: #94a3b8; }
+  .td-block-row.late { border-left-color: #dc2626; background: #fef8f8; }
+  .td-block-row.review { border-left-color: #d97706; background: #fffbf5; }
+  .td-block-row.wait { border-left-color: #64748b; background: #f8fafc; }
+  .td-block-top { display: flex; align-items: center; gap: 8px; }
+  .td-block-title { font-size: 12.5px; font-weight: 700; color: #0f172a; }
+  .td-block-who { margin-left: auto; font-size: 10.5px; font-weight: 700; color: #64748b; }
+  .td-block-reason { font-size: 11.5px; color: #b45309; margin-top: 4px; }
+  .td-block-meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 10.5px; color: #94a3b8; margin-top: 4px; }
+  .td-block-next { color: #2f5ce4; font-weight: 700; }
+
+  /* 프로젝트별 현황 */
+  .td-proj-wrap { max-height: 420px; overflow-y: auto; }
+  .td-proj-group { margin-bottom: 12px; }
+  .td-proj-cat { margin-bottom: 6px; }
+  .td-proj-row { border: 1px solid #eef2f7; border-radius: 10px; padding: 9px 11px; margin-bottom: 6px; cursor: pointer; }
+  .td-proj-row:hover { border-color: #4d7cfe; }
+  .td-proj-top { display: flex; align-items: center; gap: 8px; }
+  .td-proj-name { font-size: 12.5px; font-weight: 700; color: #0f172a; }
+  .td-proj-top .jw-proj-badge { margin-left: auto; }
+  .td-proj-line { font-size: 11.5px; color: #64748b; margin-top: 3px; }
+  .td-proj-line.next { color: #334155; font-weight: 600; }
+  .td-proj-due { font-size: 10.5px; color: #94a3b8; margin-left: 6px; }
+  .td-proj-block { font-size: 11px; color: #b45309; margin-top: 4px; }
+
+  /* 최근 업데이트 피드 */
+  .td-feed-row { display: flex; gap: 10px; align-items: baseline; padding: 7px 2px; border-bottom: 1px solid #f8fafc; cursor: pointer; }
+  .td-feed-row:hover { background: #f8fafc; }
+  .td-feed-who { font-size: 11px; font-weight: 800; color: #1d4ed8; flex-shrink: 0; min-width: 48px; }
+  .td-feed-text { font-size: 12px; color: #334155; line-height: 1.45; flex: 1; }
+  .td-feed-when { font-size: 10.5px; color: #94a3b8; flex-shrink: 0; }
+
+  /* 전휘원 데일리 */
+  .td-daily { cursor: pointer; }
+  .td-daily-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #475569; padding: 7px 0; }
+  .td-daily-row > span:first-child { min-width: 128px; }
+  .td-daily-bar { flex: 1; height: 8px; border-radius: 999px; background: #eef2f7; overflow: hidden; }
+  .td-daily-bar > i { display: block; height: 100%; border-radius: 999px; background: #16a34a; }
+  .td-daily-bar > i.blue { background: #2563eb; }
+  .td-daily-row b { font-size: 12.5px; font-weight: 800; color: #0f172a; min-width: 42px; text-align: right; }
+  .td-daily-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+  .td-daily-grid > div { border: 1px solid #eef2f7; border-radius: 10px; padding: 9px 11px; display: flex; flex-direction: column; gap: 3px; }
+  .td-daily-grid span { font-size: 11px; color: #94a3b8; }
+  .td-daily-grid b { font-size: 17px; font-weight: 800; color: #0f172a; }
+  .td-daily-grid b.green { color: #16a34a; } .td-daily-grid b.orange { color: #d97706; } .td-daily-grid b.red { color: #dc2626; }
+
   /* ---- 할일 관리: 현재 업무 / 히스토리 탭 (스크롤해도 화면 상단에 고정) ---- */
   .task-tabs {
     display: flex; margin-bottom: 16px; border-bottom: 1px solid rgba(15,23,42,.07);
@@ -2042,6 +2149,9 @@
       <div id="taskNavGroups" style="display:none;">
         <div class="nav-group">
           <div class="nav-label nav-label-clickable" onclick="opsNavClick('overview')" title="영업팀 업무 가이드 보기">업무관리</div>
+          <div class="nav-item" id="navTeamDash" onclick="switchView('team-dashboard')">
+            <span class="dot dot-task"></span>팀 대시보드
+          </div>
           <div class="nav-item" id="navTeamTasks" onclick="switchView('team-tasks')">
             <span class="dot dot-task"></span>할일 관리
           </div>
@@ -2503,6 +2613,20 @@
       </div>
     </main>
 
+    <!-- 팀 대시보드 — 두 사람 업무를 모아 보여주는 현황판 (renderTeamDash 가 채웁니다) -->
+    <main class="main" id="teamDashView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>팀 대시보드</h1>
+          <div class="subtitle">영업팀 전체 업무량·지연·병목·이번 주 마감을 한 화면에서 봅니다.</div>
+        </div>
+        <div class="topbar-right">
+          <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+        </div>
+      </div>
+      <div id="teamDashBody"></div>
+    </main>
+
     <main class="main" id="weeklyReportView" style="display:none">
       <div class="topbar">
         <div>
@@ -2717,6 +2841,7 @@
     (document.getElementById('teamOverviewView') || { style: {} }).style.display = view === 'team-overview' ? '' : 'none';
     (document.getElementById('teamProcessView') || { style: {} }).style.display = view === 'team-process' ? '' : 'none';
     (document.getElementById('teamTasksView') || { style: {} }).style.display = view === 'team-tasks' ? '' : 'none';
+    (document.getElementById('teamDashView') || { style: {} }).style.display = view === 'team-dashboard' ? '' : 'none';
     (document.getElementById('teamWeeklyView') || { style: {} }).style.display = view === 'team-weekly' ? '' : 'none';
     (document.getElementById('weeklyReportView') || { style: {} }).style.display = view === 'weekly-report' ? '' : 'none';
     (document.getElementById('teamScheduleView') || { style: {} }).style.display = view === 'team-schedule' ? '' : 'none';
@@ -2733,6 +2858,7 @@
     (document.getElementById('navReviewAlerts') || { classList: { toggle() {}, add() {}, remove() {} } }).classList.toggle('active', view === 'review-alerts');
     (document.getElementById('navTeamProcess') || { classList: { toggle() {}, add() {}, remove() {} } }).classList.toggle('active', view === 'team-process');
     (document.getElementById('navTeamTasks') || { classList: { toggle() {}, add() {}, remove() {} } }).classList.toggle('active', view === 'team-tasks');
+    (document.getElementById('navTeamDash') || { classList: { toggle() {}, add() {}, remove() {} } }).classList.toggle('active', view === 'team-dashboard');
     // 주차별 진행 업무 메뉴는 지금 화면에 없습니다(되살리면 다시 동작).
     const weeklyNav = document.getElementById('navTeamWeekly');
     if (weeklyNav) weeklyNav.classList.toggle('active', view === 'team-weekly');
@@ -2793,6 +2919,7 @@
       teamAttentionFilter = 'ALL';
       loadTeamTasks();
     }
+    if (view === 'team-dashboard') loadTeamTasks();   // 받아온 뒤 renderTeamDash 가 그립니다
     if (view === 'team-weekly') loadTeamTasks();
     if (view === 'weekly-report') loadWeeklyReports();
     if (view === 'team-schedule') loadTeamSchedule();
@@ -3344,6 +3471,7 @@
     updateTaskViewHeader();
     populateTaskFilterOptions();
     renderTaskView();
+    renderTeamDash();   // 팀 대시보드도 같은 데이터를 씁니다
     renderTaskWeeklyAssigneeChips();
     renderTaskWeeklyTable();
   }
@@ -4559,6 +4687,352 @@
     renderJwProjects();
   }
   window.jwArchiveProject = jwArchiveProject;
+
+  // ==================== 팀 대시보드 ====================
+  // 개인 할 일 화면과 달리, 영업팀 두 사람의 업무를 모아 "지금 팀이 어떤 상태인지"만
+  // 보여주는 현황판입니다. 새로 저장하는 데이터는 없고 이미 받아둔 것만 모아 셉니다.
+  //   · currentTasks      할일 관리 업무 (team_tasks)
+  //   · jwProjects        윤효선 프로젝트형 업무 (team_projects)
+  //   · jwTaskComments    업무 댓글 · jwProjectNotes 프로젝트 진행 기록 → 최근 업데이트 피드
+  //
+  // 세는 기준: 전휘원 업무는 「이어가기」로 앞으로 몇 주치가 미리 만들어져 있습니다
+  // (오늘 기준 230건). 그걸 다 "미완료"로 세면 숫자가 부풀어 현황판이 쓸모없어지므로,
+  // 미완료는 "오늘까지 마감 + 마감일 없음"만 셉니다. 앞으로 잡힌 건은 따로 표시합니다.
+  const TD_MEMBERS = ['윤효선', '전휘원'];
+  const TD_OPEN_STATUSES = ['할일', '진행중', '검수대기'];
+
+  function tdLiveTasks() { return currentTasks.filter((t) => !t.archived_at); }
+  function tdIsOpen(t) { return TD_OPEN_STATUSES.includes(t.status); }
+  function tdDue(t) { return String(t.due_date || '').slice(0, 10); }
+
+  // 오늘까지 해야 하는데 아직 안 끝난 업무
+  function tdOpenNow(list) {
+    const today = jwTodayKST();
+    return (list || tdLiveTasks()).filter((t) => tdIsOpen(t) && (!t.due_date || tdDue(t) <= today));
+  }
+  function tdLate(t) { return tdIsOpen(t) && t.due_date && tdDue(t) < jwTodayKST(); }
+  function tdOf(name) { return tdLiveTasks().filter((t) => t.assignee === name); }
+
+  function tdWeekDays() {
+    const [mon] = jwWeekRange();
+    return [0, 1, 2, 3, 4, 5, 6].map((i) => jwAddDays(mon, i));
+  }
+
+  // ---- 멈춰 있는 업무 모으기 ----
+  // 업무 표에는 "병목 사유" 칸이 없어서, 멈춘 이유를 상태에서 읽어 붙입니다.
+  function tdBlocked() {
+    const today = jwTodayKST();
+    const out = [];
+    // 1) 윤효선 프로젝트 — 외부 대기 · 병목
+    jwProjects.filter((p) => ['외부 대기', '병목'].includes(p.status)).forEach((p) => {
+      out.push({
+        kind: 'project', id: p.id, title: p.name, who: p.owner,
+        reason: p.blocker || p.status, at: jwProjLastTouch(p), next: p.next_action || '',
+        tone: p.status === '병목' ? 'late' : 'wait',
+      });
+    });
+    // 2) 파트장 확인을 기다리는 업무
+    tdLiveTasks().filter((t) => t.status === '검수대기').forEach((t) => {
+      out.push({
+        kind: 'task', id: t.id, title: t.title, who: t.assignee,
+        reason: '파트장 확인 필요', at: tdDue(t), next: '파트장 확인', tone: 'review',
+      });
+    });
+    // 3) 일주일 넘게 손대지 않은 미완료 업무
+    tdOpenNow().filter((t) => t.status !== '검수대기' && t.due_date
+      && jwProjDays(tdDue(t)) >= JW_PROJECT_STALE_DAYS).forEach((t) => {
+      out.push({
+        kind: 'task', id: t.id, title: t.title, who: t.assignee,
+        reason: jwProjDays(tdDue(t)) + '일째 진행 없음', at: tdDue(t), next: '', tone: 'late',
+      });
+    });
+    return out.sort((a, b) => String(a.at || '').localeCompare(String(b.at || '')));
+  }
+
+  // ---- 최근 업데이트 피드 ----
+  // team_tasks 에는 "고친 시각" 칸이 없어서, 시각이 남는 것들만 모읍니다.
+  function tdFeed(limit) {
+    const items = [];
+    Object.keys(jwTaskComments).forEach((taskId) => {
+      const t = currentTasks.find((x) => String(x.id) === String(taskId));
+      (jwTaskComments[taskId] || []).forEach((c) => {
+        items.push({
+          at: c.created_at, who: c.author === '파트장' ? '파트장' : (t ? t.assignee : ''),
+          text: (t ? t.title : '업무') + ' — ' + c.body, tag: '댓글',
+          go: t ? "tdGoTask(" + t.id + ")" : '',
+        });
+      });
+    });
+    Object.keys(jwProjectNotes).forEach((pid) => {
+      const p = jwProjects.find((x) => String(x.id) === String(pid));
+      (jwProjectNotes[pid] || []).forEach((n) => {
+        items.push({
+          at: n.created_at, who: p ? p.owner : '',
+          text: (p ? p.name : '프로젝트') + ' — ' + n.body, tag: '진행 기록',
+          go: p ? "tdGoProject(" + p.id + ")" : '',
+        });
+      });
+    });
+    jwProjects.forEach((p) => {
+      items.push({
+        at: p.updated_at, who: p.owner, text: p.name + ' 프로젝트 업데이트',
+        tag: '프로젝트', go: "tdGoProject(" + p.id + ")",
+      });
+    });
+    tdLiveTasks().forEach((t) => {
+      items.push({
+        at: t.created_at, who: t.assignee, text: t.title + ' 업무 등록',
+        tag: '등록', go: "tdGoTask(" + t.id + ")",
+      });
+    });
+    return items
+      .filter((x) => x.at)
+      .sort((a, b) => String(b.at).localeCompare(String(a.at)))
+      .slice(0, limit || 14);
+  }
+
+  function tdWhen(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const mins = Math.round((Date.now() - d.getTime()) / 60000);
+    if (mins < 60) return Math.max(1, mins) + '분 전';
+    if (mins < 60 * 24) return Math.round(mins / 60) + '시간 전';
+    const days = Math.round(mins / 60 / 24);
+    if (days <= 7) return days + '일 전';
+    return d.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' });
+  }
+
+  // ---- 눌렀을 때 이동 ----
+  // 이동할 화면이 그리기 전에 펼칠 것을 먼저 정해둬야 바로 열린 채로 뜹니다.
+  function tdGoAssignee(name) { switchView('team-tasks', name); }
+  window.tdGoAssignee = tdGoAssignee;
+
+  function tdGoTask(id) {
+    const t = currentTasks.find((x) => x.id === id);
+    if (!t) return;
+    jwOpenDetailIds.add(id);
+    jwViewDate = (t.due_date && tdDue(t) !== jwTodayKST()) ? tdDue(t) : '';
+    switchView('team-tasks', t.assignee);
+  }
+  window.tdGoTask = tdGoTask;
+
+  function tdGoProject(id) {
+    const p = jwProjById(id);
+    if (!p) return;
+    jwOpenProjects.add(id);
+    switchView('team-tasks', p.owner);
+  }
+  window.tdGoProject = tdGoProject;
+
+  // ---- 그리기 ----
+  function renderTeamDash() {
+    const root = document.getElementById('teamDashBody');
+    if (!root) return;
+    const today = jwTodayKST();
+    const week = jwWeekRange();
+    const live = tdLiveTasks();
+    const open = tdOpenNow(live);
+    const future = live.filter((t) => tdIsOpen(t) && t.due_date && tdDue(t) > today).length;
+    const dueToday = open.filter((t) => tdDue(t) === today);
+    const dueWeek = live.filter((t) => tdIsOpen(t) && t.due_date && tdDue(t) >= week[0] && tdDue(t) <= week[1]);
+    const late = open.filter(tdLate);
+    const review = live.filter((t) => t.status === '검수대기');
+    const blocked = tdBlocked();
+
+    const kpi = [
+      ['전체 미완료 업무', open.length, '', future ? '앞으로 잡힌 업무 ' + future + '건' : ''],
+      ['오늘 마감 업무', dueToday.length, dueToday.length ? 'go' : '', ''],
+      ['이번 주 마감 업무', dueWeek.length, '', week[0].slice(5) + ' ~ ' + week[1].slice(5)],
+      ['지연 업무', late.length, late.length ? 'danger' : '', ''],
+      ['대기 · 병목 업무', blocked.length, blocked.length ? 'warn' : '', ''],
+      ['파트장 확인 필요', review.length, review.length ? 'warn' : '', ''],
+    ].map(([label, value, tone, sub]) => `
+      <div class="kpi-card td-kpi${tone ? ' ' + tone : ''}">
+        <div class="kpi-label">${label}</div>
+        <div class="kpi-value">${value}건</div>
+        ${sub ? `<div class="td-kpi-sub">${escapeAttr(sub)}</div>` : ''}
+      </div>`).join('');
+
+    // 담당자별 현황
+    const rows = TD_MEMBERS.map((name) => {
+      const mine = tdOf(name);
+      const myOpen = tdOpenNow(mine);
+      return {
+        name,
+        todo: myOpen.filter((t) => t.status === '할일').length,
+        doing: myOpen.filter((t) => t.status === '진행중').length,
+        done: mine.filter((t) => tdDue(t) === today && (t.status === '확인완료' || t.status === '검수대기')).length,
+        review: myOpen.filter((t) => t.status === '검수대기').length,
+        late: myOpen.filter(tdLate).length,
+        week: mine.filter((t) => tdIsOpen(t) && t.due_date && tdDue(t) >= week[0] && tdDue(t) <= week[1]).length,
+        total: myOpen.length,
+      };
+    });
+
+    const tableHtml = `
+      <table class="td-table">
+        <thead>
+          <tr><th>담당자</th><th class="num">할 일</th><th class="num">진행중</th><th class="num">담당자 완료</th>
+              <th class="num">확인 필요</th><th class="num">지연</th><th class="num">이번 주 마감</th></tr>
+        </thead>
+        <tbody>
+          ${rows.map((r) => `
+            <tr onclick="tdGoAssignee('${escapeAttr(r.name)}')" title="${escapeAttr(r.name)} 할 일 관리로 이동">
+              <td class="td-name">${escapeAttr(r.name)}</td>
+              <td class="num">${r.todo}</td>
+              <td class="num blue">${r.doing}</td>
+              <td class="num green">${r.done}</td>
+              <td class="num${r.review ? ' orange' : ''}">${r.review}</td>
+              <td class="num${r.late ? ' red' : ''}">${r.late}</td>
+              <td class="num">${r.week}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="td-note">미완료는 오늘까지 마감인 업무 기준입니다. "담당자 완료"는 오늘 마감 업무 중 담당자 체크를 끝낸 건수입니다.</div>`;
+
+    // 업무 분포 막대 (차트 라이브러리 없이 CSS 막대로)
+    const maxVal = Math.max(1, ...rows.map((r) => r.total));
+    const barHtml = rows.map((r) => `
+      <div class="td-bar-row" onclick="tdGoAssignee('${escapeAttr(r.name)}')">
+        <div class="td-bar-head"><span>${escapeAttr(r.name)}</span><b>${r.total}건</b></div>
+        <div class="td-bar"><i class="all" style="width:${Math.round(r.total / maxVal * 100)}%"></i></div>
+        <div class="td-bar-sub">
+          <span class="td-bar-mini"><i class="red" style="width:${Math.round(r.late / maxVal * 100)}%"></i></span>
+          <span class="lab red">지연 ${r.late}</span>
+          <span class="td-bar-mini"><i class="orange" style="width:${Math.round(r.review / maxVal * 100)}%"></i></span>
+          <span class="lab orange">확인 필요 ${r.review}</span>
+        </div>
+      </div>`).join('');
+
+    // 이번 주 마감 캘린더
+    const dayNames = ['월', '화', '수', '목', '금', '토', '일'];
+    const calHtml = tdWeekDays().map((d, i) => {
+      const items = live.filter((t) => tdIsOpen(t) && tdDue(t) === d);
+      const projItems = jwProjects.filter((p) => JW_PROJECT_LIVE.includes(p.status) && String(p.next_action_due || '') === d);
+      const all = items.map((t) => ({ t: t.title, who: t.assignee, go: "tdGoTask(" + t.id + ")" }))
+        .concat(projItems.map((p) => ({ t: p.next_action || p.name, who: p.owner, go: "tdGoProject(" + p.id + ")" })));
+      return `
+        <div class="td-day${d === today ? ' today' : ''}">
+          <div class="td-day-head">
+            <span>${dayNames[i]} ${d.slice(8)}</span>
+            ${all.length ? `<span class="td-day-badge">${all.length}</span>` : ''}
+          </div>
+          ${all.length
+            ? all.slice(0, 5).map((x) => `<div class="td-day-item" onclick="${x.go}" title="${escapeAttr(x.who)}">${escapeAttr(x.t)}</div>`).join('')
+              + (all.length > 5 ? `<div class="td-day-more">+${all.length - 5}건</div>` : '')
+            : '<div class="td-day-empty">—</div>'}
+        </div>`;
+    }).join('');
+
+    // 병목 · 대기
+    const blockedHtml = blocked.length
+      ? blocked.map((b) => `
+          <div class="td-block-row ${b.tone}" onclick="${b.kind === 'project' ? 'tdGoProject(' + b.id + ')' : 'tdGoTask(' + b.id + ')'}">
+            <div class="td-block-top">
+              <span class="td-block-title">${escapeAttr(b.title)}</span>
+              <span class="td-block-who">${escapeAttr(b.who || '')}</span>
+            </div>
+            <div class="td-block-reason">⚠ ${escapeAttr(b.reason)}</div>
+            <div class="td-block-meta">
+              <span>마지막 업데이트 ${escapeAttr(b.at || '-')}</span>
+              ${b.next ? `<span class="td-block-next">다음 액션 · ${escapeAttr(b.next)}</span>` : ''}
+            </div>
+          </div>`).join('')
+      : '<div class="td-empty">멈춰 있는 업무가 없습니다.</div>';
+
+    // 최근 업데이트
+    const feed = tdFeed(14);
+    const feedHtml = feed.length
+      ? feed.map((f) => `
+          <div class="td-feed-row"${f.go ? ` onclick="${f.go}"` : ''}>
+            <span class="td-feed-who">${escapeAttr(f.who || '')}</span>
+            <span class="td-feed-text">${escapeAttr(f.text)}</span>
+            <span class="td-feed-when">${escapeAttr(tdWhen(f.at))}</span>
+          </div>`).join('')
+      : '<div class="td-empty">최근 업데이트가 없습니다.</div>';
+
+    // 프로젝트별 현황 (윤효선)
+    const projHtml = JW_PROJECT_CATEGORIES.map((cat) => {
+      const list = jwProjects.filter((p) => p.owner === '윤효선' && p.category === cat);
+      if (!list.length) return '';
+      return `
+        <div class="td-proj-group">
+          <div class="td-proj-cat"><span class="jw-proj-cat ${JW_PROJECT_CATEGORY_CLS[cat] || 'c0'}">${escapeAttr(cat)}</span></div>
+          ${list.map((p) => `
+            <div class="td-proj-row" onclick="tdGoProject(${p.id})">
+              <div class="td-proj-top">
+                <span class="td-proj-name">${escapeAttr(p.name)}</span>
+                <span class="jw-proj-badge ${JW_PROJECT_STATUS_CLS[p.status] || 'wait'}">${escapeAttr(p.status)}</span>
+              </div>
+              <div class="td-proj-line">${p.stage ? '단계 · ' + escapeAttr(p.stage) : '단계 미정'}</div>
+              <div class="td-proj-line next">${p.next_action ? '다음 · ' + escapeAttr(p.next_action) : '다음 액션 미정'}
+                ${p.next_action_due ? `<span class="td-proj-due">${escapeAttr(p.next_action_due)}</span>` : ''}</div>
+              ${p.blocker ? `<div class="td-proj-block">⚠ ${escapeAttr(p.blocker)}</div>` : ''}
+            </div>`).join('')}
+        </div>`;
+    }).join('') || '<div class="td-empty">등록된 프로젝트가 없습니다.</div>';
+
+    // 전휘원 데일리 현황
+    const jwToday = tdOf('전휘원').filter((t) => tdDue(t) === today);
+    const counted = jwToday.filter((t) => t.status !== '해당없음');
+    const staffDone = counted.filter((t) => t.status === '확인완료' || t.status === '검수대기').length;
+    const checked = jwToday.filter((t) => t.status !== '할일').length;
+    const pct = (a, b) => (b ? Math.round(a / b * 100) : 0);
+    const jwLate = tdOpenNow(tdOf('전휘원')).filter(tdLate).length;
+    const jwReview = jwToday.filter((t) => t.status === '검수대기').length;
+    const dailyHtml = `
+      <div class="td-daily" onclick="tdGoAssignee('전휘원')">
+        <div class="td-daily-row">
+          <span>오늘 필수 업무 완료율</span>
+          <span class="td-daily-bar"><i style="width:${pct(staffDone, counted.length)}%"></i></span>
+          <b>${pct(staffDone, counted.length)}%</b>
+        </div>
+        <div class="td-daily-row">
+          <span>발생 여부 체크 완료율</span>
+          <span class="td-daily-bar"><i class="blue" style="width:${pct(checked, jwToday.length)}%"></i></span>
+          <b>${pct(checked, jwToday.length)}%</b>
+        </div>
+        <div class="td-daily-grid">
+          <div><span>담당자 완료</span><b class="green">${staffDone}건</b></div>
+          <div><span>파트장 확인 필요</span><b class="${jwReview ? 'orange' : ''}">${jwReview}건</b></div>
+          <div><span>지연 업무</span><b class="${jwLate ? 'red' : ''}">${jwLate}건</b></div>
+          <div><span>오늘 업무</span><b>${jwToday.length}건</b></div>
+        </div>
+      </div>`;
+
+    root.innerHTML = `
+      <section class="kpi-row td-kpi-row">${kpi}</section>
+      <div class="td-grid">
+        <section class="panel td-w wide">
+          <div class="panel-head"><h2>담당자별 업무 현황</h2></div>
+          ${tableHtml}
+        </section>
+        <section class="panel td-w">
+          <div class="panel-head"><h2>담당자별 업무 분포</h2></div>
+          ${barHtml}
+        </section>
+        <section class="panel td-w wide">
+          <div class="panel-head"><h2>이번 주 마감</h2><span class="panel-note">${week[0]} ~ ${week[1]}</span></div>
+          <div class="td-cal">${calHtml}</div>
+        </section>
+        <section class="panel td-w">
+          <div class="panel-head"><h2>병목 · 대기 업무</h2><span class="panel-note">${blocked.length}건</span></div>
+          ${blockedHtml}
+        </section>
+        <section class="panel td-w">
+          <div class="panel-head"><h2>프로젝트별 현황</h2><span class="panel-note">윤효선</span></div>
+          <div class="td-proj-wrap">${projHtml}</div>
+        </section>
+        <section class="panel td-w">
+          <div class="panel-head"><h2>전휘원 데일리 업무</h2><span class="panel-note">${today}</span></div>
+          ${dailyHtml}
+        </section>
+        <section class="panel td-w wide">
+          <div class="panel-head"><h2>최근 업데이트</h2></div>
+          ${feedHtml}
+        </section>
+      </div>`;
+  }
 
   // ==================== 긴급 확인 메모지 ====================
   // 업무와 상관없이 "급히 알아봐야 할 것"을 전휘원 화면 맨 위에 붙여 둡니다.
