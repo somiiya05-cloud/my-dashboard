@@ -3171,7 +3171,10 @@
       renderTaskView();
       loadTeamTasks();
     }
-    if (view === 'team-dashboard') loadTeamTasks();   // 받아온 뒤 renderTeamDash 가 그립니다
+    if (view === 'team-dashboard') {
+      loadTeamTasks();     // 받아온 뒤 renderTeamDash 가 그립니다
+      tnOnDashboardShown();
+    }
     if (view === 'team-calendar') { renderTeamCal(); loadTeamEvents().then(renderTeamCal); loadTeamTasks(); }
     if (view === 'team-weekly') loadTeamTasks();
     if (view === 'weekly-report') loadWeeklyReports();
@@ -5184,6 +5187,7 @@
     tnError = error ? error.message : '';
     tnNotices = error ? [] : (data || []);
     renderNoticeBar();
+    tnOnDashboardShown();
   }
 
   function renderNoticeBar() {
@@ -5193,11 +5197,43 @@
     bar.innerHTML = `★ 영업팀 공지사항 ★${n ? `<span class="tn-count">${n}</span>` : ''}`;
   }
 
+  // 팀 대시보드를 열면 공지를 한 번 띄웁니다. 다만
+  //  · 같은 내용이면 다시 띄우지 않고 (이미 본 공지를 또 보여주지 않게)
+  //  · 하루에 한 번만 띄웁니다 (들락날락할 때마다 뜨지 않게)
+  // 본 기록은 이 브라우저에만 남습니다.
+  const TN_SEEN_KEY = 'tnSeen';
+
+  function tnSignature() {
+    return tnNotices.map((n) => n.id + ':' + String(n.body || '').length).join('|');
+  }
+  function tnReadSeen() {
+    try { return JSON.parse(localStorage.getItem(TN_SEEN_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function tnMarkSeen() {
+    try { localStorage.setItem(TN_SEEN_KEY, JSON.stringify({ date: jwTodayKST(), sig: tnSignature() })); } catch (e) {}
+  }
+
+  function tnMaybeAutoOpen() {
+    if (!tnNotices.length) return;
+    const seen = tnReadSeen();
+    if (seen.sig === tnSignature()) return;   // 같은 내용은 다시 띄우지 않습니다
+    if (seen.date === jwTodayKST()) return;   // 하루에 한 번만
+    tnOpen();
+  }
+
+  // 팀 대시보드 화면이 떠 있을 때만 자동으로 띄웁니다.
+  function tnOnDashboardShown() {
+    const view = document.getElementById('teamDashView');
+    if (!view || getComputedStyle(view).display === 'none') return;
+    tnMaybeAutoOpen();
+  }
+
   function tnOpen() {
     const ov = document.getElementById('tnOverlay');
     if (!ov) return;
     ov.style.display = 'flex';
     renderNoticeBody();
+    tnMarkSeen();   // 한 번 본 것으로 기록합니다 (직접 눌러서 열었을 때도)
   }
   window.tnOpen = tnOpen;
 
