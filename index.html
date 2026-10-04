@@ -8177,6 +8177,9 @@
   };
   const MP_FEE_FALLBACK = 15;
   const MP_SHIPPING_DEFAULT = 3000;
+  // 자사몰·스마트스토어는 유료배송이라 고객이 배송비를 냅니다. 이 몰들은 배송비를 빼지 않습니다.
+  const MP_PAID_SHIPPING_MALLS = new Set(['코드니처 자사몰', '명퉤 자사몰', '스마트스토어']);
+  const mpShipFor = (mall) => (MP_PAID_SHIPPING_MALLS.has(mall) ? 0 : mpSettings.shipping);
   const MP_STORE_KEY = 'mallProfitSettings';
   let mpBrand = '코드니처';
   let mpOnlyLoss = false;
@@ -8279,15 +8282,16 @@
       ${malls.map((m) => `
         <label class="mp-set-item${mpSettings.fees[m] != null ? ' edited' : ''}">${escapeAttr(m)}
           <input type="text" inputmode="decimal" value="${mpFeePct(m)}" onchange="setMpFee(${escapeAttr(jsStr(m))}, this.value)">%</label>`).join('')}
-      <label class="mp-set-item">배송비
+      <label class="mp-set-item" title="자사몰·스마트스토어는 유료배송이라 빼지 않습니다">배송비(무료배송 몰)
         <input type="text" inputmode="numeric" style="width:58px" value="${ship}" onchange="setMpShipping(this.value)">원</label>`;
 
     const calc = (price, mall, cost) => {
       const fee = price * mpFeePct(mall) / 100;
       const expense = price * SKU_EXPENSE_PCT / 100;
       const vat = price * SKU_VAT_PCT / 100;
-      const profit = price - cost - ship - fee - expense - vat;
-      return { fee, expense, vat, profit, rate: price > 0 ? profit / price * 100 : 0 };
+      const shipCost = mpShipFor(mall);
+      const profit = price - cost - shipCost - fee - expense - vat;
+      return { shipCost, fee, expense, vat, profit, rate: price > 0 ? profit / price * 100 : 0 };
     };
 
     const rows = built.rows.map((r) => {
@@ -8341,7 +8345,7 @@
       const unit = (String(cell.memo || '').match(/구성 ([^·]+?)\s*(?:·|$)/) || [])[1];
       const unitHtml = unit && unit !== '다름'
         ? `<span class="mp-warn" title="원가는 자사몰 구성 기준입니다. 이 몰 구성이 다르면 손익이 틀립니다.">⚠ ${escapeAttr(unit)} 기준</span>` : '';
-      const tip = `판매가 ${won(cell.price)}\n원가 ${won(r.costInfo.cost)}\n배송비 ${won(ship)}\n수수료 ${mpFeePct(m)}% ${won(v.fee)}\n경비 ${SKU_EXPENSE_PCT}% ${won(v.expense)}\n부가세 ${SKU_VAT_PCT}% ${won(v.vat)}`;
+      const tip = `판매가 ${won(cell.price)}\n원가 ${won(r.costInfo.cost)}\n배송비 ${v.shipCost ? won(v.shipCost) : '0원 (유료배송)'}\n수수료 ${mpFeePct(m)}% ${won(v.fee)}\n경비 ${SKU_EXPENSE_PCT}% ${won(v.expense)}\n부가세 ${SKU_VAT_PCT}% ${won(v.vat)}`;
       return `<td class="msp-cell mp-cell${v.profit < 0 ? ' loss' : ''}" title="${escapeAttr(tip)}">
         <span class="mp-price">${won(cell.price)}</span>
         <span class="mp-profit">${v.profit < 0 ? '−' : ''}${won(Math.abs(v.profit))}</span>
@@ -8356,7 +8360,7 @@
 
     box.innerHTML = `
       <div class="msp-legend">칸마다 <b>위: 판매가</b>, <b>가운데: 1개 팔 때 손익</b>, <b>아래: 손익률</b>입니다. 칸에 마우스를 올리면 계산 내역이 보입니다.
-        손익 = 판매가 − 원가 − 배송비 − 몰 수수료 − 경비 ${SKU_EXPENSE_PCT}% − 부가세 ${SKU_VAT_PCT}% (SKU손익과 같은 식). <span class="high">빨간 칸</span>은 적자입니다.
+        손익 = 판매가 − 원가 − 배송비 − 몰 수수료 − 경비 ${SKU_EXPENSE_PCT}% − 부가세 ${SKU_VAT_PCT}% (SKU손익과 같은 식). 자사몰·스마트스토어는 유료배송이라 배송비를 빼지 않습니다. <span class="high">빨간 칸</span>은 적자입니다.
         수수료율은 위에서 고칠 수 있습니다(고친 값은 이 브라우저에 기억합니다). 공동구매는 공구 정산 계산에서 봅니다.</div>
       <table class="msp-table">
         <thead><tr><th style="text-align:left">상품</th><th>원가</th>${malls.map((m) => `<th>${escapeAttr(m)}<span class="mp-th-fee">수수료 ${mpFeePct(m)}%</span></th>`).join('')}</tr></thead>
