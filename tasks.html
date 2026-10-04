@@ -931,6 +931,60 @@
   .jw-next-text { font-size: 12.5px; font-weight: 700; color: #0f172a; }
   .jw-next-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 
+  /* ---- 팀 캘린더 ---- */
+  .tc-nav { margin-left: auto; display: flex; gap: 6px; }
+  .tc-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+  .tc-head { margin-bottom: 6px; }
+  .tc-dow { font-size: 11px; font-weight: 800; color: #94a3b8; text-align: center; padding: 4px 0; }
+  .tc-dow.sat { color: #2563eb; } .tc-dow.sun { color: #dc2626; }
+  .tc-day {
+    min-height: 104px; border: 1px solid #eef2f7; border-radius: 10px; background: #fff;
+    padding: 6px 7px; cursor: pointer; overflow: hidden;
+  }
+  .tc-day:hover { border-color: #cbd5e1; }
+  .tc-day.out { background: #fbfcfe; opacity: .55; }
+  .tc-day.today { border-color: rgba(77,124,254,.5); background: #f5f8ff; }
+  .tc-day.sel { border-color: #4d7cfe; box-shadow: 0 0 0 2px rgba(77,124,254,.15); }
+  .tc-day-head { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+  .tc-dnum { font-size: 12px; font-weight: 800; color: #334155; }
+  .tc-dnum.sat { color: #2563eb; } .tc-dnum.sun { color: #dc2626; }
+  .tc-routine {
+    margin-left: auto; font-size: 9.5px; font-weight: 800; color: #64748b;
+    background: #f1f5f9; border-radius: 999px; padding: 1px 6px;
+  }
+  .tc-item {
+    display: flex; align-items: center; gap: 4px; font-size: 10.5px; color: #334155;
+    background: #f8fafc; border-radius: 6px; padding: 2px 5px; margin-bottom: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tc-item i { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .tc-item i.hs { background: #7c3aed; } .tc-item i.hw { background: #4d7cfe; }
+  .tc-item.project, .tc-item.meeting { background: #f5f3ff; color: #5b21b6; }
+  .tc-item.late { background: #fef2f2; color: #b91c1c; }
+  .tc-item.done { color: #94a3b8; text-decoration: line-through; }
+  .tc-more { font-size: 9.5px; color: #94a3b8; }
+  .tc-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 10.5px; color: #64748b; }
+  .tc-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+  .tc-legend i.hs { background: #7c3aed; } .tc-legend i.hw { background: #4d7cfe; } .tc-legend i.pj { background: #a78bfa; }
+  .tc-legend .hint { margin-left: auto; color: #94a3b8; }
+
+  .tc-daylist { margin-top: 14px; border-top: 1px solid #eef2f7; padding-top: 12px; }
+  .tc-daylist-head { font-size: 12.5px; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+  .tc-daylist-sub { font-size: 10.5px; font-weight: 800; color: #94a3b8; margin: 10px 0 6px; }
+  .tc-row {
+    display: flex; align-items: center; gap: 9px; padding: 7px 10px; margin-bottom: 5px;
+    border: 1px solid #eef2f7; border-radius: 9px; cursor: pointer;
+  }
+  .tc-row:hover { border-color: #4d7cfe; }
+  .tc-row.late { border-color: rgba(220,38,38,.25); background: #fef8f8; }
+  .tc-row.done .tc-title { color: #94a3b8; text-decoration: line-through; }
+  .tc-row.project, .tc-row.meeting { background: #faf8ff; }
+  .tc-who { font-size: 10.5px; font-weight: 800; flex-shrink: 0; min-width: 44px; }
+  .tc-who.hs { color: #6d28d9; } .tc-who.hw { color: #1d4ed8; }
+  .tc-title { flex: 1; font-size: 12.5px; color: #0f172a; }
+  .tc-title b { color: #6d28d9; font-weight: 700; }
+  .tc-state { font-size: 10.5px; color: #94a3b8; flex-shrink: 0; }
+
   /* ---- 팀 대시보드 (위젯형 현황판) ---- */
   .td-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start; }
   .td-w { margin: 0; }
@@ -2240,6 +2294,9 @@
           <div class="nav-item" id="navTeamDash" onclick="switchView('team-dashboard')">
             <span class="dot dot-task"></span>팀 대시보드
           </div>
+          <div class="nav-item" id="navTeamCal" onclick="switchView('team-calendar')">
+            <span class="dot dot-task"></span>팀 캘린더
+          </div>
           <!-- "할일 관리"(담당자별 업무 현황 + 주의가 필요한 업무) 메뉴는 뺐습니다.
                팀 대시보드가 같은 내용을 더 자세히 보여줍니다. 담당자 화면만 남깁니다. -->
           <div class="nav-label nav-sublabel">담당자</div>
@@ -2733,6 +2790,20 @@
       <div id="teamDashBody"></div>
     </main>
 
+    <!-- 팀 캘린더 — 두 사람의 업무·프로젝트 일정을 달력으로 (renderTeamCal 이 채웁니다) -->
+    <main class="main" id="teamCalView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>팀 캘린더</h1>
+          <div class="subtitle">영업팀 업무와 프로젝트 일정을 달력으로 봅니다.</div>
+        </div>
+        <div class="topbar-right">
+          <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+        </div>
+      </div>
+      <div id="teamCalBody"></div>
+    </main>
+
     <main class="main" id="weeklyReportView" style="display:none">
       <div class="topbar">
         <div>
@@ -2948,6 +3019,7 @@
     (document.getElementById('teamProcessView') || { style: {} }).style.display = view === 'team-process' ? '' : 'none';
     (document.getElementById('teamTasksView') || { style: {} }).style.display = view === 'team-tasks' ? '' : 'none';
     (document.getElementById('teamDashView') || { style: {} }).style.display = view === 'team-dashboard' ? '' : 'none';
+    (document.getElementById('teamCalView') || { style: {} }).style.display = view === 'team-calendar' ? '' : 'none';
     (document.getElementById('teamWeeklyView') || { style: {} }).style.display = view === 'team-weekly' ? '' : 'none';
     (document.getElementById('weeklyReportView') || { style: {} }).style.display = view === 'weekly-report' ? '' : 'none';
     (document.getElementById('teamScheduleView') || { style: {} }).style.display = view === 'team-schedule' ? '' : 'none';
@@ -2965,6 +3037,7 @@
     (document.getElementById('navTeamProcess') || { classList: { toggle() {}, add() {}, remove() {} } }).classList.toggle('active', view === 'team-process');
     (document.getElementById('navTeamTasks') || { classList: { toggle() {}, add() {}, remove() {} } }).classList.toggle('active', view === 'team-tasks');
     (document.getElementById('navTeamDash') || { classList: { toggle() {}, add() {}, remove() {} } }).classList.toggle('active', view === 'team-dashboard');
+    (document.getElementById('navTeamCal') || { classList: { toggle() {}, add() {}, remove() {} } }).classList.toggle('active', view === 'team-calendar');
     // 주차별 진행 업무 메뉴는 지금 화면에 없습니다(되살리면 다시 동작).
     const weeklyNav = document.getElementById('navTeamWeekly');
     if (weeklyNav) weeklyNav.classList.toggle('active', view === 'team-weekly');
@@ -3035,6 +3108,7 @@
       loadTeamTasks();
     }
     if (view === 'team-dashboard') loadTeamTasks();   // 받아온 뒤 renderTeamDash 가 그립니다
+    if (view === 'team-calendar') { renderTeamCal(); loadTeamTasks(); }
     if (view === 'team-weekly') loadTeamTasks();
     if (view === 'weekly-report') loadWeeklyReports();
     if (view === 'team-schedule') loadTeamSchedule();
@@ -3592,6 +3666,7 @@
     jwLoading = false;
     renderTaskView();
     renderTeamDash();   // 팀 대시보드도 같은 데이터를 씁니다
+    renderTeamCal();    // 팀 캘린더도 같은 데이터를 씁니다
     renderTaskWeeklyAssigneeChips();
     renderTaskWeeklyTable();
   }
@@ -5030,6 +5105,158 @@
     renderJwProjects();
   }
   window.jwArchiveProject = jwArchiveProject;
+
+  // ==================== 팀 캘린더 ====================
+  // 영업팀 두 사람의 일을 달력 한 장에 올립니다. 새로 저장하는 건 없고
+  // 이미 받아둔 업무(team_tasks)와 프로젝트(team_projects)를 날짜별로 늘어놓습니다.
+  //
+  // 전휘원 데일리 루틴은 하루 20건이 넘어서 그대로 깔면 달력이 묻힙니다.
+  // 그래서 루틴은 "루틴 N" 배지 하나로 접고, 그 밖의 업무와 프로젝트 일정만 줄로 보여줍니다.
+  const tcCursor = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1 }; })();
+  let tcSelected = '';          // 눌러서 펼쳐둔 날짜
+
+  function tcMonthKey() { return tcCursor.y + '-' + String(tcCursor.m).padStart(2, '0'); }
+
+  function tcMoveMonth(step) {
+    let y = tcCursor.y;
+    let m = tcCursor.m + step;
+    if (m < 1) { m = 12; y -= 1; }
+    if (m > 12) { m = 1; y += 1; }
+    tcCursor.y = y; tcCursor.m = m; tcSelected = '';
+    renderTeamCal();
+  }
+  window.tcMoveMonth = tcMoveMonth;
+
+  function tcGoToday() {
+    const d = new Date();
+    tcCursor.y = d.getFullYear(); tcCursor.m = d.getMonth() + 1;
+    tcSelected = jwTodayKST();
+    renderTeamCal();
+  }
+  window.tcGoToday = tcGoToday;
+
+  function tcSelectDay(date) {
+    tcSelected = (tcSelected === date) ? '' : date;
+    renderTeamCal();
+  }
+  window.tcSelectDay = tcSelectDay;
+
+  // 하루치 항목 — 업무와 프로젝트를 한 갈래로 모읍니다.
+  function tcItemsOf(date) {
+    const items = [];
+    currentTasks.forEach((t) => {
+      if (!t.due_date || String(t.due_date).slice(0, 10) !== date) return;
+      if (t.archived_at && t.status === '확인완료') return;   // 끝나서 치운 건 달력에서 뺍니다
+      items.push({
+        kind: 'task', id: t.id, who: t.assignee || '', title: t.title || '',
+        status: t.status,
+        routine: t.assignee === JW_ASSIGNEE && JW_ROUTINE_TITLES.has(t.title),
+        done: t.status === '확인완료',
+        late: ['할일', '진행중', '검수대기'].includes(t.status) && date < jwTodayKST(),
+      });
+    });
+    jwProjects.forEach((p) => {
+      if (String(p.next_action_due || '').slice(0, 10) === date && p.next_action) {
+        items.push({ kind: 'project', id: p.id, who: p.owner || '', title: p.next_action,
+          sub: p.name, status: p.status, routine: false, done: p.status === '완료', late: date < jwTodayKST() });
+      }
+      if (String(p.next_meeting || '').slice(0, 10) === date) {
+        items.push({ kind: 'meeting', id: p.id, who: p.owner || '', title: '회의 · 보고',
+          sub: p.name, status: p.status, routine: false, done: false, late: false });
+      }
+    });
+    return items;
+  }
+
+  function tcDayCellHtml(date, inMonth) {
+    const today = jwTodayKST();
+    const items = tcItemsOf(date);
+    const routine = items.filter((x) => x.routine);
+    const rest = items.filter((x) => !x.routine);
+    const show = rest.slice(0, 3);
+    const dow = new Date(date + 'T00:00:00Z').getUTCDay();
+    return `
+      <div class="tc-day${inMonth ? '' : ' out'}${date === today ? ' today' : ''}${date === tcSelected ? ' sel' : ''}"
+        onclick="tcSelectDay('${date}')">
+        <div class="tc-day-head">
+          <span class="tc-dnum${dow === 0 ? ' sun' : (dow === 6 ? ' sat' : '')}">${Number(date.slice(8))}</span>
+          ${routine.length ? `<span class="tc-routine">루틴 ${routine.length}</span>` : ''}
+        </div>
+        ${show.map((x) => `
+          <div class="tc-item ${x.kind}${x.done ? ' done' : ''}${x.late ? ' late' : ''}"
+            title="${escapeAttr(x.who)} · ${escapeAttr(x.sub ? x.sub + ' — ' : '')}${escapeAttr(x.title)}">
+            <i class="${x.who === '윤효선' ? 'hs' : 'hw'}"></i>${escapeAttr(x.title)}
+          </div>`).join('')}
+        ${rest.length > show.length ? `<div class="tc-more">+${rest.length - show.length}건</div>` : ''}
+      </div>`;
+  }
+
+  function tcDayListHtml() {
+    if (!tcSelected) return '';
+    const items = tcItemsOf(tcSelected);
+    if (!items.length) {
+      return `<div class="tc-daylist"><div class="tc-daylist-head">${tcSelected}</div>
+        <div class="jw-task-empty">이 날 잡힌 일이 없습니다.</div></div>`;
+    }
+    const line = (x) => `
+      <div class="tc-row ${x.kind}${x.done ? ' done' : ''}${x.late ? ' late' : ''}"
+        onclick="${x.kind === 'task' ? 'tdGoTask(' + x.id + ')' : 'tdGoProject(' + x.id + ')'}">
+        <span class="tc-who ${x.who === '윤효선' ? 'hs' : 'hw'}">${escapeAttr(x.who)}</span>
+        <span class="tc-title">${x.sub ? `<b>${escapeAttr(x.sub)}</b> ` : ''}${escapeAttr(x.title)}</span>
+        <span class="tc-state">${escapeAttr(x.kind === 'meeting' ? '회의·보고' : x.status)}</span>
+      </div>`;
+    const rest = items.filter((x) => !x.routine);
+    const routine = items.filter((x) => x.routine);
+    return `
+      <div class="tc-daylist">
+        <div class="tc-daylist-head">${tcSelected} · ${items.length}건</div>
+        ${rest.map(line).join('')}
+        ${routine.length ? `<div class="tc-daylist-sub">전휘원 데일리 루틴 ${routine.length}건</div>${routine.map(line).join('')}` : ''}
+      </div>`;
+  }
+
+  function renderTeamCal() {
+    const root = document.getElementById('teamCalBody');
+    if (!root) return;
+    const first = tcMonthKey() + '-01';
+    const firstDow = (new Date(first + 'T00:00:00Z').getUTCDay() + 6) % 7;   // 월=0
+    const start = jwAddDays(first, -firstDow);
+    const days = [];
+    for (let i = 0; i < 42; i++) days.push(jwAddDays(start, i));
+    const names = ['월', '화', '수', '목', '금', '토', '일'];
+
+    // 이 달에 잡힌 일 세기 (루틴 제외)
+    let mine = 0;
+    let other = 0;
+    days.filter((d) => d.slice(0, 7) === tcMonthKey()).forEach((d) => {
+      tcItemsOf(d).forEach((x) => {
+        if (x.routine) return;
+        if (x.who === '윤효선') mine += 1; else other += 1;
+      });
+    });
+
+    root.innerHTML = `
+      <section class="panel">
+        <div class="panel-head">
+          <h2>${tcCursor.y}년 ${tcCursor.m}월</h2>
+          <span class="panel-note">윤효선 ${mine}건 · 전휘원 ${other}건 (루틴 제외)</span>
+          <span class="tc-nav">
+            <button type="button" class="jw-proj-btn" onclick="tcMoveMonth(-1)">‹ 지난달</button>
+            <button type="button" class="jw-proj-btn" onclick="tcGoToday()">오늘</button>
+            <button type="button" class="jw-proj-btn" onclick="tcMoveMonth(1)">다음달 ›</button>
+          </span>
+        </div>
+        <div class="tc-grid tc-head">${names.map((n, i) => `<div class="tc-dow${i === 6 ? ' sun' : (i === 5 ? ' sat' : '')}">${n}</div>`).join('')}</div>
+        <div class="tc-grid">${days.map((d) => tcDayCellHtml(d, d.slice(0, 7) === tcMonthKey())).join('')}</div>
+        <div class="tc-legend">
+          <span><i class="hs"></i>윤효선</span>
+          <span><i class="hw"></i>전휘원</span>
+          <span><i class="pj"></i>프로젝트 액션 · 회의</span>
+          <span class="hint">날짜를 누르면 그 날 일정이 아래에 펼쳐집니다</span>
+        </div>
+        ${tcDayListHtml()}
+      </section>`;
+  }
 
   // ==================== 팀 대시보드 ====================
   // 개인 할 일 화면과 달리, 영업팀 두 사람의 업무를 모아 "지금 팀이 어떤 상태인지"만
