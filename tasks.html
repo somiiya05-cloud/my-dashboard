@@ -854,6 +854,49 @@
   .td-empty { font-size: 12px; color: #94a3b8; padding: 14px 2px; }
   .td-note { font-size: 10.5px; color: #94a3b8; margin-top: 8px; line-height: 1.5; }
 
+  /* 간트 차트 — 며칠에 걸쳐 가는 일만 막대로 */
+  .td-gantt { position: relative; }
+  .td-gantt-head, .td-gantt-row { display: flex; align-items: center; gap: 0; }
+  .td-gantt-head { height: 22px; margin-bottom: 6px; }
+  .td-gantt-name {
+    width: 190px; flex-shrink: 0; padding-right: 10px; font-size: 12px; color: #334155;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .td-gantt-name .who {
+    display: inline-block; font-size: 9.5px; font-weight: 800; border-radius: 5px;
+    padding: 1px 5px; margin-right: 6px; vertical-align: 1px;
+  }
+  .td-gantt-name .who.task { background: #e0ecff; color: #1d4ed8; }
+  .td-gantt-name .who.project { background: #ede9fe; color: #6d28d9; }
+  .td-gantt-track { position: relative; flex: 1; height: 100%; min-height: 22px; }
+  .td-gantt-head .td-gantt-track { border-bottom: 1px solid #eef2f7; }
+  .td-gantt-tick {
+    position: absolute; top: 2px; font-size: 10px; color: #94a3b8; transform: translateX(-50%);
+    white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
+  .td-gantt-body { max-height: 360px; overflow-y: auto; }
+  .td-gantt-row { height: 28px; cursor: pointer; border-radius: 6px; }
+  .td-gantt-row:hover { background: #f8fafc; }
+  .td-gantt-row:hover .td-gantt-name { color: #1d4ed8; }
+  .td-gantt-bar {
+    position: absolute; top: 5px; height: 18px; border-radius: 999px;
+    display: flex; align-items: center; padding: 0 8px; overflow: hidden;
+    background: #4d7cfe; min-width: 10px;
+  }
+  .td-gantt-bar b { font-size: 9.5px; font-weight: 700; color: #fff; white-space: nowrap; opacity: .95; }
+  .td-gantt-bar.task { background: #4d7cfe; }
+  .td-gantt-bar.proj { background: #7c3aed; }
+  .td-gantt-bar.late { background: #dc2626; }
+  .td-gantt-bar.done { background: #16a34a; }
+  /* 마감일을 아직 안 정한 프로젝트는 끝을 흐리게 둡니다 */
+  .td-gantt-bar.open { background: repeating-linear-gradient(90deg, #7c3aed 0 10px, #a78bfa 10px 20px); }
+  .td-gantt-today { position: absolute; top: 0; bottom: 26px; width: 2px; background: rgba(220,38,38,.45); pointer-events: none; }
+  .td-gantt-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 10.5px; color: #64748b; }
+  .td-gantt-legend i { display: inline-block; width: 14px; height: 8px; border-radius: 999px; margin-right: 5px; vertical-align: 0; }
+  .td-gantt-legend i.task { background: #4d7cfe; } .td-gantt-legend i.proj { background: #7c3aed; }
+  .td-gantt-legend i.late { background: #dc2626; } .td-gantt-legend i.done { background: #16a34a; }
+  .td-gantt-legend .todayhint { margin-left: auto; color: #94a3b8; }
+
   /* 담당자별 현황 표 */
   .td-table { width: 100%; border-collapse: collapse; }
   .td-table th, .td-table td { padding: 9px 8px; font-size: 12.5px; border-bottom: 1px solid #f1f5f9; text-align: left; }
@@ -4807,6 +4850,124 @@
     return d.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' });
   }
 
+  // ---- 간트 차트 ----
+  // 며칠에 걸쳐 가는 일만 막대로 봅니다.
+  //   · 전휘원 「이어가기」 업무 — 같은 업무명 줄이 여러 날짜에 걸쳐 있는 것
+  //   · 윤효선 프로젝트형 업무 — 시작(만든 날)부터 다음 액션 마감일까지
+  // 하루짜리 체크 업무까지 넣으면 막대가 수백 개라 못 봅니다. 그래서 뺍니다.
+  function tdGanttItems() {
+    const today = jwTodayKST();
+    const out = [];
+
+    // 전휘원 이어가기 — 같은 (담당자 + 업무명) 줄 묶음
+    // 히스토리로 넘어간 줄(archived)도 같이 봅니다 — 안 그러면 막대가 중간부터 시작합니다.
+    const groups = {};
+    currentTasks
+      .filter((t) => t.assignee === JW_ASSIGNEE && t.due_date && !JW_ROUTINE_TITLES.has(t.title))
+      .forEach((t) => {
+        const key = t.title;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(t);
+      });
+    Object.keys(groups).forEach((title) => {
+      const rows = groups[title].sort((a, b) => tdDue(a).localeCompare(tdDue(b)));
+      if (rows.length < 2) return;                 // 하루짜리는 간트에 올리지 않습니다
+      const start = tdDue(rows[0]);
+      const end = tdDue(rows[rows.length - 1]);
+      const done = rows.filter((t) => t.status === '확인완료').length;
+      const openRow = rows.find((t) => tdIsOpen(t)) || rows[rows.length - 1];
+      // 이미 끝났고 날짜도 지난 묶음은 올리지 않습니다 (지난 9월치까지 다 나오면 못 봅니다)
+      // 히스토리로 넘어간 줄은 이미 정리된 것으로 봅니다(그래야 담당자별 표의 지연 건수와 맞습니다)
+      if (!rows.some((t) => tdIsOpen(t) && !t.archived_at) && end < today) return;
+      out.push({
+        kind: 'task', id: openRow.id, who: JW_ASSIGNEE, label: title,
+        start, end, done, total: rows.length,
+        tone: done === rows.length ? 'done' : (end < today ? 'late' : 'task'),
+        sub: done + '/' + rows.length + '일 완료',
+      });
+    });
+
+    // 윤효선 프로젝트 — 끝난 건은 빼고 진행 중인 것만
+    jwProjects.filter((x) => x.status !== '완료').forEach((p) => {
+      const start = String(p.created_at || '').slice(0, 10) || today;
+      const end = String(p.next_action_due || '').slice(0, 10) || today;
+      out.push({
+        kind: 'project', id: p.id, who: p.owner, label: p.name,
+        start: start < end ? start : end, end: end > start ? end : start,
+        tone: p.status === '완료' ? 'done'
+          : (['병목', '외부 대기'].includes(p.status) ? 'late' : 'proj'),
+        sub: p.status + (p.next_action_due ? '' : ' · 마감일 미정'),
+        open: !p.next_action_due,
+      });
+    });
+
+    return out.sort((a, b) => a.start.localeCompare(b.start) || a.label.localeCompare(b.label, 'ko'));
+  }
+
+  function tdDaysBetween(a, b) {
+    return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
+  }
+
+  function tdGanttHtml() {
+    const items = tdGanttItems();
+    if (!items.length) return '<div class="td-empty">여러 날에 걸친 업무가 없습니다.</div>';
+    const today = jwTodayKST();
+
+    // 보이는 기간 — 업무들이 걸쳐 있는 범위에 앞뒤 여유를 조금 둡니다.
+    let from = items.reduce((m, x) => (x.start < m ? x.start : m), items[0].start);
+    let to = items.reduce((m, x) => (x.end > m ? x.end : m), items[0].end);
+    if (from > today) from = today;
+    if (to < today) to = today;
+    from = jwAddDays(from, -2);
+    to = jwAddDays(to, 2);
+    const span = Math.max(1, tdDaysBetween(from, to) + 1);
+    const pos = (d) => (tdDaysBetween(from, d) / span) * 100;
+
+    // 눈금 — 7~12개쯤 되도록 간격을 잡습니다
+    const step = Math.max(1, Math.ceil(span / 10));
+    const ticks = [];
+    for (let i = 0; i < span; i += step) {
+      const d = jwAddDays(from, i);
+      ticks.push(`<span class="td-gantt-tick" style="left:${(i / span) * 100}%">${d.slice(5).replace('-', '/')}</span>`);
+    }
+
+    return `
+      <div class="td-gantt">
+        <div class="td-gantt-head">
+          <div class="td-gantt-name"></div>
+          <div class="td-gantt-track">${ticks.join('')}</div>
+        </div>
+        <div class="td-gantt-body">
+          ${items.map((x) => {
+            const left = pos(x.start);
+            const width = Math.max(1.2, (tdDaysBetween(x.start, x.end) + 1) / span * 100);
+            const go = x.kind === 'project' ? 'tdGoProject(' + x.id + ')' : 'tdGoTask(' + x.id + ')';
+            return `
+              <div class="td-gantt-row" onclick="${go}">
+                <div class="td-gantt-name" title="${escapeAttr(x.who)} · ${escapeAttr(x.label)}">
+                  <span class="who ${x.kind}">${escapeAttr(x.who)}</span>${escapeAttr(x.label)}
+                </div>
+                <div class="td-gantt-track">
+                  <span class="td-gantt-bar ${x.tone}${x.open ? ' open' : ''}"
+                    style="left:${left}%; width:${width}%"
+                    title="${escapeAttr(x.start)} ~ ${escapeAttr(x.end)} · ${escapeAttr(x.sub)}">
+                    <b>${escapeAttr(x.sub)}</b>
+                  </span>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+        <div class="td-gantt-today" style="left:calc(190px + (100% - 190px) * ${pos(today) / 100})"></div>
+        <div class="td-gantt-legend">
+          <span><i class="task"></i>전휘원 이어가기</span>
+          <span><i class="proj"></i>윤효선 프로젝트</span>
+          <span><i class="late"></i>지연 · 병목</span>
+          <span><i class="done"></i>완료</span>
+          <span class="todayhint">세로선 = 오늘(${today.slice(5).replace('-', '/')})</span>
+        </div>
+      </div>`;
+  }
+
   // ---- 눌렀을 때 이동 ----
   // 이동할 화면이 그리기 전에 펼칠 것을 먼저 정해둬야 바로 열린 채로 뜹니다.
   function tdGoAssignee(name) { switchView('team-tasks', name); }
@@ -4986,6 +5147,10 @@
       </div>`;
 
     root.innerHTML = `
+      <section class="panel td-w" style="margin-bottom:16px;">
+        <div class="panel-head"><h2>진행 일정</h2><span class="panel-note">여러 날에 걸친 업무만</span></div>
+        ${tdGanttHtml()}
+      </section>
       <div class="td-grid">
         <section class="panel td-w wide">
           <div class="panel-head"><h2>담당자별 업무 현황</h2></div>
