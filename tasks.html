@@ -735,13 +735,19 @@
   .jw-proj-card.stuck { border-color: rgba(217,119,6,.4); background: #fffaf3; }
   .jw-proj-card.done { opacity: .62; }
   .jw-proj-head { display: flex; align-items: flex-start; gap: 8px; }
-  /* 프로젝트명은 카드에서 가장 먼저 읽혀야 해서 테두리를 두르고 키웠습니다 */
+  /* 프로젝트명은 카드에서 가장 먼저 읽혀야 해서 테두리를 두릅니다.
+     대분류 라벨을 뺐으므로 상자 색으로 어느 갈래인지 알아보게 했습니다. */
   .jw-proj-name {
-    align-self: flex-start; font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.35;
-    border: 1.5px solid #cbd5e1; border-radius: 9px; padding: 7px 13px; background: #fff;
+    align-self: flex-start; font-size: 15.5px; font-weight: 800; color: #0f172a; line-height: 1.35;
+    border: 1.5px solid #cbd5e1; border-radius: 9px; padding: 6px 12px; background: #fff;
   }
-  .jw-proj-card.stuck .jw-proj-name { border-color: rgba(217,119,6,.45); }
-  .jw-proj-card.done .jw-proj-name { border-color: #e2e8f0; color: #64748b; }
+  .jw-proj-name.c1 { border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }  /* 이커머스 판매채널계획 */
+  .jw-proj-name.c2 { border-color: #f9a8d4; background: #fdf2f8; color: #be185d; }  /* 공동구매 관리 */
+  .jw-proj-name.c3 { border-color: #7dd3fc; background: #f0f9ff; color: #0369a1; }  /* B2B */
+  .jw-proj-name.c4 { border-color: #86efac; background: #f0fdf4; color: #15803d; }  /* 수출 */
+  .jw-proj-name.c5 { border-color: #fcd34d; background: #fffbeb; color: #b45309; }  /* 광고 관리 */
+  .jw-proj-name.c6 { border-color: #c4b5fd; background: #f5f3ff; color: #6d28d9; }  /* 대만 시딩 */
+  .jw-proj-name.c7 { border-color: #fda4af; background: #fff1f2; color: #be123c; }  /* 큐텐 */
   .jw-proj-badge {
     margin-left: auto; flex-shrink: 0; font-size: 10.5px; font-weight: 800;
     border-radius: 999px; padding: 3px 9px; white-space: nowrap;
@@ -4648,7 +4654,7 @@
           ${stale ? `<span class="jw-proj-stale" title="${staleDays}일째 손대지 않았습니다">${staleDays}일 미업데이트</span>` : ''}
           <span class="jw-proj-badge ${cls}">${escapeAttr(p.status)}</span>
         </div>
-        <div class="jw-proj-name">${escapeAttr(p.name || '(이름 없음)')}</div>
+        <div class="jw-proj-name ${JW_PROJECT_CATEGORY_CLS[String(p.category || '').trim()] || ''}">${escapeAttr(p.name || '(이름 없음)')}</div>
         ${p.purpose ? `<div class="jw-proj-line"><b>목적</b>${escapeAttr(p.purpose)}</div>` : ''}
         ${p.stage ? `<div class="jw-proj-line"><b>현재 단계</b>${escapeAttr(p.stage)}</div>` : ''}
         ${p.next_action ? `
