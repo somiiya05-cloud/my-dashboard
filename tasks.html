@@ -808,6 +808,27 @@
   .jw-proj-btn.main { border-color: rgba(77,124,254,.4); color: #2f5ce4; background: #f5f8ff; }
   .jw-proj-btn.main:hover { background: #e8efff; }
 
+  /* 채널별 매출 계획 트래커 */
+  .ct-table { width: 100%; border-collapse: collapse; }
+  .ct-table th, .ct-table td { border: 1px solid #e7edf5; padding: 7px 9px; font-size: 12.5px; text-align: left; }
+  .ct-table th { background: #edf2fb; color: #1f3864; font-weight: 800; white-space: nowrap; }
+  .ct-table th.num, .ct-table td.num { text-align: right; }
+  .ct-table td.ct-ch { font-weight: 800; color: #0f172a; white-space: nowrap; }
+  .ct-table tfoot td { background: #f8fafc; font-weight: 800; color: #1f3864; }
+  .ct-share { color: #64748b; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ct-num, .ct-text, .ct-sel {
+    width: 100%; border: 1px solid transparent; border-radius: 7px; background: transparent;
+    font-family: inherit; font-size: 12.5px; padding: 4px 6px; color: #0f172a;
+  }
+  .ct-num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+  .ct-num:hover, .ct-text:hover, .ct-sel:hover { border-color: #e2e8f0; background: #fff; }
+  .ct-num:focus, .ct-text:focus, .ct-sel:focus { outline: none; border-color: #4d7cfe; background: #fff; }
+  .ct-sel { cursor: pointer; }
+  .ct-sel.st-진행중 { color: #1d4ed8; font-weight: 700; }
+  .ct-sel.st-완료 { color: #15803d; font-weight: 700; }
+  .ct-sel.st-보류 { color: #b45309; font-weight: 700; }
+  .ct-hint { font-size: 11px; color: #94a3b8; margin-top: 10px; }
+
   /* 업무분장 — 역할·업무 분장표를 탭으로 봅니다 */
   .jw-duty-tabs { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: 14px; }
   .jw-duty-tab {
@@ -2887,6 +2908,20 @@
       <div id="teamDashBody"></div>
     </main>
 
+    <!-- 채널별 매출 계획 트래커 — 프로젝트 카드의 [트래커] 로 들어옵니다 -->
+    <main class="main" id="channelTrackerView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>채널별 매출 계획</h1>
+          <div class="subtitle">몰마다 이번 달 목표 매출과 운영 액션을 적어둡니다.</div>
+        </div>
+        <div class="topbar-right">
+          <button type="button" class="btn-ghost" onclick="switchView('team-tasks','윤효선')">← 할일 관리로</button>
+        </div>
+      </div>
+      <div id="channelTrackerBody"></div>
+    </main>
+
     <!-- 업무분장 — 역할·업무 분장표 (renderJwDuty 가 채웁니다) -->
     <main class="main" id="teamDutyView" style="display:none">
       <div class="topbar">
@@ -3138,6 +3173,7 @@
     (document.getElementById('teamDashView') || { style: {} }).style.display = view === 'team-dashboard' ? '' : 'none';
     (document.getElementById('teamCalView') || { style: {} }).style.display = view === 'team-calendar' ? '' : 'none';
     (document.getElementById('teamDutyView') || { style: {} }).style.display = view === 'team-duty' ? '' : 'none';
+    (document.getElementById('channelTrackerView') || { style: {} }).style.display = view === 'channel-tracker' ? '' : 'none';
     (document.getElementById('teamWeeklyView') || { style: {} }).style.display = view === 'team-weekly' ? '' : 'none';
     (document.getElementById('weeklyReportView') || { style: {} }).style.display = view === 'weekly-report' ? '' : 'none';
     (document.getElementById('teamScheduleView') || { style: {} }).style.display = view === 'team-schedule' ? '' : 'none';
@@ -3232,6 +3268,7 @@
     }
     if (view === 'team-calendar') { renderTeamCal(); loadTeamEvents().then(renderTeamCal); loadTeamTasks(); }
     if (view === 'team-duty') renderJwDuty();
+    if (view === 'channel-tracker') { renderChannelTracker(); loadChannelTargets(); }
     if (view === 'team-weekly') loadTeamTasks();
     if (view === 'weekly-report') loadWeeklyReports();
     if (view === 'team-schedule') loadTeamSchedule();
@@ -4718,6 +4755,7 @@
           <span class="jw-proj-pct">${Math.max(0, Math.min(100, Number(p.progress || 0)))}%</span>
         </div>
         <div class="jw-proj-btns">
+          ${p.tracker === 'channel' ? '<button type="button" class="jw-proj-btn main" onclick="switchView(\'channel-tracker\')">트래커 열기</button>' : ''}
           <button type="button" class="jw-proj-btn" onclick="jwToggleProjDetail(${p.id})">${open ? '접기' : '상세보기'}</button>
           <button type="button" class="jw-proj-btn" onclick="jwOpenProjectPanel(${p.id})">수정</button>
         </div>
@@ -4787,6 +4825,173 @@
     renderJwProjects();
   }
   window.jwAddProjNote = jwAddProjNote;
+
+  // ==================== 채널별 매출 계획 트래커 ====================
+  // 「채널별 매출 계획 수립」 프로젝트에서 [트래커] 를 누르면 열립니다.
+  // 몰마다 한 줄, 달마다 따로 기록합니다 (channel_targets).
+  const CT_DEFAULT_CHANNELS = ['쿠팡', '스마트스토어', '톡딜', '컬리', '오픈마켓'];
+  const CT_STATUSES = ['계획', '진행중', '완료', '보류'];
+  const CT_OWNERS = ['윤효선', '전휘원'];
+
+  let ctMonth = jwTodayKST().slice(0, 7);
+  let ctRows = [];
+  let ctError = '';
+
+  function ctMoveMonth(step) {
+    const [y, m] = ctMonth.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + step, 1));
+    ctMonth = d.toISOString().slice(0, 7);
+    loadChannelTargets();
+  }
+  window.ctMoveMonth = ctMoveMonth;
+
+  async function loadChannelTargets() {
+    const { data, error } = await client.from('channel_targets')
+      .select('*').eq('month', ctMonth).order('sort_no').order('id');
+    ctError = error ? error.message : '';
+    ctRows = error ? [] : (data || []);
+    renderChannelTracker();
+  }
+
+  function ctWon(n) {
+    const v = Number(n || 0);
+    return v ? v.toLocaleString('ko-KR') : '0';
+  }
+
+  // 그 달에 줄이 하나도 없으면 기본 채널을 깔아 줍니다.
+  async function ctSeedMonth() {
+    const rows = CT_DEFAULT_CHANNELS.map((c, i) => ({ month: ctMonth, channel: c, sort_no: i }));
+    const { error } = await client.from('channel_targets').insert(rows);
+    if (error) {
+      alert('채널을 만들지 못했습니다: ' + error.message
+        + '\n\nchannel_targets.sql 을 Supabase에서 실행했는지 확인해주세요.');
+      return;
+    }
+    loadChannelTargets();
+  }
+  window.ctSeedMonth = ctSeedMonth;
+
+  // 지난달에 적어둔 채널과 목표를 그대로 가져옵니다 (액션·메모는 비우고 시작).
+  async function ctCopyPrevMonth() {
+    const [y, m] = ctMonth.split('-').map(Number);
+    const prev = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7);
+    const { data, error } = await client.from('channel_targets').select('*').eq('month', prev).order('sort_no');
+    if (error) { alert('지난달을 불러오지 못했습니다: ' + error.message); return; }
+    if (!data || !data.length) { alert(prev + ' 에 적어둔 채널이 없습니다.'); return; }
+    const rows = data.map((r, i) => ({
+      month: ctMonth, channel: r.channel, target_amount: r.target_amount,
+      owner: r.owner, status: '계획', sort_no: r.sort_no != null ? r.sort_no : i,
+    }));
+    const { error: insErr } = await client.from('channel_targets').insert(rows);
+    if (insErr) { alert('가져오지 못했습니다: ' + insErr.message); return; }
+    loadChannelTargets();
+  }
+  window.ctCopyPrevMonth = ctCopyPrevMonth;
+
+  async function ctAddChannel() {
+    let name = null;
+    try { name = prompt('추가할 채널 이름을 적어주세요 (예: 오늘의집)'); } catch (e) { return; }
+    if (name === null) return;
+    const channel = name.trim();
+    if (!channel) return;
+    const { error } = await client.from('channel_targets')
+      .insert({ month: ctMonth, channel, sort_no: ctRows.length });
+    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+    loadChannelTargets();
+  }
+  window.ctAddChannel = ctAddChannel;
+
+  async function ctDelete(id) {
+    if (!confirm('이 채널 줄을 지울까요?')) return;
+    const { error } = await client.from('channel_targets').delete().eq('id', id);
+    if (error) { alert('지우지 못했습니다: ' + error.message); return; }
+    loadChannelTargets();
+  }
+  window.ctDelete = ctDelete;
+
+  // 칸을 고치면 그 자리에서 저장합니다.
+  async function ctSave(id, field, value) {
+    const row = ctRows.find((r) => r.id === id);
+    if (!row) return;
+    let v = value;
+    if (field === 'target_amount') v = Number(String(value).replace(/[^0-9-]/g, '') || 0);
+    if (row[field] === v) return;
+    const { error } = await client.from('channel_targets')
+      .update({ [field]: v, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
+    row[field] = v;
+    if (field === 'target_amount' || field === 'status') renderChannelTracker();
+  }
+  window.ctSave = ctSave;
+
+  function renderChannelTracker() {
+    const root = document.getElementById('channelTrackerBody');
+    if (!root) return;
+    const label = ctMonth.replace('-', '년 ') + '월';
+
+    if (ctError) {
+      root.innerHTML = `<section class="panel"><div class="td-empty">
+        트래커를 불러오지 못했습니다 — channel_targets.sql 을 Supabase에서 실행해주세요.</div></section>`;
+      return;
+    }
+
+    const total = ctRows.reduce((n, r) => n + Number(r.target_amount || 0), 0);
+    const body = ctRows.length ? ctRows.map((r) => `
+      <tr>
+        <td class="ct-ch">${escapeAttr(r.channel)}</td>
+        <td class="num"><input type="text" class="ct-num" value="${ctWon(r.target_amount)}"
+          onblur="ctSave(${r.id}, 'target_amount', this.value)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></td>
+        <td class="num ct-share">${total ? Math.round(Number(r.target_amount || 0) / total * 100) + '%' : '-'}</td>
+        <td><input type="text" class="ct-text" value="${escapeAttr(r.action || '')}" placeholder="이번 달 운영 액션"
+          onblur="ctSave(${r.id}, 'action', this.value)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></td>
+        <td><select class="ct-sel" onchange="ctSave(${r.id}, 'owner', this.value)">
+          <option value="">-</option>
+          ${CT_OWNERS.map((o) => `<option value="${o}" ${o === (r.owner || '') ? 'selected' : ''}>${o}</option>`).join('')}
+        </select></td>
+        <td><select class="ct-sel st-${escapeAttr(r.status)}" onchange="ctSave(${r.id}, 'status', this.value)">
+          ${CT_STATUSES.map((st) => `<option value="${st}" ${st === r.status ? 'selected' : ''}>${st}</option>`).join('')}
+        </select></td>
+        <td><input type="text" class="ct-text" value="${escapeAttr(r.memo || '')}" placeholder="메모"
+          onblur="ctSave(${r.id}, 'memo', this.value)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></td>
+        <td><button type="button" class="jw-mytask-btn del" title="이 줄을 지웁니다" onclick="ctDelete(${r.id})">✕</button></td>
+      </tr>`).join('') : '';
+
+    root.innerHTML = `
+      <section class="panel">
+        <div class="panel-head">
+          <h2>${label} 채널별 목표</h2>
+          <span class="panel-note">${ctRows.length}개 채널 · 목표 합계 ${ctWon(total)}원</span>
+          <span class="tc-nav">
+            <button type="button" class="jw-proj-btn" onclick="ctMoveMonth(-1)">‹ 지난달</button>
+            <button type="button" class="jw-proj-btn" onclick="ctMoveMonth(1)">다음달 ›</button>
+            <button type="button" class="jw-proj-btn" onclick="ctCopyPrevMonth()">지난달 가져오기</button>
+            <button type="button" class="jw-proj-btn main" onclick="ctAddChannel()">+ 채널 추가</button>
+          </span>
+        </div>
+        ${ctRows.length ? `
+          <table class="ct-table">
+            <thead>
+              <tr>
+                <th>채널</th><th class="num">목표 매출</th><th class="num">비중</th>
+                <th>운영 액션</th><th>담당</th><th>상태</th><th>메모</th><th></th>
+              </tr>
+            </thead>
+            <tbody>${body}</tbody>
+            <tfoot>
+              <tr><td class="ct-ch">합계</td><td class="num">${ctWon(total)}</td><td class="num">100%</td>
+                  <td colspan="5"></td></tr>
+            </tfoot>
+          </table>
+          <div class="ct-hint">칸을 눌러 바로 고치면 저장됩니다. 목표 매출은 숫자만 적으면 됩니다.</div>`
+        : `<div class="td-empty">${label}에 적어둔 채널이 없습니다.
+            <button type="button" class="jw-proj-btn main" style="margin-left:8px;" onclick="ctSeedMonth()">기본 채널 5개 만들기</button>
+            <button type="button" class="jw-proj-btn" style="margin-left:4px;" onclick="ctCopyPrevMonth()">지난달 가져오기</button>
+          </div>`}
+      </section>`;
+  }
 
   // ==================== 업무분장 ====================
   // 영업팀 역할·업무 분장표(엑셀로 만든 것)를 화면에도 올려 둡니다.
