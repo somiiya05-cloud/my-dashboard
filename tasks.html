@@ -813,22 +813,30 @@
   .ct-dot.c4 { background: #16a34a; } .ct-dot.c5 { background: #f59e0b; } .ct-dot.c6 { background: #7c3aed; }
   .ct-dot.c7 { background: #ef4444; }
 
-  /* 채널별 운영 보드 — 채널이 칸, 업무가 카드 */
-  .cb-board { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; align-items: flex-start; }
-  .cb-col {
-    flex: 0 0 272px; background: #f6f8fc; border: 1px solid #e7edf5; border-radius: 12px;
-    padding: 10px; min-height: 120px;
+  /* 채널별 운영 보드 — 왼쪽에 채널, 위에 세 달. 칸마다 카드를 적습니다 */
+  .cb-grid-wrap { overflow-x: auto; }
+  .cb-grid {
+    display: grid; grid-template-columns: 170px repeat(3, minmax(230px, 1fr));
+    border: 1px solid #e3e9f2; border-radius: 12px; overflow: hidden; min-width: 880px;
+    background: #e3e9f2; gap: 1px;
   }
-  .cb-col.over { border-color: #4d7cfe; background: #eff4ff; }
-  .cb-col-head { display: flex; align-items: center; gap: 7px; padding: 2px 4px 9px; }
+  .cb-h {
+    background: #edf2fb; color: #1f3864; font-size: 13px; font-weight: 800;
+    text-align: center; padding: 10px 8px;
+  }
+  .cb-h.cb-h-ch { text-align: left; }
+  .cb-h.now { background: #dfe9ff; }
+  .cb-rowhead {
+    background: #fbfcfe; display: flex; align-items: center; gap: 7px; padding: 10px 11px;
+  }
   .cb-col-name { font-size: 13px; font-weight: 800; color: #0f172a; }
-  .cb-col-del {
-    border: 0; background: transparent; color: #cbd5e1; cursor: pointer;
-    font-family: inherit; font-size: 11px; padding: 2px 3px;
-  }
+  .cb-col-cnt { margin-left: auto; font-size: 11px; font-weight: 800; color: #64748b; background: #fff; border: 1px solid #e7edf5; border-radius: 999px; padding: 1px 7px; }
+  .cb-col-del { border: 0; background: transparent; color: #cbd5e1; cursor: pointer; font-family: inherit; font-size: 11px; padding: 2px; }
   .cb-col-del:hover { color: #dc2626; }
-  .cb-col-cnt { margin-left: auto; font-size: 11px; font-weight: 800; color: #64748b; background: #fff; border-radius: 999px; padding: 2px 8px; }
-  .cb-col-body { display: flex; flex-direction: column; gap: 7px; }
+  .cb-cell { background: #fff; padding: 8px; min-height: 92px; display: flex; flex-direction: column; gap: 6px; }
+  .cb-cell.now { background: #fbfcff; }
+  .cb-cell.over { background: #eff4ff; box-shadow: inset 0 0 0 2px #4d7cfe; }
+
   .cb-card {
     background: #fff; border: 1px solid #e7edf5; border-radius: 10px; padding: 7px 9px;
     box-shadow: 0 1px 2px rgba(15,23,42,.04); position: relative;
@@ -842,7 +850,6 @@
   .cb-card.done { background: #f8fdfa; border-color: rgba(22,163,74,.25); }
   .cb-card.done .cb-body { color: #94a3b8; text-decoration: line-through; }
   .cb-card.late { border-color: rgba(220,38,38,.3); background: #fef8f8; }
-  /* 카드 대부분이 글 쓰는 칸이라, 위에 잡는 줄을 따로 둡니다 (글쓰기와 끌기가 안 엉키게) */
   .cb-grip {
     height: 14px; margin: -2px -3px 4px; border-radius: 6px; cursor: grab;
     color: #cbd5e1; font-size: 10px; line-height: 14px; text-align: center; letter-spacing: 2px;
@@ -872,11 +879,11 @@
   .cb-mini.on { background: #16a34a; border-color: #16a34a; color: #fff; }
   .cb-mini.del:hover { border-color: rgba(220,38,38,.4); color: #dc2626; }
   .cb-add {
-    border: 1px dashed #cbd5e1; background: transparent; color: #94a3b8;
-    font-family: inherit; font-size: 11.5px; font-weight: 700;
-    border-radius: 9px; padding: 7px; cursor: pointer; width: 100%;
+    border: 1px dashed #dbe3ee; background: transparent; color: #b6c2d2;
+    font-family: inherit; font-size: 12px; font-weight: 700;
+    border-radius: 8px; padding: 5px; cursor: pointer; width: 100%; margin-top: auto;
   }
-  .cb-add:hover { border-color: #4d7cfe; color: #2f5ce4; background: #fff; }
+  .cb-add:hover { border-color: #4d7cfe; color: #2f5ce4; background: #f8fbff; }
 
   /* 업무분장 — 역할·업무 분장표를 탭으로 봅니다 */
   .jw-duty-tabs { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: 14px; }
@@ -4979,41 +4986,42 @@
   }
   window.ctDeleteChannel = ctDeleteChannel;
 
-  // ---- 채널별 운영 보드 (노션 보드처럼) ----
-  // 채널마다 칸이 하나씩, 그 안에 업무 카드를 적고 끌어서 옮깁니다 (channel_board).
-  // 칸 목록은 분기 목표(channel_targets)의 채널을 그대로 씁니다.
+  // ---- 채널 × 달 격자 보드 ----
+  // 왼쪽에 판매채널을 일렬로, 위에 그 분기 세 달(4분기면 10 · 11 · 12월)을 놓고
+  // 칸마다 업무 카드를 적습니다. 카드는 칸 사이로 끌어 옮길 수 있습니다.
   let cbCards = [];
   let cbError = '';
-  let cbDragId = null;
-  let cbDragArmed = false;
 
   async function loadChannelBoard() {
     const { data, error } = await client.from('channel_board')
-      .select('*').order('channel').order('sort_no').order('id');
+      .select('*').order('channel').order('month').order('sort_no').order('id');
     cbError = error ? error.message : '';
     cbCards = error ? [] : (data || []);
   }
 
-  function cbOf(channel) {
-    return cbCards.filter((c) => c.channel === channel)
+  // 달 칸이 비어 있는 카드는 그 분기 첫 달 칸에서 봅니다.
+  function cbMonthOf(c) { return String(c.month || ctMonths()[0]).slice(0, 7); }
+
+  function cbOf(channel, month) {
+    return cbCards
+      .filter((c) => c.channel === channel && (month == null || cbMonthOf(c) === month))
       .sort((a, b) => (a.sort_no - b.sort_no) || (a.id - b.id));
   }
 
-  async function cbAdd(channel) {
-    const n = cbOf(channel).length;
+  async function cbAdd(channel, month) {
+    const n = cbOf(channel, month).length;
     const { data, error } = await client.from('channel_board')
-      .insert({ channel, body: '', sort_no: n }).select();
+      .insert({ channel, month, body: '', sort_no: n }).select();
     if (error) {
       alert('카드를 넣지 못했습니다: ' + error.message
-        + '\n\nchannel_board.sql 을 Supabase에서 실행했는지 확인해주세요.');
+        + '\n\nchannel_board.sql 과 channel_board_month.sql 을 실행했는지 확인해주세요.');
       return;
     }
     await loadChannelBoard();
     renderChannelTracker();
-    // 새로 만든 카드에 바로 쓸 수 있게 커서를 둡니다.
     const id = data && data[0] && data[0].id;
     const el = id && document.getElementById('cbBody' + id);
-    if (el) { el.focus(); }
+    if (el) el.focus();
   }
   window.cbAdd = cbAdd;
 
@@ -5032,7 +5040,6 @@
 
   async function cbDelete(id) {
     const card = cbCards.find((c) => c.id === id);
-    // 빈 카드는 묻지 않고 바로 지웁니다.
     if (card && String(card.body || '').trim() && !confirm('이 카드를 지울까요?')) return;
     const { error } = await client.from('channel_board').delete().eq('id', id);
     if (error) { alert('지우지 못했습니다: ' + error.message); return; }
@@ -5042,18 +5049,16 @@
   window.cbDelete = cbDelete;
 
   // ---- 끌어서 옮기기 ----
-  // 브라우저 기본 끌기(HTML5 drag)는 글 쓰는 칸이 있는 카드에서 잘 안 잡혀서,
-  // 마우스 좌표를 직접 따라가는 방식으로 만들었습니다.
+  // 브라우저 기본 끌기는 글 쓰는 칸이 있는 카드에서 잘 안 잡혀서, 마우스를 직접 따라갑니다.
   let cbDrag = null;
 
-  function cbCardAtPoint(x, y) {
+  function cbCellAtPoint(x, y) {
     const el = document.elementFromPoint(x, y);
-    return el ? el.closest('.cb-col') : null;
+    return el ? el.closest('.cb-cell') : null;
   }
 
   function cbPointerDown(e, id) {
     if (e.button !== 0) return;
-    // 글을 쓰거나 고르는 칸을 누른 것이면 끌지 않습니다.
     if (e.target && e.target.closest('textarea, input, select, button')) return;
     const el = e.currentTarget.closest ? e.currentTarget.closest('.cb-card') : null;
     if (!el) return;
@@ -5067,7 +5072,6 @@
   function cbPointerMove(e) {
     if (!cbDrag) return;
     if (!cbDrag.moved) {
-      // 살짝 눌린 것만으로 끌리지 않게 조금 움직였을 때부터 시작합니다.
       if (Math.abs(e.clientX - cbDrag.startX) + Math.abs(e.clientY - cbDrag.startY) < 5) return;
       cbDrag.moved = true;
       const r = cbDrag.el.getBoundingClientRect();
@@ -5082,9 +5086,9 @@
     }
     cbDrag.ghost.style.left = (e.clientX - cbDrag.offX) + 'px';
     cbDrag.ghost.style.top = (e.clientY - cbDrag.offY) + 'px';
-    const col = cbCardAtPoint(e.clientX, e.clientY);
-    document.querySelectorAll('.cb-col.over').forEach((x) => x.classList.remove('over'));
-    if (col) col.classList.add('over');
+    const cell = cbCellAtPoint(e.clientX, e.clientY);
+    document.querySelectorAll('.cb-cell.over').forEach((x) => x.classList.remove('over'));
+    if (cell) cell.classList.add('over');
   }
 
   async function cbPointerUp(e) {
@@ -5095,41 +5099,41 @@
     if (!d) return;
     if (d.ghost) d.ghost.remove();
     d.el.classList.remove('dragging');
-    document.querySelectorAll('.cb-col.over').forEach((x) => x.classList.remove('over'));
+    document.querySelectorAll('.cb-cell.over').forEach((x) => x.classList.remove('over'));
     if (!d.moved) return;
 
-    const col = cbCardAtPoint(e.clientX, e.clientY);
-    if (!col) return;
-    const channel = col.dataset.ch;
-    // 커서가 어느 카드의 위쪽 절반에 있으면 그 앞자리로 들어갑니다.
+    const cell = cbCellAtPoint(e.clientX, e.clientY);
+    if (!cell) return;
     let beforeId = null;
-    [...col.querySelectorAll('.cb-card')].forEach((c) => {
+    [...cell.querySelectorAll('.cb-card')].forEach((c) => {
       const cid = Number(c.dataset.id);
       if (cid === d.id || beforeId != null) return;
       const r = c.getBoundingClientRect();
       if (e.clientY < r.top + r.height / 2) beforeId = cid;
     });
-    await cbApplyMove(d.id, channel, beforeId);
+    await cbApplyMove(d.id, cell.dataset.ch, cell.dataset.m, beforeId);
   }
 
-  async function cbApplyMove(id, channel, beforeId) {
+  async function cbApplyMove(id, channel, month, beforeId) {
     const moving = cbCards.find((c) => c.id === id);
     if (!moving) return;
     const fromCh = moving.channel;
-    const rest = cbOf(channel).filter((c) => c.id !== moving.id);
-    const at = beforeId == null ? rest.length : Math.max(0, rest.findIndex((c) => c.id === beforeId));
+    const fromM = cbMonthOf(moving);
+    const rest = cbOf(channel, month).filter((c) => c.id !== moving.id);
+    const at = beforeId == null ? rest.length : rest.findIndex((c) => c.id === beforeId);
     rest.splice(at < 0 ? rest.length : at, 0, moving);
 
     moving.channel = channel;
+    moving.month = month;
     rest.forEach((c, i) => { c.sort_no = i; });
     renderChannelTracker();
 
     for (let i = 0; i < rest.length; i++) {
       await client.from('channel_board')
-        .update({ sort_no: i, channel, updated_at: new Date().toISOString() }).eq('id', rest[i].id);
+        .update({ sort_no: i, channel, month, updated_at: new Date().toISOString() }).eq('id', rest[i].id);
     }
-    if (fromCh !== channel) {
-      const left = cbOf(fromCh);
+    if (fromCh !== channel || fromM !== month) {
+      const left = cbOf(fromCh, fromM);
       for (let i = 0; i < left.length; i++) {
         left[i].sort_no = i;
         await client.from('channel_board').update({ sort_no: i }).eq('id', left[i].id);
@@ -5164,10 +5168,7 @@
     el.style.height = (el.scrollHeight + 2) + 'px';
   }
   window.cbGrow = cbGrow;
-
-  function cbGrowAll() {
-    document.querySelectorAll('.cb-body').forEach(cbGrow);
-  }
+  function cbGrowAll() { document.querySelectorAll('.cb-body').forEach(cbGrow); }
 
   function renderChannelTracker() {
     const root = document.getElementById('channelTrackerBody');
@@ -5181,47 +5182,64 @@
     cbGrowAll();
   }
 
-  // 보드 — 채널마다 칸 하나, 카드를 끌어서 옮깁니다.
   function cbBoardHtml(channels) {
     if (cbError) {
       return `<section class="panel"><div class="td-empty">
         보드를 불러오지 못했습니다 — channel_board.sql 을 Supabase에서 실행해주세요.</div></section>`;
     }
+    const months = ctMonths();
+    const thisMonth = jwTodayKST().slice(0, 7);
     if (!channels.length) {
       return `<section class="panel"><div class="td-empty">아직 채널이 없습니다.
         <button type="button" class="jw-proj-btn main" style="margin-left:8px;" onclick="ctSeedQuarter()">기본 채널 5개 만들기</button>
         </div></section>`;
     }
     return `
-      <section class="panel cb-panel">
+      <section class="panel">
         <div class="panel-head">
-          <h2>채널별 운영 보드</h2>
-          <span class="panel-note">카드를 끌어서 채널 사이로 옮길 수 있습니다</span>
-          <button type="button" class="jw-proj-btn main" style="margin-left:auto;" onclick="ctAddChannel()">+ 채널 추가</button>
+          <h2>${ctQ.y}년 ${ctQ.q}분기</h2>
+          <span class="panel-note">${channels.length}개 채널 · 카드를 끌어서 칸 사이로 옮길 수 있습니다</span>
+          <span class="tc-nav">
+            <button type="button" class="jw-proj-btn" onclick="ctMoveQuarter(-1)">‹ 지난 분기</button>
+            <button type="button" class="jw-proj-btn" onclick="ctMoveQuarter(1)">다음 분기 ›</button>
+            <button type="button" class="jw-proj-btn main" onclick="ctAddChannel()">+ 채널 추가</button>
+          </span>
         </div>
-        <div class="cb-board">
-          ${channels.map((ch, i) => {
-            const cards = cbOf(ch);
-            const left = cards.filter((c) => !c.done).length;
-            const key = escapeAttr(ch).replace(/'/g, '&#39;');
-            return `
-              <div class="cb-col" data-ch="${escapeAttr(ch)}">
-                <div class="cb-col-head">
+        <div class="cb-grid-wrap">
+          <div class="cb-grid">
+            <div class="cb-h cb-h-ch">판매채널</div>
+            ${months.map((m) => `<div class="cb-h${m === thisMonth ? ' now' : ''}">${Number(m.slice(5))}월</div>`).join('')}
+            ${channels.map((ch, i) => {
+              const key = escapeAttr(ch).replace(/'/g, '&#39;');
+              const left = cbOf(ch, null).filter((c) => !c.done).length;
+              return `
+                <div class="cb-rowhead">
                   <span class="ct-dot ${CT_COLORS[i % CT_COLORS.length]}"></span>
                   <span class="cb-col-name">${escapeAttr(ch)}</span>
                   <span class="cb-col-cnt">${left}</span>
-                  <button type="button" class="cb-col-del" title="이 채널 칸을 지웁니다"
+                  <button type="button" class="cb-col-del" title="이 채널 줄을 지웁니다"
                     onclick="ctDeleteChannel('${key}')">✕</button>
                 </div>
-                <div class="cb-col-body">
-                  ${cards.map(cbCardHtml).join('')}
-                  <button type="button" class="cb-add" onclick="cbAdd('${key}')">+ 추가</button>
-                </div>
-              </div>`;
-          }).join('')}
+                ${months.map((m) => `
+                  <div class="cb-cell${m === thisMonth ? ' now' : ''}" data-ch="${escapeAttr(ch)}" data-m="${m}">
+                    ${cbOf(ch, m).map(cbCardHtml).join('')}
+                    <button type="button" class="cb-add" onclick="cbAdd('${key}', '${m}')">+</button>
+                  </div>`).join('')}`;
+            }).join('')}
+          </div>
         </div>
       </section>`;
   }
+
+  function ctMoveQuarter(step) {
+    let { y, q } = ctQ;
+    q += step;
+    if (q < 1) { q = 4; y -= 1; }
+    if (q > 4) { q = 1; y += 1; }
+    ctQ.y = y; ctQ.q = q;
+    loadChannelTargets();
+  }
+  window.ctMoveQuarter = ctMoveQuarter;
 
   // ==================== 업무분장 ====================
   // 영업팀 역할·업무 분장표(엑셀로 만든 것)를 화면에도 올려 둡니다.
