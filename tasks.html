@@ -991,7 +991,14 @@
     border: 1px solid #e2e8f0; border-radius: 9px; padding: 7px 10px;
     font-family: inherit; font-size: 12.5px;
   }
-  .tc-add input { flex: 1; min-width: 0; }
+  .tc-add input[type="text"] { flex: 1; min-width: 0; }
+  .tc-repeat {
+    display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+    font-size: 11.5px; font-weight: 700; color: #64748b;
+  }
+  .tc-item.event { background: #ecfdf5; color: #047857; font-weight: 700; }
+  .tc-row.event { background: #f0fdf9; border-color: rgba(4,120,87,.18); cursor: default; }
+  .tc-who.ev { color: #047857; }
   .tc-add select { flex-shrink: 0; }
   .tc-add input:focus, .tc-add select:focus { outline: none; border-color: #4d7cfe; }
   .tc-routine {
@@ -3165,7 +3172,7 @@
       loadTeamTasks();
     }
     if (view === 'team-dashboard') loadTeamTasks();   // 받아온 뒤 renderTeamDash 가 그립니다
-    if (view === 'team-calendar') { renderTeamCal(); loadTeamTasks(); }
+    if (view === 'team-calendar') { renderTeamCal(); loadTeamEvents().then(renderTeamCal); loadTeamTasks(); }
     if (view === 'team-weekly') loadTeamTasks();
     if (view === 'weekly-report') loadWeeklyReports();
     if (view === 'team-schedule') loadTeamSchedule();
@@ -5304,6 +5311,90 @@
   };
   function tcHoliday(date) { return KR_HOLIDAYS[date] || ''; }
 
+  // ---- 팀 일정 (회의 · 외근) ----
+  // 할 일이 아니라 일정이라 team_events 에 따로 담습니다.
+  // (할일 표에 넣으면 체크를 안 했다고 "체크 누락"에 잡히고 담당자 목록에도 섞입니다)
+  const TC_EVENT_KINDS = ['주간회의', '외근', '유관부서 미팅', '팀 회의', '월말회의', '기타'];
+  // 매주 같은 요일에 도는 회의 — 반복으로 넣을 때 기본 요일을 잡아줍니다 (월=1 … 금=5)
+  const TC_WEEKLY_KIND = { '주간회의': 1, '팀 회의': 5 };
+  const TC_REPEAT_WEEKS = 12;
+  let tcEvents = [];
+  let tcEventError = '';
+
+  async function loadTeamEvents() {
+    const { data, error } = await client.from('team_events')
+      .select('id,event_date,kind,title,who')
+      .order('event_date');
+    tcEventError = error ? error.message : '';
+    tcEvents = error ? [] : (data || []);
+  }
+
+  function tcEventsOf(date) {
+    return tcEvents.filter((e) => String(e.event_date).slice(0, 10) === date);
+  }
+
+  async function tcAddItem() {
+    const kind = (document.getElementById('tcAddKind') || {}).value || '업무';
+    const who = (document.getElementById('tcAddWho') || {}).value || '';
+    const input = document.getElementById('tcAddTitle');
+    const title = (input && input.value || '').trim();
+    if (!tcSelected) return;
+
+    // 종류가 "업무"면 예전처럼 할일 관리에 한 줄로 들어갑니다.
+    if (kind === '업무') {
+      if (!title) return;
+      const { error } = await client.from('team_tasks').insert({
+        title, assignee: who || TC_MEMBERS[0], status: '할일',
+        due_date: tcSelected, start_date: tcSelected,
+        priority: '보통', category: TC_ADD_CATEGORY,
+      });
+      if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+      if (input) input.value = '';
+      loadTeamTasks();
+      return;
+    }
+
+    // 그 밖에는 일정으로 넣습니다. 매주 도는 회의는 한 번에 여러 주를 만들 수 있습니다.
+    const repeat = !!(document.getElementById('tcAddRepeat') || {}).checked;
+    const rows = [];
+    const base = { kind, title: title || null, who: who || null };
+    rows.push({ ...base, event_date: tcSelected });
+    if (repeat) {
+      for (let i = 1; i < TC_REPEAT_WEEKS; i++) rows.push({ ...base, event_date: jwAddDays(tcSelected, 7 * i) });
+    }
+    const { error } = await client.from('team_events').insert(rows);
+    if (error) {
+      alert('일정을 넣지 못했습니다: ' + error.message
+        + '\n\nteam_events.sql 을 Supabase에서 실행했는지 확인해주세요.');
+      return;
+    }
+    if (input) input.value = '';
+    await loadTeamEvents();
+    renderTeamCal();
+  }
+  window.tcAddItem = tcAddItem;
+
+  async function tcDeleteEvent(id) {
+    if (!confirm('이 일정을 지울까요?')) return;
+    const { error } = await client.from('team_events').delete().eq('id', id);
+    if (error) { alert('지우지 못했습니다: ' + error.message); return; }
+    await loadTeamEvents();
+    renderTeamCal();
+  }
+  window.tcDeleteEvent = tcDeleteEvent;
+
+  // 종류를 고르면 "매주 반복" 칸을 켜고 끕니다 (주간회의·팀 회의에만 씁니다).
+  function tcKindChanged() {
+    const kind = (document.getElementById('tcAddKind') || {}).value || '업무';
+    const wrap = document.getElementById('tcRepeatWrap');
+    if (wrap) wrap.style.display = TC_WEEKLY_KIND[kind] ? '' : 'none';
+    const input = document.getElementById('tcAddTitle');
+    if (input) input.placeholder = kind === '업무'
+      ? tcSelected + ' 에 추가할 업무'
+      : kind + ' 내용 (선택)';
+  }
+  window.tcKindChanged = tcKindChanged;
+
   const tcCursor = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1 }; })();
   let tcSelected = '';          // 눌러서 펼쳐둔 날짜
 
@@ -5339,13 +5430,19 @@
     currentTasks.forEach((t) => {
       if (!t.due_date || String(t.due_date).slice(0, 10) !== date) return;
       if (t.archived_at && t.status === '확인완료') return;   // 끝나서 치운 건 달력에서 뺍니다
+      // 전휘원 데일리 루틴은 하루 20건이 넘어 달력이 묻힙니다. 여기서는 빼고,
+      // 루틴 진행률은 팀 대시보드의 "전휘원 데일리 업무" 위젯에서 봅니다.
+      if (t.assignee === JW_ASSIGNEE && JW_ROUTINE_TITLES.has(t.title)) return;
       items.push({
         kind: 'task', id: t.id, who: t.assignee || '', title: t.title || '',
-        status: t.status,
-        routine: t.assignee === JW_ASSIGNEE && JW_ROUTINE_TITLES.has(t.title),
+        status: t.status, routine: false,
         done: t.status === '확인완료',
         late: ['할일', '진행중', '검수대기'].includes(t.status) && date < jwTodayKST(),
       });
+    });
+    tcEventsOf(date).forEach((e) => {
+      items.push({ kind: 'event', id: e.id, who: e.who || '팀 전체', title: e.kind,
+        sub: e.title || '', status: e.kind, routine: false, done: false, late: false });
     });
     jwProjects.forEach((p) => {
       if (String(p.next_action_due || '').slice(0, 10) === date && p.next_action) {
@@ -5363,8 +5460,7 @@
   function tcDayCellHtml(date, inMonth) {
     const today = jwTodayKST();
     const items = tcItemsOf(date);
-    const routine = items.filter((x) => x.routine);
-    const rest = items.filter((x) => !x.routine);
+    const rest = items;
     const show = rest.slice(0, 3);
     const dow = new Date(date + 'T00:00:00Z').getUTCDay();
     const hol = tcHoliday(date);
@@ -5374,7 +5470,6 @@
         <div class="tc-day-head">
           <span class="tc-dnum${(hol || dow === 0) ? ' sun' : (dow === 6 ? ' sat' : '')}">${Number(date.slice(8))}</span>
           ${hol ? `<span class="tc-hol">${escapeAttr(hol)}</span>` : ''}
-          ${routine.length ? `<span class="tc-routine">루틴 ${routine.length}</span>` : ''}
         </div>
         ${show.map((x) => `
           <div class="tc-item ${x.kind}${x.done ? ' done' : ''}${x.late ? ' late' : ''}"
@@ -5393,30 +5488,47 @@
     // 이 날짜로 일정을 바로 추가하는 칸 (할일 관리에 업무 한 줄로 들어갑니다)
     const addBox = `
       <div class="tc-add">
-        <select id="tcAddWho">${TC_MEMBERS.map((n) => `<option value="${n}">${n}</option>`).join('')}</select>
-        <input type="text" id="tcAddTitle" placeholder="${escapeAttr(tcSelected)} 에 추가할 일정" autocomplete="off"
+        <select id="tcAddKind" onchange="tcKindChanged()">
+          <option value="업무">업무</option>
+          ${TC_EVENT_KINDS.map((k) => `<option value="${k}">${k}</option>`).join('')}
+        </select>
+        <select id="tcAddWho">
+          <option value="">팀 전체</option>
+          ${TC_MEMBERS.map((n) => `<option value="${n}">${n}</option>`).join('')}
+        </select>
+        <input type="text" id="tcAddTitle" placeholder="${escapeAttr(tcSelected)} 에 추가할 업무" autocomplete="off"
           onkeydown="if(event.key==='Enter'){event.preventDefault();tcAddItem();}">
+        <label class="tc-repeat" id="tcRepeatWrap" style="display:none">
+          <input type="checkbox" id="tcAddRepeat" checked>매주
+        </label>
         <button type="button" class="btn-primary" onclick="tcAddItem()">추가</button>
       </div>`;
     if (!items.length) {
       return `<div class="tc-daylist">${head}${addBox}
         <div class="jw-task-empty">이 날 잡힌 일이 없습니다.</div></div>`;
     }
-    const line = (x) => `
-      <div class="tc-row ${x.kind}${x.done ? ' done' : ''}${x.late ? ' late' : ''}"
-        onclick="${x.kind === 'task' ? 'tdGoTask(' + x.id + ')' : 'tdGoProject(' + x.id + ')'}">
-        <span class="tc-who ${x.who === '윤효선' ? 'hs' : 'hw'}">${escapeAttr(x.who)}</span>
-        <span class="tc-title">${x.sub ? `<b>${escapeAttr(x.sub)}</b> ` : ''}${escapeAttr(x.title)}</span>
-        <span class="tc-state">${escapeAttr(x.kind === 'meeting' ? '회의·보고' : x.status)}</span>
-      </div>`;
-    const rest = items.filter((x) => !x.routine);
-    const routine = items.filter((x) => x.routine);
+    const line = (x) => {
+      if (x.kind === 'event') {
+        return `
+          <div class="tc-row event">
+            <span class="tc-who ev">${escapeAttr(x.who)}</span>
+            <span class="tc-title"><b>${escapeAttr(x.title)}</b>${x.sub ? ' ' + escapeAttr(x.sub) : ''}</span>
+            <button type="button" class="tn-mini del" onclick="tcDeleteEvent(${x.id})">지우기</button>
+          </div>`;
+      }
+      return `
+        <div class="tc-row ${x.kind}${x.done ? ' done' : ''}${x.late ? ' late' : ''}"
+          onclick="${x.kind === 'task' ? 'tdGoTask(' + x.id + ')' : 'tdGoProject(' + x.id + ')'}">
+          <span class="tc-who ${x.who === '윤효선' ? 'hs' : 'hw'}">${escapeAttr(x.who)}</span>
+          <span class="tc-title">${x.sub ? `<b>${escapeAttr(x.sub)}</b> ` : ''}${escapeAttr(x.title)}</span>
+          <span class="tc-state">${escapeAttr(x.kind === 'meeting' ? '회의·보고' : x.status)}</span>
+        </div>`;
+    };
     return `
       <div class="tc-daylist">
         ${head}
         ${addBox}
-        ${rest.map(line).join('')}
-        ${routine.length ? `<div class="tc-daylist-sub">전휘원 데일리 루틴 ${routine.length}건</div>${routine.map(line).join('')}` : ''}
+        ${items.map(line).join('')}
       </div>`;
   }
 
@@ -5456,7 +5568,6 @@
     let other = 0;
     days.filter((d) => d.slice(0, 7) === tcMonthKey()).forEach((d) => {
       tcItemsOf(d).forEach((x) => {
-        if (x.routine) return;
         if (x.who === '윤효선') mine += 1; else other += 1;
       });
     });
@@ -5465,7 +5576,7 @@
       <section class="panel">
         <div class="panel-head">
           <h2>${tcCursor.y}년 ${tcCursor.m}월</h2>
-          <span class="panel-note">윤효선 ${mine}건 · 전휘원 ${other}건 (루틴 제외)</span>
+          <span class="panel-note">윤효선 ${mine}건 · 전휘원 ${other}건 (데일리 루틴 제외)</span>
           <span class="tc-nav">
             <button type="button" class="jw-proj-btn" onclick="tcMoveMonth(-1)">‹ 지난달</button>
             <button type="button" class="jw-proj-btn" onclick="tcGoToday()">오늘</button>
@@ -8302,6 +8413,7 @@
     switchView('team-overview');
     ensureTaskAssigneeNav();
     loadTeamNotices();   // 공지사항을 받아 띠에 건수를 띄웁니다
+    loadTeamEvents();    // 팀 캘린더에 올릴 회의·외근 일정
   });
 </script>
 </body>
