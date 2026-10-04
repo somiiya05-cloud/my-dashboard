@@ -711,6 +711,113 @@
   .jw-gb-empty { font-size: 12px; color: #94a3b8; }
   .jw-gb-warn { font-size: 11.5px; color: #b45309; background: rgba(217,119,6,.08); border-radius: 6px; padding: 6px 9px; margin-bottom: 8px; }
 
+  /* ---- 프로젝트형 업무 (윤효선 화면) ---- */
+  /* 몇 달을 끌고 가는 건은 완료/미완료보다 "지금 어느 단계인지 · 다음에 뭘 할지 ·
+     무엇 때문에 멈췄는지"가 보여야 해서, 할 일 목록과 따로 카드로 둡니다. */
+  .jw-proj-kpi { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .jw-proj-kpi .kpi-card { padding: 14px 16px; border-radius: 12px; }
+  .jw-proj-kpi .kpi-label { font-size: 11.5px; font-weight: 700; color: #64748b; }
+  .jw-proj-kpi .kpi-value { font-size: 22px; font-weight: 800; color: #0f172a; margin-top: 4px; }
+  .jw-proj-kpi .kpi-card.warn { border-left: 4px solid #d97706; }
+  .jw-proj-kpi .kpi-card.warn .kpi-value { color: #b45309; }
+  .jw-proj-kpi .kpi-card.danger { border-left: 4px solid #dc2626; }
+  .jw-proj-kpi .kpi-card.danger .kpi-value { color: #dc2626; }
+  .jw-proj-kpi .kpi-card.go { border-left: 4px solid #2563eb; }
+  .jw-proj-kpi .kpi-card.go .kpi-value { color: #1d4ed8; }
+
+  .jw-proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+  .jw-proj-card {
+    border: 1px solid rgba(15,23,42,.1); border-radius: 14px; background: #fff;
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 9px;
+  }
+  .jw-proj-card.stuck { border-color: rgba(217,119,6,.4); background: #fffaf3; }
+  .jw-proj-card.done { opacity: .62; }
+  .jw-proj-head { display: flex; align-items: flex-start; gap: 8px; }
+  .jw-proj-name { font-size: 14px; font-weight: 800; color: #0f172a; line-height: 1.35; }
+  .jw-proj-badge {
+    margin-left: auto; flex-shrink: 0; font-size: 10.5px; font-weight: 800;
+    border-radius: 999px; padding: 3px 9px; white-space: nowrap;
+  }
+  .jw-proj-badge.plan   { background: #eef2ff; color: #4338ca; }
+  .jw-proj-badge.go     { background: #e0ecff; color: #1d4ed8; }
+  .jw-proj-badge.review { background: #fef3c7; color: #b45309; }
+  .jw-proj-badge.wait   { background: #f1f5f9; color: #475569; }
+  .jw-proj-badge.block  { background: #fee2e2; color: #b91c1c; }
+  .jw-proj-badge.done   { background: #dcfce7; color: #15803d; }
+  .jw-proj-badge.hold   { background: #f5f3ff; color: #6d28d9; }
+
+  .jw-proj-line { font-size: 12px; color: #475569; line-height: 1.5; }
+  .jw-proj-line b { color: #94a3b8; font-weight: 700; margin-right: 6px; font-size: 11px; }
+  .jw-proj-next {
+    background: #f8fafc; border: 1px solid rgba(15,23,42,.07); border-radius: 10px;
+    padding: 9px 11px; display: flex; flex-direction: column; gap: 5px;
+  }
+  .jw-proj-next-label { font-size: 10.5px; font-weight: 800; color: #2f5ce4; letter-spacing: .02em; }
+  .jw-proj-next-text { font-size: 12.5px; font-weight: 700; color: #0f172a; line-height: 1.45; }
+  .jw-proj-next-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .jw-proj-due { font-size: 11px; font-weight: 700; color: #64748b; font-variant-numeric: tabular-nums; }
+  .jw-proj-dday { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 7px; background: #e2e8f0; color: #475569; }
+  .jw-proj-dday.soon { background: #fef3c7; color: #b45309; }
+  .jw-proj-dday.over { background: #fee2e2; color: #b91c1c; }
+  .jw-proj-blocker {
+    font-size: 11.5px; color: #b45309; background: #fffbeb;
+    border: 1px solid rgba(217,119,6,.25); border-radius: 8px; padding: 7px 10px; line-height: 1.45;
+  }
+  .jw-proj-foot { display: flex; align-items: center; gap: 8px; }
+  .jw-proj-bar { flex: 1; height: 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+  .jw-proj-bar > i { display: block; height: 100%; background: #4d7cfe; border-radius: 999px; }
+  .jw-proj-pct { font-size: 11px; font-weight: 800; color: #4d7cfe; font-variant-numeric: tabular-nums; }
+  .jw-proj-owner { font-size: 11px; color: #94a3b8; }
+  .jw-proj-owner .stale { color: #b45309; font-weight: 700; }
+  .jw-proj-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .jw-proj-btn {
+    border: 1px solid #e2e8f0; background: #fff; color: #475569;
+    font-family: inherit; font-size: 11.5px; font-weight: 700;
+    border-radius: 999px; padding: 4px 11px; cursor: pointer; white-space: nowrap; flex: 0 0 auto;
+  }
+  .jw-proj-btn:hover { border-color: #94a3b8; color: #0f172a; }
+  .jw-proj-btn.main { border-color: rgba(77,124,254,.4); color: #2f5ce4; background: #f5f8ff; }
+  .jw-proj-btn.main:hover { background: #e8efff; }
+
+  /* 상세보기 — 안의 다섯 칸은 각각 접었다 펼칩니다 */
+  .jw-proj-detail { border-top: 1px dashed #e2e8f0; padding-top: 9px; display: flex; flex-direction: column; gap: 4px; }
+  .jw-proj-fold-head {
+    display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+    font-size: 11.5px; font-weight: 700; color: #475569; padding: 4px 2px;
+  }
+  .jw-proj-fold-head:hover { color: #2563eb; }
+  .jw-proj-fold-head .arrow { color: #94a3b8; font-size: 10px; width: 10px; }
+  .jw-proj-fold-head .cnt { margin-left: auto; font-size: 10.5px; color: #94a3b8; font-weight: 700; }
+  .jw-proj-fold-body { padding: 2px 2px 8px 18px; font-size: 12px; color: #475569; line-height: 1.6; }
+  .jw-proj-fold-body .empty { color: #94a3b8; }
+  .jw-proj-hist { display: flex; gap: 8px; padding: 2px 0; }
+  .jw-proj-hist .d { color: #94a3b8; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .jw-proj-sub { display: flex; gap: 8px; padding: 2px 0; }
+  .jw-proj-sub .s { margin-left: auto; font-size: 10.5px; color: #94a3b8; }
+  .jw-proj-hist-add { display: flex; gap: 6px; margin-top: 6px; }
+  .jw-proj-hist-add input {
+    flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 9px;
+    font-family: inherit; font-size: 12px;
+  }
+  .jw-proj-hist-add input:focus { outline: none; border-color: #4d7cfe; }
+
+  /* 오늘 할 일 맨 위 — 프로젝트마다 "다음 액션" 한 줄씩만 */
+  .jw-next-wrap { margin-bottom: 16px; }
+  .jw-next-title {
+    display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800;
+    color: #2f5ce4; margin-bottom: 9px;
+  }
+  .jw-next-title .cnt { margin-left: auto; font-size: 11px; font-weight: 700; color: #94a3b8; }
+  .jw-next-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    border: 1px solid rgba(77,124,254,.22); border-left: 3px solid #4d7cfe;
+    border-radius: 10px; background: #f8fbff; padding: 9px 12px; margin-bottom: 7px;
+  }
+  .jw-next-row.over { border-color: rgba(220,38,38,.3); border-left-color: #dc2626; background: #fef8f8; }
+  .jw-next-proj { font-size: 11px; font-weight: 800; color: #2f5ce4; flex-shrink: 0; }
+  .jw-next-text { font-size: 12.5px; font-weight: 700; color: #0f172a; }
+  .jw-next-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+
   /* ---- 할일 관리: 현재 업무 / 히스토리 탭 (스크롤해도 화면 상단에 고정) ---- */
   .task-tabs {
     display: flex; margin-bottom: 16px; border-bottom: 1px solid rgba(15,23,42,.07);
@@ -2351,7 +2458,23 @@
           <div id="jwMemoBoard" class="jw-memo-board"></div>
         </div>
 
+        <!-- 프로젝트형 업무 — 오래 끌고 가는 건은 할 일 목록과 따로 둡니다.
+             renderJwProjects 가 채우고, 윤효선처럼 루틴이 없는 화면에서만 보입니다. -->
+        <div id="jwProjectArea" style="display:none">
+          <section class="kpi-row jw-proj-kpi" id="jwProjKpi"></section>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>프로젝트형 업무</h2>
+              <span class="panel-note" id="jwProjNote"></span>
+              <button type="button" class="btn-primary" style="margin-left:auto;" onclick="jwOpenProjectPanel()">+ 새 프로젝트</button>
+            </div>
+            <div class="jw-proj-grid" id="jwProjGrid"></div>
+          </section>
+        </div>
+
         <section class="panel">
+          <!-- 프로젝트마다 "다음 액션" 한 줄씩. 프로젝트 전체를 올리지는 않습니다. -->
+          <div id="jwNextActions"></div>
           <!-- 구획(오전/오후 또는 담당자별 구분)은 renderJwSections 가 채웁니다 -->
           <div id="jwPaneAmpm" class="jw-pane"></div>
 
@@ -2422,6 +2545,15 @@
       </section>
     </main>
 </div>
+    <!-- 프로젝트 등록·수정 패널 (업무 등록 패널과 같은 모양) -->
+    <div class="task-panel-overlay" id="jwProjPanelOverlay" style="display:none" onclick="if(event.target===this) jwCloseProjectPanel()">
+      <div class="task-panel">
+        <button type="button" class="gs-modal-close" onclick="jwCloseProjectPanel()">✕</button>
+        <h3 class="task-panel-title" id="jwProjPanelTitle">새 프로젝트</h3>
+        <div class="task-panel-body" id="jwProjPanelBody"></div>
+      </div>
+    </div>
+
     <div class="task-panel-overlay" id="taskPanelOverlay" style="display:none" onclick="if(event.target===this) closeTaskPanel()">
       <div class="task-panel">
         <button type="button" class="gs-modal-close" onclick="closeTaskPanel()">✕</button>
@@ -3181,6 +3313,7 @@
     }
     currentTasks = (data || []).map(t => ({ ...t, status: normalizeStatus(t.status) }));
     await loadJwNotes();           // 상세보기의 목적·코멘트를 화면 그리기 전에 받아둡니다
+    await loadJwProjects();        // 프로젝트형 업무 (윤효선 화면에서만 씁니다)
     await loadJwInvoicePending();  // "계산서 발행" 배지에 쓸 입금 완료 건수
     await loadJwSettleDue();       // 정산일이 된 공동구매 건 (상단 배너)
     await loadJwRegCheck();        // "상품등록" 배지에 쓸 사방넷 등록 실패 건수
@@ -3364,6 +3497,7 @@
 
   function renderJwView() {
     renderJwToolbar();
+    renderJwProjects();
     renderJwSections();
     jwGrowOpenPurposes();
     // 공구 일정·런칭 건수는 별도 테이블이라 비동기로 받아온 뒤 목록을 다시 그립니다.
@@ -3879,6 +4013,488 @@
   const JW_DAOU_MAIL_URL = 'https://selfdiylab.daouoffice.com/app/mail';
   let jwLaunchRow = null;
   let jwLaunchError = '';
+
+  // ==================== 프로젝트형 업무 ====================
+  // 몇 달을 끌고 가는 건은 "오늘 체크하는 업무"와 성격이 다릅니다. 완료/미완료가 아니라
+  // 지금 어느 단계인지 · 다음에 뭘 해야 하는지 · 무엇 때문에 멈춰 있는지가 보여야 합니다.
+  // 그래서 할 일 목록과 따로 카드로 두고, 오늘 할 일에는 프로젝트마다
+  // "다음 액션" 한 줄만 올립니다 (프로젝트 전체를 오늘 할 일로 올리지 않습니다).
+  //
+  // 하위 업무는 따로 입력하지 않습니다 — 할일 관리의 구분(category)이 프로젝트 이름과
+  // 같으면 그 업무들을 끌어와 보여줍니다 (task_category 를 적으면 그 구분을 봅니다).
+  const JW_PROJECT_STATUSES = ['기획중', '진행중', '검토중', '외부 대기', '병목', '완료', '보류'];
+  const JW_PROJECT_STATUS_CLS = {
+    '기획중': 'plan', '진행중': 'go', '검토중': 'review',
+    '외부 대기': 'wait', '병목': 'block', '완료': 'done', '보류': 'hold',
+  };
+  // 아직 굴러가고 있는 상태 (요약의 "진행 중 프로젝트")
+  const JW_PROJECT_LIVE = ['기획중', '진행중', '검토중', '외부 대기', '병목'];
+  // 내가 아니라 남을 기다리는 상태 (요약의 "대기/병목")
+  const JW_PROJECT_STUCK = ['외부 대기', '병목'];
+  const JW_PROJECT_STALE_DAYS = 7;
+
+  let jwProjects = [];
+  let jwProjectNotes = {};            // { 프로젝트id: [진행 기록, ...] }
+  let jwProjectsError = '';
+  const jwOpenProjects = new Set();   // 상세보기를 펼쳐둔 프로젝트
+  const jwOpenProjFolds = new Set();  // '프로젝트id|칸이름'
+
+  async function loadJwProjects() {
+    jwProjectsError = '';
+    const [pRes, nRes] = await Promise.all([
+      client.from('team_projects').select('*').is('archived_at', null).order('id'),
+      client.from('team_project_notes').select('*').order('created_at'),
+    ]);
+    // 표를 아직 만들지 않았으면(team_projects.sql 미실행) 섹션만 비워두고 넘어갑니다.
+    if (pRes.error) {
+      jwProjects = []; jwProjectNotes = {}; jwProjectsError = pRes.error.message;
+      return;
+    }
+    jwProjects = pRes.data || [];
+    jwProjectNotes = {};
+    (nRes.data || []).forEach((n) => {
+      (jwProjectNotes[n.project_id] = jwProjectNotes[n.project_id] || []).push(n);
+    });
+  }
+
+  function jwMyProjects() {
+    return jwProjects.filter((p) => p.owner === jwViewAssignee());
+  }
+
+  function jwProjById(id) {
+    return jwProjects.find((p) => p.id === id) || null;
+  }
+
+  // 오늘로부터 며칠 지났는지 (앞날이면 음수)
+  function jwProjDays(isoDate) {
+    if (!isoDate) return null;
+    const a = Date.parse(String(isoDate).slice(0, 10) + 'T00:00:00Z');
+    const b = Date.parse(jwTodayKST() + 'T00:00:00Z');
+    if (isNaN(a) || isNaN(b)) return null;
+    return Math.round((b - a) / 86400000);
+  }
+
+  // 마지막으로 손댄 날 — 진행 기록이 있으면 그 날, 없으면 고친 날
+  function jwProjLastTouch(p) {
+    const notes = jwProjectNotes[p.id] || [];
+    const lastNote = notes.length ? String(notes[notes.length - 1].created_at).slice(0, 10) : '';
+    const edited = String(p.updated_at || p.created_at || '').slice(0, 10);
+    return lastNote > edited ? lastNote : edited;
+  }
+
+  // 이번 주(월~일)
+  function jwWeekRange() {
+    const today = jwTodayKST();
+    const dow = (new Date(today + 'T00:00:00Z').getUTCDay() + 6) % 7;   // 월=0
+    const mon = jwAddDays(today, -dow);
+    return [mon, jwAddDays(mon, 6)];
+  }
+
+  function jwProjectSummary() {
+    const mine = jwMyProjects();
+    const today = jwTodayKST();
+    const week = jwWeekRange();
+    const live = mine.filter((p) => JW_PROJECT_LIVE.includes(p.status));
+    return {
+      live: live.length,
+      todayAction: live.filter((p) => p.next_action && p.next_action_due && p.next_action_due <= today).length,
+      stuck: mine.filter((p) => JW_PROJECT_STUCK.includes(p.status)).length,
+      week: live.filter((p) => p.next_action_due && p.next_action_due >= week[0] && p.next_action_due <= week[1]).length,
+      stale: live.filter((p) => (jwProjDays(jwProjLastTouch(p)) || 0) >= JW_PROJECT_STALE_DAYS).length,
+    };
+  }
+
+  // 마감일 배지 — 지났으면 빨강, 사흘 안이면 노랑
+  function jwProjDdayHtml(due) {
+    if (!due) return '';
+    const gone = jwProjDays(due);
+    if (gone == null) return '';
+    const cls = gone > 0 ? ' over' : (gone >= -3 ? ' soon' : '');
+    const text = gone > 0 ? gone + '일 지남' : (gone === 0 ? '오늘' : 'D-' + (-gone));
+    return '<span class="jw-proj-dday' + cls + '">' + text + '</span>';
+  }
+
+  function jwProjSubTasks(p) {
+    const cat = String(p.task_category || p.name || '').trim();
+    if (!cat) return [];
+    return currentTasks
+      .filter((t) => t.assignee === p.owner && (t.category || '') === cat)
+      .sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || '')) || a.id - b.id);
+  }
+
+  function jwProjFoldOpen(id, key) { return jwOpenProjFolds.has(id + '|' + key); }
+
+  function jwToggleProjFold(id, key) {
+    const k = id + '|' + key;
+    if (jwOpenProjFolds.has(k)) jwOpenProjFolds.delete(k);
+    else jwOpenProjFolds.add(k);
+    renderJwProjects();
+  }
+  window.jwToggleProjFold = jwToggleProjFold;
+
+  function jwToggleProjDetail(id) {
+    if (jwOpenProjects.has(id)) jwOpenProjects.delete(id);
+    else jwOpenProjects.add(id);
+    renderJwProjects();
+  }
+  window.jwToggleProjDetail = jwToggleProjDetail;
+
+  function jwProjFoldHtml(p, key, label, count, bodyHtml) {
+    const open = jwProjFoldOpen(p.id, key);
+    return `
+      <div>
+        <div class="jw-proj-fold-head" onclick="jwToggleProjFold(${p.id}, '${key}')">
+          <span class="arrow">${open ? '▾' : '▸'}</span>${escapeAttr(label)}
+          ${count == null ? '' : `<span class="cnt">${count}</span>`}
+        </div>
+        ${open ? `<div class="jw-proj-fold-body">${bodyHtml}</div>` : ''}
+      </div>`;
+  }
+
+  function jwProjDetailHtml(p) {
+    const notes = (jwProjectNotes[p.id] || []).slice().reverse();
+    const hist = (notes.length
+      ? notes.map((n) => `
+          <div class="jw-proj-hist">
+            <span class="d">${escapeAttr(String(n.created_at).slice(5, 10).replace('-', '/'))}</span>
+            <span>${escapeAttr(n.body)}</span>
+          </div>`).join('')
+      : '<div class="empty">아직 적어둔 진행 기록이 없습니다.</div>')
+      + `
+        <div class="jw-proj-hist-add">
+          <input type="text" id="jwProjNote${p.id}" placeholder="진행된 내용을 적고 엔터"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();jwAddProjNote(${p.id});}">
+          <button type="button" class="jw-proj-btn" onclick="jwAddProjNote(${p.id})">기록</button>
+        </div>`;
+
+    const subs = jwProjSubTasks(p);
+    const subHtml = subs.length
+      ? subs.map((t) => `
+          <div class="jw-proj-sub">
+            <span class="d" style="color:#94a3b8;">${escapeAttr(String(t.due_date || '').slice(5).replace('-', '/') || '날짜없음')}</span>
+            <span>${escapeAttr(t.title || '')}</span>
+            <span class="s">${escapeAttr(t.status || '')}</span>
+          </div>`).join('')
+      : `<div class="empty">할일 관리에서 구분을 "${escapeAttr(p.task_category || p.name)}" 으로 적은 업무가 여기에 모입니다.</div>`;
+    const subDone = subs.filter((t) => t.status === '확인완료').length;
+
+    const memo = String(p.lead_memo || '').trim();
+    const memoHtml = memo
+      ? escapeAttr(memo).replace(/\n/g, '<br>')
+      : '<div class="empty">적어둔 메모가 없습니다. [수정] 에서 적을 수 있습니다.</div>';
+
+    const links = String(p.links || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    const linkHtml = links.length
+      ? links.map((line) => {
+          const m = /(https?:\/\/\S+)/.exec(line);
+          if (!m) return `<div>${escapeAttr(line)}</div>`;
+          const label = line.replace(m[1], '').replace(/[|\-·]\s*$/, '').trim() || m[1];
+          return `<div><a href="${escapeAttr(m[1])}" target="_blank" rel="noopener">${escapeAttr(label)}</a></div>`;
+        }).join('')
+      : '<div class="empty">걸어둔 링크가 없습니다.</div>';
+
+    const meetGone = jwProjDays(p.next_meeting);
+    const meetHtml = p.next_meeting
+      ? `${escapeAttr(p.next_meeting)} ${meetGone > 0 ? '(지남)' : (meetGone === 0 ? '(오늘)' : 'D-' + (-meetGone))}`
+      : '<div class="empty">잡아둔 회의·보고 일정이 없습니다.</div>';
+
+    return `
+      <div class="jw-proj-detail">
+        ${jwProjFoldHtml(p, 'hist', '프로젝트 히스토리', notes.length, hist)}
+        ${jwProjFoldHtml(p, 'subs', '하위 업무', subs.length ? subDone + '/' + subs.length : 0, subHtml)}
+        ${jwProjFoldHtml(p, 'memo', '파트장 메모', null, memoHtml)}
+        ${jwProjFoldHtml(p, 'link', '관련 링크', links.length, linkHtml)}
+        ${jwProjFoldHtml(p, 'meet', '다음 회의 · 보고 예정일', null, meetHtml)}
+      </div>`;
+  }
+
+  function jwProjCardHtml(p) {
+    const cls = JW_PROJECT_STATUS_CLS[p.status] || 'wait';
+    const stuck = JW_PROJECT_STUCK.includes(p.status);
+    const finished = p.status === '완료';
+    const pct = Math.max(0, Math.min(100, Number(p.progress || 0)));
+    const staleDays = jwProjDays(jwProjLastTouch(p)) || 0;
+    const open = jwOpenProjects.has(p.id);
+    return `
+      <div class="jw-proj-card${stuck ? ' stuck' : ''}${finished ? ' done' : ''}">
+        <div class="jw-proj-head">
+          <div class="jw-proj-name">${escapeAttr(p.name || '(이름 없음)')}</div>
+          <span class="jw-proj-badge ${cls}">${escapeAttr(p.status)}</span>
+        </div>
+        ${p.purpose ? `<div class="jw-proj-line"><b>목적</b>${escapeAttr(p.purpose)}</div>` : ''}
+        ${p.stage ? `<div class="jw-proj-line"><b>현재 단계</b>${escapeAttr(p.stage)}</div>` : ''}
+        ${p.next_action ? `
+          <div class="jw-proj-next">
+            <div class="jw-proj-next-label">다음 액션</div>
+            <div class="jw-proj-next-text">${escapeAttr(p.next_action)}</div>
+            <div class="jw-proj-next-meta">
+              ${p.next_action_due ? `<span class="jw-proj-due">${escapeAttr(p.next_action_due)}</span>` : '<span class="jw-proj-due">마감일 없음</span>'}
+              ${jwProjDdayHtml(p.next_action_due)}
+              <button type="button" class="jw-proj-btn main" style="margin-left:auto;"
+                onclick="jwOpenActionDone(${p.id})">액션 완료</button>
+            </div>
+          </div>` : '<div class="jw-proj-line"><b>다음 액션</b>아직 정하지 않았습니다.</div>'}
+        ${p.blocker ? `<div class="jw-proj-blocker">⚠ ${escapeAttr(p.blocker)}</div>` : ''}
+        <div class="jw-proj-foot">
+          <span class="jw-proj-bar"><i style="width:${pct}%"></i></span>
+          <span class="jw-proj-pct">${pct}%</span>
+        </div>
+        <div class="jw-proj-foot">
+          <span class="jw-proj-owner">${escapeAttr(p.owner || '')} · <span class="${staleDays >= JW_PROJECT_STALE_DAYS ? 'stale' : ''}">${staleDays <= 0 ? '오늘' : staleDays + '일 전'} 업데이트</span></span>
+          <span class="jw-proj-btns" style="margin-left:auto;">
+            <button type="button" class="jw-proj-btn" onclick="jwToggleProjDetail(${p.id})">${open ? '접기' : '상세보기'}</button>
+            <button type="button" class="jw-proj-btn" onclick="jwOpenProjectPanel(${p.id})">수정</button>
+          </span>
+        </div>
+        ${open ? jwProjDetailHtml(p) : ''}
+      </div>`;
+  }
+
+  function renderJwProjects() {
+    const area = document.getElementById('jwProjectArea');
+    if (!area) return;
+    // 루틴 업무가 있는 화면(전휘원)은 체크리스트형이라 이 섹션을 쓰지 않습니다.
+    if (jwHasRoutine()) { area.style.display = 'none'; renderJwNextActions(); return; }
+    area.style.display = '';
+
+    const note = document.getElementById('jwProjNote');
+    const kpi = document.getElementById('jwProjKpi');
+    const grid = document.getElementById('jwProjGrid');
+    const mine = jwMyProjects();
+
+    if (jwProjectsError) {
+      if (note) note.innerHTML = '<span class="error">프로젝트를 불러오지 못했습니다 — team_projects.sql 을 Supabase에서 실행해주세요.</span>';
+      if (kpi) kpi.innerHTML = '';
+      if (grid) grid.innerHTML = '';
+      return;
+    }
+    if (note) note.textContent = mine.length ? mine.length + '건' : '';
+
+    const s = jwProjectSummary();
+    if (kpi) {
+      kpi.innerHTML = `
+        <div class="kpi-card go"><div class="kpi-label">진행 중 프로젝트</div><div class="kpi-value">${s.live}건</div></div>
+        <div class="kpi-card${s.todayAction ? ' go' : ''}"><div class="kpi-label">오늘 처리할 액션</div><div class="kpi-value">${s.todayAction}건</div></div>
+        <div class="kpi-card${s.stuck ? ' warn' : ''}"><div class="kpi-label">대기 · 병목</div><div class="kpi-value">${s.stuck}건</div></div>
+        <div class="kpi-card"><div class="kpi-label">이번 주 마감</div><div class="kpi-value">${s.week}건</div></div>
+        <div class="kpi-card${s.stale ? ' danger' : ''}"><div class="kpi-label">7일 이상 업데이트 없음</div><div class="kpi-value">${s.stale}건</div></div>`;
+    }
+
+    if (grid) {
+      // 멈춰 있는 것 먼저, 그다음 마감이 급한 것, 끝난 것은 맨 아래
+      const order = (p) => (p.status === '완료' || p.status === '보류' ? 2 : (JW_PROJECT_STUCK.includes(p.status) ? 0 : 1));
+      const sorted = mine.slice().sort((a, b) =>
+        order(a) - order(b)
+        || String(a.next_action_due || '9999-12-31').localeCompare(String(b.next_action_due || '9999-12-31'))
+        || a.id - b.id);
+      grid.innerHTML = sorted.length
+        ? sorted.map(jwProjCardHtml).join('')
+        : '<div class="jw-task-empty">등록된 프로젝트가 없습니다. [+ 새 프로젝트] 로 추가하세요.</div>';
+    }
+    renderJwNextActions();
+  }
+
+  // 오늘 할 일 맨 위 — 프로젝트마다 "다음 액션" 한 줄씩만 올립니다.
+  // 마감일이 없거나 이번 주 안이거나 이미 지난 액션을 올리고, 끝난 프로젝트는 뺍니다.
+  function renderJwNextActions() {
+    const box = document.getElementById('jwNextActions');
+    if (!box) return;
+    if (jwHasRoutine() || !jwIsToday()) { box.innerHTML = ''; return; }
+    const rows = jwMyProjects()
+      .filter((p) => JW_PROJECT_LIVE.includes(p.status) && p.next_action)
+      .sort((a, b) => String(a.next_action_due || '9999-12-31').localeCompare(String(b.next_action_due || '9999-12-31')) || a.id - b.id);
+    if (!rows.length) { box.innerHTML = ''; return; }
+    box.innerHTML = `
+      <div class="jw-next-wrap">
+        <div class="jw-next-title">프로젝트 다음 액션<span class="cnt">${rows.length}건</span></div>
+        ${rows.map((p) => {
+          const gone = jwProjDays(p.next_action_due);
+          return `
+            <div class="jw-next-row${gone != null && gone > 0 ? ' over' : ''}">
+              <span class="jw-next-proj">${escapeAttr(p.name)}</span>
+              <span class="jw-next-text">${escapeAttr(p.next_action)}</span>
+              <span class="jw-next-right">
+                ${p.next_action_due ? `<span class="jw-proj-due">${escapeAttr(p.next_action_due)}</span>` : ''}
+                ${jwProjDdayHtml(p.next_action_due)}
+                <button type="button" class="jw-proj-btn main" onclick="jwOpenActionDone(${p.id})">액션 완료</button>
+              </span>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  // ---- 진행 기록 한 줄 추가 ----
+  async function jwAddProjNote(id) {
+    const input = document.getElementById('jwProjNote' + id);
+    const body = (input && input.value || '').trim();
+    if (!body) return;
+    const { error } = await client.from('team_project_notes').insert({ project_id: id, body, author: '대표' });
+    if (error) { alert('기록을 남기지 못했습니다: ' + error.message); return; }
+    if (input) input.value = '';
+    await loadJwProjects();
+    renderJwProjects();
+  }
+  window.jwAddProjNote = jwAddProjNote;
+
+  // ---- 등록 · 수정 패널 ----
+  let jwProjPanelId = null;
+  let jwProjPanelMode = 'edit';   // 'edit' | 'action'
+
+  function jwOpenProjectPanel(id, mode) {
+    jwProjPanelId = id || null;
+    jwProjPanelMode = mode || 'edit';
+    const overlay = document.getElementById('jwProjPanelOverlay');
+    if (overlay) overlay.style.display = 'flex';
+    jwRenderProjPanel();
+  }
+  window.jwOpenProjectPanel = jwOpenProjectPanel;
+
+  function jwCloseProjectPanel() {
+    const overlay = document.getElementById('jwProjPanelOverlay');
+    if (overlay) overlay.style.display = 'none';
+    jwProjPanelId = null;
+  }
+  window.jwCloseProjectPanel = jwCloseProjectPanel;
+
+  function jwOpenActionDone(id) { jwOpenProjectPanel(id, 'action'); }
+  window.jwOpenActionDone = jwOpenActionDone;
+
+  function jwRenderProjPanel() {
+    const body = document.getElementById('jwProjPanelBody');
+    const title = document.getElementById('jwProjPanelTitle');
+    if (!body || !title) return;
+    const p = jwProjPanelId ? jwProjById(jwProjPanelId) : null;
+    if (jwProjPanelId && !p) { jwCloseProjectPanel(); return; }
+
+    // 액션을 끝냈을 때 — 한 화면에서 "방금 한 일 + 다음 액션"을 같이 받습니다.
+    if (jwProjPanelMode === 'action') {
+      title.textContent = '액션 완료 — ' + (p.name || '');
+      body.innerHTML = `
+        <div class="task-review-hint">방금 끝낸 일을 히스토리에 남기고, 다음에 할 일을 이어서 적어주세요.</div>
+        <div class="task-panel-field"><label>끝낸 일 (히스토리에 남습니다)</label>
+          <input id="jwPaDone" type="text" value="${escapeAttr(p.next_action || '')}"></div>
+        <div class="task-panel-field"><label>다음 액션</label>
+          <input id="jwPaNext" type="text" placeholder="다음에 할 일 (비우면 비워둡니다)"></div>
+        <div class="task-panel-row">
+          <div class="task-panel-field"><label>다음 액션 마감일</label><input id="jwPaDue" type="date"></div>
+          <div class="task-panel-field"><label>진척률 (%)</label><input id="jwPaProgress" type="number" min="0" max="100" value="${Number(p.progress || 0)}"></div>
+        </div>
+        <div class="task-panel-row">
+          <div class="task-panel-field"><label>현재 단계</label><input id="jwPaStage" type="text" value="${escapeAttr(p.stage || '')}"></div>
+          <div class="task-panel-field"><label>상태</label><select id="jwPaStatus">
+            ${JW_PROJECT_STATUSES.map((st) => `<option value="${st}" ${st === p.status ? 'selected' : ''}>${st}</option>`).join('')}
+          </select></div>
+        </div>
+        <div class="task-panel-actions"><button type="button" class="btn-primary" onclick="jwSaveActionDone()">저장</button></div>`;
+      return;
+    }
+
+    title.textContent = p ? '프로젝트 수정' : '새 프로젝트';
+    const v = p || {};
+    body.innerHTML = `
+      <div class="task-panel-field"><label>프로젝트명 *</label><input id="jwPfName" type="text" value="${escapeAttr(v.name || '')}" placeholder="예) 스마트스토어 매출 개선"></div>
+      <div class="task-panel-field"><label>프로젝트 목적</label><input id="jwPfPurpose" type="text" value="${escapeAttr(v.purpose || '')}" placeholder="예) 네이버 매출 전월 대비 성장"></div>
+      <div class="task-panel-row">
+        <div class="task-panel-field"><label>현재 단계</label><input id="jwPfStage" type="text" value="${escapeAttr(v.stage || '')}" placeholder="예) 대행사 운영 성과 검토"></div>
+        <div class="task-panel-field"><label>상태</label><select id="jwPfStatus">
+          ${JW_PROJECT_STATUSES.map((st) => `<option value="${st}" ${st === (v.status || '기획중') ? 'selected' : ''}>${st}</option>`).join('')}
+        </select></div>
+      </div>
+      <div class="task-panel-field"><label>다음 액션</label><input id="jwPfNext" type="text" value="${escapeAttr(v.next_action || '')}" placeholder="예) 9월 매출 상승 상품 확인 후 대표 보고"></div>
+      <div class="task-panel-row">
+        <div class="task-panel-field"><label>다음 액션 마감일</label><input id="jwPfDue" type="date" value="${escapeAttr(v.next_action_due || '')}"></div>
+        <div class="task-panel-field"><label>담당자</label><input id="jwPfOwner" type="text" value="${escapeAttr(v.owner || jwViewAssignee())}"></div>
+      </div>
+      <div class="task-panel-field"><label>대기 · 병목 사유</label><input id="jwPfBlocker" type="text" value="${escapeAttr(v.blocker || '')}" placeholder="예) 대행사 상세페이지 개선안 대기"></div>
+      <div class="task-panel-row">
+        <div class="task-panel-field"><label>진척률 (%)</label><input id="jwPfProgress" type="number" min="0" max="100" value="${Number(v.progress || 0)}"></div>
+        <div class="task-panel-field"><label>다음 회의 · 보고 예정일</label><input id="jwPfMeeting" type="date" value="${escapeAttr(v.next_meeting || '')}"></div>
+      </div>
+      <div class="task-panel-field"><label>하위 업무를 끌어올 구분</label>
+        <input id="jwPfCategory" type="text" value="${escapeAttr(v.task_category || '')}" placeholder="비우면 프로젝트명과 같은 구분을 끌어옵니다">
+        <div class="task-panel-hint">할일 관리에서 이 구분으로 등록한 업무가 하위 업무로 모입니다.</div>
+      </div>
+      <div class="task-panel-field"><label>파트장 메모</label><textarea id="jwPfMemo" placeholder="메모">${escapeAttr(v.lead_memo || '')}</textarea></div>
+      <div class="task-panel-field"><label>관련 링크</label><textarea id="jwPfLinks" placeholder="한 줄에 하나씩. 예) 9월 성과표 https://...">${escapeAttr(v.links || '')}</textarea></div>
+      <div class="task-panel-actions">
+        ${p ? `<button type="button" class="btn-ghost" onclick="jwArchiveProject(${p.id})">치우기</button>` : ''}
+        <button type="button" class="btn-primary" onclick="jwSaveProject()">${p ? '저장' : '등록'}</button>
+      </div>`;
+  }
+
+  function jwFieldVal(id) {
+    const el = document.getElementById(id);
+    return el ? String(el.value || '').trim() : '';
+  }
+
+  async function jwSaveProject() {
+    const name = jwFieldVal('jwPfName');
+    if (!name) { alert('프로젝트명을 적어주세요.'); return; }
+    const row = {
+      owner: jwFieldVal('jwPfOwner') || jwViewAssignee(),
+      name,
+      purpose: jwFieldVal('jwPfPurpose') || null,
+      stage: jwFieldVal('jwPfStage') || null,
+      next_action: jwFieldVal('jwPfNext') || null,
+      next_action_due: jwFieldVal('jwPfDue') || null,
+      status: jwFieldVal('jwPfStatus') || '기획중',
+      blocker: jwFieldVal('jwPfBlocker') || null,
+      progress: Math.max(0, Math.min(100, Number(jwFieldVal('jwPfProgress') || 0))),
+      lead_memo: jwFieldVal('jwPfMemo') || null,
+      links: jwFieldVal('jwPfLinks') || null,
+      next_meeting: jwFieldVal('jwPfMeeting') || null,
+      task_category: jwFieldVal('jwPfCategory') || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = jwProjPanelId
+      ? await client.from('team_projects').update(row).eq('id', jwProjPanelId)
+      : await client.from('team_projects').insert(row);
+    if (error) {
+      alert('저장하지 못했습니다: ' + error.message
+        + '\n\nteam_projects.sql 을 Supabase에서 실행했는지 확인해주세요.');
+      return;
+    }
+    jwCloseProjectPanel();
+    await loadJwProjects();
+    renderJwProjects();
+  }
+  window.jwSaveProject = jwSaveProject;
+
+  async function jwSaveActionDone() {
+    const p = jwProjById(jwProjPanelId);
+    if (!p) return;
+    const done = jwFieldVal('jwPaDone');
+    const next = jwFieldVal('jwPaNext');
+    const row = {
+      next_action: next || null,
+      next_action_due: jwFieldVal('jwPaDue') || null,
+      stage: jwFieldVal('jwPaStage') || null,
+      status: jwFieldVal('jwPaStatus') || p.status,
+      progress: Math.max(0, Math.min(100, Number(jwFieldVal('jwPaProgress') || 0))),
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await client.from('team_projects').update(row).eq('id', p.id);
+    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
+    if (done) {
+      await client.from('team_project_notes').insert({ project_id: p.id, body: done, author: '대표' });
+    }
+    jwCloseProjectPanel();
+    await loadJwProjects();
+    renderJwProjects();
+  }
+  window.jwSaveActionDone = jwSaveActionDone;
+
+  // 지우지 않고 숨깁니다 — 히스토리는 그대로 남습니다.
+  async function jwArchiveProject(id) {
+    if (!confirm('이 프로젝트를 목록에서 치울까요? 적어둔 히스토리는 남습니다.')) return;
+    const { error } = await client.from('team_projects')
+      .update({ archived_at: new Date().toISOString() }).eq('id', id);
+    if (error) { alert('치우지 못했습니다: ' + error.message); return; }
+    jwCloseProjectPanel();
+    await loadJwProjects();
+    renderJwProjects();
+  }
+  window.jwArchiveProject = jwArchiveProject;
 
   // ==================== 긴급 확인 메모지 ====================
   // 업무와 상관없이 "급히 알아봐야 할 것"을 전휘원 화면 맨 위에 붙여 둡니다.
