@@ -808,43 +808,10 @@
   .jw-proj-btn.main { border-color: rgba(77,124,254,.4); color: #2f5ce4; background: #f5f8ff; }
   .jw-proj-btn.main:hover { background: #e8efff; }
 
-  /* 채널별 매출 계획 트래커 — 왼쪽에 채널, 위에 분기 세 달 */
-  .ct-wrap { overflow-x: auto; }
-  .ct-table { width: 100%; border-collapse: collapse; min-width: 880px; }
-  .ct-table th, .ct-table td { border: 1px solid #e7edf5; padding: 7px 9px; font-size: 12.5px; text-align: left; vertical-align: top; }
-  .ct-table th { background: #edf2fb; color: #1f3864; font-weight: 800; white-space: nowrap; text-align: center; }
-  .ct-table th.ct-ch-head, .ct-table th.ct-own-head { text-align: left; }
-  .ct-table th.ct-m.now, .ct-table td.ct-cell.now { background: #f5f8ff; }
-  .ct-table th.num, .ct-table td.num { text-align: right; }
-  .ct-table td.ct-ch {
-    font-weight: 800; color: #0f172a; white-space: nowrap; vertical-align: middle;
-    background: #fbfcfe; min-width: 120px;
-  }
-  .ct-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 7px; vertical-align: 1px; }
+  .ct-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 2px; }
   .ct-dot.c1 { background: #4d7cfe; } .ct-dot.c2 { background: #ec4899; } .ct-dot.c3 { background: #0ea5e9; }
   .ct-dot.c4 { background: #16a34a; } .ct-dot.c5 { background: #f59e0b; } .ct-dot.c6 { background: #7c3aed; }
   .ct-dot.c7 { background: #ef4444; }
-  .ct-own { vertical-align: middle; width: 82px; }
-  .ct-cell { min-width: 190px; }
-  .ct-sum { vertical-align: middle; font-weight: 800; color: #1f3864; white-space: nowrap; }
-  .ct-table tfoot td { background: #f8fafc; font-weight: 800; color: #1f3864; vertical-align: middle; }
-
-  .ct-bar { display: block; height: 8px; border-radius: 999px; background: #eef2f7; overflow: hidden; margin: 5px 0; }
-  .ct-bar > i { display: block; height: 100%; border-radius: 999px; }
-  .ct-bar > i.c1 { background: #4d7cfe; } .ct-bar > i.c2 { background: #ec4899; } .ct-bar > i.c3 { background: #0ea5e9; }
-  .ct-bar > i.c4 { background: #16a34a; } .ct-bar > i.c5 { background: #f59e0b; } .ct-bar > i.c6 { background: #7c3aed; }
-  .ct-bar > i.c7 { background: #ef4444; }
-
-  .ct-num, .ct-act, .ct-sel {
-    width: 100%; border: 1px solid transparent; border-radius: 7px; background: transparent;
-    font-family: inherit; padding: 3px 6px; color: #0f172a;
-  }
-  .ct-num { text-align: right; font-size: 12.5px; font-variant-numeric: tabular-nums; font-weight: 700; }
-  .ct-act { font-size: 11.5px; color: #475569; }
-  .ct-sel { font-size: 11.5px; cursor: pointer; }
-  .ct-num:hover, .ct-act:hover, .ct-sel:hover { border-color: #e2e8f0; background: #fff; }
-  .ct-num:focus, .ct-act:focus, .ct-sel:focus { outline: none; border-color: #4d7cfe; background: #fff; }
-  .ct-hint { font-size: 11px; color: #94a3b8; margin-top: 10px; }
 
   /* 채널별 운영 보드 — 채널이 칸, 업무가 카드 */
   .cb-board { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; align-items: flex-start; }
@@ -855,6 +822,11 @@
   .cb-col.over { border-color: #4d7cfe; background: #eff4ff; }
   .cb-col-head { display: flex; align-items: center; gap: 7px; padding: 2px 4px 9px; }
   .cb-col-name { font-size: 13px; font-weight: 800; color: #0f172a; }
+  .cb-col-del {
+    border: 0; background: transparent; color: #cbd5e1; cursor: pointer;
+    font-family: inherit; font-size: 11px; padding: 2px 3px;
+  }
+  .cb-col-del:hover { color: #dc2626; }
   .cb-col-cnt { margin-left: auto; font-size: 11px; font-weight: 800; color: #64748b; background: #fff; border-radius: 999px; padding: 2px 8px; }
   .cb-col-body { display: flex; flex-direction: column; gap: 7px; }
   .cb-card {
@@ -2989,8 +2961,8 @@
     <main class="main" id="channelTrackerView" style="display:none">
       <div class="topbar">
         <div>
-          <h1>채널별 매출 계획</h1>
-          <div class="subtitle">판매채널마다 분기 세 달의 목표 매출과 운영 액션을 적어둡니다.</div>
+          <h1>채널별 운영 보드</h1>
+          <div class="subtitle">판매채널마다 칸을 두고, 업무 카드를 적어 끌어서 옮깁니다.</div>
         </div>
         <div class="topbar-right">
           <button type="button" class="btn-ghost" onclick="switchView('team-tasks','윤효선')">← 할일 관리로</button>
@@ -4906,10 +4878,11 @@
   }
   window.jwAddProjNote = jwAddProjNote;
 
-  // ==================== 채널별 매출 계획 트래커 ====================
+  // ==================== 채널별 운영 보드 ====================
   // 「채널별 매출 계획 수립」 프로젝트에서 [트래커 열기] 로 들어옵니다.
-  // 왼쪽에 외부 판매채널, 위에 그 분기의 세 달을 놓고 달마다 목표와 운영 액션을 적습니다.
-  // 막대 길이는 그 분기에서 가장 큰 달을 기준으로 한 비율입니다 (channel_targets).
+  // 채널마다 칸이 하나씩, 그 안에 업무 카드를 자유롭게 적고 끌어서 옮깁니다 (channel_board).
+  // 칸 목록(채널)은 channel_targets 에 담아 둡니다 — 분기마다 세 달 줄을 만들어 두고
+  // 화면에서는 채널 이름만 씁니다.
   const CT_DEFAULT_CHANNELS = ['쿠팡', '스마트스토어', '톡딜', '컬리', '오픈마켓'];
   const CT_OWNERS = ['윤효선', '전휘원'];
   const CT_COLORS = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'];
@@ -4925,29 +4898,29 @@
     const first = (ctQ.q - 1) * 3 + 1;
     return [0, 1, 2].map((i) => ctQ.y + '-' + String(first + i).padStart(2, '0'));
   }
-  function ctMonthLabel(m) { return Number(m.slice(5)) + '월'; }
-
-  function ctMoveQuarter(step) {
-    let { y, q } = ctQ;
-    q += step;
-    if (q < 1) { q = 4; y -= 1; }
-    if (q > 4) { q = 1; y += 1; }
-    ctQ.y = y; ctQ.q = q;
-    loadChannelTargets();
-  }
-  window.ctMoveQuarter = ctMoveQuarter;
 
   async function loadChannelTargets(skipFill) {
     const { data, error } = await client.from('channel_targets')
       .select('*').in('month', ctMonths()).order('sort_no').order('id');
     ctError = error ? error.message : '';
     ctRows = error ? [] : (data || []);
-    // 채널은 있는데 어떤 달 칸이 비어 있으면 적을 데가 없습니다. 빠진 달을 채워 둡니다.
-    // (분기를 옮기거나 예전에 한 달치만 만들어둔 경우에 생깁니다)
     if (!error && !skipFill && await ctFillMissingMonths()) return loadChannelTargets(true);
     renderChannelTracker();
   }
 
+  function ctChannels() {
+    const seen = new Map();
+    ctRows.forEach((r) => {
+      const n = r.sort_no != null ? r.sort_no : 999;
+      seen.set(r.channel, seen.has(r.channel) ? Math.min(seen.get(r.channel), n) : n);
+    });
+    return [...seen.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0], 'ko')).map((x) => x[0]);
+  }
+  function ctCell(channel, month) {
+    return ctRows.find((r) => r.channel === channel && String(r.month) === month) || null;
+  }
+
+  // 채널 한 줄은 그 분기 세 달을 모두 만들어 둡니다.
   async function ctFillMissingMonths() {
     const months = ctMonths();
     const miss = [];
@@ -4962,22 +4935,6 @@
     return true;
   }
 
-  function ctWon(n) { return Number(n || 0).toLocaleString('ko-KR'); }
-
-  // 채널 목록 — 세 달 어디에든 나온 채널을 순서대로 모읍니다.
-  function ctChannels() {
-    const seen = new Map();
-    ctRows.forEach((r) => {
-      if (!seen.has(r.channel)) seen.set(r.channel, r.sort_no != null ? r.sort_no : 999);
-      else seen.set(r.channel, Math.min(seen.get(r.channel), r.sort_no != null ? r.sort_no : 999));
-    });
-    return [...seen.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0], 'ko')).map((x) => x[0]);
-  }
-  function ctCell(channel, month) {
-    return ctRows.find((r) => r.channel === channel && String(r.month) === month) || null;
-  }
-
-  // 채널 한 줄은 세 달 모두 만들어 둡니다 (칸이 비어 있으면 적을 데가 없어서요).
   async function ctInsertChannel(channel, sortNo) {
     const rows = ctMonths().map((m) => ({ month: m, channel, sort_no: sortNo }));
     const { error } = await client.from('channel_targets').insert(rows);
@@ -4991,8 +4948,7 @@
 
   async function ctSeedQuarter() {
     for (let i = 0; i < CT_DEFAULT_CHANNELS.length; i++) {
-      const ok = await ctInsertChannel(CT_DEFAULT_CHANNELS[i], i);
-      if (!ok) return;
+      if (!await ctInsertChannel(CT_DEFAULT_CHANNELS[i], i)) return;
     }
     loadChannelTargets();
   }
@@ -5008,60 +4964,20 @@
   }
   window.ctAddChannel = ctAddChannel;
 
-  // 지난 분기에 적어둔 채널과 목표를 그대로 가져옵니다 (액션은 비우고 시작).
-  async function ctCopyPrevQuarter() {
-    let { y, q } = ctQ;
-    q -= 1; if (q < 1) { q = 4; y -= 1; }
-    const first = (q - 1) * 3 + 1;
-    const prev = [0, 1, 2].map((i) => y + '-' + String(first + i).padStart(2, '0'));
-    const { data, error } = await client.from('channel_targets').select('*').in('month', prev);
-    if (error) { alert('지난 분기를 불러오지 못했습니다: ' + error.message); return; }
-    if (!data || !data.length) { alert(y + '년 ' + q + '분기에 적어둔 채널이 없습니다.'); return; }
-    const months = ctMonths();
-    const rows = data.map((r) => ({
-      month: months[prev.indexOf(String(r.month))],
-      channel: r.channel, target_amount: r.target_amount, owner: r.owner,
-      status: '계획', sort_no: r.sort_no,
-    })).filter((r) => r.month);
-    const { error: insErr } = await client.from('channel_targets').insert(rows);
-    if (insErr) { alert('가져오지 못했습니다: ' + insErr.message); return; }
-    loadChannelTargets();
-  }
-  window.ctCopyPrevQuarter = ctCopyPrevQuarter;
-
   async function ctDeleteChannel(channel) {
-    if (!confirm('"' + channel + '" 줄을 이 분기에서 지울까요?')) return;
+    const cards = cbOf(channel).length;
+    const msg = cards
+      ? '"' + channel + '" 칸을 지울까요? 안에 있는 카드 ' + cards + '장도 같이 지워집니다.'
+      : '"' + channel + '" 칸을 지울까요?';
+    if (!confirm(msg)) return;
+    await client.from('channel_board').delete().eq('channel', channel);
     const { error } = await client.from('channel_targets')
       .delete().eq('channel', channel).in('month', ctMonths());
     if (error) { alert('지우지 못했습니다: ' + error.message); return; }
+    await loadChannelBoard();
     loadChannelTargets();
   }
   window.ctDeleteChannel = ctDeleteChannel;
-
-  // 칸을 고치면 그 자리에서 저장합니다.
-  async function ctSave(id, field, value) {
-    const row = ctRows.find((r) => r.id === id);
-    if (!row) return;
-    let v = value;
-    if (field === 'target_amount') v = Number(String(value).replace(/[^0-9-]/g, '') || 0);
-    if (row[field] === v) return;
-    const { error } = await client.from('channel_targets')
-      .update({ [field]: v, updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
-    row[field] = v;
-    if (field === 'target_amount') renderChannelTracker();
-  }
-  window.ctSave = ctSave;
-
-  // 담당은 채널마다 하나로 봅니다 — 세 달 줄을 같이 바꿉니다.
-  async function ctSaveOwner(channel, owner) {
-    const { error } = await client.from('channel_targets')
-      .update({ owner: owner || null, updated_at: new Date().toISOString() })
-      .eq('channel', channel).in('month', ctMonths());
-    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
-    ctRows.forEach((r) => { if (r.channel === channel) r.owner = owner || null; });
-  }
-  window.ctSaveOwner = ctSaveOwner;
 
   // ---- 채널별 운영 보드 (노션 보드처럼) ----
   // 채널마다 칸이 하나씩, 그 안에 업무 카드를 적고 끌어서 옮깁니다 (channel_board).
@@ -5256,103 +5172,12 @@
   function renderChannelTracker() {
     const root = document.getElementById('channelTrackerBody');
     if (!root) return;
-    const months = ctMonths();
-    const label = ctQ.y + '년 ' + ctQ.q + '분기';
-    const thisMonth = jwTodayKST().slice(0, 7);
-
     if (ctError) {
       root.innerHTML = `<section class="panel"><div class="td-empty">
-        트래커를 불러오지 못했습니다 — channel_targets.sql 을 Supabase에서 실행해주세요.</div></section>`;
+        채널 목록을 불러오지 못했습니다 — channel_targets.sql 을 Supabase에서 실행해주세요.</div></section>`;
       return;
     }
-
-    const channels = ctChannels();
-    const max = Math.max(1, ...ctRows.map((r) => Number(r.target_amount || 0)));
-    const monthTotal = months.map((m) => ctRows.filter((r) => String(r.month) === m)
-      .reduce((n, r) => n + Number(r.target_amount || 0), 0));
-    const grand = monthTotal.reduce((a, b) => a + b, 0);
-
-    const head = `
-      <tr>
-        <th class="ct-ch-head">채널</th>
-        <th class="ct-own-head">담당</th>
-        ${months.map((m) => `<th class="ct-m${m === thisMonth ? ' now' : ''}">${ctMonthLabel(m)}</th>`).join('')}
-        <th class="num">분기 합계</th>
-        <th></th>
-      </tr>`;
-
-    const body = channels.map((ch, i) => {
-      const color = CT_COLORS[i % CT_COLORS.length];
-      const cells = months.map((m) => {
-        const r = ctCell(ch, m);
-        if (!r) return '<td class="ct-cell"></td>';
-        const amt = Number(r.target_amount || 0);
-        const w = Math.round(amt / max * 100);
-        return `
-          <td class="ct-cell${m === thisMonth ? ' now' : ''}">
-            <input type="text" class="ct-num" value="${amt ? ctWon(amt) : ''}" placeholder="목표"
-              onblur="ctSave(${r.id}, 'target_amount', this.value)"
-              onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
-            <span class="ct-bar"><i class="${color}" style="width:${w}%"></i></span>
-            <input type="text" class="ct-act" value="${escapeAttr(r.action || '')}" placeholder="운영 액션"
-              onblur="ctSave(${r.id}, 'action', this.value)"
-              onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
-          </td>`;
-      }).join('');
-      const sum = months.reduce((n, m) => n + Number((ctCell(ch, m) || {}).target_amount || 0), 0);
-      const owner = (ctCell(ch, months[0]) || {}).owner || '';
-      return `
-        <tr>
-          <td class="ct-ch"><span class="ct-dot ${color}"></span>${escapeAttr(ch)}</td>
-          <td class="ct-own">
-            <select class="ct-sel" onchange="ctSaveOwner('${escapeAttr(ch).replace(/'/g, '&#39;')}', this.value)">
-              <option value="">-</option>
-              ${CT_OWNERS.map((o) => `<option value="${o}" ${o === owner ? 'selected' : ''}>${o}</option>`).join('')}
-            </select>
-          </td>
-          ${cells}
-          <td class="num ct-sum">${sum ? ctWon(sum) : '-'}</td>
-          <td><button type="button" class="jw-mytask-btn del" title="이 채널 줄을 지웁니다"
-            onclick="ctDeleteChannel('${escapeAttr(ch).replace(/'/g, '&#39;')}')">✕</button></td>
-        </tr>`;
-    }).join('');
-
-    // 보드가 본 화면입니다. 분기 목표 금액 표는 그 아래에 접어 둡니다.
-    const targetTable = !channels.length ? '' : `
-      <div class="ct-wrap">
-        <table class="ct-table">
-          <thead>${head}</thead>
-          <tbody>${body}</tbody>
-          <tfoot>
-            <tr>
-              <td class="ct-ch">합계</td><td></td>
-              ${monthTotal.map((t, i) => `<td class="num${months[i] === thisMonth ? ' now' : ''}">${t ? ctWon(t) : '-'}</td>`).join('')}
-              <td class="num">${grand ? ctWon(grand) : '-'}</td><td></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      <div class="ct-hint">칸을 눌러 바로 고치면 저장됩니다. 막대 길이는 이 분기에서 가장 큰 달을 기준으로 한 비율입니다.</div>`;
-
-    root.innerHTML = `
-      ${cbBoardHtml(channels)}
-      <section class="panel">
-        <div class="panel-head">
-          <h2>${label} 목표 금액</h2>
-          <span class="panel-note">${channels.length}개 채널 · 합계 ${ctWon(grand)}원</span>
-          <span class="tc-nav">
-            <button type="button" class="jw-proj-btn" onclick="ctMoveQuarter(-1)">‹ 지난 분기</button>
-            <button type="button" class="jw-proj-btn" onclick="ctMoveQuarter(1)">다음 분기 ›</button>
-            <button type="button" class="jw-proj-btn" onclick="ctCopyPrevQuarter()">지난 분기 가져오기</button>
-            <button type="button" class="jw-proj-btn" onclick="ctToggleTable()">${ctTableOpen ? '접기' : '펼치기'}</button>
-          </span>
-        </div>
-        ${!ctTableOpen ? '' : (channels.length ? targetTable : `
-          <div class="td-empty">${label}에 적어둔 채널이 없습니다.
-            <button type="button" class="jw-proj-btn main" style="margin-left:8px;" onclick="ctSeedQuarter()">기본 채널 5개 만들기</button>
-            <button type="button" class="jw-proj-btn" style="margin-left:4px;" onclick="ctCopyPrevQuarter()">지난 분기 가져오기</button>
-          </div>`)}
-      </section>`;
+    root.innerHTML = cbBoardHtml(ctChannels());
     cbGrowAll();
   }
 
@@ -5385,6 +5210,8 @@
                   <span class="ct-dot ${CT_COLORS[i % CT_COLORS.length]}"></span>
                   <span class="cb-col-name">${escapeAttr(ch)}</span>
                   <span class="cb-col-cnt">${left}</span>
+                  <button type="button" class="cb-col-del" title="이 채널 칸을 지웁니다"
+                    onclick="ctDeleteChannel('${key}')">✕</button>
                 </div>
                 <div class="cb-col-body">
                   ${cards.map(cbCardHtml).join('')}
@@ -5395,10 +5222,6 @@
         </div>
       </section>`;
   }
-
-  let ctTableOpen = false;
-  function ctToggleTable() { ctTableOpen = !ctTableOpen; renderChannelTracker(); }
-  window.ctToggleTable = ctToggleTable;
 
   // ==================== 업무분장 ====================
   // 영업팀 역할·업무 분장표(엑셀로 만든 것)를 화면에도 올려 둡니다.
