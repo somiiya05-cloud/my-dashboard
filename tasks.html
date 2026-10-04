@@ -888,7 +888,7 @@
   .td-gantt-legend i.late { background: #dc2626; } .td-gantt-legend i.done { background: #16a34a; }
   .td-gantt-legend .todayhint { margin-left: auto; color: #94a3b8; }
 
-  /* 병목 · 대기 */
+  /* 대기 업무 */
   .td-block-row { border: 1px solid #eef2f7; border-left: 3px solid #cbd5e1; border-radius: 10px; padding: 9px 11px; margin-bottom: 8px; cursor: pointer; }
   .td-block-row:hover { border-color: #94a3b8; }
   .td-block-row.late { border-left-color: #dc2626; background: #fef8f8; }
@@ -2612,7 +2612,7 @@
       <div class="topbar">
         <div>
           <h1>팀 대시보드</h1>
-          <div class="subtitle">영업팀 전체 업무량·지연·병목·이번 주 마감을 한 화면에서 봅니다.</div>
+          <div class="subtitle">영업팀 전체 업무량·지연·대기·이번 주 마감을 한 화면에서 봅니다.</div>
         </div>
         <div class="topbar-right">
           <span class="live-badge"><span class="live-dot"></span>LIVE</span>
@@ -4359,7 +4359,7 @@
   }
 
   // 카드에는 핵심만 둡니다 — 대분류 · 프로젝트명 · 목적 · 현재 단계 · 다음 액션(마감일) ·
-  // 상태 · 병목 사유. 하위 업무와 히스토리, 진척률은 [상세보기] 안으로 숨깁니다.
+  // 상태 · 대기 사유. 하위 업무와 히스토리, 진척률은 [상세보기] 안으로 숨깁니다.
   function jwProjCardHtml(p) {
     const cls = JW_PROJECT_STATUS_CLS[p.status] || 'wait';
     const stuck = JW_PROJECT_STUCK.includes(p.status);
@@ -4587,7 +4587,7 @@
         <div class="task-panel-field"><label>다음 액션 마감일</label><input id="jwPfDue" type="date" value="${escapeAttr(v.next_action_due || '')}"></div>
         <div class="task-panel-field"><label>담당자</label><input id="jwPfOwner" type="text" value="${escapeAttr(v.owner || jwViewAssignee())}"></div>
       </div>
-      <div class="task-panel-field"><label>대기 · 병목 사유</label><input id="jwPfBlocker" type="text" value="${escapeAttr(v.blocker || '')}" placeholder="예) 업체 회신 대기"></div>
+      <div class="task-panel-field"><label>대기 사유</label><input id="jwPfBlocker" type="text" value="${escapeAttr(v.blocker || '')}" placeholder="예) 업체 회신 대기"></div>
       <div class="task-panel-row">
         <div class="task-panel-field"><label>진척률 (%)</label><input id="jwPfProgress" type="number" min="0" max="100" value="${Number(v.progress || 0)}"></div>
         <div class="task-panel-field"><label>다음 회의 · 보고 예정일</label><input id="jwPfMeeting" type="date" value="${escapeAttr(v.next_meeting || '')}"></div>
@@ -4710,7 +4710,7 @@
   function tdOf(name) { return tdLiveTasks().filter((t) => t.assignee === name); }
 
   // ---- 멈춰 있는 업무 모으기 ----
-  // 업무 표에는 "병목 사유" 칸이 없어서, 멈춘 이유를 상태에서 읽어 붙입니다.
+  // 업무 표에는 "대기 사유" 칸이 없어서, 멈춘 이유를 상태에서 읽어 붙입니다.
   function tdBlocked() {
     const today = jwTodayKST();
     const out = [];
@@ -4904,7 +4904,7 @@
         <div class="td-gantt-legend">
           <span><i class="task"></i>전휘원 이어가기</span>
           <span><i class="proj"></i>윤효선 프로젝트</span>
-          <span><i class="late"></i>지연 · 병목</span>
+          <span><i class="late"></i>지연</span>
           <span><i class="done"></i>완료</span>
           <span class="todayhint">세로선 = 오늘(${today.slice(5).replace('-', '/')})</span>
         </div>
@@ -4940,7 +4940,7 @@
     const today = jwTodayKST();
     const blocked = tdBlocked();
 
-    // 병목 · 대기
+    // 대기 업무
     const blockedHtml = blocked.length
       ? blocked.map((b) => `
           <div class="td-block-row ${b.tone}" onclick="${b.kind === 'project' ? 'tdGoProject(' + b.id + ')' : 'tdGoTask(' + b.id + ')'}">
@@ -5023,7 +5023,7 @@
       </section>
       <div class="td-grid">
         <section class="panel td-w">
-          <div class="panel-head"><h2>병목 · 대기 업무</h2><span class="panel-note">${blocked.length}건</span></div>
+          <div class="panel-head"><h2>대기 업무</h2><span class="panel-note">${blocked.length}건</span></div>
           ${blockedHtml}
         </section>
         <section class="panel td-w">
