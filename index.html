@@ -2007,11 +2007,11 @@
           <div class="nav-item" id="navTeamSchedule" onclick="switchView('team-schedule', 'main')"><span class="dot dot-team"></span>프로모션</div>
           <div id="navScheduleSub">
             <div class="nav-subitem" data-schedulesub="main" onclick="switchView('team-schedule', 'main')">일정</div>
-            <div class="nav-subitem" data-schedulesub="sales" onclick="switchView('team-schedule', 'sales')">프로모션 매출</div>
-            <div class="nav-subitem" data-schedulesub="settlement" onclick="switchView('team-schedule', 'settlement')">공동구매 정산</div>
-            <div class="nav-subitem" data-schedulesub="feecalc" onclick="switchView('team-schedule', 'feecalc')">공구 정산 계산</div>
+            <div class="nav-subitem" data-schedulesub="sales" onclick="openTeamView('team-schedule', 'sales')" title="영업팀 비밀번호가 필요합니다">프로모션 매출<span class="nav-lock">🔒</span></div>
+            <div class="nav-subitem" data-schedulesub="settlement" onclick="openTeamView('team-schedule', 'settlement')" title="영업팀 비밀번호가 필요합니다">공동구매 정산<span class="nav-lock">🔒</span></div>
+            <div class="nav-subitem" data-schedulesub="feecalc" onclick="openTeamView('team-schedule', 'feecalc')" title="영업팀 비밀번호가 필요합니다">공구 정산 계산<span class="nav-lock">🔒</span></div>
           </div>
-          <div class="nav-item" id="navTeamProcess" onclick="switchView('team-process', 'overview')"><span class="dot dot-team"></span>거래처 운영현황</div>
+          <div class="nav-item" id="navTeamProcess" onclick="openTeamView('team-process', 'overview')" title="영업팀 비밀번호가 필요합니다"><span class="dot dot-team"></span>거래처 운영현황<span class="nav-lock">🔒</span></div>
           <div id="navProcessSub">
             <div class="nav-subitem" data-processsub="shipping" onclick="switchView('team-process', 'shipping')">출고 캘린더</div>
           </div>
@@ -4294,6 +4294,28 @@
   // ==================== 재무 메뉴 비밀번호 잠금 ====================
   const FINANCE_PASSWORD = 'sales0813';
   const TEAM_WORKSPACE_PASSWORD = 'team0813';
+  // 영업팀만 보는 화면(프로모션 매출·공동구매 정산·공구 정산 계산·거래처 운영현황)의 문입니다.
+  // 재무와 비밀번호를 나눠 둡니다 — 영업팀에 알려준 값으로 재무까지 열리면 안 됩니다.
+  // ⚠️ 이건 브라우저에서만 막는 빗장입니다. 비밀번호가 이 파일 안에 그대로 들어 있어서
+  //    소스를 보면 누구나 알 수 있습니다. 바깥 사람이 아예 못 들어오게 하려면
+  //    배포 단계(Vercel 암호 보호)나 로그인(Supabase Auth)으로 막아야 합니다.
+  const TEAM_PASSWORD = 'team0813';
+
+  function openTeamView(view, sub) {
+    if (sessionStorage.getItem('teamUnlocked') === '1') {
+      switchView(view, sub);
+      return;
+    }
+    const input = prompt('영업팀 메뉴 비밀번호를 입력하세요');
+    if (input === null) return;
+    if (input === TEAM_PASSWORD) {
+      sessionStorage.setItem('teamUnlocked', '1');
+      switchView(view, sub);
+    } else {
+      alert('비밀번호가 올바르지 않습니다.');
+    }
+  }
+
   function openFinanceView(view) {
     if (sessionStorage.getItem('financeUnlocked') === '1') {
       switchView(view);
@@ -10703,7 +10725,7 @@
   // 정산 화면을 열고, 정산일이 된 첫 줄까지 스크롤해 깜빡여 줍니다.
   if (location.hash === '#settlement') {
     switchWorkspace('team');
-    switchView('team-schedule', 'settlement');
+    openTeamView('team-schedule', 'settlement');
     scrollToDueSettlement();
   }
 
