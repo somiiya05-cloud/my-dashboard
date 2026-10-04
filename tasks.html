@@ -4836,27 +4836,7 @@
     const today = jwTodayKST();
     const week = jwWeekRange();
     const live = tdLiveTasks();
-    const open = tdOpenNow(live);
-    const future = live.filter((t) => tdIsOpen(t) && t.due_date && tdDue(t) > today).length;
-    const dueToday = open.filter((t) => tdDue(t) === today);
-    const dueWeek = live.filter((t) => tdIsOpen(t) && t.due_date && tdDue(t) >= week[0] && tdDue(t) <= week[1]);
-    const late = open.filter(tdLate);
-    const review = live.filter((t) => t.status === '검수대기');
     const blocked = tdBlocked();
-
-    const kpi = [
-      ['전체 미완료 업무', open.length, '', future ? '앞으로 잡힌 업무 ' + future + '건' : ''],
-      ['오늘 마감 업무', dueToday.length, dueToday.length ? 'go' : '', ''],
-      ['이번 주 마감 업무', dueWeek.length, '', week[0].slice(5) + ' ~ ' + week[1].slice(5)],
-      ['지연 업무', late.length, late.length ? 'danger' : '', ''],
-      ['대기 · 병목 업무', blocked.length, blocked.length ? 'warn' : '', ''],
-      ['파트장 확인 필요', review.length, review.length ? 'warn' : '', ''],
-    ].map(([label, value, tone, sub]) => `
-      <div class="kpi-card td-kpi${tone ? ' ' + tone : ''}">
-        <div class="kpi-label">${label}</div>
-        <div class="kpi-value">${value}건</div>
-        ${sub ? `<div class="td-kpi-sub">${escapeAttr(sub)}</div>` : ''}
-      </div>`).join('');
 
     // 담당자별 현황
     const rows = TD_MEMBERS.map((name) => {
@@ -5006,7 +4986,6 @@
       </div>`;
 
     root.innerHTML = `
-      <section class="kpi-row td-kpi-row">${kpi}</section>
       <div class="td-grid">
         <section class="panel td-w wide">
           <div class="panel-head"><h2>담당자별 업무 현황</h2></div>
