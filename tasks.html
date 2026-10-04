@@ -2478,7 +2478,6 @@
         <!-- 프로젝트형 업무 — 오래 끌고 가는 건은 할 일 목록과 따로 둡니다.
              renderJwProjects 가 채우고, 윤효선처럼 루틴이 없는 화면에서만 보입니다. -->
         <div id="jwProjectArea" style="display:none">
-          <section class="kpi-row jw-proj-kpi" id="jwProjKpi"></section>
           <section class="panel">
             <div class="panel-head">
               <h2>프로젝트형 업무</h2>
@@ -4125,21 +4124,6 @@
     return [mon, jwAddDays(mon, 6)];
   }
 
-  function jwProjectSummary() {
-    const mine = jwMyProjects();
-    const today = jwTodayKST();
-    const week = jwWeekRange();
-    const live = mine.filter((p) => JW_PROJECT_LIVE.includes(p.status));
-    return {
-      live: live.length,
-      todayAction: live.filter((p) => p.next_action && p.next_action_due && p.next_action_due <= today).length,
-      stuck: mine.filter((p) => JW_PROJECT_STUCK.includes(p.status)).length,
-      week: live.filter((p) => p.next_action_due && p.next_action_due >= week[0] && p.next_action_due <= week[1]).length,
-      stale: live.filter((p) => (jwProjDays(jwProjLastTouch(p)) || 0) >= JW_PROJECT_STALE_DAYS).length,
-      revenue: live.filter((p) => p.revenue_impact).length,
-    };
-  }
-
   // 마감일 배지 — 지났으면 빨강, 사흘 안이면 노랑
   function jwProjDdayHtml(due) {
     if (!due) return '';
@@ -4316,28 +4300,15 @@
     area.style.display = '';
 
     const note = document.getElementById('jwProjNote');
-    const kpi = document.getElementById('jwProjKpi');
     const grid = document.getElementById('jwProjGrid');
     const mine = jwMyProjects();
 
     if (jwProjectsError) {
       if (note) note.innerHTML = '<span class="error">프로젝트를 불러오지 못했습니다 — team_projects.sql 을 Supabase에서 실행해주세요.</span>';
-      if (kpi) kpi.innerHTML = '';
       if (grid) grid.innerHTML = '';
       return;
     }
     if (note) note.textContent = mine.length ? mine.length + '건' : '';
-
-    const s = jwProjectSummary();
-    if (kpi) {
-      kpi.innerHTML = `
-        <div class="kpi-card go"><div class="kpi-label">진행 중 프로젝트</div><div class="kpi-value">${s.live}건</div></div>
-        <div class="kpi-card${s.todayAction ? ' go' : ''}"><div class="kpi-label">오늘 해야 할 액션</div><div class="kpi-value">${s.todayAction}건</div></div>
-        <div class="kpi-card${s.stuck ? ' warn' : ''}"><div class="kpi-label">대기 / 회신 필요</div><div class="kpi-value">${s.stuck}건</div></div>
-        <div class="kpi-card"><div class="kpi-label">이번 주 마감</div><div class="kpi-value">${s.week}건</div></div>
-        <div class="kpi-card${s.stale ? ' danger' : ''}"><div class="kpi-label">장기 미업데이트</div><div class="kpi-value">${s.stale}건</div></div>
-        <div class="kpi-card${s.revenue ? ' rev' : ''}"><div class="kpi-label">매출 영향 업무</div><div class="kpi-value">${s.revenue}건</div></div>`;
-    }
 
     if (grid) {
       // 멈춰 있는 것 먼저, 그다음 마감이 급한 것, 끝난 것은 맨 아래
