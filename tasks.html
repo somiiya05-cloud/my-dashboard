@@ -735,7 +735,13 @@
   .jw-proj-card.stuck { border-color: rgba(217,119,6,.4); background: #fffaf3; }
   .jw-proj-card.done { opacity: .62; }
   .jw-proj-head { display: flex; align-items: flex-start; gap: 8px; }
-  .jw-proj-name { font-size: 14px; font-weight: 800; color: #0f172a; line-height: 1.35; }
+  /* 프로젝트명은 카드에서 가장 먼저 읽혀야 해서 테두리를 두르고 키웠습니다 */
+  .jw-proj-name {
+    align-self: flex-start; font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.35;
+    border: 1.5px solid #cbd5e1; border-radius: 9px; padding: 7px 13px; background: #fff;
+  }
+  .jw-proj-card.stuck .jw-proj-name { border-color: rgba(217,119,6,.45); }
+  .jw-proj-card.done .jw-proj-name { border-color: #e2e8f0; color: #64748b; }
   .jw-proj-badge {
     margin-left: auto; flex-shrink: 0; font-size: 10.5px; font-weight: 800;
     border-radius: 999px; padding: 3px 9px; white-space: nowrap;
