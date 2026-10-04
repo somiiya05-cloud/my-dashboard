@@ -3385,7 +3385,7 @@
   function switchWorkspace(ws) {
     if (ws === currentWorkspace) return;
     // 영업 운영관리(team)는 잠금을 풀었고, 업무관리(task)만 비밀번호를 받습니다.
-    if (ws === 'task' && sessionStorage.getItem('teamUnlocked') !== '1') {
+    if (ws === 'task' && !isUnlocked('teamUnlockedUntil')) {
       // prompt 를 막아 둔 브라우저(일부 앱 내장 브라우저)에서는 오류가 나면서
     // 화면이 통째로 비어 버립니다. 그럴 때는 잠금을 건너뛰고 열어 줍니다.
     let input = null;
@@ -3393,7 +3393,7 @@
     catch (e) { return true; }
       if (input === null) return;
       if (input !== TEAM_WORKSPACE_PASSWORD) { alert('비밀번호가 올바르지 않습니다.'); return; }
-      sessionStorage.setItem('teamUnlocked', '1');
+      markUnlocked('teamUnlockedUntil');
     }
     currentWorkspace = ws;
 
@@ -7456,8 +7456,31 @@
   // ---- 이 페이지 전용 시작 코드 ----
   // 매출관리와 같은 잠금을 씁니다. 한 번 풀면 같은 탭에서는 다시 묻지 않습니다.
   const TEAM_WORKSPACE_PASSWORD = 'team0813';
+
+  // 한 번 풀면 하루 동안 다시 묻지 않습니다(매출관리 index.html 과 같은 열쇠를 씁니다).
+  // 저장을 막아 둔 브라우저에서는 그 창에서만 기억합니다.
+  const UNLOCK_MS = 24 * 60 * 60 * 1000;
+  const unlockFallback = {};
+
+  function isUnlocked(key) {
+    try {
+      const until = Number(localStorage.getItem(key));
+      if (Number.isFinite(until) && until > Date.now()) return true;
+      if (until) localStorage.removeItem(key); // 하루가 지난 값은 치웁니다
+    } catch (e) { /* 저장소를 못 쓰는 브라우저 */ }
+    return (unlockFallback[key] || 0) > Date.now();
+  }
+
+  function markUnlocked(key) {
+    const until = Date.now() + UNLOCK_MS;
+    // 저장이 되는 브라우저에서는 저장소만 믿습니다. 임시 기억까지 같이 두면
+    // 저장소 쪽이 만료되거나 지워져도 이 창에서는 계속 열린 것처럼 보입니다.
+    try { localStorage.setItem(key, String(until)); }
+    catch (e) { unlockFallback[key] = until; }
+  }
+
   function unlockTaskPage() {
-    if (sessionStorage.getItem('teamUnlocked') === '1') return true;
+    if (isUnlocked('teamUnlockedUntil')) return true;
     // prompt 를 막아 둔 브라우저(일부 앱 내장 브라우저)에서는 여기서 오류가 나면서
     // 아래 화면 그리기까지 통째로 멈춥니다. 그럴 때는 잠금을 건너뛰고 열어 줍니다.
     let input = null;
@@ -7469,7 +7492,7 @@
       location.href = 'index.html';
       return false;
     }
-    sessionStorage.setItem('teamUnlocked', '1');
+    markUnlocked('teamUnlockedUntil');
     return true;
   }
 

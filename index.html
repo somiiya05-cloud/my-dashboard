@@ -4301,15 +4301,37 @@
   //    배포 단계(Vercel 암호 보호)나 로그인(Supabase Auth)으로 막아야 합니다.
   const TEAM_PASSWORD = 'team0813';
 
+  // 한 번 풀면 하루 동안 다시 묻지 않습니다. 탭을 닫았다 열어도 유지됩니다.
+  // 저장을 막아 둔 브라우저(사생활 보호 모드 등)에서는 그 창에서만 기억합니다.
+  const UNLOCK_MS = 24 * 60 * 60 * 1000;
+  const unlockFallback = {};
+
+  function isUnlocked(key) {
+    try {
+      const until = Number(localStorage.getItem(key));
+      if (Number.isFinite(until) && until > Date.now()) return true;
+      if (until) localStorage.removeItem(key); // 하루가 지난 값은 치웁니다
+    } catch (e) { /* 저장소를 못 쓰는 브라우저 */ }
+    return (unlockFallback[key] || 0) > Date.now();
+  }
+
+  function markUnlocked(key) {
+    const until = Date.now() + UNLOCK_MS;
+    // 저장이 되는 브라우저에서는 저장소만 믿습니다. 임시 기억까지 같이 두면
+    // 저장소 쪽이 만료되거나 지워져도 이 창에서는 계속 열린 것처럼 보입니다.
+    try { localStorage.setItem(key, String(until)); }
+    catch (e) { unlockFallback[key] = until; }
+  }
+
   function openTeamView(view, sub) {
-    if (sessionStorage.getItem('teamUnlocked') === '1') {
+    if (isUnlocked('teamUnlockedUntil')) {
       switchView(view, sub);
       return;
     }
     const input = prompt('영업팀 메뉴 비밀번호를 입력하세요');
     if (input === null) return;
     if (input === TEAM_PASSWORD) {
-      sessionStorage.setItem('teamUnlocked', '1');
+      markUnlocked('teamUnlockedUntil');
       switchView(view, sub);
     } else {
       alert('비밀번호가 올바르지 않습니다.');
@@ -4317,14 +4339,14 @@
   }
 
   function openFinanceView(view) {
-    if (sessionStorage.getItem('financeUnlocked') === '1') {
+    if (isUnlocked('financeUnlockedUntil')) {
       switchView(view);
       return;
     }
     const input = prompt('재무 메뉴 비밀번호를 입력하세요');
     if (input === null) return;
     if (input === FINANCE_PASSWORD) {
-      sessionStorage.setItem('financeUnlocked', '1');
+      markUnlocked('financeUnlockedUntil');
       switchView(view);
     } else {
       alert('비밀번호가 올바르지 않습니다.');
