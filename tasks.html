@@ -730,7 +730,7 @@
   .jw-proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
   .jw-proj-card {
     border: 1px solid rgba(15,23,42,.1); border-radius: 14px; background: #fff;
-    padding: 14px 16px; display: flex; flex-direction: column; gap: 9px;
+    padding: 11px 14px; display: flex; flex-direction: column; gap: 6px;
   }
   .jw-proj-card.stuck { border-color: rgba(217,119,6,.4); background: #fffaf3; }
   .jw-proj-card.done { opacity: .62; }
@@ -738,8 +738,8 @@
   /* 프로젝트명은 카드에서 가장 먼저 읽혀야 해서 테두리를 두릅니다.
      대분류 라벨을 뺐으므로 상자 색으로 어느 갈래인지 알아보게 했습니다. */
   .jw-proj-name {
-    align-self: flex-start; font-size: 15.5px; font-weight: 800; color: #0f172a; line-height: 1.35;
-    border: 1.5px solid #cbd5e1; border-radius: 9px; padding: 6px 12px; background: #fff;
+    align-self: flex-start; font-size: 15.5px; font-weight: 800; color: #0f172a; line-height: 1.3;
+    border: 1.5px solid #cbd5e1; border-radius: 9px; padding: 5px 11px; background: #fff;
   }
   .jw-proj-name.c1 { border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }  /* 이커머스 판매채널계획 */
   .jw-proj-name.c2 { border-color: #f9a8d4; background: #fdf2f8; color: #be185d; }  /* 공동구매 관리 */
@@ -775,11 +775,11 @@
   .jw-proj-kpi .kpi-card.rev { border-left: 4px solid #16a34a; }
   .jw-proj-kpi .kpi-card.rev .kpi-value { color: #15803d; }
   .jw-proj-card > .jw-proj-btns { justify-content: flex-end; }
-  .jw-proj-line { font-size: 12px; color: #475569; line-height: 1.5; }
+  .jw-proj-line { font-size: 12px; color: #475569; line-height: 1.45; }
   .jw-proj-line b { color: #94a3b8; font-weight: 700; margin-right: 6px; font-size: 11px; }
   .jw-proj-next {
     background: #f8fafc; border: 1px solid rgba(15,23,42,.07); border-radius: 10px;
-    padding: 9px 11px; display: flex; flex-direction: column; gap: 5px;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 4px;
   }
   .jw-proj-next-label { font-size: 10.5px; font-weight: 800; color: #2f5ce4; letter-spacing: .02em; }
   .jw-proj-next-text { font-size: 12.5px; font-weight: 700; color: #0f172a; line-height: 1.45; }
@@ -790,7 +790,7 @@
   .jw-proj-dday.over { background: #fee2e2; color: #b91c1c; }
   .jw-proj-blocker {
     font-size: 11.5px; color: #b45309; background: #fffbeb;
-    border: 1px solid rgba(217,119,6,.25); border-radius: 8px; padding: 7px 10px; line-height: 1.45;
+    border: 1px solid rgba(217,119,6,.25); border-radius: 8px; padding: 6px 9px; line-height: 1.4;
   }
   .jw-proj-foot { display: flex; align-items: center; gap: 8px; }
   .jw-proj-bar { flex: 1; height: 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
@@ -831,6 +831,9 @@
   .jw-duty-table th { background: #edf2fb; color: #1f3864; font-weight: 800; white-space: nowrap; }
   .jw-duty-table td.k { font-weight: 700; color: #334155; white-space: nowrap; }
   .jw-duty-table tbody tr:nth-child(even) td { background: #f8fafc; }
+
+  /* 두 칸 머리글은 화면에서 가장 큰 제목이라 조금 키웁니다 */
+  .jw-two .panel-head h2 { font-size: 16.5px; font-weight: 800; }
 
   /* 윤효선 화면 두 칸 — 왼쪽 프로젝트, 오른쪽 진행중인 업무 */
   .jw-two { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 16px; align-items: start; }
