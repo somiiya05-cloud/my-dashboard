@@ -846,6 +846,56 @@
   .ct-num:focus, .ct-act:focus, .ct-sel:focus { outline: none; border-color: #4d7cfe; background: #fff; }
   .ct-hint { font-size: 11px; color: #94a3b8; margin-top: 10px; }
 
+  /* 채널별 운영 보드 — 채널이 칸, 업무가 카드 */
+  .cb-board { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; align-items: flex-start; }
+  .cb-col {
+    flex: 0 0 272px; background: #f6f8fc; border: 1px solid #e7edf5; border-radius: 12px;
+    padding: 10px; min-height: 120px;
+  }
+  .cb-col.over { border-color: #4d7cfe; background: #eff4ff; }
+  .cb-col-head { display: flex; align-items: center; gap: 7px; padding: 2px 4px 9px; }
+  .cb-col-name { font-size: 13px; font-weight: 800; color: #0f172a; }
+  .cb-col-cnt { margin-left: auto; font-size: 11px; font-weight: 800; color: #64748b; background: #fff; border-radius: 999px; padding: 2px 8px; }
+  .cb-col-body { display: flex; flex-direction: column; gap: 7px; }
+  .cb-card {
+    background: #fff; border: 1px solid #e7edf5; border-radius: 10px; padding: 8px 9px 7px;
+    box-shadow: 0 1px 2px rgba(15,23,42,.04); cursor: grab; position: relative;
+  }
+  .cb-card:hover { border-color: #cbd5e1; }
+  .cb-card.dragging { opacity: .45; }
+  .cb-card.done { background: #f8fdfa; border-color: rgba(22,163,74,.25); }
+  .cb-card.done .cb-body { color: #94a3b8; text-decoration: line-through; }
+  .cb-card.late { border-color: rgba(220,38,38,.3); background: #fef8f8; }
+  .cb-grip { position: absolute; top: 7px; right: 8px; color: #cbd5e1; font-size: 11px; }
+  .cb-body {
+    width: 100%; border: 0; background: transparent; resize: none; overflow: hidden;
+    font-family: inherit; font-size: 12.5px; line-height: 1.5; color: #0f172a; padding: 0 14px 0 0;
+  }
+  .cb-body:focus { outline: none; }
+  .cb-meta { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+  .cb-sel, .cb-date {
+    border: 1px solid transparent; border-radius: 6px; background: transparent;
+    font-family: inherit; font-size: 10.5px; color: #64748b; padding: 2px 4px; cursor: pointer;
+  }
+  .cb-date { width: 104px; }
+  .cb-sel:hover, .cb-date:hover { border-color: #e2e8f0; background: #f8fafc; }
+  .cb-sel:focus, .cb-date:focus { outline: none; border-color: #4d7cfe; background: #fff; }
+  .cb-mini {
+    margin-left: auto; border: 1px solid #e2e8f0; background: #fff; color: #cbd5e1;
+    font-family: inherit; font-size: 10.5px; font-weight: 800;
+    border-radius: 999px; padding: 2px 7px; cursor: pointer;
+  }
+  .cb-mini + .cb-mini { margin-left: 0; }
+  .cb-mini:hover { border-color: #94a3b8; color: #475569; }
+  .cb-mini.on { background: #16a34a; border-color: #16a34a; color: #fff; }
+  .cb-mini.del:hover { border-color: rgba(220,38,38,.4); color: #dc2626; }
+  .cb-add {
+    border: 1px dashed #cbd5e1; background: transparent; color: #94a3b8;
+    font-family: inherit; font-size: 11.5px; font-weight: 700;
+    border-radius: 9px; padding: 7px; cursor: pointer; width: 100%;
+  }
+  .cb-add:hover { border-color: #4d7cfe; color: #2f5ce4; background: #fff; }
+
   /* 업무분장 — 역할·업무 분장표를 탭으로 봅니다 */
   .jw-duty-tabs { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: 14px; }
   .jw-duty-tab {
@@ -3285,7 +3335,10 @@
     }
     if (view === 'team-calendar') { renderTeamCal(); loadTeamEvents().then(renderTeamCal); loadTeamTasks(); }
     if (view === 'team-duty') renderJwDuty();
-    if (view === 'channel-tracker') { renderChannelTracker(); loadChannelTargets(); }
+    if (view === 'channel-tracker') {
+      renderChannelTracker();
+      loadChannelBoard().then(() => { renderChannelTracker(); loadChannelTargets(); });
+    }
     if (view === 'team-weekly') loadTeamTasks();
     if (view === 'weekly-report') loadWeeklyReports();
     if (view === 'team-schedule') loadTeamSchedule();
@@ -5000,6 +5053,168 @@
   }
   window.ctSaveOwner = ctSaveOwner;
 
+  // ---- 채널별 운영 보드 (노션 보드처럼) ----
+  // 채널마다 칸이 하나씩, 그 안에 업무 카드를 적고 끌어서 옮깁니다 (channel_board).
+  // 칸 목록은 분기 목표(channel_targets)의 채널을 그대로 씁니다.
+  let cbCards = [];
+  let cbError = '';
+  let cbDragId = null;
+  let cbDragArmed = false;
+
+  async function loadChannelBoard() {
+    const { data, error } = await client.from('channel_board')
+      .select('*').order('channel').order('sort_no').order('id');
+    cbError = error ? error.message : '';
+    cbCards = error ? [] : (data || []);
+  }
+
+  function cbOf(channel) {
+    return cbCards.filter((c) => c.channel === channel)
+      .sort((a, b) => (a.sort_no - b.sort_no) || (a.id - b.id));
+  }
+
+  async function cbAdd(channel) {
+    const n = cbOf(channel).length;
+    const { data, error } = await client.from('channel_board')
+      .insert({ channel, body: '', sort_no: n }).select();
+    if (error) {
+      alert('카드를 넣지 못했습니다: ' + error.message
+        + '\n\nchannel_board.sql 을 Supabase에서 실행했는지 확인해주세요.');
+      return;
+    }
+    await loadChannelBoard();
+    renderChannelTracker();
+    // 새로 만든 카드에 바로 쓸 수 있게 커서를 둡니다.
+    const id = data && data[0] && data[0].id;
+    const el = id && document.getElementById('cbBody' + id);
+    if (el) { el.focus(); }
+  }
+  window.cbAdd = cbAdd;
+
+  async function cbSave(id, field, value) {
+    const card = cbCards.find((c) => c.id === id);
+    if (!card) return;
+    const v = (field === 'done') ? !!value : (value === '' ? null : value);
+    if (card[field] === v) return;
+    const { error } = await client.from('channel_board')
+      .update({ [field]: v, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
+    card[field] = v;
+    if (field === 'done') renderChannelTracker();
+  }
+  window.cbSave = cbSave;
+
+  async function cbDelete(id) {
+    const card = cbCards.find((c) => c.id === id);
+    // 빈 카드는 묻지 않고 바로 지웁니다.
+    if (card && String(card.body || '').trim() && !confirm('이 카드를 지울까요?')) return;
+    const { error } = await client.from('channel_board').delete().eq('id', id);
+    if (error) { alert('지우지 못했습니다: ' + error.message); return; }
+    await loadChannelBoard();
+    renderChannelTracker();
+  }
+  window.cbDelete = cbDelete;
+
+  // ---- 끌어서 옮기기 ----
+  // 글을 쓰는 칸 위에서는 끌리지 않게 합니다 (글자 선택이 먼저라서요).
+  function cbDragArm(e) {
+    cbDragArmed = !(e && e.target && e.target.closest('textarea, input, select, button'));
+  }
+  window.cbDragArm = cbDragArm;
+
+  function cbDragStart(e, id) {
+    if (!cbDragArmed) { e.preventDefault(); return; }
+    cbDragId = id;
+    if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(id)); }
+    const el = document.querySelector('.cb-card[data-id="' + id + '"]');
+    if (el) el.classList.add('dragging');
+  }
+  window.cbDragStart = cbDragStart;
+
+  function cbDragEnd() {
+    cbDragId = null; cbDragArmed = false;
+    document.querySelectorAll('.cb-card.dragging').forEach((el) => el.classList.remove('dragging'));
+    document.querySelectorAll('.cb-col.over').forEach((el) => el.classList.remove('over'));
+  }
+  window.cbDragEnd = cbDragEnd;
+
+  function cbDragOverCol(e, channel) {
+    if (cbDragId == null) return;
+    e.preventDefault();
+    const col = document.querySelector('.cb-col[data-ch="' + CSS.escape(channel) + '"]');
+    document.querySelectorAll('.cb-col.over').forEach((el) => el.classList.remove('over'));
+    if (col) col.classList.add('over');
+  }
+  window.cbDragOverCol = cbDragOverCol;
+
+  // 카드 위에 떨어뜨리면 그 카드 앞자리로, 칸의 빈 곳에 떨어뜨리면 맨 뒤로 갑니다.
+  async function cbDrop(e, channel, beforeId) {
+    if (cbDragId == null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const moving = cbCards.find((c) => c.id === cbDragId);
+    cbDragEnd();
+    if (!moving) return;
+
+    const rest = cbOf(channel).filter((c) => c.id !== moving.id);
+    const at = beforeId == null ? rest.length : Math.max(0, rest.findIndex((c) => c.id === beforeId));
+    rest.splice(beforeId == null ? rest.length : at, 0, moving);
+
+    const fromCh = moving.channel;
+    moving.channel = channel;
+    rest.forEach((c, i) => { c.sort_no = i; });
+    renderChannelTracker();
+
+    const rows = rest.map((c, i) => ({ id: c.id, sort_no: i }));
+    for (const r of rows) {
+      await client.from('channel_board')
+        .update({ sort_no: r.sort_no, channel, updated_at: new Date().toISOString() }).eq('id', r.id);
+    }
+    // 떠나온 칸의 차례도 다시 매깁니다.
+    if (fromCh !== channel) {
+      const left = cbOf(fromCh);
+      for (let i = 0; i < left.length; i++) {
+        left[i].sort_no = i;
+        await client.from('channel_board').update({ sort_no: i }).eq('id', left[i].id);
+      }
+    }
+  }
+  window.cbDrop = cbDrop;
+
+  function cbCardHtml(c) {
+    const late = c.due_date && !c.done && String(c.due_date).slice(0, 10) < jwTodayKST();
+    return `
+      <div class="cb-card${c.done ? ' done' : ''}${late ? ' late' : ''}" data-id="${c.id}" draggable="true"
+        onmousedown="cbDragArm(event)" ondragstart="cbDragStart(event, ${c.id})" ondragend="cbDragEnd()"
+        ondragover="cbDragOverCol(event, '${escapeAttr(c.channel).replace(/'/g, '&#39;')}')"
+        ondrop="cbDrop(event, '${escapeAttr(c.channel).replace(/'/g, '&#39;')}', ${c.id})">
+        <span class="cb-grip" title="끌어서 옮깁니다">⠿</span>
+        <textarea class="cb-body" id="cbBody${c.id}" rows="1" placeholder="할 일을 적어주세요"
+          oninput="cbGrow(this)" onblur="cbSave(${c.id}, 'body', this.value)">${escapeAttr(c.body || '')}</textarea>
+        <div class="cb-meta">
+          <select class="cb-sel" onchange="cbSave(${c.id}, 'owner', this.value)">
+            <option value="">담당</option>
+            ${CT_OWNERS.map((o) => `<option value="${o}" ${o === (c.owner || '') ? 'selected' : ''}>${o}</option>`).join('')}
+          </select>
+          <input type="date" class="cb-date" value="${escapeAttr(c.due_date || '')}"
+            onchange="cbSave(${c.id}, 'due_date', this.value)">
+          <button type="button" class="cb-mini${c.done ? ' on' : ''}" title="끝났으면 누르세요"
+            onclick="cbSave(${c.id}, 'done', ${c.done ? 'false' : 'true'})">✓</button>
+          <button type="button" class="cb-mini del" title="이 카드를 지웁니다" onclick="cbDelete(${c.id})">✕</button>
+        </div>
+      </div>`;
+  }
+
+  function cbGrow(el) {
+    el.style.height = 'auto';
+    el.style.height = (el.scrollHeight + 2) + 'px';
+  }
+  window.cbGrow = cbGrow;
+
+  function cbGrowAll() {
+    document.querySelectorAll('.cb-body').forEach(cbGrow);
+  }
+
   function renderChannelTracker() {
     const root = document.getElementById('channelTrackerBody');
     if (!root) return;
@@ -5064,39 +5279,89 @@
         </tr>`;
     }).join('');
 
+    // 보드가 본 화면입니다. 분기 목표 금액 표는 그 아래에 접어 둡니다.
+    const targetTable = !channels.length ? '' : `
+      <div class="ct-wrap">
+        <table class="ct-table">
+          <thead>${head}</thead>
+          <tbody>${body}</tbody>
+          <tfoot>
+            <tr>
+              <td class="ct-ch">합계</td><td></td>
+              ${monthTotal.map((t, i) => `<td class="num${months[i] === thisMonth ? ' now' : ''}">${t ? ctWon(t) : '-'}</td>`).join('')}
+              <td class="num">${grand ? ctWon(grand) : '-'}</td><td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="ct-hint">칸을 눌러 바로 고치면 저장됩니다. 막대 길이는 이 분기에서 가장 큰 달을 기준으로 한 비율입니다.</div>`;
+
     root.innerHTML = `
+      ${cbBoardHtml(channels)}
       <section class="panel">
         <div class="panel-head">
-          <h2>${label} 채널별 목표</h2>
-          <span class="panel-note">${channels.length}개 채널 · 분기 합계 ${ctWon(grand)}원</span>
+          <h2>${label} 목표 금액</h2>
+          <span class="panel-note">${channels.length}개 채널 · 합계 ${ctWon(grand)}원</span>
           <span class="tc-nav">
             <button type="button" class="jw-proj-btn" onclick="ctMoveQuarter(-1)">‹ 지난 분기</button>
             <button type="button" class="jw-proj-btn" onclick="ctMoveQuarter(1)">다음 분기 ›</button>
             <button type="button" class="jw-proj-btn" onclick="ctCopyPrevQuarter()">지난 분기 가져오기</button>
-            <button type="button" class="jw-proj-btn main" onclick="ctAddChannel()">+ 채널 추가</button>
+            <button type="button" class="jw-proj-btn" onclick="ctToggleTable()">${ctTableOpen ? '접기' : '펼치기'}</button>
           </span>
         </div>
-        ${channels.length ? `
-          <div class="ct-wrap">
-            <table class="ct-table">
-              <thead>${head}</thead>
-              <tbody>${body}</tbody>
-              <tfoot>
-                <tr>
-                  <td class="ct-ch">합계</td><td></td>
-                  ${monthTotal.map((t, i) => `<td class="num${months[i] === thisMonth ? ' now' : ''}">${t ? ctWon(t) : '-'}</td>`).join('')}
-                  <td class="num">${grand ? ctWon(grand) : '-'}</td><td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-          <div class="ct-hint">칸을 눌러 바로 고치면 저장됩니다. 막대 길이는 이 분기에서 가장 큰 달을 기준으로 한 비율입니다.</div>`
-        : `<div class="td-empty">${label}에 적어둔 채널이 없습니다.
+        ${!ctTableOpen ? '' : (channels.length ? targetTable : `
+          <div class="td-empty">${label}에 적어둔 채널이 없습니다.
             <button type="button" class="jw-proj-btn main" style="margin-left:8px;" onclick="ctSeedQuarter()">기본 채널 5개 만들기</button>
             <button type="button" class="jw-proj-btn" style="margin-left:4px;" onclick="ctCopyPrevQuarter()">지난 분기 가져오기</button>
-          </div>`}
+          </div>`)}
+      </section>`;
+    cbGrowAll();
+  }
+
+  // 보드 — 채널마다 칸 하나, 카드를 끌어서 옮깁니다.
+  function cbBoardHtml(channels) {
+    if (cbError) {
+      return `<section class="panel"><div class="td-empty">
+        보드를 불러오지 못했습니다 — channel_board.sql 을 Supabase에서 실행해주세요.</div></section>`;
+    }
+    if (!channels.length) {
+      return `<section class="panel"><div class="td-empty">아직 채널이 없습니다.
+        <button type="button" class="jw-proj-btn main" style="margin-left:8px;" onclick="ctSeedQuarter()">기본 채널 5개 만들기</button>
+        </div></section>`;
+    }
+    return `
+      <section class="panel cb-panel">
+        <div class="panel-head">
+          <h2>채널별 운영 보드</h2>
+          <span class="panel-note">카드를 끌어서 채널 사이로 옮길 수 있습니다</span>
+          <button type="button" class="jw-proj-btn main" style="margin-left:auto;" onclick="ctAddChannel()">+ 채널 추가</button>
+        </div>
+        <div class="cb-board">
+          ${channels.map((ch, i) => {
+            const cards = cbOf(ch);
+            const left = cards.filter((c) => !c.done).length;
+            const key = escapeAttr(ch).replace(/'/g, '&#39;');
+            return `
+              <div class="cb-col" data-ch="${escapeAttr(ch)}"
+                ondragover="cbDragOverCol(event, '${key}')" ondrop="cbDrop(event, '${key}', null)">
+                <div class="cb-col-head">
+                  <span class="ct-dot ${CT_COLORS[i % CT_COLORS.length]}"></span>
+                  <span class="cb-col-name">${escapeAttr(ch)}</span>
+                  <span class="cb-col-cnt">${left}</span>
+                </div>
+                <div class="cb-col-body">
+                  ${cards.map(cbCardHtml).join('')}
+                  <button type="button" class="cb-add" onclick="cbAdd('${key}')">+ 추가</button>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
       </section>`;
   }
+
+  let ctTableOpen = false;
+  function ctToggleTable() { ctTableOpen = !ctTableOpen; renderChannelTracker(); }
+  window.ctToggleTable = ctToggleTable;
 
   // ==================== 업무분장 ====================
   // 영업팀 역할·업무 분장표(엑셀로 만든 것)를 화면에도 올려 둡니다.
