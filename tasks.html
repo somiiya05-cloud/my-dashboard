@@ -818,7 +818,8 @@
   }
   .jw-duty-tab:hover { border-color: #94a3b8; color: #0f172a; }
   .jw-duty-tab.on { background: #1f3864; border-color: #1f3864; color: #fff; }
-  .jw-duty-body { margin-top: 12px; max-height: 520px; overflow-y: auto; padding-right: 4px; }
+  .jw-duty-body { margin-top: 12px; }
+  .jw-duty-tabs { margin-left: 0 !important; }
   .jw-duty-note { font-size: 11.5px; color: #64748b; margin-bottom: 10px; }
   .jw-duty-h { font-size: 12.5px; font-weight: 800; color: #1f3864; margin: 14px 0 7px; }
   .jw-duty-h:first-child { margin-top: 0; }
@@ -2385,6 +2386,9 @@
           <div class="nav-item" id="navTeamCal" onclick="switchView('team-calendar')">
             <span class="dot dot-task"></span>팀 캘린더
           </div>
+          <div class="nav-item" id="navTeamDuty" onclick="switchView('team-duty')">
+            <span class="dot dot-task"></span>업무분장
+          </div>
           <!-- "할일 관리"(담당자별 업무 현황 + 주의가 필요한 업무) 메뉴는 뺐습니다.
                팀 대시보드가 같은 내용을 더 자세히 보여줍니다. 담당자 화면만 남깁니다. -->
           <div class="nav-label nav-sublabel">담당자</div>
@@ -2818,9 +2822,6 @@
           <div id="jwMemoBoard" class="jw-memo-board"></div>
         </div>
 
-        <!-- 업무분장 — 엑셀로 만든 역할·업무 분장표를 화면에도 올려 둡니다 (renderJwDuty) -->
-        <section class="panel" id="jwDutyPanel" style="display:none"></section>
-
         <!-- 윤효선 화면 — 왼쪽은 프로젝트형 업무, 오른쪽은 지금 진행중인 업무 둘뿐입니다. -->
         <div class="jw-two" id="jwProjectArea" style="display:none">
           <section class="panel">
@@ -2881,6 +2882,17 @@
         </div>
       </div>
       <div id="teamDashBody"></div>
+    </main>
+
+    <!-- 업무분장 — 역할·업무 분장표 (renderJwDuty 가 채웁니다) -->
+    <main class="main" id="teamDutyView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>업무분장</h1>
+          <div class="subtitle">영업팀 역할과 책임, 보고·공유 체계를 정리한 문서입니다.</div>
+        </div>
+      </div>
+      <section class="panel" id="jwDutyPanel"></section>
     </main>
 
     <!-- 팀 캘린더 — 두 사람의 업무·프로젝트 일정을 달력으로 (renderTeamCal 이 채웁니다) -->
@@ -3122,6 +3134,7 @@
     (document.getElementById('teamTasksView') || { style: {} }).style.display = view === 'team-tasks' ? '' : 'none';
     (document.getElementById('teamDashView') || { style: {} }).style.display = view === 'team-dashboard' ? '' : 'none';
     (document.getElementById('teamCalView') || { style: {} }).style.display = view === 'team-calendar' ? '' : 'none';
+    (document.getElementById('teamDutyView') || { style: {} }).style.display = view === 'team-duty' ? '' : 'none';
     (document.getElementById('teamWeeklyView') || { style: {} }).style.display = view === 'team-weekly' ? '' : 'none';
     (document.getElementById('weeklyReportView') || { style: {} }).style.display = view === 'weekly-report' ? '' : 'none';
     (document.getElementById('teamScheduleView') || { style: {} }).style.display = view === 'team-schedule' ? '' : 'none';
@@ -3140,6 +3153,7 @@
     (document.getElementById('navTeamTasks') || { classList: { toggle() {}, add() {}, remove() {} } }).classList.toggle('active', view === 'team-tasks');
     (document.getElementById('navTeamDash') || { classList: { toggle() {}, add() {}, remove() {} } }).classList.toggle('active', view === 'team-dashboard');
     (document.getElementById('navTeamCal') || { classList: { toggle() {}, add() {}, remove() {} } }).classList.toggle('active', view === 'team-calendar');
+    (document.getElementById('navTeamDuty') || { classList: { toggle() {}, add() {}, remove() {} } }).classList.toggle('active', view === 'team-duty');
     // 주차별 진행 업무 메뉴는 지금 화면에 없습니다(되살리면 다시 동작).
     const weeklyNav = document.getElementById('navTeamWeekly');
     if (weeklyNav) weeklyNav.classList.toggle('active', view === 'team-weekly');
@@ -3214,6 +3228,7 @@
       tnOnDashboardShown();
     }
     if (view === 'team-calendar') { renderTeamCal(); loadTeamEvents().then(renderTeamCal); loadTeamTasks(); }
+    if (view === 'team-duty') renderJwDuty();
     if (view === 'team-weekly') loadTeamTasks();
     if (view === 'weekly-report') loadWeeklyReports();
     if (view === 'team-schedule') loadTeamSchedule();
@@ -3947,7 +3962,6 @@
 
   function renderJwView() {
     renderJwToolbar();
-    renderJwDuty();
     renderJwProjects();
     renderJwMyTasks();
     renderJwMissChecks();
@@ -4715,7 +4729,6 @@
     const hide = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
     hide('jwChecklistPanel', routine);
     hide('jwToolbar', routine);
-    hide('jwDutyPanel', !routine);
     hide('jwOrderRow', routine);
     // "오늘 업무 확인 완료"는 체크리스트를 하루 마감하는 버튼이라 같이 감춥니다.
     const close = document.querySelector('#taskTopbarActions .btn-ghost');
@@ -4912,33 +4925,23 @@
   ];
 
   let jwDutyTab = 'team';
-  let jwDutyOpen = false;     // 길어서 기본은 접어 둡니다
 
   function jwSetDutyTab(key) {
     jwDutyTab = key;
-    jwDutyOpen = true;
     renderJwDuty();
   }
   window.jwSetDutyTab = jwSetDutyTab;
 
-  function jwToggleDuty() {
-    jwDutyOpen = !jwDutyOpen;
-    renderJwDuty();
-  }
-  window.jwToggleDuty = jwToggleDuty;
-
   function renderJwDuty() {
     const wrap = document.getElementById('jwDutyPanel');
     if (!wrap) return;
-    if (jwHasRoutine()) { wrap.style.display = 'none'; return; }
-    wrap.style.display = '';
 
     const tab = JW_DUTY_TABS.find((t) => t.key === jwDutyTab) || JW_DUTY_TABS[0];
     const tabs = JW_DUTY_TABS.map((t) => `
-      <button type="button" class="jw-duty-tab${t.key === jwDutyTab && jwDutyOpen ? ' on' : ''}"
+      <button type="button" class="jw-duty-tab${t.key === jwDutyTab ? ' on' : ''}"
         onclick="jwSetDutyTab('${t.key}')">${escapeAttr(t.label)}</button>`).join('');
 
-    const body = !jwDutyOpen ? '' : `
+    const body = `
       <div class="jw-duty-body">
         ${tab.note ? `<div class="jw-duty-note">${escapeAttr(tab.note)}</div>` : ''}
         ${tab.blocks.map((b) => `
@@ -4950,12 +4953,7 @@
       </div>`;
 
     wrap.innerHTML = `
-      <div class="panel-head">
-        <h2>업무분장</h2>
-        <span class="jw-duty-tabs">${tabs}</span>
-        <button type="button" class="jw-proj-btn" style="margin-left:auto;" onclick="jwToggleDuty()">
-          ${jwDutyOpen ? '접기' : '펼치기'}</button>
-      </div>
+      <div class="panel-head"><span class="jw-duty-tabs">${tabs}</span></div>
       ${body}`;
   }
 
