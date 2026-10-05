@@ -1114,6 +1114,22 @@
   }
   .tc-item.event { background: #ecfdf5; color: #047857; font-weight: 700; }
   .tc-row.event { background: #f0fdf9; border-color: rgba(4,120,87,.18); cursor: default; }
+  /* 일정 종류별 색 — 회의는 초록, 외근은 주황, 유관부서 미팅은 파랑 */
+  .tc-item.k-week  { background: #ecfdf5; color: #047857; }
+  .tc-item.k-month { background: #eef2ff; color: #4338ca; }
+  .tc-item.k-out   { background: #fff7ed; color: #c2410c; }
+  .tc-item.k-meet  { background: #eff6ff; color: #1d4ed8; }
+  .tc-item.k-etc   { background: #f1f5f9; color: #475569; }
+  .tc-row.k-week  { background: #f0fdf9; border-color: rgba(4,120,87,.18); }
+  .tc-row.k-month { background: #f5f6ff; border-color: rgba(67,56,202,.18); }
+  .tc-row.k-out   { background: #fff8f1; border-color: rgba(194,65,12,.22); }
+  .tc-row.k-meet  { background: #f5f9ff; border-color: rgba(29,78,216,.18); }
+  .tc-row.k-etc   { background: #f8fafc; border-color: #e7edf5; }
+  .tc-row.k-out .tc-who.ev   { color: #c2410c; }
+  .tc-row.k-meet .tc-who.ev  { color: #1d4ed8; }
+  .tc-row.k-month .tc-who.ev { color: #4338ca; }
+  .tc-legend i.ev-week { background: #34d399; }
+  .tc-legend i.ev-out { background: #fb923c; }
   .tc-who.ev { color: #047857; }
   .tc-add select { flex-shrink: 0; }
   .tc-add input:focus, .tc-add select:focus { outline: none; border-color: #4d7cfe; }
@@ -6030,6 +6046,12 @@
   // 할 일이 아니라 일정이라 team_events 에 따로 담습니다.
   // (할일 표에 넣으면 체크를 안 했다고 "체크 누락"에 잡히고 담당자 목록에도 섞입니다)
   const TC_EVENT_KINDS = ['주간회의', '외근', '유관부서 미팅', '팀 회의', '월말회의', '기타'];
+  // 달력에서 종류마다 색을 달리합니다 — 외근이 한눈에 구분되게.
+  const TC_EVENT_CLS = {
+    '주간회의': 'k-week', '팀 회의': 'k-week', '월말회의': 'k-month',
+    '외근': 'k-out', '유관부서 미팅': 'k-meet', '기타': 'k-etc',
+  };
+  function tcKindCls(kind) { return TC_EVENT_CLS[kind] || 'k-etc'; }
   // 매주 같은 요일에 도는 회의 — 반복으로 넣을 때 기본 요일을 잡아줍니다 (월=1 … 금=5)
   const TC_WEEKLY_KIND = { '주간회의': 1, '팀 회의': 5 };
   const TC_REPEAT_WEEKS = 12;
@@ -6157,7 +6179,8 @@
     });
     tcEventsOf(date).forEach((e) => {
       items.push({ kind: 'event', id: e.id, who: e.who || '팀 전체', title: e.kind,
-        sub: e.title || '', status: e.kind, routine: false, done: false, late: false });
+        sub: e.title || '', status: e.kind, cls: tcKindCls(e.kind),
+        routine: false, done: false, late: false });
     });
     jwProjects.forEach((p) => {
       if (String(p.next_action_due || '').slice(0, 10) === date && p.next_action) {
@@ -6187,7 +6210,7 @@
           ${hol ? `<span class="tc-hol">${escapeAttr(hol)}</span>` : ''}
         </div>
         ${show.map((x) => `
-          <div class="tc-item ${x.kind}${x.done ? ' done' : ''}${x.late ? ' late' : ''}"
+          <div class="tc-item ${x.kind}${x.cls ? ' ' + x.cls : ''}${x.done ? ' done' : ''}${x.late ? ' late' : ''}"
             title="${escapeAttr(x.who)} · ${escapeAttr(x.sub ? x.sub + ' — ' : '')}${escapeAttr(x.title)}">
             <i class="${x.who === '윤효선' ? 'hs' : 'hw'}"></i>${escapeAttr(x.title)}
           </div>`).join('')}
@@ -6225,7 +6248,7 @@
     const line = (x) => {
       if (x.kind === 'event') {
         return `
-          <div class="tc-row event">
+          <div class="tc-row event ${x.cls || ''}">
             <span class="tc-who ev">${escapeAttr(x.who)}</span>
             <span class="tc-title"><b>${escapeAttr(x.title)}</b>${x.sub ? ' ' + escapeAttr(x.sub) : ''}</span>
             <button type="button" class="tn-mini del" onclick="tcDeleteEvent(${x.id})">지우기</button>
@@ -6305,6 +6328,8 @@
           <span><i class="hw"></i>전휘원</span>
           <span><i class="pj"></i>프로젝트 액션 · 회의</span>
           <span><i class="hol"></i>공휴일</span>
+          <span><i class="ev-week"></i>회의</span>
+          <span><i class="ev-out"></i>외근</span>
           <span class="hint">날짜를 누르면 그 날 일정이 아래에 펼쳐집니다</span>
         </div>
         ${tcDayListHtml()}
