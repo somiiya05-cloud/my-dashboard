@@ -5224,11 +5224,13 @@
       if (!a || !b) return;
       const ra = a.getBoundingClientRect();
       const rb = b.getBoundingClientRect();
-      const x1 = ra.right - base.left + wrap.scrollLeft;
+      const fwd = rb.left >= ra.right;
+      const x1 = (fwd ? ra.right : ra.left) - base.left + wrap.scrollLeft;
       const y1 = ra.top + ra.height / 2 - base.top + wrap.scrollTop;
-      const x2 = rb.left - base.left + wrap.scrollLeft - 6;
+      const x2 = (fwd ? rb.left - 6 : rb.right + 6) - base.left + wrap.scrollLeft;
       const y2 = rb.top + rb.height / 2 - base.top + wrap.scrollTop;
-      const dx = x2 > x1 ? Math.min(40, Math.max(6, (x2 - x1) / 2)) : 26;
+      const span = Math.min(40, Math.max(6, Math.abs(x2 - x1) / 2));
+      const dx = fwd ? span : -span;
       paths.push(`<path d="M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}" />`);
     });
     svg.innerHTML = `
