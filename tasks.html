@@ -865,6 +865,60 @@
   .cp-badge.done { background: #dcfce7; color: #15803d; }
   .cp-badge.hold { background: #ffe4e6; color: #be123c; }
   .cp-title { font-size: 12.5px; font-weight: 700; color: #0f172a; line-height: 1.4; }
+  /* 앞면 — 현재 단계 → 다음 단계 */
+  .cp-flow { display: flex; align-items: center; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+  .cp-now {
+    font-size: 10px; font-weight: 800; color: #1d4ed8;
+    background: #eef3ff; border-radius: 999px; padding: 2px 7px;
+  }
+  .cp-ar { font-size: 10px; color: #cbd5e1; }
+  .cp-nxt { font-size: 10px; font-weight: 700; color: #64748b; }
+  .cp-subs {
+    margin-top: 5px; font-size: 10.5px; font-weight: 700; color: #7c3aed;
+    background: #f5f3ff; border-radius: 6px; padding: 3px 6px; display: inline-block;
+  }
+  .cp-subs.all-done { color: #15803d; background: #dcfce7; }
+
+  /* 상세 — 유관부서 진행 작업 */
+  .cp-tasks { border-top: 1px solid #eef2f7; margin-top: 14px; padding-top: 12px; }
+  .cp-tasks-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .cp-tasks-head label { font-size: 12.5px; font-weight: 800; color: #0f172a; }
+  .cp-tasks-note { font-size: 11px; font-weight: 700; color: #94a3b8; margin-right: auto; }
+  .cp-tasks-empty {
+    font-size: 11.5px; color: #94a3b8; background: #f8fafc;
+    border-radius: 8px; padding: 10px; text-align: center; margin-top: 8px;
+  }
+  .cp-task {
+    border: 1px solid #e7edf5; border-left: 3px solid #cbd5e1; border-radius: 9px;
+    padding: 9px 10px; margin-top: 8px; background: #fbfcfe;
+  }
+  .cp-task.blocking { border-left-color: #dc2626; background: #fffafa; }
+  .cp-task.done { border-left-color: #16a34a; opacity: .72; }
+  .cp-task-top { display: flex; align-items: center; gap: 6px; }
+  .cp-task-top .cp-t-title { flex: 1; }
+  .cp-task-top .cp-t-status { width: 128px; flex: none; }
+  .cp-t-del {
+    border: none; background: transparent; color: #cbd5e1; cursor: pointer;
+    font-family: inherit; font-size: 13px; padding: 2px 4px; flex: none;
+  }
+  .cp-t-del:hover { color: #dc2626; }
+  .cp-task-row { display: flex; gap: 8px; margin-top: 7px; }
+  .cp-task-row label {
+    flex: 1; display: flex; flex-direction: column; gap: 3px;
+    font-size: 10.5px; font-weight: 700; color: #94a3b8;
+  }
+  .cp-task-row label.wide { flex: 1 1 100%; }
+  .cp-task input[type="text"], .cp-task input[type="date"], .cp-task select {
+    width: 100%; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff;
+    font-family: inherit; font-size: 12px; color: #0f172a; padding: 6px 8px;
+  }
+  .cp-task input:focus, .cp-task select:focus { outline: none; border-color: #4d7cfe; }
+  .cp-task-block {
+    display: flex; align-items: center; gap: 6px; margin-top: 8px;
+    font-size: 11.5px; font-weight: 700; color: #64748b; cursor: pointer;
+  }
+  .cp-task-block input { width: 14px; height: 14px; accent-color: #dc2626; }
+  .cp-task.blocking .cp-task-block { color: #b91c1c; }
   .cp-meta { display: flex; gap: 8px; align-items: center; margin-top: 4px; font-size: 10.5px; color: #94a3b8; }
   .cp-own { margin-left: auto; font-weight: 700; color: #64748b; }
   .cp-blocker {
@@ -4918,7 +4972,16 @@
   const CP_OWNERS = ['윤효선', '전휘원'];
   const CP_COLORS = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'];
 
+  // 유관부서 진행 작업 — 기획 카드 한 장 안에 들어가는 세부 업무입니다.
+  const CP_TASK_STATUSES = ['요청 전', '요청 완료', '유관부서 진행중', '확인 필요', '완료', '지연'];
+  const CP_TASK_CLS = {
+    '요청 전': 'wait', '요청 완료': 'talk', '유관부서 진행중': 'go',
+    '확인 필요': 'prep', '완료': 'done', '지연': 'hold',
+  };
+  const CP_DEPTS = ['CX팀', '디자인팀', '마케팅팀', '물류팀', '상품팀', '개발팀', '경영지원팀'];
+
   let cpCards = [];
+  let cpTasks = [];
   let cpError = '';
   const cpFilter = { month: '', channel: '', brand: '', status: '' };
 
@@ -4927,6 +4990,38 @@
       .select('*').order('sort_no').order('id');
     cpError = error ? error.message : '';
     cpCards = error ? [] : (data || []);
+    // 하위 작업은 건수가 적어 한 번에 다 받아 두고 카드별로 갈라 씁니다.
+    const sub = await client.from('channel_plan_tasks').select('*').order('sort_no').order('id');
+    cpTasks = sub.error ? [] : (sub.data || []);
+    cpTaskError = sub.error ? sub.error.message : '';
+  }
+
+  let cpTaskError = '';
+  function cpTasksOf(planId) { return cpTasks.filter((t) => t.plan_id === planId); }
+
+  // 다음 단계 — 이어 붙인 카드가 있으면 그 카드, 없으면 적어 둔 글, 그것도 없으면 단계 순서상 다음 칸.
+  function cpNextLabel(c) {
+    const to = c.next_id ? cpCards.find((x) => x.id === c.next_id) : null;
+    if (to) return to.stage + (to.title ? ' · ' + to.title : '');
+    if (c.next_step) return c.next_step;
+    const i = CP_STAGES.indexOf(c.stage);
+    return (i >= 0 && i < CP_STAGES.length - 1) ? CP_STAGES[i + 1] : '';
+  }
+
+  // 다음 단계를 막고 있는 하위 작업 — 막음에 체크했거나, 지연인 것.
+  function cpBlockingTasks(planId) {
+    return cpTasksOf(planId).filter((t) => t.status !== '완료' && (t.blocking || t.status === '지연'));
+  }
+  // 카드 앞면에 띄울 병목 한 줄. 직접 적어 둔 사유가 있으면 그것이 먼저입니다.
+  function cpBlockText(c) {
+    if (c.blocker) return c.blocker;
+    const list = cpBlockingTasks(c.id);
+    if (!list.length) return '';
+    const t = list[0];
+    const who = t.dept ? t.dept + ' ' : '';
+    const tail = t.status === '지연' ? '지연' : '완료 대기';
+    return who + (t.title || '유관부서 작업') + ' ' + tail
+      + (list.length > 1 ? ' 외 ' + (list.length - 1) + '건' : '');
   }
 
   // ---- 거르기 ----
@@ -5070,30 +5165,142 @@
           ${others.map((o) => `<option value="${o.id}" ${String(c.next_id || '') === String(o.id) ? 'selected' : ''}>${escapeAttr(o.channel)} · ${escapeAttr(o.stage)} · ${escapeAttr(o.title || '(제목 없음)')}</option>`).join('')}
         </select>
         <div class="task-panel-hint">고르면 보드에 두 카드를 잇는 화살표가 그려집니다.</div></div>
+      <div class="cp-tasks">
+        <div class="cp-tasks-head">
+          <label>유관부서 진행 작업</label>
+          <span class="cp-tasks-note">${cpTasksOf(c.id).length}건</span>
+          <button type="button" class="jw-proj-btn" onclick="cpTaskAdd()">+ 작업 추가</button>
+        </div>
+        <div class="task-panel-hint">리뷰 작업 · 상세페이지 수정 · 배너 요청 · 광고 세팅처럼
+          다른 부서에 넘긴 일을 여기에 적습니다. 따로 카드를 만들지 않습니다.</div>
+        ${cpTaskError ? `<div class="cp-tasks-empty">하위 작업을 불러오지 못했습니다 —
+            channel_plan_tasks.sql 을 Supabase에서 실행해주세요.</div>`
+          : (cpTasksOf(c.id).length
+              ? cpTasksOf(c.id).map(cpTaskRowHtml).join('')
+              : '<div class="cp-tasks-empty">아직 없습니다.</div>')}
+        <datalist id="cpDeptList">${CP_DEPTS.map((d) => `<option value="${escapeAttr(d)}">`).join('')}</datalist>
+      </div>
       <div class="task-panel-actions">
         <button type="button" class="btn-ghost" onclick="cpDelete(${c.id})">지우기</button>
         <button type="button" class="btn-primary" onclick="cpSavePanel()">저장</button>
       </div>`;
   }
 
-  async function cpSavePanel() {
+  function cpTaskRowHtml(t) {
+    const blocking = t.status !== '완료' && (t.blocking || t.status === '지연');
+    return `
+      <div class="cp-task${blocking ? ' blocking' : ''}${t.status === '완료' ? ' done' : ''}" data-tid="${t.id}">
+        <div class="cp-task-top">
+          <input class="cp-t-title" type="text" value="${escapeAttr(t.title || '')}" placeholder="작업명  예) 리뷰 작업">
+          <select class="cp-t-status">
+            ${CP_TASK_STATUSES.map((x) => `<option value="${x}" ${x === t.status ? 'selected' : ''}>${x}</option>`).join('')}
+          </select>
+          <button type="button" class="cp-t-del" onclick="cpTaskDel(${t.id})" title="이 작업 지우기">✕</button>
+        </div>
+        <div class="cp-task-row">
+          <label>담당부서<input class="cp-t-dept" type="text" list="cpDeptList"
+            value="${escapeAttr(t.dept || '')}" placeholder="예) CX팀"></label>
+          <label>담당자<input class="cp-t-owner" type="text" value="${escapeAttr(t.owner || '')}" placeholder="이름"></label>
+        </div>
+        <div class="cp-task-row">
+          <label>요청일<input class="cp-t-req" type="date" value="${escapeAttr(t.request_date || '')}"></label>
+          <label>완료 예정일<input class="cp-t-due" type="date" value="${escapeAttr(t.due_date || '')}"></label>
+          <label>다음 확인일<input class="cp-t-chk" type="date" value="${escapeAttr(t.next_check_date || '')}"></label>
+        </div>
+        <div class="cp-task-row">
+          <label class="wide">메모<input class="cp-t-memo" type="text" value="${escapeAttr(t.memo || '')}" placeholder="주고받은 내용"></label>
+        </div>
+        <label class="cp-task-block">
+          <input type="checkbox" class="cp-t-blocking" ${t.blocking ? 'checked' : ''}>
+          이 작업 때문에 다음 단계로 못 넘어감
+        </label>
+      </div>`;
+  }
+
+  // 화면에 적힌 값을 로컬 자료로 걷어 둡니다 (저장은 아직 안 합니다).
+  // 작업을 더하거나 지울 때 패널을 다시 그려도 쓰던 값이 날아가지 않게 하려는 것입니다.
+  function cpCollectPanel() {
     const c = cpCards.find((x) => x.id === cpPanelId);
     if (!c) return;
     const val = (id) => { const el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; };
-    const nextId = val('cpfNextId');
-    await cpSave(c.id, {
-      title: val('cpfTitle'),
-      brand: val('cpfBrand') || null,
-      owner: val('cpfOwner') || null,
-      channel: val('cpfChannel'),
-      stage: val('cpfStage'),
-      start_date: val('cpfStart') || null,
-      end_date: val('cpfEnd') || null,
-      status: val('cpfStatus'),
-      blocker: val('cpfBlocker') || null,
-      next_step: val('cpfNextStep') || null,
-      next_id: nextId ? Number(nextId) : null,
+    if (document.getElementById('cpfTitle')) {
+      const nextId = val('cpfNextId');
+      Object.assign(c, {
+        title: val('cpfTitle'), brand: val('cpfBrand') || null, owner: val('cpfOwner') || null,
+        channel: val('cpfChannel'), stage: val('cpfStage'),
+        start_date: val('cpfStart') || null, end_date: val('cpfEnd') || null,
+        status: val('cpfStatus'), blocker: val('cpfBlocker') || null,
+        next_step: val('cpfNextStep') || null, next_id: nextId ? Number(nextId) : null,
+      });
+    }
+    document.querySelectorAll('.cp-task').forEach((el) => {
+      const t = cpTasks.find((x) => String(x.id) === el.dataset.tid);
+      if (!t) return;
+      const g = (cls) => { const e = el.querySelector('.' + cls); return e ? String(e.value || '').trim() : ''; };
+      Object.assign(t, {
+        title: g('cp-t-title'), dept: g('cp-t-dept') || null, owner: g('cp-t-owner') || null,
+        request_date: g('cp-t-req') || null, due_date: g('cp-t-due') || null,
+        status: g('cp-t-status'), next_check_date: g('cp-t-chk') || null,
+        memo: g('cp-t-memo') || null,
+        blocking: !!(el.querySelector('.cp-t-blocking') || {}).checked,
+      });
     });
+  }
+
+  async function cpTaskAdd() {
+    if (!cpPanelId) return;
+    cpCollectPanel();
+    const n = cpTasksOf(cpPanelId).length;
+    const { error } = await client.from('channel_plan_tasks')
+      .insert({ plan_id: cpPanelId, title: '', sort_no: n });
+    if (error) {
+      alert('작업을 넣지 못했습니다: ' + error.message
+        + '\n\nchannel_plan_tasks.sql 을 Supabase에서 실행했는지 확인해주세요.');
+      return;
+    }
+    const sub = await client.from('channel_plan_tasks').select('*').order('sort_no').order('id');
+    if (!sub.error) { cpTasks = sub.data || []; cpTaskError = ''; }
+    cpRenderPanel();
+  }
+  window.cpTaskAdd = cpTaskAdd;
+
+  async function cpTaskDel(id) {
+    const t = cpTasks.find((x) => x.id === id);
+    if (t && String(t.title || '').trim() && !confirm('이 작업을 지울까요?')) return;
+    cpCollectPanel();
+    const { error } = await client.from('channel_plan_tasks').delete().eq('id', id);
+    if (error) { alert('지우지 못했습니다: ' + error.message); return; }
+    cpTasks = cpTasks.filter((x) => x.id !== id);
+    cpRenderPanel();
+    renderChannelTracker();
+  }
+  window.cpTaskDel = cpTaskDel;
+
+  async function cpSavePanel() {
+    const c = cpCards.find((x) => x.id === cpPanelId);
+    if (!c) return;
+    const planId = c.id;
+    cpCollectPanel();
+    await cpSave(planId, {
+      title: c.title, brand: c.brand, owner: c.owner,
+      channel: c.channel, stage: c.stage,
+      start_date: c.start_date, end_date: c.end_date,
+      status: c.status, blocker: c.blocker,
+      next_step: c.next_step, next_id: c.next_id,
+    });
+    // 하위 작업도 같이 넣습니다.
+    const subs = cpTasksOf(planId);
+    for (let i = 0; i < subs.length; i++) {
+      const t = subs[i];
+      const { error } = await client.from('channel_plan_tasks').update({
+        title: t.title, dept: t.dept, owner: t.owner,
+        request_date: t.request_date, due_date: t.due_date,
+        status: t.status, next_check_date: t.next_check_date,
+        memo: t.memo, blocking: t.blocking, sort_no: i,
+        updated_at: new Date().toISOString(),
+      }).eq('id', t.id);
+      if (error) { alert('작업을 저장하지 못했습니다: ' + error.message); return; }
+    }
     cpClosePanel();
     await loadChannelPlans();
     renderChannelTracker();
@@ -5181,25 +5388,28 @@
   // ---- 카드 ----
   function cpDate(d) { return d ? String(d).slice(5).replace('-', '/') : ''; }
 
+  // 앞면에는 다섯 가지만 둡니다 —
+  // 기획명 · 현재 단계 · 다음 단계 · 유관부서 진행 건수 · 병목 사유.
+  // 브랜드·담당자·날짜 같은 나머지는 눌러서 보는 상세에 있습니다.
   function cpCardHtml(c) {
     const done = c.status === '완료';
-    const next = c.next_id ? cpCards.find((x) => x.id === c.next_id) : null;
-    const span = [cpDate(c.start_date), cpDate(c.end_date)].filter(Boolean).join(' ~ ');
+    const block = cpBlockText(c);
+    const next = cpNextLabel(c);
+    const subs = cpTasksOf(c.id);
+    const open = subs.filter((t) => t.status !== '완료').length;
+    const subText = !subs.length ? ''
+      : (open ? '유관부서 ' + open + '건 진행' + (subs.length > open ? ' · 완료 ' + (subs.length - open) : '')
+              : '유관부서 ' + subs.length + '건 완료');
     return `
-      <div class="cp-card${done ? ' done' : ''}${c.blocker ? ' blocked' : ''}" data-id="${c.id}"
+      <div class="cp-card${done ? ' done' : ''}${block ? ' blocked' : ''}" data-id="${c.id}"
         onmousedown="cpPointerDown(event, ${c.id})" title="누르면 상세가 열립니다">
-        <div class="cp-card-top">
-          <span class="cp-brand">${escapeAttr(c.brand || '브랜드 미정')}</span>
-          <span class="cp-badge ${CP_STATUS_CLS[c.status] || 'plan'}">${escapeAttr(c.status)}</span>
-        </div>
         <div class="cp-title">${escapeAttr(c.title || '(기획명 없음)')}</div>
-        <div class="cp-meta">
-          ${span ? `<span>${escapeAttr(span)}</span>` : ''}
-          ${c.owner ? `<span class="cp-own">${escapeAttr(c.owner)}</span>` : ''}
+        <div class="cp-flow">
+          <span class="cp-now">${escapeAttr(c.stage)}</span>
+          ${next ? `<span class="cp-ar">→</span><span class="cp-nxt">${escapeAttr(next)}</span>` : ''}
         </div>
-        ${c.blocker ? `<div class="cp-blocker">⚠ ${escapeAttr(c.blocker)}</div>` : ''}
-        ${next ? `<div class="cp-next">→ ${escapeAttr(next.title || '(제목 없음)')}</div>`
-          : (c.next_step ? `<div class="cp-next">→ ${escapeAttr(c.next_step)}</div>` : '')}
+        ${subText ? `<div class="cp-subs${open ? '' : ' all-done'}">${escapeAttr(subText)}</div>` : ''}
+        ${block ? `<div class="cp-blocker">⚠ 병목: ${escapeAttr(block)}</div>` : ''}
       </div>`;
   }
 
@@ -5253,7 +5463,7 @@
       return;
     }
     const total = cpCards.filter(cpVisible).length;
-    const blocked = cpCards.filter((c) => cpVisible(c) && c.blocker).length;
+    const blocked = cpCards.filter((c) => cpVisible(c) && cpBlockText(c)).length;
     const sel = (key, label, list) => `
       <select class="cp-filter" onchange="cpSetFilter('${key}', this.value)">
         <option value="">${label}</option>
