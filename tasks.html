@@ -933,46 +933,97 @@
   }
   .cp-add:hover { border-color: #4d7cfe; color: #2f5ce4; background: #f8fbff; }
 
-  /* 광고 채널 운영 일지 — 하루치를 한 줄씩 쌓습니다 */
+  /* 광고 채널 운영 일지 — 위 칸에 적어 [저장]하면 아래 목록에 쌓입니다 */
   .ad-nav { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
   .ad-date {
     border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a;
     font-family: inherit; font-size: 12px; font-weight: 700; padding: 5px 8px;
   }
   .ad-date:focus { outline: none; border-color: #4d7cfe; }
-  .ad-sums { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 0 10px; }
+
+  /* 적는 칸 */
+  .ad-form {
+    border: 1px solid #dbe6fb; border-radius: 12px; background: #f8fbff;
+    padding: 12px 13px; margin-bottom: 14px;
+  }
+  .ad-form-top { display: flex; gap: 8px; }
+  .ad-form-top #adNewTitle { flex: 1; font-weight: 700; }
+  .ad-form-top #adNewType { width: 168px; flex: none; }
+  .ad-form-sub { display: flex; gap: 8px; margin-top: 9px; align-items: flex-end; flex-wrap: wrap; }
+  .ad-form-sub label {
+    flex: 1; min-width: 130px; display: flex; flex-direction: column; gap: 3px;
+    font-size: 10.5px; font-weight: 700; color: #7f93b5;
+  }
+  .ad-form-sub label.wide { flex: 2 1 240px; }
+  .ad-submit { flex: none; padding: 8px 22px; }
+  .ad-form input[type="text"], .ad-form select {
+    width: 100%; border: 1px solid #cfdcf4; border-radius: 8px; background: #fff;
+    font-family: inherit; font-size: 12.5px; color: #0f172a; padding: 8px 10px;
+  }
+  .ad-form input:focus, .ad-form select:focus { outline: none; border-color: #4d7cfe; }
+
+  .ad-sums { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 9px; }
   .ad-sum {
     font-size: 11px; font-weight: 700; color: #475569; background: #f1f5f9;
     border-radius: 999px; padding: 4px 10px;
   }
   .ad-sum i { font-style: normal; color: #2f5ce4; margin-left: 4px; }
 
-  .ad-row {
-    border: 1px solid #e7edf5; border-left: 3px solid #4d7cfe; border-radius: 10px;
-    padding: 10px 12px; margin-top: 8px; background: #fbfcfe;
+  /* 쌓인 목록 */
+  .ad-item {
+    display: flex; align-items: center; gap: 9px;
+    border: 1px solid #e7edf5; border-radius: 10px; background: #fff;
+    padding: 10px 12px; margin-top: 7px;
   }
-  .ad-row-top { display: flex; align-items: center; gap: 7px; }
-  .ad-row-top .ad-f-title { flex: 1; font-weight: 700; }
-  .ad-row-top .ad-f-type { width: 164px; flex: none; }
+  .ad-item:hover { border-color: #cfdcf4; }
+  .ad-no {
+    flex: none; width: 19px; height: 19px; border-radius: 50%; background: #f1f5f9;
+    color: #94a3b8; font-size: 10.5px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ad-tag {
+    flex: none; font-size: 10px; font-weight: 800; border-radius: 999px;
+    padding: 3px 9px; white-space: nowrap;
+  }
+  .ad-tag.plan { background: #eef2ff; color: #4338ca; }
+  .ad-tag.talk { background: #e0f2fe; color: #0369a1; }
+  .ad-tag.prep { background: #fef3c7; color: #b45309; }
+  .ad-tag.go { background: #e0ecff; color: #1d4ed8; }
+  .ad-tag.study { background: #f5f3ff; color: #6d28d9; }
+  .ad-tag.wait { background: #f1f5f9; color: #475569; }
+  .ad-tag.hold { background: #ffe4e6; color: #be123c; }
+  .ad-item-main { flex: 1; min-width: 0; }
+  .ad-item-title { font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.45; }
+  .ad-item-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 3px; font-size: 11px; color: #94a3b8; }
+  .ad-item-meta .m { color: #64748b; }
+  .ad-mini {
+    flex: none; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; color: #64748b;
+    font-family: inherit; font-size: 11px; font-weight: 700; padding: 4px 10px; cursor: pointer;
+  }
+  .ad-mini:hover { border-color: #4d7cfe; color: #2f5ce4; }
   .ad-del {
-    border: none; background: transparent; color: #cbd5e1; cursor: pointer;
-    font-family: inherit; font-size: 13px; padding: 2px 4px; flex: none;
+    flex: none; border: none; background: transparent; color: #cbd5e1; cursor: pointer;
+    font-family: inherit; font-size: 13px; padding: 2px 4px;
   }
   .ad-del:hover { color: #dc2626; }
+
+  /* 목록에서 [수정] 을 누른 줄 */
+  .ad-item.editing { display: block; border-color: #4d7cfe; background: #f8fbff; }
+  .ad-row-top { display: flex; gap: 8px; }
+  .ad-row-top .ad-f-title { flex: 1; font-weight: 700; }
+  .ad-row-top .ad-f-type { width: 168px; flex: none; }
   .ad-row-sub { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
   .ad-row-sub label {
     flex: 1; min-width: 130px; display: flex; flex-direction: column; gap: 3px;
-    font-size: 10.5px; font-weight: 700; color: #94a3b8;
+    font-size: 10.5px; font-weight: 700; color: #7f93b5;
   }
-  .ad-row-sub label.wide { flex: 2 1 260px; }
-  .ad-row input[type="text"], .ad-row select {
-    width: 100%; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff;
-    font-family: inherit; font-size: 12.5px; color: #0f172a; padding: 7px 9px;
+  .ad-row-sub label.wide { flex: 2 1 240px; }
+  .ad-item.editing input[type="text"], .ad-item.editing select {
+    width: 100%; border: 1px solid #cfdcf4; border-radius: 8px; background: #fff;
+    font-family: inherit; font-size: 12.5px; color: #0f172a; padding: 8px 10px;
   }
-  .ad-row input:focus, .ad-row select:focus { outline: none; border-color: #4d7cfe; }
-
-  .ad-save { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 12px; }
-  .ad-saved { font-size: 11.5px; font-weight: 700; color: #15803d; }
+  .ad-item.editing input:focus, .ad-item.editing select:focus { outline: none; border-color: #4d7cfe; }
+  .ad-item-btns { display: flex; justify-content: flex-end; gap: 7px; margin-top: 9px; }
 
   .ad-recent { display: flex; gap: 6px; flex-wrap: wrap; }
   .ad-chip {
@@ -3098,7 +3149,7 @@
       <div class="topbar">
         <div>
           <h1>광고 채널 운영 일지</h1>
-          <div class="subtitle">그날 광고 쪽에서 무슨 일을 했는지 한 줄씩 적습니다. 매체·대행사별로 남겨두면 나중에 되짚기 쉽습니다.</div>
+          <div class="subtitle">위 칸에 적고 [저장]을 누르면 아래 목록에 한 줄씩 쌓입니다. 매체·대행사별로 남겨두면 나중에 되짚기 쉽습니다.</div>
         </div>
         <div class="topbar-right">
           <button type="button" class="btn-ghost" onclick="switchView('team-tasks','윤효선')">← 할일 관리로</button>
@@ -5577,7 +5628,7 @@
 
   // ==================== 광고 채널 운영 일지 ====================
   // 「광고 채널 운영 관리」 프로젝트에서 [운영 일지 열기] 로 들어옵니다.
-  // 하루치를 한 화면에 두고, 그날 한 일을 한 줄씩 쌓습니다.
+  // 위에 적는 칸을 두고, [저장]을 누르면 아래 목록에 한 줄씩 쌓입니다.
   const AD_WORK_TYPES = [
     '소재 교체', '예산 조정', '캠페인 생성', '일시중지 · 종료',
     '성과 확인', '대행사 커뮤니케이션', '세팅 점검', '기타',
@@ -5590,7 +5641,10 @@
 
   let adLogs = [];
   let adError = '';
-  let adDay = '';   // 보고 있는 날짜. 비어 있으면 오늘.
+  let adDay = '';        // 보고 있는 날짜. 비어 있으면 오늘.
+  let adEditId = null;   // 목록에서 [수정] 을 누른 줄
+  // 적다 만 내용 — 화면을 다시 그려도 날아가지 않게 들고 있습니다.
+  let adDraft = { title: '', work_type: '기타', media: '', agency: '', memo: '' };
 
   function adToday() { return jwTodayKST(); }
   function adCurDay() { return adDay || adToday(); }
@@ -5611,11 +5665,12 @@
     const d = new Date(adCurDay() + 'T00:00:00');
     d.setDate(d.getDate() + n);
     adDay = d.toLocaleDateString('en-CA');
+    adEditId = null;
     renderAdLog();
   }
   window.adShiftDay = adShiftDay;
 
-  function adGoDay(day) { adDay = day; renderAdLog(); }
+  function adGoDay(day) { adDay = day; adEditId = null; renderAdLog(); }
   window.adGoDay = adGoDay;
 
   function adLabel(day) {
@@ -5624,87 +5679,147 @@
     return day + ' (' + w + ')';
   }
 
-  // ---- 더하기 · 저장 · 지우기 ----
-  async function adAdd() {
+  // ---- 위 입력칸 ----
+  // 입력칸에 적힌 것을 들고 있다가, 화면을 다시 그릴 때 되돌려 놓습니다.
+  function adKeepDraft() {
+    const g = (id) => { const e = document.getElementById(id); return e ? String(e.value || '') : null; };
+    const t = g('adNewTitle');
+    if (t === null) return;
+    adDraft = {
+      title: t, work_type: g('adNewType') || '기타',
+      media: g('adNewMedia') || '', agency: g('adNewAgency') || '', memo: g('adNewMemo') || '',
+    };
+  }
+  window.adKeepDraft = adKeepDraft;
+
+  async function adSubmit() {
+    adKeepDraft();
+    const title = adDraft.title.trim();
+    if (!title) {
+      const el = document.getElementById('adNewTitle');
+      if (el) el.focus();
+      return;
+    }
     const day = adCurDay();
-    adCollect();
-    const { error } = await client.from('ad_daily_logs')
-      .insert({ log_date: day, title: '', work_type: '기타', sort_no: adOfDay(day).length });
+    const { error } = await client.from('ad_daily_logs').insert({
+      log_date: day, title,
+      work_type: adDraft.work_type || '기타',
+      media: adDraft.media.trim() || null,
+      agency: adDraft.agency.trim() || null,
+      memo: adDraft.memo.trim() || null,
+      sort_no: adOfDay(day).length,
+    });
     if (error) {
-      alert('한 줄을 넣지 못했습니다: ' + error.message
+      alert('저장하지 못했습니다: ' + error.message
         + '\n\nad_daily_logs.sql 을 Supabase에서 실행했는지 확인해주세요.');
       return;
     }
+    // 매체와 대행사는 연달아 적는 일이 많아 남겨 둡니다.
+    adDraft = { title: '', work_type: adDraft.work_type, media: adDraft.media, agency: adDraft.agency, memo: '' };
     await loadAdLogs();
     renderAdLog();
-    const rows = document.querySelectorAll('#adRows .ad-row .ad-f-title');
-    if (rows.length) rows[rows.length - 1].focus();
+    const el = document.getElementById('adNewTitle');
+    if (el) el.focus();
   }
-  window.adAdd = adAdd;
+  window.adSubmit = adSubmit;
+
+  // ---- 목록에서 고치기 · 지우기 ----
+  function adEdit(id) { adKeepDraft(); adEditId = id; renderAdLog(); }
+  window.adEdit = adEdit;
+
+  function adEditCancel() { adKeepDraft(); adEditId = null; renderAdLog(); }
+  window.adEditCancel = adEditCancel;
+
+  async function adEditSave(id) {
+    adKeepDraft();
+    const el = document.querySelector('.ad-item[data-id="' + id + '"]');
+    if (!el) return;
+    const g = (cls) => { const e = el.querySelector('.' + cls); return e ? String(e.value || '').trim() : ''; };
+    const { error } = await client.from('ad_daily_logs').update({
+      title: g('ad-f-title'), work_type: g('ad-f-type'),
+      media: g('ad-f-media') || null, agency: g('ad-f-agency') || null,
+      memo: g('ad-f-memo') || null, updated_at: new Date().toISOString(),
+    }).eq('id', id);
+    if (error) { alert('고치지 못했습니다: ' + error.message); return; }
+    adEditId = null;
+    await loadAdLogs();
+    renderAdLog();
+  }
+  window.adEditSave = adEditSave;
 
   async function adDel(id) {
     const r = adLogs.find((x) => x.id === id);
-    if (r && String(r.title || '').trim() && !confirm('이 줄을 지울까요?')) return;
-    adCollect();
+    if (r && String(r.title || '').trim() && !confirm('이 기록을 지울까요?')) return;
+    adKeepDraft();
     const { error } = await client.from('ad_daily_logs').delete().eq('id', id);
     if (error) { alert('지우지 못했습니다: ' + error.message); return; }
-    adLogs = adLogs.filter((x) => x.id !== id);
+    adEditId = null;
+    await loadAdLogs();
     renderAdLog();
   }
   window.adDel = adDel;
 
-  // 화면에 적힌 값을 로컬 자료로 걷어 둡니다 (저장은 아직 안 합니다).
-  function adCollect() {
-    document.querySelectorAll('#adRows .ad-row').forEach((el) => {
-      const r = adLogs.find((x) => String(x.id) === el.dataset.id);
-      if (!r) return;
-      const g = (cls) => { const e = el.querySelector('.' + cls); return e ? String(e.value || '').trim() : ''; };
-      Object.assign(r, {
-        title: g('ad-f-title'), work_type: g('ad-f-type'),
-        media: g('ad-f-media') || null, agency: g('ad-f-agency') || null,
-        memo: g('ad-f-memo') || null,
-      });
-    });
-  }
-
-  async function adSave() {
-    adCollect();
-    const rows = adOfDay(adCurDay());
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i];
-      const { error } = await client.from('ad_daily_logs').update({
-        title: r.title, work_type: r.work_type, media: r.media,
-        agency: r.agency, memo: r.memo, sort_no: i,
-        updated_at: new Date().toISOString(),
-      }).eq('id', r.id);
-      if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
-    }
-    const note = document.getElementById('adSaved');
-    if (note) { note.textContent = '저장했습니다'; setTimeout(() => { note.textContent = ''; }, 2000); }
-    renderAdLog();
-  }
-  window.adSave = adSave;
-
   // ---- 그리기 ----
-  function adRowHtml(r) {
+  function adFormHtml() {
+    const d = adDraft;
     return `
-      <div class="ad-row" data-id="${r.id}">
-        <div class="ad-row-top">
-          <input class="ad-f-title" type="text" value="${escapeAttr(r.title || '')}"
-            placeholder="한 일  예) 네이버 쇼핑검색 소재 3종 교체">
-          <select class="ad-f-type">
-            ${AD_WORK_TYPES.map((x) => `<option value="${escapeAttr(x)}" ${x === r.work_type ? 'selected' : ''}>${escapeAttr(x)}</option>`).join('')}
+      <div class="ad-form">
+        <div class="ad-form-top">
+          <input id="adNewTitle" type="text" value="${escapeAttr(d.title)}" oninput="adKeepDraft()"
+            placeholder="오늘 한 일을 적으세요  예) 코드니처 스마트스토어 AD 부스트 추가 작업 요청"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();adSubmit();}">
+          <select id="adNewType" onchange="adKeepDraft()">
+            ${AD_WORK_TYPES.map((x) => `<option value="${escapeAttr(x)}" ${x === d.work_type ? 'selected' : ''}>${escapeAttr(x)}</option>`).join('')}
           </select>
-          <button type="button" class="ad-del" onclick="adDel(${r.id})" title="이 줄 지우기">✕</button>
         </div>
-        <div class="ad-row-sub">
-          <label>매체<input class="ad-f-media" type="text" list="adMediaList"
-            value="${escapeAttr(r.media || '')}" placeholder="예) 네이버"></label>
-          <label>대행사<input class="ad-f-agency" type="text"
-            value="${escapeAttr(r.agency || '')}" placeholder="대행사명"></label>
-          <label class="wide">결과 · 메모<input class="ad-f-memo" type="text"
-            value="${escapeAttr(r.memo || '')}" placeholder="바뀐 점이나 다음에 볼 것"></label>
+        <div class="ad-form-sub">
+          <label>매체<input id="adNewMedia" type="text" list="adMediaList" value="${escapeAttr(d.media)}"
+            oninput="adKeepDraft()" placeholder="예) 네이버"></label>
+          <label>대행사 · 담당자<input id="adNewAgency" type="text" value="${escapeAttr(d.agency)}"
+            oninput="adKeepDraft()" placeholder="예) 애드쿡 김일교"></label>
+          <label class="wide">결과 · 메모<input id="adNewMemo" type="text" value="${escapeAttr(d.memo)}"
+            oninput="adKeepDraft()" placeholder="바뀐 점이나 다음에 볼 것"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();adSubmit();}"></label>
+          <button type="button" class="btn-primary ad-submit" onclick="adSubmit()">저장</button>
         </div>
+      </div>`;
+  }
+
+  function adItemHtml(r, i) {
+    if (r.id === adEditId) {
+      return `
+        <div class="ad-item editing" data-id="${r.id}">
+          <div class="ad-row-top">
+            <input class="ad-f-title" type="text" value="${escapeAttr(r.title || '')}" placeholder="한 일">
+            <select class="ad-f-type">
+              ${AD_WORK_TYPES.map((x) => `<option value="${escapeAttr(x)}" ${x === r.work_type ? 'selected' : ''}>${escapeAttr(x)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="ad-row-sub">
+            <label>매체<input class="ad-f-media" type="text" list="adMediaList" value="${escapeAttr(r.media || '')}"></label>
+            <label>대행사 · 담당자<input class="ad-f-agency" type="text" value="${escapeAttr(r.agency || '')}"></label>
+            <label class="wide">결과 · 메모<input class="ad-f-memo" type="text" value="${escapeAttr(r.memo || '')}"></label>
+          </div>
+          <div class="ad-item-btns">
+            <button type="button" class="jw-proj-btn" onclick="adEditCancel()">취소</button>
+            <button type="button" class="jw-proj-btn main" onclick="adEditSave(${r.id})">저장</button>
+          </div>
+        </div>`;
+    }
+    const sub = [r.media, r.agency].map((x) => String(x || '').trim()).filter(Boolean).join(' · ');
+    return `
+      <div class="ad-item" data-id="${r.id}">
+        <span class="ad-no">${i + 1}</span>
+        <span class="ad-tag ${AD_TYPE_CLS[r.work_type] || 'wait'}">${escapeAttr(r.work_type || '기타')}</span>
+        <div class="ad-item-main">
+          <div class="ad-item-title">${escapeAttr(r.title || '(내용 없음)')}</div>
+          ${sub || r.memo ? `<div class="ad-item-meta">
+            ${sub ? `<span>${escapeAttr(sub)}</span>` : ''}
+            ${r.memo ? `<span class="m">${escapeAttr(r.memo)}</span>` : ''}
+          </div>` : ''}
+        </div>
+        <button type="button" class="ad-mini" onclick="adEdit(${r.id})">수정</button>
+        <button type="button" class="ad-del" onclick="adDel(${r.id})" title="이 기록 지우기">✕</button>
       </div>`;
   }
 
@@ -5753,19 +5868,14 @@
             <input type="date" class="ad-date" value="${escapeAttr(day)}" onchange="adGoDay(this.value)">
             <button type="button" class="jw-proj-btn" onclick="adShiftDay(1)">다음날 ›</button>
             ${isToday ? '' : '<button type="button" class="jw-proj-btn" onclick="adGoDay(\'' + adToday() + '\')">오늘</button>'}
-            <button type="button" class="jw-proj-btn main" onclick="adAdd()">+ 한 일 추가</button>
           </span>
         </div>
+        ${adFormHtml()}
         ${chips ? `<div class="ad-sums">${chips}</div>` : ''}
         <div id="adRows">
-          ${rows.length ? rows.map(adRowHtml).join('')
-            : '<div class="td-empty">이 날 적어둔 일이 없습니다. [+ 한 일 추가] 로 적어주세요.</div>'}
+          ${rows.length ? rows.map(adItemHtml).join('')
+            : '<div class="td-empty">이 날 적어둔 일이 없습니다. 위 칸에 적고 [저장]을 누르면 여기에 쌓입니다.</div>'}
         </div>
-        ${rows.length ? `
-          <div class="ad-save">
-            <span class="ad-saved" id="adSaved"></span>
-            <button type="button" class="btn-primary" onclick="adSave()">저장</button>
-          </div>` : ''}
         <datalist id="adMediaList">${AD_MEDIA.map((m) => `<option value="${escapeAttr(m)}">`).join('')}</datalist>
       </section>
       <section class="panel">
