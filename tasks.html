@@ -933,6 +933,56 @@
   }
   .cp-add:hover { border-color: #4d7cfe; color: #2f5ce4; background: #f8fbff; }
 
+  /* 내 업무 보드 — 세로 대분류, 가로 진행 단계 */
+  .mt-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+  .mt-chip {
+    border: 1px solid #e2e8f0; border-radius: 999px; background: #fff; color: #94a3b8;
+    font-family: inherit; font-size: 11.5px; font-weight: 700; padding: 5px 11px; cursor: pointer;
+  }
+  .mt-chip:hover { border-color: #cfdcf4; }
+  .mt-chip.on { background: #eef3ff; border-color: #4d7cfe; color: #1d4ed8; }
+  .mt-chip.done.on { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
+
+  .mt-wrap { overflow: auto; max-height: 74vh; }
+  .mt-grid {
+    display: grid; grid-template-columns: 116px repeat(5, minmax(205px, 1fr));
+    border: 1px solid #e3e9f2; border-radius: 12px; overflow: hidden;
+    background: #e3e9f2; gap: 1px; min-width: 1140px;
+  }
+  .mt-h {
+    background: #edf2fb; color: #1f3864; font-size: 12px; font-weight: 800;
+    text-align: center; padding: 9px 6px; position: sticky; top: 0; z-index: 2;
+  }
+  .mt-h i { font-style: normal; color: #7f93b5; margin-left: 5px; font-weight: 700; }
+  .mt-h.mt-h-g { text-align: left; left: 0; z-index: 4; }
+  .mt-rowhead {
+    background: #fbfcfe; display: flex; align-items: center; gap: 7px; padding: 10px 11px;
+    font-size: 12.5px; font-weight: 800; color: #0f172a; position: sticky; left: 0; z-index: 2;
+  }
+  .mt-rowhead i { font-style: normal; font-size: 11px; color: #94a3b8; margin-left: auto; }
+  .mt-cell { background: #fff; padding: 7px; min-height: 76px; display: flex; flex-direction: column; gap: 6px; }
+
+  .mt-card {
+    background: #fff; border: 1px solid #e3e9f2; border-left: 3px solid #cbd5e1; border-radius: 9px;
+    padding: 8px 10px; cursor: pointer;
+  }
+  .mt-card:hover { border-color: #94a3b8; box-shadow: 0 1px 3px rgba(15,23,42,.07); }
+  .mt-card.stuck { border-left-color: #dc2626; background: #fffafa; }
+  .mt-card-top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .mt-src { font-size: 9.5px; font-weight: 800; border-radius: 999px; padding: 2px 7px; white-space: nowrap; }
+  .mt-src.proj { background: #eef2ff; color: #4338ca; }
+  .mt-src.task { background: #ecfdf5; color: #047857; }
+  .mt-src.plan { background: #e0ecff; color: #1d4ed8; }
+  .mt-src.ad { background: #fff7ed; color: #c2410c; }
+  .mt-due { margin-left: auto; font-size: 10px; font-weight: 700; color: #94a3b8; }
+  .mt-due.late { color: #dc2626; }
+  .mt-card-title { font-size: 12.5px; font-weight: 700; color: #0f172a; line-height: 1.4; }
+  .mt-card-sub { margin-top: 3px; font-size: 10.5px; color: #94a3b8; line-height: 1.4; }
+  .mt-card-block {
+    margin-top: 5px; font-size: 10.5px; font-weight: 700; color: #b91c1c;
+    background: #fee2e2; border-radius: 6px; padding: 3px 6px;
+  }
+
   /* 광고 채널 운영 일지 — 위 칸에 적어 [저장]하면 아래 목록에 쌓입니다 */
   .ad-nav { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
   .ad-date {
@@ -2635,6 +2685,9 @@
           <div class="nav-item" id="navTeamDuty" onclick="switchView('team-duty')">
             <span class="dot dot-task"></span>업무분장
           </div>
+          <div class="nav-item" id="navMyTracker" onclick="switchView('my-tracker')">
+            <span class="dot dot-task"></span>내 업무 보드
+          </div>
           <!-- "할일 관리"(담당자별 업무 현황 + 주의가 필요한 업무) 메뉴는 뺐습니다.
                팀 대시보드가 같은 내용을 더 자세히 보여줍니다. 담당자 화면만 남깁니다. -->
           <div class="nav-label nav-sublabel">담당자</div>
@@ -3144,6 +3197,21 @@
       <div id="channelTrackerBody"></div>
     </main>
 
+    <!-- 내 업무 보드 — 흩어져 있는 업무를 대분류 × 진행 단계로 모아 봅니다 -->
+    <main class="main" id="myTrackerView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>내 업무 보드</h1>
+          <div class="subtitle">프로젝트 · 진행중인 업무 · 판매기획 카드를 한 화면에 모았습니다.
+            세로는 대분류, 가로는 진행 단계이고, 카드를 누르면 원래 자리로 갑니다.</div>
+        </div>
+        <div class="topbar-right">
+          <button type="button" class="btn-ghost" onclick="switchView('team-tasks','윤효선')">← 할일 관리로</button>
+        </div>
+      </div>
+      <div id="myTrackerBody"></div>
+    </main>
+
     <!-- 광고 채널 운영 일지 — 프로젝트 카드의 [운영 일지 열기] 로 들어옵니다 -->
     <main class="main" id="adLogView" style="display:none">
       <div class="topbar">
@@ -3420,6 +3488,8 @@
     (document.getElementById('teamDutyView') || { style: {} }).style.display = view === 'team-duty' ? '' : 'none';
     (document.getElementById('channelTrackerView') || { style: {} }).style.display = view === 'channel-tracker' ? '' : 'none';
     (document.getElementById('adLogView') || { style: {} }).style.display = view === 'ad-log' ? '' : 'none';
+    (document.getElementById('myTrackerView') || { style: {} }).style.display = view === 'my-tracker' ? '' : 'none';
+    (document.getElementById('navMyTracker') || { classList: { toggle() {} } }).classList.toggle('active', view === 'my-tracker');
     (document.getElementById('teamWeeklyView') || { style: {} }).style.display = view === 'team-weekly' ? '' : 'none';
     (document.getElementById('weeklyReportView') || { style: {} }).style.display = view === 'weekly-report' ? '' : 'none';
     (document.getElementById('teamScheduleView') || { style: {} }).style.display = view === 'team-schedule' ? '' : 'none';
@@ -3522,6 +3592,7 @@
       renderAdLog();
       loadAdLogs().then(renderAdLog);
     }
+    if (view === 'my-tracker') loadMyTracker();
     if (view === 'team-weekly') loadTeamTasks();
     if (view === 'weekly-report') loadWeeklyReports();
     if (view === 'team-schedule') loadTeamSchedule();
@@ -5624,6 +5695,200 @@
         </div>
       </section>`;
     cpDrawArrows();
+  }
+
+  // ==================== 내 업무 보드 ====================
+  // 흩어져 있는 윤효선 업무를 한 화면에 모읍니다.
+  // 세로축은 대분류(진행중인 업무에서 쓰는 여섯 가지), 가로축은 진행 단계입니다.
+  // 카드를 누르면 그 업무가 원래 있던 자리(프로젝트 수정 · 업무 상세 · 기획 카드)가 열립니다.
+  // 여기서는 끌어서 옮기지 않습니다 — 출처마다 상태값이 달라서 억지로 맞추면 원래 값이 뭉개집니다.
+  const MT_GROUPS = ['E커머스', '공구', 'B2B', '수출', '광고', 'ETC'];
+  const MT_STAGES = ['대기', '준비중', '진행중', '확인 필요', '완료'];
+  const MT_GROUP_CLS = { 'E커머스': 'c1', '공구': 'c2', 'B2B': 'c3', '수출': 'c4', '광고': 'c5', 'ETC': 'c7' };
+
+  // 프로젝트 대분류 → 여섯 가지로 묶어 읽습니다
+  const MT_PROJ_GROUP = {
+    '이커머스 판매채널계획': 'E커머스', '공동구매 관리': '공구', 'B2B': 'B2B',
+    '수출': '수출', '광고 관리': '광고', '대만 시딩': 'ETC', '큐텐': 'ETC',
+  };
+  // 출처마다 다른 상태값 → 가로축 다섯 칸으로 읽습니다
+  const MT_PROJ_STAGE = {
+    '기획중': '준비중', '진행중': '진행중', '외부 대기': '대기', '내부 검토': '확인 필요',
+    '병목': '대기', '완료': '완료', '보류': '대기',
+  };
+  const MT_TASK_STAGE = { '할일': '준비중', '진행중': '진행중', '검수대기': '확인 필요', '확인완료': '완료' };
+  const MT_PLAN_STAGE = {
+    '기획중': '준비중', '협의중': '진행중', '준비중': '준비중', '진행중': '진행중',
+    '분석중': '확인 필요', '대기': '대기', '완료': '완료', '보류': '대기',
+  };
+
+  // 어떤 출처를 켜 둘지. 광고 일지는 매일 쌓이는 기록이라 기본은 꺼 둡니다.
+  const mtOn = { proj: true, task: true, plan: true, ad: false };
+  let mtHideDone = true;   // 끝난 건 접어두기
+
+  function mtToggle(key) { mtOn[key] = !mtOn[key]; renderMyTracker(); }
+  window.mtToggle = mtToggle;
+  function mtToggleDone() { mtHideDone = !mtHideDone; renderMyTracker(); }
+  window.mtToggleDone = mtToggleDone;
+
+  // ---- 네 군데에서 카드를 모읍니다 ----
+  const MT_OWNER = '윤효선';
+
+  function mtItems() {
+    const out = [];
+    const me = MT_OWNER;
+
+    if (mtOn.proj) {
+      (jwProjects || []).filter((p) => (p.owner || me) === me).forEach((p) => {
+        const st = JW_PROJECT_STATUS_LEGACY[p.status] || p.status;
+        out.push({
+          src: 'proj', label: '프로젝트', id: p.id,
+          group: MT_PROJ_GROUP[String(p.category || '').trim()] || 'ETC',
+          stage: MT_PROJ_STAGE[st] || '진행중',
+          title: p.name || '(이름 없음)',
+          sub: p.next_action || p.purpose || '',
+          due: p.next_action_due || '',
+          raw: st,
+          stuck: JW_PROJECT_STUCK.includes(st) || !!p.blocker,
+          blocker: p.blocker || '',
+        });
+      });
+    }
+
+    if (mtOn.task) {
+      (currentTasks || []).filter((t) => t.assignee === me && !t.archived_at).forEach((t) => {
+        const st = t.status;
+        if (!MT_TASK_STAGE[st]) return;
+        out.push({
+          src: 'task', label: '업무', id: t.id,
+          group: jwMyTaskGroupOf(t),
+          stage: MT_TASK_STAGE[st],
+          title: t.title || '(제목 없음)',
+          sub: t.purpose || '',
+          due: t.due_date ? String(t.due_date).slice(0, 10) : '',
+          raw: st, stuck: false, blocker: '',
+        });
+      });
+    }
+
+    if (mtOn.plan) {
+      (cpCards || []).forEach((c) => {
+        const block = typeof cpBlockText === 'function' ? cpBlockText(c) : (c.blocker || '');
+        out.push({
+          src: 'plan', label: '기획', id: c.id,
+          group: 'E커머스',
+          stage: MT_PLAN_STAGE[c.status] || '진행중',
+          title: c.title || '(기획명 없음)',
+          sub: [c.channel, c.stage].filter(Boolean).join(' · '),
+          due: c.end_date ? String(c.end_date).slice(0, 10) : '',
+          raw: c.status, stuck: !!block, blocker: block,
+        });
+      });
+    }
+
+    if (mtOn.ad) {
+      (adLogs || []).forEach((r) => {
+        out.push({
+          src: 'ad', label: '광고 일지', id: r.id,
+          group: '광고', stage: '완료',
+          title: r.title || '(내용 없음)',
+          sub: [r.media, r.agency].filter(Boolean).join(' · '),
+          due: String(r.log_date).slice(0, 10),
+          raw: r.work_type, stuck: false, blocker: '',
+        });
+      });
+    }
+
+    return mtHideDone ? out.filter((x) => x.stage !== '완료') : out;
+  }
+
+  function mtOf(items, group, stage) {
+    return items.filter((x) => x.group === group && x.stage === stage)
+      .sort((a, b) => {
+        if (a.stuck !== b.stuck) return a.stuck ? -1 : 1;   // 막힌 것 먼저
+        return String(a.due || '9999-12-31').localeCompare(String(b.due || '9999-12-31'));
+      });
+  }
+
+  // 카드를 누르면 원래 있던 자리로 데려갑니다
+  function mtOpen(src, id) {
+    if (src === 'proj') { switchView('team-tasks', MT_OWNER); setTimeout(() => jwOpenProjectPanel(id), 600); return; }
+    if (src === 'task') { switchView('team-tasks', MT_OWNER); setTimeout(() => openTaskPanel(id), 600); return; }
+    if (src === 'plan') { switchView('channel-tracker'); setTimeout(() => cpOpenPanel(id), 600); return; }
+    if (src === 'ad') { switchView('ad-log'); return; }
+  }
+  window.mtOpen = mtOpen;
+
+  function mtCardHtml(x) {
+    const dday = x.due ? jwProjDays(x.due) : null;
+    const late = dday !== null && dday > 0;
+    return `
+      <div class="mt-card${x.stuck ? ' stuck' : ''}" onclick="mtOpen('${x.src}', ${x.id})"
+        title="누르면 원래 자리로 갑니다">
+        <div class="mt-card-top">
+          <span class="mt-src ${x.src}">${escapeAttr(x.label)}</span>
+          ${x.due ? `<span class="mt-due${late ? ' late' : ''}">${escapeAttr(String(x.due).slice(5).replace('-', '/'))}</span>` : ''}
+        </div>
+        <div class="mt-card-title">${escapeAttr(x.title)}</div>
+        ${x.sub ? `<div class="mt-card-sub">${escapeAttr(x.sub)}</div>` : ''}
+        ${x.blocker ? `<div class="mt-card-block">⚠ ${escapeAttr(x.blocker)}</div>` : ''}
+      </div>`;
+  }
+
+  function renderMyTracker() {
+    const root = document.getElementById('myTrackerBody');
+    if (!root) return;
+    const items = mtItems();
+    const stuck = items.filter((x) => x.stuck).length;
+    const chip = (key, label) => `
+      <button type="button" class="mt-chip${mtOn[key] ? ' on' : ''}" onclick="mtToggle('${key}')">${label}</button>`;
+
+    root.innerHTML = `
+      <section class="panel">
+        <div class="panel-head">
+          <h2>내 업무 보드</h2>
+          <span class="panel-note">${items.length}건${stuck ? ' · 막힌 것 ' + stuck + '건' : ''}</span>
+          <span class="mt-chips">
+            ${chip('proj', '프로젝트')}${chip('task', '진행중인 업무')}${chip('plan', '판매기획')}${chip('ad', '광고 일지')}
+            <button type="button" class="mt-chip done${mtHideDone ? '' : ' on'}" onclick="mtToggleDone()">
+              ${mtHideDone ? '끝난 것 보기' : '끝난 것 숨기기'}</button>
+          </span>
+        </div>
+        <div class="mt-wrap">
+          <div class="mt-grid">
+            <div class="mt-h mt-h-g">대분류</div>
+            ${MT_STAGES.map((st) => {
+              const n = items.filter((x) => x.stage === st).length;
+              return `<div class="mt-h">${escapeAttr(st)}<i>${n}</i></div>`;
+            }).join('')}
+            ${MT_GROUPS.map((g) => {
+              const mine = items.filter((x) => x.group === g);
+              return `
+              <div class="mt-rowhead">
+                <span class="ct-dot ${MT_GROUP_CLS[g]}"></span>${escapeAttr(g)}
+                <i>${mine.length}</i>
+              </div>
+              ${MT_STAGES.map((st) => `
+                <div class="mt-cell">
+                  ${mtOf(items, g, st).map(mtCardHtml).join('')}
+                </div>`).join('')}`;
+            }).join('')}
+          </div>
+        </div>
+        ${items.length ? '' : '<div class="td-empty">켜 둔 출처에 업무가 없습니다. 위 칩으로 출처를 켜보세요.</div>'}
+      </section>`;
+  }
+
+  // 네 군데 자료를 다 받아온 뒤 그립니다.
+  async function loadMyTracker() {
+    renderMyTracker();
+    await Promise.all([
+      loadJwProjects(),
+      loadTeamTasks(),
+      loadChannelPlans(),
+      loadAdLogs(),
+    ]);
+    renderMyTracker();
   }
 
   // ==================== 광고 채널 운영 일지 ====================
