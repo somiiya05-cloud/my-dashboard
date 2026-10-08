@@ -633,6 +633,17 @@
     ctr: { label: '클릭 저조', cls: 'g-ctr', act: '썸네일·상품명 점검' },
     wait: { label: '관찰', cls: 'g-wait', act: '데이터 더 모으기' },
   };
+  // 네이버 애드부스트처럼 AI가 입찰하는 광고는 입찰가·키워드를 직접 못 만지고 예산·목표 ROAS·상품 구성만 바꿀 수 있습니다.
+  const AUTO_BID = /advoost|애드부스트/i;
+  const AUTO_ACT = {
+    star: '일예산 20~30% 올리기 (며칠 간격)',
+    keep: '현재 예산 유지',
+    low: '일예산 낮추기·목표 ROAS 설정',
+    waste: '상품 제외 또는 캠페인 끄기',
+    ctr: '썸네일·상품명 점검',
+    wait: '학습 중 — 데이터 더 모으기',
+  };
+  const actionFor = (r) => (r.auto ? AUTO_ACT : null)?.[r.g] || GRADES[r.g].act;
   function grade(r, avg) {
     const T = +$('fTarget').value / 100, minClk = +$('fMinClk').value;
     if (r.clk >= minClk && r.conv === 0 && r.rev === 0) return 'waste';
@@ -711,19 +722,21 @@
       if (!list.length) return { rows: [], note: '이 데이터에는 키워드 열이 없습니다. 광고센터에서 키워드별 보고서를 받아 올려주세요.' };
       const g = groupBy(list, (r) => r.mall + '\u0001' + r.campaign + '\u0001' + r.keyword).map((x) => { const [m, c, k] = x.name.split('\u0001'); return { ...x, mall: m, camp: c, name: k }; });
       const avg = metrics(g.reduce(add, blank()));
-      g.forEach((x) => { x.g = grade(x, avg); });
+      g.forEach((x) => { x.g = grade(x, avg); x.auto = AUTO_BID.test(x.mall); });
       return { rows: g, cols: ['name:키워드', 'mall:몰', 'camp:캠페인'], graded: true };
     }
     if (t === 'campaign') {
       const g = groupBy(cur, (r) => r.mall + '\u0001' + r.campaign).map((x) => { const [m, c] = x.name.split('\u0001'); return { ...x, mall: m, name: c }; });
       const avg = metrics(g.reduce(add, blank()));
-      g.forEach((x) => { x.g = grade(x, avg); });
+      g.forEach((x) => { x.g = grade(x, avg); x.auto = AUTO_BID.test(x.mall); });
       return { rows: g, cols: ['name:캠페인', 'mall:몰'], graded: true };
     }
     if (t === 'product') {
       const g = groupBy(cur, (r) => r.product);
       const avg = metrics(g.reduce(add, blank()));
-      g.forEach((x) => { x.g = grade(x, avg); });
+      // 상품은 여러 몰에 걸칠 수 있어서, 그 상품의 광고가 전부 자동입찰일 때만 자동입찰용 문구를 씁니다.
+      const manual = new Set(cur.filter((r) => !AUTO_BID.test(r.mall)).map((r) => r.product));
+      g.forEach((x) => { x.g = grade(x, avg); x.auto = !manual.has(x.name); });
       return { rows: g, cols: ['name:상품'], graded: true };
     }
     if (t === 'mall') return { rows: groupBy(cur, (r) => r.mall), cols: ['name:몰'] };
@@ -777,7 +790,7 @@
     const LIMIT = 500;
     const body = list.slice(0, LIMIT).map((r) =>
       '<tr>' + textCols.map(([k]) => `<td class="l" title="${esc(r[k])}">${esc(r[k])}</td>`).join('') +
-      (d.graded ? `<td class="l"><span class="grade ${GRADES[r.g].cls}">${GRADES[r.g].label}</span></td><td class="l" style="color:#475569;">${GRADES[r.g].act}</td>` : '') +
+      (d.graded ? `<td class="l"><span class="grade ${GRADES[r.g].cls}">${GRADES[r.g].label}</span></td><td class="l" style="color:#475569;">${actionFor(r)}</td>` : '') +
       extra.map(([k, , f]) => `<td>${f(r[k])}</td>`).join('') +
       NUMCOLS.map(([k, , f, c]) => {
         if (k === 'roas') return `<td style="font-weight:800;color:${!isFinite(r.roas) ? '#94a3b8' : r.roas >= T ? '#16a34a' : r.roas < T * 0.5 ? '#dc2626' : '#0f172a'}">${f(r[k])}</td>`;
@@ -801,7 +814,7 @@
     const textCols = d.cols.map((c) => c.split(':'));
     const head = textCols.map((c) => c[1]).concat(d.graded ? ['판정', '추천 액션'] : [], NUMCOLS.map((c) => c[1]));
     const lines = [head].concat(lastView.map((r) => textCols.map(([k]) => r[k]).concat(
-      d.graded ? [GRADES[r.g].label, GRADES[r.g].act] : [],
+      d.graded ? [GRADES[r.g].label, actionFor(r)] : [],
       NUMCOLS.map(([k]) => !isFinite(r[k]) ? '' : ['ctr', 'cvr', 'roas'].includes(k) ? (r[k] * 100).toFixed(2) + '%' : Math.round(r[k])))));
     const csv = '﻿' + lines.map((l) => l.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
     const a = document.createElement('a');
