@@ -943,30 +943,31 @@
   .mt-chip.on { background: #eef3ff; border-color: #4d7cfe; color: #1d4ed8; }
   .mt-chip.done.on { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
 
-  .mt-wrap { overflow: auto; max-height: 56vh; }
+  /* 안쪽 스크롤 없이 한 화면에 다 보이게 — 칸 너비는 화면에 맞춰 줄어듭니다 */
+  .mt-wrap { overflow: visible; }
   .mt-grid {
-    display: grid; grid-template-columns: 116px repeat(5, minmax(205px, 1fr));
+    display: grid; grid-template-columns: 86px repeat(5, minmax(0, 1fr));
     border: 1px solid #e3e9f2; border-radius: 12px; overflow: hidden;
-    background: #e3e9f2; gap: 1px; min-width: 1140px;
+    background: #e3e9f2; gap: 1px;
   }
   .mt-h {
-    background: #edf2fb; color: #1f3864; font-size: 12px; font-weight: 800;
-    text-align: center; padding: 9px 6px; position: sticky; top: 0; z-index: 2;
+    background: #edf2fb; color: #1f3864; font-size: 11.5px; font-weight: 800;
+    text-align: center; padding: 7px 4px;
   }
-  .mt-h i { font-style: normal; color: #7f93b5; margin-left: 5px; font-weight: 700; }
-  .mt-h.mt-h-g { text-align: left; left: 0; z-index: 4; }
+  .mt-h i { font-style: normal; color: #7f93b5; margin-left: 4px; font-weight: 700; }
+  .mt-h.mt-h-g { text-align: left; padding-left: 9px; }
   .mt-rowhead {
-    background: #fbfcfe; display: flex; align-items: center; gap: 7px; padding: 10px 11px;
-    font-size: 12.5px; font-weight: 800; color: #0f172a; position: sticky; left: 0; z-index: 2;
+    background: #fbfcfe; display: flex; align-items: center; gap: 5px; padding: 8px 8px;
+    font-size: 11.5px; font-weight: 800; color: #0f172a;
   }
-  .mt-rowhead i { font-style: normal; font-size: 11px; color: #94a3b8; margin-left: auto; }
-  .mt-cell { background: #fff; padding: 7px; min-height: 76px; display: flex; flex-direction: column; gap: 6px; }
+  .mt-rowhead i { font-style: normal; font-size: 10px; color: #94a3b8; margin-left: auto; }
+  .mt-cell { background: #fff; padding: 5px; min-height: 58px; display: flex; flex-direction: column; gap: 5px; }
   .mt-cell.over { background: #eff4ff; box-shadow: inset 0 0 0 2px #4d7cfe; }
   .mt-cell.no { background: #fff5f5; box-shadow: inset 0 0 0 2px #fca5a5; }
 
   .mt-card {
-    background: #fff; border: 1px solid #e3e9f2; border-left: 3px solid #cbd5e1; border-radius: 9px;
-    padding: 8px 10px; cursor: pointer;
+    background: #fff; border: 1px solid #e3e9f2; border-left: 3px solid #cbd5e1; border-radius: 8px;
+    padding: 6px 8px; cursor: pointer;
   }
   .mt-card:hover { border-color: #94a3b8; box-shadow: 0 1px 3px rgba(15,23,42,.07); }
   .mt-card.dragging { opacity: .35; }
@@ -983,20 +984,43 @@
   }
   .mt-toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
   .mt-card.stuck { border-left-color: #dc2626; background: #fffafa; }
-  .mt-card-top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-  .mt-src { font-size: 9.5px; font-weight: 800; border-radius: 999px; padding: 2px 7px; white-space: nowrap; }
+  .mt-card-top { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+  .mt-src { font-size: 9px; font-weight: 800; border-radius: 999px; padding: 1px 6px; white-space: nowrap; }
   .mt-src.proj { background: #eef2ff; color: #4338ca; }
   .mt-src.task { background: #ecfdf5; color: #047857; }
   .mt-src.plan { background: #e0ecff; color: #1d4ed8; }
   .mt-src.ad { background: #fff7ed; color: #c2410c; }
-  .mt-due { margin-left: auto; font-size: 10px; font-weight: 700; color: #94a3b8; }
+  .mt-due { margin-left: auto; font-size: 9.5px; font-weight: 700; color: #94a3b8; }
   .mt-due.late { color: #dc2626; }
-  .mt-card-title { font-size: 12.5px; font-weight: 700; color: #0f172a; line-height: 1.4; }
-  .mt-card-sub { margin-top: 3px; font-size: 10.5px; color: #94a3b8; line-height: 1.4; }
-  .mt-card-block {
-    margin-top: 5px; font-size: 10.5px; font-weight: 700; color: #b91c1c;
-    background: #fee2e2; border-radius: 6px; padding: 3px 6px;
+  .mt-card-title {
+    font-size: 11.5px; font-weight: 700; color: #0f172a; line-height: 1.35;
+    overflow-wrap: anywhere;
   }
+  /* 긴 내용은 두 줄까지만 — 줄 높이가 들쑥날쑥해지지 않게 합니다 */
+  .mt-card-sub {
+    margin-top: 2px; font-size: 10px; color: #94a3b8; line-height: 1.35;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .mt-card-block {
+    margin-top: 4px; font-size: 9.5px; font-weight: 700; color: #b91c1c;
+    background: #fee2e2; border-radius: 5px; padding: 2px 5px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+
+  .mt-err {
+    font-size: 11.5px; font-weight: 700; color: #b91c1c; background: #fee2e2;
+    border-radius: 8px; padding: 8px 11px; margin-bottom: 9px;
+  }
+
+  /* 보드 머리 — 업무 적기와 새 프로젝트 */
+  .mt-add { display: flex; gap: 7px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .mt-add input, .mt-add select {
+    border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a;
+    font-family: inherit; font-size: 12.5px; padding: 7px 10px;
+  }
+  .mt-add input { flex: 1; min-width: 180px; }
+  .mt-add select { width: 104px; font-weight: 700; }
+  .mt-add input:focus, .mt-add select:focus { outline: none; border-color: #4d7cfe; }
 
   /* 광고 채널 운영 일지 — 위 칸에 적어 [저장]하면 아래 목록에 쌓입니다 */
   .ad-nav { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
@@ -3137,40 +3161,16 @@
              윤효선 화면에서만 보이고, 체크리스트형 화면(전휘원)에서는 감춥니다. -->
         <div id="myTrackerBody" style="display:none"></div>
 
-        <!-- 윤효선 화면 — 왼쪽은 프로젝트형 업무, 오른쪽은 지금 진행중인 업무 둘뿐입니다. -->
-        <div class="jw-two" id="jwProjectArea" style="display:none">
+        <!-- 윤효선 화면 — 보드가 프로젝트와 업무를 다 보여주므로, 아래에는 체크 누락만 둡니다.
+             (새 프로젝트 만들기와 업무 적기는 보드 머리로 올렸습니다) -->
+        <div id="jwProjectArea" style="display:none">
           <section class="panel">
             <div class="panel-head">
-              <h2>프로젝트형 업무</h2>
-              <span class="panel-note" id="jwProjNote"></span>
-              <button type="button" class="btn-primary" style="margin-left:auto;" onclick="jwOpenProjectPanel()">+ 새 프로젝트</button>
+              <h2>체크 누락</h2>
+              <span class="panel-note" id="jwMissNote"></span>
             </div>
-            <div class="jw-proj-grid" id="jwProjGrid"></div>
+            <div id="jwMissList"></div>
           </section>
-
-          <div class="jw-col">
-            <section class="panel">
-              <div class="panel-head">
-                <h2>진행중인 업무</h2>
-                <span class="panel-note" id="jwMyTaskNote"></span>
-              </div>
-              <div class="jw-cat-chips" id="jwMyTaskChips"></div>
-              <div class="jw-mytask-add">
-                <input type="text" id="jwMyTaskInput" placeholder="진행할 업무를 적고 엔터" autocomplete="off" onkeydown="jwMyTaskKey(event)">
-                <button type="button" class="btn-primary" onclick="jwAddMyTask()">추가</button>
-              </div>
-              <div id="jwMyTaskList"></div>
-            </section>
-
-            <!-- 팀원 업무 중 내가 확인을 안 눌렀거나, 담당자가 체크를 건너뛴 것 -->
-            <section class="panel">
-              <div class="panel-head">
-                <h2>체크 누락</h2>
-                <span class="panel-note" id="jwMissNote"></span>
-              </div>
-              <div id="jwMissList"></div>
-            </section>
-          </div>
         </div>
 
         <!-- 체크리스트형 목록        <!-- 체크리스트형 목록 — 루틴 업무가 있는 화면(전휘원)에서만 씁니다.
@@ -5874,6 +5874,18 @@
               ${mtHideDone ? '끝난 것 보기' : '끝난 것 숨기기'}</button>
           </span>
         </div>
+        <div class="mt-add">
+          <input type="text" id="jwMyTaskInput" placeholder="업무를 적고 엔터" autocomplete="off" onkeydown="jwMyTaskKey(event)">
+          <select id="jwMyTaskCat" title="어느 줄에 넣을지">
+            ${MT_GROUPS.map((g) => `<option value="${g}" ${g === 'ETC' ? 'selected' : ''}>${g}</option>`).join('')}
+          </select>
+          <button type="button" class="jw-proj-btn main" onclick="jwAddMyTask()">업무 추가</button>
+          <button type="button" class="jw-proj-btn" onclick="jwOpenProjectPanel()">+ 새 프로젝트</button>
+        </div>
+        ${[
+          jwProjectsError ? '프로젝트를 불러오지 못했습니다 — team_projects.sql 을 확인해주세요.' : '',
+          cpError ? '판매기획 카드를 불러오지 못했습니다 — channel_plans.sql 을 확인해주세요.' : '',
+        ].filter(Boolean).map((m) => `<div class="mt-err">⚠ ${escapeAttr(m)}</div>`).join('')}
         <div class="mt-wrap">
           <div class="mt-grid">
             <div class="mt-h mt-h-g">대분류</div>
@@ -6628,8 +6640,8 @@
     const { error } = await client.from('team_tasks').insert({
       title, assignee: jwViewAssignee(), status: '진행중',
       due_date: today, start_date: today, priority: '보통',
-      // 분류 버튼을 눌러둔 상태면 그 분류로 들어갑니다.
-      category: jwMyTaskFilter || JW_MYTASK_CATEGORY,
+      // 보드 머리에서 고른 줄로 들어갑니다.
+      category: (document.getElementById('jwMyTaskCat') || {}).value || jwMyTaskFilter || JW_MYTASK_CATEGORY,
     });
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
     if (input) input.value = '';
