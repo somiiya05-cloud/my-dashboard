@@ -2724,6 +2724,14 @@
           <div class="nav-item" id="navTeamDuty" onclick="switchView('team-duty')">
             <span class="dot dot-task"></span>업무분장
           </div>
+          <!-- 예전에는 프로젝트 카드의 [트래커 열기] · [운영 일지 열기] 로 들어갔는데,
+               보드에서 프로젝트 카드를 빼면서 들어갈 길이 없어져 메뉴로 냈습니다. -->
+          <div class="nav-item" id="navChannelTracker" onclick="switchView('channel-tracker')">
+            <span class="dot dot-task"></span>판매기획 트래커
+          </div>
+          <div class="nav-item" id="navAdLog" onclick="switchView('ad-log')">
+            <span class="dot dot-task"></span>광고 운영 일지
+          </div>
           <!-- "할일 관리"(담당자별 업무 현황 + 주의가 필요한 업무) 메뉴는 뺐습니다.
                팀 대시보드가 같은 내용을 더 자세히 보여줍니다. 담당자 화면만 남깁니다. -->
           <div class="nav-label nav-sublabel">담당자</div>
@@ -3480,6 +3488,8 @@
     (document.getElementById('teamDutyView') || { style: {} }).style.display = view === 'team-duty' ? '' : 'none';
     (document.getElementById('channelTrackerView') || { style: {} }).style.display = view === 'channel-tracker' ? '' : 'none';
     (document.getElementById('adLogView') || { style: {} }).style.display = view === 'ad-log' ? '' : 'none';
+    (document.getElementById('navChannelTracker') || { classList: { toggle() {} } }).classList.toggle('active', view === 'channel-tracker');
+    (document.getElementById('navAdLog') || { classList: { toggle() {} } }).classList.toggle('active', view === 'ad-log');
     (document.getElementById('teamWeeklyView') || { style: {} }).style.display = view === 'team-weekly' ? '' : 'none';
     (document.getElementById('weeklyReportView') || { style: {} }).style.display = view === 'weekly-report' ? '' : 'none';
     (document.getElementById('teamScheduleView') || { style: {} }).style.display = view === 'team-schedule' ? '' : 'none';
@@ -5725,7 +5735,7 @@
   const MT_TABLE = { proj: 'team_projects', task: 'team_tasks', plan: 'channel_plans' };
 
   // 어떤 출처를 켜 둘지. 광고 일지는 매일 쌓이는 기록이라 기본은 꺼 둡니다.
-  const mtOn = { proj: true, task: true, plan: true, ad: false };
+  const mtOn = { task: true, plan: true, ad: false };
   let mtHideDone = true;   // 끝난 건 접어두기
 
   function mtToggle(key) { mtOn[key] = !mtOn[key]; renderMyTracker(); }
@@ -5739,23 +5749,6 @@
   function mtItems() {
     const out = [];
     const me = MT_OWNER;
-
-    if (mtOn.proj) {
-      (jwProjects || []).filter((p) => (p.owner || me) === me).forEach((p) => {
-        const st = JW_PROJECT_STATUS_LEGACY[p.status] || p.status;
-        out.push({
-          src: 'proj', label: '프로젝트', id: p.id,
-          group: MT_PROJ_GROUP[String(p.category || '').trim()] || 'ETC',
-          stage: MT_PROJ_STAGE[st] || '진행중',
-          title: p.name || '(이름 없음)',
-          sub: p.next_action || p.purpose || '',
-          due: p.next_action_due || '',
-          raw: st,
-          stuck: JW_PROJECT_STUCK.includes(st) || !!p.blocker,
-          blocker: p.blocker || '',
-        });
-      });
-    }
 
     if (mtOn.task) {
       (currentTasks || []).filter((t) => t.assignee === me && !t.archived_at).forEach((t) => {
@@ -5860,7 +5853,7 @@
           <h2>내 업무 보드</h2>
           <span class="panel-note">${items.length}건${stuck ? ' · 막힌 것 ' + stuck + '건' : ''}</span>
           <span class="mt-chips">
-            ${chip('proj', '프로젝트')}${chip('task', '진행중인 업무')}${chip('plan', '판매기획')}${chip('ad', '광고 일지')}
+            ${chip('task', '진행중인 업무')}${chip('plan', '판매기획')}${chip('ad', '광고 일지')}
             <button type="button" class="mt-chip done${mtHideDone ? '' : ' on'}" onclick="mtToggleDone()">
               ${mtHideDone ? '끝난 것 보기' : '끝난 것 숨기기'}</button>
           </span>
@@ -5871,12 +5864,8 @@
             ${MT_GROUPS.map((g) => `<option value="${g}" ${g === 'ETC' ? 'selected' : ''}>${g}</option>`).join('')}
           </select>
           <button type="button" class="jw-proj-btn main" onclick="jwAddMyTask()">업무 추가</button>
-          <button type="button" class="jw-proj-btn" onclick="jwOpenProjectPanel()">+ 새 프로젝트</button>
         </div>
-        ${[
-          jwProjectsError ? '프로젝트를 불러오지 못했습니다 — team_projects.sql 을 확인해주세요.' : '',
-          cpError ? '판매기획 카드를 불러오지 못했습니다 — channel_plans.sql 을 확인해주세요.' : '',
-        ].filter(Boolean).map((m) => `<div class="mt-err">⚠ ${escapeAttr(m)}</div>`).join('')}
+        ${cpError ? `<div class="mt-err">⚠ 판매기획 카드를 불러오지 못했습니다 — channel_plans.sql 을 확인해주세요.</div>` : ''}
         <div class="mt-wrap">
           <div class="mt-grid">
             <div class="mt-h mt-h-g">대분류</div>
