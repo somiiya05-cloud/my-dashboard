@@ -633,12 +633,12 @@
     ctr: { label: '클릭 저조', cls: 'g-ctr', act: '썸네일·상품명 점검' },
     wait: { label: '관찰', cls: 'g-wait', act: '데이터 더 모으기' },
   };
-  // 네이버 애드부스트처럼 AI가 입찰하는 광고는 입찰가·키워드를 직접 못 만지고 예산·목표 ROAS·상품 구성만 바꿀 수 있습니다.
-  const AUTO_BID = /advoost|애드부스트/i;
+  // 네이버 애드부스트·카카오모먼트 카탈로그처럼 AI가 입찰하는 광고는 입찰가·키워드를 직접 못 만지고 예산·목표 ROAS(CPA)·상품 구성만 바꿀 수 있습니다.
+  const AUTO_BID = /advoost|애드부스트|카카오모먼트|kakao ?moment/i;
   const AUTO_ACT = {
     star: '일예산 20~30% 올리기 (며칠 간격)',
     keep: '현재 예산 유지',
-    low: '일예산 낮추기·목표 ROAS 설정',
+    low: '일예산 낮추기·목표 ROAS(CPA) 설정',
     waste: '상품 제외 또는 캠페인 끄기',
     ctr: '썸네일·상품명 점검',
     wait: '학습 중 — 데이터 더 모으기',
