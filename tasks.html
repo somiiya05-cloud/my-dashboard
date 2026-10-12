@@ -3846,18 +3846,27 @@
   // 불러오는 동안인지 — 빈 화면에 "없습니다" 대신 "불러오는 중"을 띄우는 데 씁니다.
   let jwLoading = false;
 
+  const TEAM_TASK_PAGE = 1000;   // 서버가 한 번에 주는 최대 건수
+
   async function loadTeamTasks() {
     jwLoading = true;
     const note = document.getElementById('taskListNote');
-    const { data, error } = await client
-      .from('team_tasks')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) {
-      note.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
-      return;
+    const rows = [];
+    for (let from = 0; ; from += TEAM_TASK_PAGE) {
+      const { data, error } = await client
+        .from('team_tasks')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, from + TEAM_TASK_PAGE - 1);
+      if (error) {
+        note.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
+        return;
+      }
+      rows.push(...(data || []));
+      if (!data || data.length < TEAM_TASK_PAGE) break;
     }
-    currentTasks = (data || []).map(t => ({ ...t, status: normalizeStatus(t.status) }));
+    currentTasks = rows.map(t => ({ ...t, status: normalizeStatus(t.status) }));
     await loadJwNotes();           // 상세보기의 목적·코멘트를 화면 그리기 전에 받아둡니다
     await loadJwProjects();        // 프로젝트형 업무 (윤효선 화면에서만 씁니다)
     await loadJwInvoicePending();  // "계산서 발행" 배지에 쓸 입금 완료 건수
