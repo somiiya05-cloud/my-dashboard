@@ -826,7 +826,7 @@
   /* 안쪽 스크롤 없이 한 화면에 다 보이게 — 칸 너비는 화면에 맞춰 줄어듭니다 */
   .mt-wrap { overflow: visible; }
   .mt-grid {
-    display: grid; grid-template-columns: 86px repeat(5, minmax(0, 1fr));
+    display: grid; grid-template-columns: 86px repeat(3, minmax(0, 1fr));
     border: 1px solid #e3e9f2; border-radius: 12px; overflow: hidden;
     background: #e3e9f2; gap: 1px;
   }
@@ -900,6 +900,7 @@
   }
   .mt-add input { flex: 1; min-width: 180px; }
   .mt-add select { width: 104px; font-weight: 700; }
+  .mt-add input[type="date"] { flex: none; width: 150px; font-weight: 700; }
   .mt-add input:focus, .mt-add select:focus { outline: none; border-color: #4d7cfe; }
 
   /* 업무분장 — 역할·업무 분장표를 탭으로 봅니다 */
@@ -4876,14 +4877,14 @@
   // 카드를 누르면 그 업무가 원래 있던 자리(프로젝트 수정 · 업무 상세 · 기획 카드)가 열립니다.
   // 여기서는 끌어서 옮기지 않습니다 — 출처마다 상태값이 달라서 억지로 맞추면 원래 값이 뭉개집니다.
   const MT_GROUPS = ['E커머스', '공구', 'B2B', '수출', '광고', 'ETC'];
-  const MT_STAGES = ['대기', '준비중', '진행중', '확인 필요', '완료'];
+  const MT_STAGES = ['진행중', '확인 필요', '완료'];
   const MT_GROUP_CLS = { 'E커머스': 'c1', '공구': 'c2', 'B2B': 'c3', '수출': 'c4', '광고': 'c5', 'ETC': 'c7' };
 
-  // 업무 상태 → 가로축 다섯 칸
-  const MT_TASK_STAGE = { '할일': '준비중', '진행중': '진행중', '검수대기': '확인 필요', '확인완료': '완료' };
+  // 업무 상태 → 가로축 세 칸. '할일'도 진행중 칸에서 같이 봅니다.
+  const MT_TASK_STAGE = { '할일': '진행중', '진행중': '진행중', '검수대기': '확인 필요', '확인완료': '완료' };
 
-  // 칸 → 업무가 쓰는 상태값. 업무에는 "대기"가 없어 그 칸으로는 못 옮깁니다.
-  const MT_BACK_TASK = { '준비중': '할일', '진행중': '진행중', '확인 필요': '검수대기', '완료': '확인완료' };
+  // 칸 → 업무가 쓰는 상태값
+  const MT_BACK_TASK = { '진행중': '진행중', '확인 필요': '검수대기', '완료': '확인완료' };
   const MT_TABLE = { task: 'team_tasks' };
 
   // 어떤 출처를 켜 둘지. 광고 일지는 매일 쌓이는 기록이라 기본은 꺼 둡니다.
@@ -4974,6 +4975,7 @@
           <select id="jwMyTaskCat" title="어느 줄에 넣을지">
             ${MT_GROUPS.map((g) => `<option value="${g}" ${g === 'ETC' ? 'selected' : ''}>${g}</option>`).join('')}
           </select>
+          <input type="date" id="jwMyTaskDue" value="${escapeAttr(jwTodayKST())}" title="마감일 — 비우면 날짜 없이 들어갑니다">
           <button type="button" class="jw-proj-btn main" onclick="jwAddMyTask()">업무 추가</button>
         </div>
         <div class="mt-wrap">
@@ -5023,7 +5025,7 @@
     const patch = {};
     if (stage !== x.stage) {
       const next = MT_BACK_TASK[stage];
-      if (!next) return { ok: false, why: '업무에는 "대기" 상태가 없습니다.' };
+      if (!next) return { ok: false, why: '이 칸으로는 옮길 수 없습니다.' };
       patch.status = next;
     }
     if (group !== x.group) patch.category = group;
@@ -5443,10 +5445,11 @@
     const input = document.getElementById('jwMyTaskInput');
     const title = (input && input.value || '').trim();
     if (!title) return;
-    const today = jwTodayKST();
+    // 옆 칸에서 고른 마감일. 비워두면 날짜 없이 들어갑니다.
+    const due = (document.getElementById('jwMyTaskDue') || {}).value || null;
     const { error } = await client.from('team_tasks').insert({
       title, assignee: jwViewAssignee(), status: '진행중',
-      due_date: today, start_date: today, priority: '보통',
+      due_date: due, start_date: due || jwTodayKST(), priority: '보통',
       // 보드 머리에서 고른 줄로 들어갑니다.
       category: (document.getElementById('jwMyTaskCat') || {}).value || jwMyTaskFilter || JW_MYTASK_CATEGORY,
     });
