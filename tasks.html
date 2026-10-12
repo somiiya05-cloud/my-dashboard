@@ -813,126 +813,6 @@
   .ct-dot.c4 { background: #16a34a; } .ct-dot.c5 { background: #f59e0b; } .ct-dot.c6 { background: #7c3aed; }
   .ct-dot.c7 { background: #ef4444; }
 
-  /* 판매기획 플로우 — 세로축 채널(스윔레인), 가로축 진행 단계 */
-  .cp-filters { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
-  .cp-filter {
-    border: 1px solid #e2e8f0; border-radius: 999px; background: #fff; color: #475569;
-    font-family: inherit; font-size: 11.5px; font-weight: 700; padding: 5px 9px; cursor: pointer;
-  }
-  .cp-filter:focus { outline: none; border-color: #4d7cfe; }
-  .cp-wrap { position: relative; overflow: auto; max-height: 72vh; }
-  .cp-arrows { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 3; }
-  .cp-grid {
-    display: grid; grid-template-columns: 140px repeat(8, minmax(196px, 1fr));
-    border: 1px solid #e3e9f2; border-radius: 12px; overflow: hidden;
-    background: #e3e9f2; gap: 1px; min-width: 1700px;
-  }
-  .cp-h {
-    background: #edf2fb; color: #1f3864; font-size: 12px; font-weight: 800;
-    text-align: center; padding: 9px 6px; position: sticky; top: 0; z-index: 2;
-  }
-  .cp-h.cp-h-ch { text-align: left; left: 0; z-index: 4; }
-  .cp-rowhead {
-    background: #fbfcfe; display: flex; align-items: center; gap: 7px; padding: 10px 11px;
-    font-size: 12.5px; font-weight: 800; color: #0f172a; position: sticky; left: 0; z-index: 2;
-  }
-  .cp-cell { background: #fff; padding: 7px; min-height: 86px; display: flex; flex-direction: column; gap: 6px; }
-  .cp-cell.over { background: #eff4ff; box-shadow: inset 0 0 0 2px #4d7cfe; }
-
-  .cp-card {
-    background: #fff; border: 1px solid #e3e9f2; border-left: 3px solid #4d7cfe; border-radius: 9px;
-    padding: 7px 9px; cursor: pointer; box-shadow: 0 1px 2px rgba(15,23,42,.05); position: relative; z-index: 4;
-  }
-  .cp-card:hover { border-color: #94a3b8; border-left-color: #4d7cfe; }
-  .cp-card.dragging { opacity: .35; }
-  .cp-card.blocked { border-left-color: #dc2626; background: #fffafa; }
-  .cp-card.done { opacity: .5; border-left-color: #16a34a; }
-  .cp-ghost {
-    position: fixed; z-index: 1200; pointer-events: none; margin: 0;
-    box-shadow: 0 8px 20px rgba(15,23,42,.18); transform: rotate(1.5deg);
-  }
-  .cp-card-top { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
-  .cp-brand { font-size: 10.5px; font-weight: 800; color: #64748b; }
-  .cp-badge {
-    margin-left: auto; font-size: 9.5px; font-weight: 800; border-radius: 999px; padding: 2px 7px; white-space: nowrap;
-  }
-  .cp-badge.plan { background: #eef2ff; color: #4338ca; }
-  .cp-badge.talk { background: #e0f2fe; color: #0369a1; }
-  .cp-badge.prep { background: #fef3c7; color: #b45309; }
-  .cp-badge.go { background: #e0ecff; color: #1d4ed8; }
-  .cp-badge.study { background: #f5f3ff; color: #6d28d9; }
-  .cp-badge.wait { background: #f1f5f9; color: #475569; }
-  .cp-badge.done { background: #dcfce7; color: #15803d; }
-  .cp-badge.hold { background: #ffe4e6; color: #be123c; }
-  .cp-title { font-size: 12.5px; font-weight: 700; color: #0f172a; line-height: 1.4; }
-  /* 앞면 — 현재 단계 → 다음 단계 */
-  .cp-flow { display: flex; align-items: center; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
-  .cp-now {
-    font-size: 10px; font-weight: 800; color: #1d4ed8;
-    background: #eef3ff; border-radius: 999px; padding: 2px 7px;
-  }
-  .cp-ar { font-size: 10px; color: #cbd5e1; }
-  .cp-nxt { font-size: 10px; font-weight: 700; color: #64748b; }
-  .cp-subs {
-    margin-top: 5px; font-size: 10.5px; font-weight: 700; color: #7c3aed;
-    background: #f5f3ff; border-radius: 6px; padding: 3px 6px; display: inline-block;
-  }
-  .cp-subs.all-done { color: #15803d; background: #dcfce7; }
-
-  /* 상세 — 유관부서 진행 작업 */
-  .cp-tasks { border-top: 1px solid #eef2f7; margin-top: 14px; padding-top: 12px; }
-  .cp-tasks-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-  .cp-tasks-head label { font-size: 12.5px; font-weight: 800; color: #0f172a; }
-  .cp-tasks-note { font-size: 11px; font-weight: 700; color: #94a3b8; margin-right: auto; }
-  .cp-tasks-empty {
-    font-size: 11.5px; color: #94a3b8; background: #f8fafc;
-    border-radius: 8px; padding: 10px; text-align: center; margin-top: 8px;
-  }
-  .cp-task {
-    border: 1px solid #e7edf5; border-left: 3px solid #cbd5e1; border-radius: 9px;
-    padding: 9px 10px; margin-top: 8px; background: #fbfcfe;
-  }
-  .cp-task.blocking { border-left-color: #dc2626; background: #fffafa; }
-  .cp-task.done { border-left-color: #16a34a; opacity: .72; }
-  .cp-task-top { display: flex; align-items: center; gap: 6px; }
-  .cp-task-top .cp-t-title { flex: 1; }
-  .cp-task-top .cp-t-status { width: 128px; flex: none; }
-  .cp-t-del {
-    border: none; background: transparent; color: #cbd5e1; cursor: pointer;
-    font-family: inherit; font-size: 13px; padding: 2px 4px; flex: none;
-  }
-  .cp-t-del:hover { color: #dc2626; }
-  .cp-task-row { display: flex; gap: 8px; margin-top: 7px; }
-  .cp-task-row label {
-    flex: 1; display: flex; flex-direction: column; gap: 3px;
-    font-size: 10.5px; font-weight: 700; color: #94a3b8;
-  }
-  .cp-task-row label.wide { flex: 1 1 100%; }
-  .cp-task input[type="text"], .cp-task input[type="date"], .cp-task select {
-    width: 100%; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff;
-    font-family: inherit; font-size: 12px; color: #0f172a; padding: 6px 8px;
-  }
-  .cp-task input:focus, .cp-task select:focus { outline: none; border-color: #4d7cfe; }
-  .cp-task-block {
-    display: flex; align-items: center; gap: 6px; margin-top: 8px;
-    font-size: 11.5px; font-weight: 700; color: #64748b; cursor: pointer;
-  }
-  .cp-task-block input { width: 14px; height: 14px; accent-color: #dc2626; }
-  .cp-task.blocking .cp-task-block { color: #b91c1c; }
-  .cp-meta { display: flex; gap: 8px; align-items: center; margin-top: 4px; font-size: 10.5px; color: #94a3b8; }
-  .cp-own { margin-left: auto; font-weight: 700; color: #64748b; }
-  .cp-blocker {
-    margin-top: 5px; font-size: 10.5px; font-weight: 700; color: #b91c1c;
-    background: #fee2e2; border-radius: 6px; padding: 3px 6px;
-  }
-  .cp-next { margin-top: 5px; font-size: 10.5px; color: #2f5ce4; font-weight: 700; }
-  .cp-add {
-    border: 1px dashed #dbe3ee; background: transparent; color: #b6c2d2;
-    font-family: inherit; font-size: 12px; font-weight: 700;
-    border-radius: 8px; padding: 4px; cursor: pointer; width: 100%; margin-top: auto;
-  }
-  .cp-add:hover { border-color: #4d7cfe; color: #2f5ce4; background: #f8fbff; }
-
   /* 내 업무 보드 — 세로 대분류, 가로 진행 단계 */
   .mt-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
   .mt-chip {
@@ -1021,108 +901,6 @@
   .mt-add input { flex: 1; min-width: 180px; }
   .mt-add select { width: 104px; font-weight: 700; }
   .mt-add input:focus, .mt-add select:focus { outline: none; border-color: #4d7cfe; }
-
-  /* 광고 채널 운영 일지 — 위 칸에 적어 [저장]하면 아래 목록에 쌓입니다 */
-  .ad-nav { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
-  .ad-date {
-    border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a;
-    font-family: inherit; font-size: 12px; font-weight: 700; padding: 5px 8px;
-  }
-  .ad-date:focus { outline: none; border-color: #4d7cfe; }
-
-  /* 적는 칸 */
-  .ad-form {
-    border: 1px solid #dbe6fb; border-radius: 12px; background: #f8fbff;
-    padding: 12px 13px; margin-bottom: 14px;
-  }
-  .ad-form-top { display: flex; gap: 8px; }
-  .ad-form-top #adNewTitle { flex: 1; font-weight: 700; }
-  .ad-form-top #adNewType { width: 168px; flex: none; }
-  .ad-form-sub { display: flex; gap: 8px; margin-top: 9px; align-items: flex-end; flex-wrap: wrap; }
-  .ad-form-sub label {
-    flex: 1; min-width: 130px; display: flex; flex-direction: column; gap: 3px;
-    font-size: 10.5px; font-weight: 700; color: #7f93b5;
-  }
-  .ad-form-sub label.wide { flex: 2 1 240px; }
-  .ad-submit { flex: none; padding: 8px 22px; }
-  .ad-form input[type="text"], .ad-form select {
-    width: 100%; border: 1px solid #cfdcf4; border-radius: 8px; background: #fff;
-    font-family: inherit; font-size: 12.5px; color: #0f172a; padding: 8px 10px;
-  }
-  .ad-form input:focus, .ad-form select:focus { outline: none; border-color: #4d7cfe; }
-
-  .ad-sums { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 9px; }
-  .ad-sum {
-    font-size: 11px; font-weight: 700; color: #475569; background: #f1f5f9;
-    border-radius: 999px; padding: 4px 10px;
-  }
-  .ad-sum i { font-style: normal; color: #2f5ce4; margin-left: 4px; }
-
-  /* 쌓인 목록 */
-  .ad-item {
-    display: flex; align-items: center; gap: 9px;
-    border: 1px solid #e7edf5; border-radius: 10px; background: #fff;
-    padding: 10px 12px; margin-top: 7px;
-  }
-  .ad-item:hover { border-color: #cfdcf4; }
-  .ad-no {
-    flex: none; width: 19px; height: 19px; border-radius: 50%; background: #f1f5f9;
-    color: #94a3b8; font-size: 10.5px; font-weight: 800;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .ad-tag {
-    flex: none; font-size: 10px; font-weight: 800; border-radius: 999px;
-    padding: 3px 9px; white-space: nowrap;
-  }
-  .ad-tag.plan { background: #eef2ff; color: #4338ca; }
-  .ad-tag.talk { background: #e0f2fe; color: #0369a1; }
-  .ad-tag.prep { background: #fef3c7; color: #b45309; }
-  .ad-tag.go { background: #e0ecff; color: #1d4ed8; }
-  .ad-tag.study { background: #f5f3ff; color: #6d28d9; }
-  .ad-tag.wait { background: #f1f5f9; color: #475569; }
-  .ad-tag.hold { background: #ffe4e6; color: #be123c; }
-  .ad-item-main { flex: 1; min-width: 0; }
-  .ad-item-title { font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.45; }
-  .ad-item-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 3px; font-size: 11px; color: #94a3b8; }
-  .ad-item-meta .m { color: #64748b; }
-  .ad-mini {
-    flex: none; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; color: #64748b;
-    font-family: inherit; font-size: 11px; font-weight: 700; padding: 4px 10px; cursor: pointer;
-  }
-  .ad-mini:hover { border-color: #4d7cfe; color: #2f5ce4; }
-  .ad-del {
-    flex: none; border: none; background: transparent; color: #cbd5e1; cursor: pointer;
-    font-family: inherit; font-size: 13px; padding: 2px 4px;
-  }
-  .ad-del:hover { color: #dc2626; }
-
-  /* 목록에서 [수정] 을 누른 줄 */
-  .ad-item.editing { display: block; border-color: #4d7cfe; background: #f8fbff; }
-  .ad-row-top { display: flex; gap: 8px; }
-  .ad-row-top .ad-f-title { flex: 1; font-weight: 700; }
-  .ad-row-top .ad-f-type { width: 168px; flex: none; }
-  .ad-row-sub { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-  .ad-row-sub label {
-    flex: 1; min-width: 130px; display: flex; flex-direction: column; gap: 3px;
-    font-size: 10.5px; font-weight: 700; color: #7f93b5;
-  }
-  .ad-row-sub label.wide { flex: 2 1 240px; }
-  .ad-item.editing input[type="text"], .ad-item.editing select {
-    width: 100%; border: 1px solid #cfdcf4; border-radius: 8px; background: #fff;
-    font-family: inherit; font-size: 12.5px; color: #0f172a; padding: 8px 10px;
-  }
-  .ad-item.editing input:focus, .ad-item.editing select:focus { outline: none; border-color: #4d7cfe; }
-  .ad-item-btns { display: flex; justify-content: flex-end; gap: 7px; margin-top: 9px; }
-
-  .ad-recent { display: flex; gap: 6px; flex-wrap: wrap; }
-  .ad-chip {
-    border: 1px solid #e2e8f0; border-radius: 999px; background: #fff; color: #475569;
-    font-family: inherit; font-size: 11.5px; font-weight: 700; padding: 6px 11px; cursor: pointer;
-  }
-  .ad-chip:hover { border-color: #4d7cfe; color: #2f5ce4; }
-  .ad-chip.on { background: #eef3ff; border-color: #4d7cfe; color: #1d4ed8; }
-  .ad-chip i { font-style: normal; color: #94a3b8; margin-left: 5px; }
-  .ad-chip.on i { color: #4d7cfe; }
 
   /* 업무분장 — 역할·업무 분장표를 탭으로 봅니다 */
   .jw-duty-tabs { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: 14px; }
@@ -3190,34 +2968,6 @@
       <div id="teamDashBody"></div>
     </main>
 
-    <!-- 채널별 매출 계획 트래커 — 프로젝트 카드의 [트래커] 로 들어옵니다 -->
-    <main class="main" id="channelTrackerView" style="display:none">
-      <div class="topbar">
-        <div>
-          <h1>판매기획 플로우 트래커</h1>
-          <div class="subtitle">세로축은 판매채널, 가로축은 진행 단계입니다. 카드를 끌어 단계를 옮기고, 카드끼리 다음 스텝으로 이어 붙입니다.</div>
-        </div>
-        <div class="topbar-right">
-          <button type="button" class="btn-ghost" onclick="switchView('team-tasks','윤효선')">← 할일 관리로</button>
-        </div>
-      </div>
-      <div id="channelTrackerBody"></div>
-    </main>
-
-    <!-- 광고 채널 운영 일지 — 프로젝트 카드의 [운영 일지 열기] 로 들어옵니다 -->
-    <main class="main" id="adLogView" style="display:none">
-      <div class="topbar">
-        <div>
-          <h1>광고 채널 운영 일지</h1>
-          <div class="subtitle">위 칸에 적고 [저장]을 누르면 아래 목록에 한 줄씩 쌓입니다. 매체·대행사별로 남겨두면 나중에 되짚기 쉽습니다.</div>
-        </div>
-        <div class="topbar-right">
-          <button type="button" class="btn-ghost" onclick="switchView('team-tasks','윤효선')">← 할일 관리로</button>
-        </div>
-      </div>
-      <div id="adLogBody"></div>
-    </main>
-
     <!-- 업무분장 — 역할·업무 분장표 (renderJwDuty 가 채웁니다) -->
     <main class="main" id="teamDutyView" style="display:none">
       <div class="topbar">
@@ -3307,15 +3057,6 @@
     </main>
 </div>
     <!-- 프로젝트 등록·수정 패널 (업무 등록 패널과 같은 모양) -->
-    <!-- 판매기획 카드 상세 -->
-    <div class="task-panel-overlay" id="cpPanelOverlay" style="display:none" onclick="if(event.target===this) cpClosePanel()">
-      <div class="task-panel">
-        <button type="button" class="gs-modal-close" onclick="cpClosePanel()">✕</button>
-        <h3 class="task-panel-title" id="cpPanelTitle">기획 카드</h3>
-        <div class="task-panel-body" id="cpPanelBody"></div>
-      </div>
-    </div>
-
     <!-- 영업팀 공지사항 팝업 -->
     <div class="gs-modal-overlay" id="tnOverlay" style="display:none" onclick="if(event.target===this) tnClose()">
       <div class="gs-modal tn-modal">
@@ -3478,8 +3219,6 @@
     (document.getElementById('teamDashView') || { style: {} }).style.display = view === 'team-dashboard' ? '' : 'none';
     (document.getElementById('teamCalView') || { style: {} }).style.display = view === 'team-calendar' ? '' : 'none';
     (document.getElementById('teamDutyView') || { style: {} }).style.display = view === 'team-duty' ? '' : 'none';
-    (document.getElementById('channelTrackerView') || { style: {} }).style.display = view === 'channel-tracker' ? '' : 'none';
-    (document.getElementById('adLogView') || { style: {} }).style.display = view === 'ad-log' ? '' : 'none';
     (document.getElementById('teamWeeklyView') || { style: {} }).style.display = view === 'team-weekly' ? '' : 'none';
     (document.getElementById('weeklyReportView') || { style: {} }).style.display = view === 'weekly-report' ? '' : 'none';
     (document.getElementById('teamScheduleView') || { style: {} }).style.display = view === 'team-schedule' ? '' : 'none';
@@ -3574,14 +3313,6 @@
     }
     if (view === 'team-calendar') { renderTeamCal(); loadTeamEvents().then(renderTeamCal); loadTeamTasks(); }
     if (view === 'team-duty') renderJwDuty();
-    if (view === 'channel-tracker') {
-      renderChannelTracker();
-      loadChannelPlans().then(renderChannelTracker);
-    }
-    if (view === 'ad-log') {
-      renderAdLog();
-      loadAdLogs().then(renderAdLog);
-    }
     if (view === 'team-weekly') loadTeamTasks();
     if (view === 'weekly-report') loadWeeklyReports();
     if (view === 'team-schedule') loadTeamSchedule();
@@ -5069,8 +4800,6 @@
           <span class="jw-proj-pct">${Math.max(0, Math.min(100, Number(p.progress || 0)))}%</span>
         </div>
         <div class="jw-proj-btns">
-          ${p.tracker === 'channel' ? '<button type="button" class="jw-proj-btn main" onclick="switchView(\'channel-tracker\')">트래커 열기</button>' : ''}
-          ${p.tracker === 'ads' ? '<button type="button" class="jw-proj-btn main" onclick="switchView(\'ad-log\')">운영 일지 열기</button>' : ''}
           <button type="button" class="jw-proj-btn" onclick="jwToggleProjDetail(${p.id})">${open ? '접기' : '상세보기'}</button>
           <button type="button" class="jw-proj-btn" onclick="jwOpenProjectPanel(${p.id})">수정</button>
         </div>
@@ -5141,552 +4870,6 @@
   }
   window.jwAddProjNote = jwAddProjNote;
 
-  // ==================== 판매기획 플로우 트래커 ====================
-  // 「채널별 매출 계획 수립」 프로젝트에서 [트래커 열기] 로 들어옵니다.
-  // 세로축은 판매채널, 가로축은 진행 단계. 기획안 하나가 카드 한 장이고,
-  // 카드를 끌어 단계를 옮기고, 카드끼리 "다음 스텝"으로 이어 붙이면 화살표가 그려집니다.
-  const CP_CHANNELS = ['쿠팡', '스마트스토어', '컬리', '오픈마켓', '카카오', '자사몰', '오늘의집/토스'];
-  const CP_STAGES = ['기획 후보', '채널 협의', '조건 확정', '세팅 요청', '오픈 대기', '진행중', '결과 분석', '재진행/종료'];
-  const CP_STATUSES = ['기획중', '협의중', '준비중', '진행중', '분석중', '대기', '완료', '보류'];
-  const CP_STATUS_CLS = {
-    '기획중': 'plan', '협의중': 'talk', '준비중': 'prep', '진행중': 'go',
-    '분석중': 'study', '대기': 'wait', '완료': 'done', '보류': 'hold',
-  };
-  const CP_OWNERS = ['윤효선', '전휘원'];
-  const CP_COLORS = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'];
-
-  // 유관부서 진행 작업 — 기획 카드 한 장 안에 들어가는 세부 업무입니다.
-  const CP_TASK_STATUSES = ['요청 전', '요청 완료', '유관부서 진행중', '확인 필요', '완료', '지연'];
-  const CP_TASK_CLS = {
-    '요청 전': 'wait', '요청 완료': 'talk', '유관부서 진행중': 'go',
-    '확인 필요': 'prep', '완료': 'done', '지연': 'hold',
-  };
-  const CP_DEPTS = ['CX팀', '디자인팀', '마케팅팀', '물류팀', '상품팀', '개발팀', '경영지원팀'];
-
-  let cpCards = [];
-  let cpTasks = [];
-  let cpError = '';
-  const cpFilter = { month: '', channel: '', brand: '', status: '' };
-
-  async function loadChannelPlans() {
-    const { data, error } = await client.from('channel_plans')
-      .select('*').order('sort_no').order('id');
-    cpError = error ? error.message : '';
-    cpCards = error ? [] : (data || []);
-    // 하위 작업은 건수가 적어 한 번에 다 받아 두고 카드별로 갈라 씁니다.
-    const sub = await client.from('channel_plan_tasks').select('*').order('sort_no').order('id');
-    cpTasks = sub.error ? [] : (sub.data || []);
-    cpTaskError = sub.error ? sub.error.message : '';
-  }
-
-  let cpTaskError = '';
-  function cpTasksOf(planId) { return cpTasks.filter((t) => t.plan_id === planId); }
-
-  // 다음 단계 — 이어 붙인 카드가 있으면 그 카드, 없으면 적어 둔 글, 그것도 없으면 단계 순서상 다음 칸.
-  function cpNextLabel(c) {
-    const to = c.next_id ? cpCards.find((x) => x.id === c.next_id) : null;
-    if (to) return to.stage + (to.title ? ' · ' + to.title : '');
-    if (c.next_step) return c.next_step;
-    const i = CP_STAGES.indexOf(c.stage);
-    return (i >= 0 && i < CP_STAGES.length - 1) ? CP_STAGES[i + 1] : '';
-  }
-
-  // 다음 단계를 막고 있는 하위 작업 — 막음에 체크했거나, 지연인 것.
-  function cpBlockingTasks(planId) {
-    return cpTasksOf(planId).filter((t) => t.status !== '완료' && (t.blocking || t.status === '지연'));
-  }
-  // 카드 앞면에 띄울 병목 한 줄. 직접 적어 둔 사유가 있으면 그것이 먼저입니다.
-  function cpBlockText(c) {
-    if (c.blocker) return c.blocker;
-    const list = cpBlockingTasks(c.id);
-    if (!list.length) return '';
-    const t = list[0];
-    const who = t.dept ? t.dept + ' ' : '';
-    const tail = t.status === '지연' ? '지연' : '완료 대기';
-    return who + (t.title || '유관부서 작업') + ' ' + tail
-      + (list.length > 1 ? ' 외 ' + (list.length - 1) + '건' : '');
-  }
-
-  // ---- 거르기 ----
-  function cpMonths() {
-    const set = new Set();
-    cpCards.forEach((c) => {
-      [c.start_date, c.end_date].forEach((d) => { if (d) set.add(String(d).slice(0, 7)); });
-    });
-    return [...set].sort();
-  }
-  function cpBrands() {
-    return [...new Set(cpCards.map((c) => String(c.brand || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
-  }
-  function cpInMonth(c, m) {
-    if (!m) return true;
-    const s = c.start_date ? String(c.start_date).slice(0, 7) : null;
-    const e = c.end_date ? String(c.end_date).slice(0, 7) : s;
-    if (!s && !e) return false;
-    return (s || e) <= m && m <= (e || s);
-  }
-  function cpVisible(c) {
-    if (cpFilter.channel && c.channel !== cpFilter.channel) return false;
-    if (cpFilter.brand && String(c.brand || '') !== cpFilter.brand) return false;
-    if (cpFilter.status && c.status !== cpFilter.status) return false;
-    if (!cpInMonth(c, cpFilter.month)) return false;
-    return true;
-  }
-  function cpSetFilter(key, value) {
-    cpFilter[key] = value;
-    renderChannelTracker();
-  }
-  window.cpSetFilter = cpSetFilter;
-  function cpClearFilter() {
-    Object.keys(cpFilter).forEach((k) => { cpFilter[k] = ''; });
-    renderChannelTracker();
-  }
-  window.cpClearFilter = cpClearFilter;
-
-  function cpOf(channel, stage) {
-    return cpCards
-      .filter((c) => c.channel === channel && c.stage === stage && cpVisible(c))
-      .sort((a, b) => (a.sort_no - b.sort_no) || (a.id - b.id));
-  }
-
-  // ---- 만들기 · 고치기 · 지우기 ----
-  async function cpAdd(channel, stage) {
-    const n = cpCards.filter((c) => c.channel === channel && c.stage === stage).length;
-    const { data, error } = await client.from('channel_plans')
-      .insert({ channel, stage, title: '', sort_no: n }).select();
-    if (error) {
-      alert('카드를 넣지 못했습니다: ' + error.message
-        + '\n\nchannel_plans.sql 을 Supabase에서 실행했는지 확인해주세요.');
-      return;
-    }
-    await loadChannelPlans();
-    renderChannelTracker();
-    if (data && data[0]) cpOpenPanel(data[0].id);
-  }
-  window.cpAdd = cpAdd;
-
-  async function cpSave(id, patch) {
-    const card = cpCards.find((c) => c.id === id);
-    if (!card) return;
-    const { error } = await client.from('channel_plans')
-      .update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
-    Object.assign(card, patch);
-  }
-
-  async function cpDelete(id) {
-    const card = cpCards.find((c) => c.id === id);
-    if (card && String(card.title || '').trim() && !confirm('이 기획 카드를 지울까요?')) return;
-    const { error } = await client.from('channel_plans').delete().eq('id', id);
-    if (error) { alert('지우지 못했습니다: ' + error.message); return; }
-    cpClosePanel();
-    await loadChannelPlans();
-    renderChannelTracker();
-  }
-  window.cpDelete = cpDelete;
-
-  // ---- 카드 상세 패널 ----
-  let cpPanelId = null;
-
-  function cpOpenPanel(id) {
-    cpPanelId = id;
-    const ov = document.getElementById('cpPanelOverlay');
-    if (ov) ov.style.display = 'flex';
-    cpRenderPanel();
-  }
-  window.cpOpenPanel = cpOpenPanel;
-
-  function cpClosePanel() {
-    const ov = document.getElementById('cpPanelOverlay');
-    if (ov) ov.style.display = 'none';
-    cpPanelId = null;
-  }
-  window.cpClosePanel = cpClosePanel;
-
-  function cpRenderPanel() {
-    const body = document.getElementById('cpPanelBody');
-    const title = document.getElementById('cpPanelTitle');
-    if (!body || !title) return;
-    const c = cpCards.find((x) => x.id === cpPanelId);
-    if (!c) { cpClosePanel(); return; }
-    title.textContent = c.title ? c.title : '새 기획';
-    const others = cpCards.filter((x) => x.id !== c.id);
-    body.innerHTML = `
-      <div class="task-panel-field"><label>기획명 *</label>
-        <input id="cpfTitle" type="text" value="${escapeAttr(c.title || '')}" placeholder="예) 골드박스 프로모션"></div>
-      <div class="task-panel-row">
-        <div class="task-panel-field"><label>브랜드</label>
-          <input id="cpfBrand" type="text" value="${escapeAttr(c.brand || '')}" placeholder="예) 코드니처"></div>
-        <div class="task-panel-field"><label>담당자</label><select id="cpfOwner">
-          <option value="">-</option>
-          ${CP_OWNERS.map((o) => `<option value="${o}" ${o === (c.owner || '') ? 'selected' : ''}>${o}</option>`).join('')}
-        </select></div>
-      </div>
-      <div class="task-panel-row">
-        <div class="task-panel-field"><label>채널</label><select id="cpfChannel">
-          ${CP_CHANNELS.map((x) => `<option value="${escapeAttr(x)}" ${x === c.channel ? 'selected' : ''}>${escapeAttr(x)}</option>`).join('')}
-        </select></div>
-        <div class="task-panel-field"><label>현재 단계</label><select id="cpfStage">
-          ${CP_STAGES.map((x) => `<option value="${escapeAttr(x)}" ${x === c.stage ? 'selected' : ''}>${escapeAttr(x)}</option>`).join('')}
-        </select></div>
-      </div>
-      <div class="task-panel-row">
-        <div class="task-panel-field"><label>시작일</label><input id="cpfStart" type="date" value="${escapeAttr(c.start_date || '')}"></div>
-        <div class="task-panel-field"><label>종료일</label><input id="cpfEnd" type="date" value="${escapeAttr(c.end_date || '')}"></div>
-      </div>
-      <div class="task-panel-field"><label>상태</label><select id="cpfStatus">
-        ${CP_STATUSES.map((x) => `<option value="${x}" ${x === c.status ? 'selected' : ''}>${x}</option>`).join('')}
-      </select></div>
-      <div class="task-panel-field"><label>병목 사유</label>
-        <input id="cpfBlocker" type="text" value="${escapeAttr(c.blocker || '')}" placeholder="예) 상세페이지 수정 대기">
-        <div class="task-panel-hint">적어두면 카드에 빨간 라벨이 붙습니다.</div></div>
-      <div class="task-panel-field"><label>다음 스텝 (글)</label>
-        <input id="cpfNextStep" type="text" value="${escapeAttr(c.next_step || '')}" placeholder="예) 오픈 대기"></div>
-      <div class="task-panel-field"><label>다음 스텝 (카드 연결)</label>
-        <select id="cpfNextId">
-          <option value="">연결 안 함</option>
-          ${others.map((o) => `<option value="${o.id}" ${String(c.next_id || '') === String(o.id) ? 'selected' : ''}>${escapeAttr(o.channel)} · ${escapeAttr(o.stage)} · ${escapeAttr(o.title || '(제목 없음)')}</option>`).join('')}
-        </select>
-        <div class="task-panel-hint">고르면 보드에 두 카드를 잇는 화살표가 그려집니다.</div></div>
-      <div class="cp-tasks">
-        <div class="cp-tasks-head">
-          <label>유관부서 진행 작업</label>
-          <span class="cp-tasks-note">${cpTasksOf(c.id).length}건</span>
-          <button type="button" class="jw-proj-btn" onclick="cpTaskAdd()">+ 작업 추가</button>
-        </div>
-        <div class="task-panel-hint">리뷰 작업 · 상세페이지 수정 · 배너 요청 · 광고 세팅처럼
-          다른 부서에 넘긴 일을 여기에 적습니다. 따로 카드를 만들지 않습니다.</div>
-        ${cpTaskError ? `<div class="cp-tasks-empty">하위 작업을 불러오지 못했습니다 —
-            channel_plan_tasks.sql 을 Supabase에서 실행해주세요.</div>`
-          : (cpTasksOf(c.id).length
-              ? cpTasksOf(c.id).map(cpTaskRowHtml).join('')
-              : '<div class="cp-tasks-empty">아직 없습니다.</div>')}
-        <datalist id="cpDeptList">${CP_DEPTS.map((d) => `<option value="${escapeAttr(d)}">`).join('')}</datalist>
-      </div>
-      <div class="task-panel-actions">
-        <button type="button" class="btn-ghost" onclick="cpDelete(${c.id})">지우기</button>
-        <button type="button" class="btn-primary" onclick="cpSavePanel()">저장</button>
-      </div>`;
-  }
-
-  function cpTaskRowHtml(t) {
-    const blocking = t.status !== '완료' && (t.blocking || t.status === '지연');
-    return `
-      <div class="cp-task${blocking ? ' blocking' : ''}${t.status === '완료' ? ' done' : ''}" data-tid="${t.id}">
-        <div class="cp-task-top">
-          <input class="cp-t-title" type="text" value="${escapeAttr(t.title || '')}" placeholder="작업명  예) 리뷰 작업">
-          <select class="cp-t-status">
-            ${CP_TASK_STATUSES.map((x) => `<option value="${x}" ${x === t.status ? 'selected' : ''}>${x}</option>`).join('')}
-          </select>
-          <button type="button" class="cp-t-del" onclick="cpTaskDel(${t.id})" title="이 작업 지우기">✕</button>
-        </div>
-        <div class="cp-task-row">
-          <label>담당부서<input class="cp-t-dept" type="text" list="cpDeptList"
-            value="${escapeAttr(t.dept || '')}" placeholder="예) CX팀"></label>
-          <label>담당자<input class="cp-t-owner" type="text" value="${escapeAttr(t.owner || '')}" placeholder="이름"></label>
-        </div>
-        <div class="cp-task-row">
-          <label>요청일<input class="cp-t-req" type="date" value="${escapeAttr(t.request_date || '')}"></label>
-          <label>완료 예정일<input class="cp-t-due" type="date" value="${escapeAttr(t.due_date || '')}"></label>
-          <label>다음 확인일<input class="cp-t-chk" type="date" value="${escapeAttr(t.next_check_date || '')}"></label>
-        </div>
-        <div class="cp-task-row">
-          <label class="wide">메모<input class="cp-t-memo" type="text" value="${escapeAttr(t.memo || '')}" placeholder="주고받은 내용"></label>
-        </div>
-        <label class="cp-task-block">
-          <input type="checkbox" class="cp-t-blocking" ${t.blocking ? 'checked' : ''}>
-          이 작업 때문에 다음 단계로 못 넘어감
-        </label>
-      </div>`;
-  }
-
-  // 화면에 적힌 값을 로컬 자료로 걷어 둡니다 (저장은 아직 안 합니다).
-  // 작업을 더하거나 지울 때 패널을 다시 그려도 쓰던 값이 날아가지 않게 하려는 것입니다.
-  function cpCollectPanel() {
-    const c = cpCards.find((x) => x.id === cpPanelId);
-    if (!c) return;
-    const val = (id) => { const el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; };
-    if (document.getElementById('cpfTitle')) {
-      const nextId = val('cpfNextId');
-      Object.assign(c, {
-        title: val('cpfTitle'), brand: val('cpfBrand') || null, owner: val('cpfOwner') || null,
-        channel: val('cpfChannel'), stage: val('cpfStage'),
-        start_date: val('cpfStart') || null, end_date: val('cpfEnd') || null,
-        status: val('cpfStatus'), blocker: val('cpfBlocker') || null,
-        next_step: val('cpfNextStep') || null, next_id: nextId ? Number(nextId) : null,
-      });
-    }
-    document.querySelectorAll('.cp-task').forEach((el) => {
-      const t = cpTasks.find((x) => String(x.id) === el.dataset.tid);
-      if (!t) return;
-      const g = (cls) => { const e = el.querySelector('.' + cls); return e ? String(e.value || '').trim() : ''; };
-      Object.assign(t, {
-        title: g('cp-t-title'), dept: g('cp-t-dept') || null, owner: g('cp-t-owner') || null,
-        request_date: g('cp-t-req') || null, due_date: g('cp-t-due') || null,
-        status: g('cp-t-status'), next_check_date: g('cp-t-chk') || null,
-        memo: g('cp-t-memo') || null,
-        blocking: !!(el.querySelector('.cp-t-blocking') || {}).checked,
-      });
-    });
-  }
-
-  async function cpTaskAdd() {
-    if (!cpPanelId) return;
-    cpCollectPanel();
-    const n = cpTasksOf(cpPanelId).length;
-    const { error } = await client.from('channel_plan_tasks')
-      .insert({ plan_id: cpPanelId, title: '', sort_no: n });
-    if (error) {
-      alert('작업을 넣지 못했습니다: ' + error.message
-        + '\n\nchannel_plan_tasks.sql 을 Supabase에서 실행했는지 확인해주세요.');
-      return;
-    }
-    const sub = await client.from('channel_plan_tasks').select('*').order('sort_no').order('id');
-    if (!sub.error) { cpTasks = sub.data || []; cpTaskError = ''; }
-    cpRenderPanel();
-  }
-  window.cpTaskAdd = cpTaskAdd;
-
-  async function cpTaskDel(id) {
-    const t = cpTasks.find((x) => x.id === id);
-    if (t && String(t.title || '').trim() && !confirm('이 작업을 지울까요?')) return;
-    cpCollectPanel();
-    const { error } = await client.from('channel_plan_tasks').delete().eq('id', id);
-    if (error) { alert('지우지 못했습니다: ' + error.message); return; }
-    cpTasks = cpTasks.filter((x) => x.id !== id);
-    cpRenderPanel();
-    renderChannelTracker();
-  }
-  window.cpTaskDel = cpTaskDel;
-
-  async function cpSavePanel() {
-    const c = cpCards.find((x) => x.id === cpPanelId);
-    if (!c) return;
-    const planId = c.id;
-    cpCollectPanel();
-    await cpSave(planId, {
-      title: c.title, brand: c.brand, owner: c.owner,
-      channel: c.channel, stage: c.stage,
-      start_date: c.start_date, end_date: c.end_date,
-      status: c.status, blocker: c.blocker,
-      next_step: c.next_step, next_id: c.next_id,
-    });
-    // 하위 작업도 같이 넣습니다.
-    const subs = cpTasksOf(planId);
-    for (let i = 0; i < subs.length; i++) {
-      const t = subs[i];
-      const { error } = await client.from('channel_plan_tasks').update({
-        title: t.title, dept: t.dept, owner: t.owner,
-        request_date: t.request_date, due_date: t.due_date,
-        status: t.status, next_check_date: t.next_check_date,
-        memo: t.memo, blocking: t.blocking, sort_no: i,
-        updated_at: new Date().toISOString(),
-      }).eq('id', t.id);
-      if (error) { alert('작업을 저장하지 못했습니다: ' + error.message); return; }
-    }
-    cpClosePanel();
-    await loadChannelPlans();
-    renderChannelTracker();
-  }
-  window.cpSavePanel = cpSavePanel;
-
-  // ---- 끌어서 옮기기 (마우스 좌표 방식) ----
-  let cpDrag = null;
-
-  function cpCellAtPoint(x, y) {
-    const el = document.elementFromPoint(x, y);
-    return el ? el.closest('.cp-cell') : null;
-  }
-
-  function cpPointerDown(e, id) {
-    if (e.button !== 0) return;
-    if (e.target && e.target.closest('button, input, select, textarea')) return;
-    const el = e.currentTarget.closest ? e.currentTarget.closest('.cp-card') : null;
-    if (!el) return;
-    cpDrag = { id, el, startX: e.clientX, startY: e.clientY, moved: false, ghost: null, offX: 0, offY: 0 };
-    document.addEventListener('mousemove', cpPointerMove);
-    document.addEventListener('mouseup', cpPointerUp);
-    e.preventDefault();
-  }
-  window.cpPointerDown = cpPointerDown;
-
-  function cpPointerMove(e) {
-    if (!cpDrag) return;
-    if (!cpDrag.moved) {
-      if (Math.abs(e.clientX - cpDrag.startX) + Math.abs(e.clientY - cpDrag.startY) < 5) return;
-      cpDrag.moved = true;
-      const r = cpDrag.el.getBoundingClientRect();
-      const g = cpDrag.el.cloneNode(true);
-      g.classList.add('cp-ghost');
-      g.style.width = r.width + 'px';
-      document.body.appendChild(g);
-      cpDrag.ghost = g;
-      cpDrag.offX = cpDrag.startX - r.left;
-      cpDrag.offY = cpDrag.startY - r.top;
-      cpDrag.el.classList.add('dragging');
-    }
-    cpDrag.ghost.style.left = (e.clientX - cpDrag.offX) + 'px';
-    cpDrag.ghost.style.top = (e.clientY - cpDrag.offY) + 'px';
-    const cell = cpCellAtPoint(e.clientX, e.clientY);
-    document.querySelectorAll('.cp-cell.over').forEach((x) => x.classList.remove('over'));
-    if (cell) cell.classList.add('over');
-  }
-
-  async function cpPointerUp(e) {
-    document.removeEventListener('mousemove', cpPointerMove);
-    document.removeEventListener('mouseup', cpPointerUp);
-    const d = cpDrag;
-    cpDrag = null;
-    if (!d) return;
-    if (d.ghost) d.ghost.remove();
-    d.el.classList.remove('dragging');
-    document.querySelectorAll('.cp-cell.over').forEach((x) => x.classList.remove('over'));
-    if (!d.moved) { cpOpenPanel(d.id); return; }   // 끌지 않고 눌렀으면 상세를 엽니다
-
-    const cell = cpCellAtPoint(e.clientX, e.clientY);
-    if (!cell) return;
-    const channel = cell.dataset.ch;
-    const stage = cell.dataset.st;
-    const moving = cpCards.find((c) => c.id === d.id);
-    if (!moving) return;
-    const rest = cpOf(channel, stage).filter((c) => c.id !== moving.id);
-    let at = rest.length;
-    rest.forEach((c, i) => {
-      const r = document.querySelector('.cp-card[data-id="' + c.id + '"]');
-      if (!r) return;
-      const b = r.getBoundingClientRect();
-      if (at === rest.length && e.clientY < b.top + b.height / 2) at = i;
-    });
-    rest.splice(at, 0, moving);
-    moving.channel = channel;
-    moving.stage = stage;
-    rest.forEach((c, i) => { c.sort_no = i; });
-    renderChannelTracker();
-    for (let i = 0; i < rest.length; i++) {
-      await client.from('channel_plans')
-        .update({ sort_no: i, channel, stage, updated_at: new Date().toISOString() }).eq('id', rest[i].id);
-    }
-  }
-
-  // ---- 카드 ----
-  function cpDate(d) { return d ? String(d).slice(5).replace('-', '/') : ''; }
-
-  // 앞면에는 다섯 가지만 둡니다 —
-  // 기획명 · 현재 단계 · 다음 단계 · 유관부서 진행 건수 · 병목 사유.
-  // 브랜드·담당자·날짜 같은 나머지는 눌러서 보는 상세에 있습니다.
-  function cpCardHtml(c) {
-    const done = c.status === '완료';
-    const block = cpBlockText(c);
-    const next = cpNextLabel(c);
-    const subs = cpTasksOf(c.id);
-    const open = subs.filter((t) => t.status !== '완료').length;
-    const subText = !subs.length ? ''
-      : (open ? '유관부서 ' + open + '건 진행' + (subs.length > open ? ' · 완료 ' + (subs.length - open) : '')
-              : '유관부서 ' + subs.length + '건 완료');
-    return `
-      <div class="cp-card${done ? ' done' : ''}${block ? ' blocked' : ''}" data-id="${c.id}"
-        onmousedown="cpPointerDown(event, ${c.id})" title="누르면 상세가 열립니다">
-        <div class="cp-title">${escapeAttr(c.title || '(기획명 없음)')}</div>
-        <div class="cp-flow">
-          <span class="cp-now">${escapeAttr(c.stage)}</span>
-          ${next ? `<span class="cp-ar">→</span><span class="cp-nxt">${escapeAttr(next)}</span>` : ''}
-        </div>
-        ${subText ? `<div class="cp-subs${open ? '' : ' all-done'}">${escapeAttr(subText)}</div>` : ''}
-        ${block ? `<div class="cp-blocker">⚠ 병목: ${escapeAttr(block)}</div>` : ''}
-      </div>`;
-  }
-
-  // ---- 카드 사이 화살표 ----
-  // 보드를 그린 뒤 카드 위치를 재서 SVG 로 선을 얹습니다.
-  function cpDrawArrows() {
-    const wrap = document.getElementById('cpGrid');
-    const svg = document.getElementById('cpArrows');
-    if (!wrap || !svg) return;
-    const base = wrap.getBoundingClientRect();
-    svg.setAttribute('width', wrap.scrollWidth);
-    svg.setAttribute('height', wrap.scrollHeight);
-    svg.style.width = wrap.scrollWidth + 'px';
-    svg.style.height = wrap.scrollHeight + 'px';
-    const paths = [];
-    cpCards.forEach((c) => {
-      if (!c.next_id || !cpVisible(c)) return;
-      const to = cpCards.find((x) => x.id === c.next_id);
-      if (!to || !cpVisible(to)) return;
-      const a = document.querySelector('.cp-card[data-id="' + c.id + '"]');
-      const b = document.querySelector('.cp-card[data-id="' + to.id + '"]');
-      if (!a || !b) return;
-      const ra = a.getBoundingClientRect();
-      const rb = b.getBoundingClientRect();
-      const fwd = rb.left >= ra.right;
-      const x1 = (fwd ? ra.right : ra.left) - base.left + wrap.scrollLeft;
-      const y1 = ra.top + ra.height / 2 - base.top + wrap.scrollTop;
-      const x2 = (fwd ? rb.left - 6 : rb.right + 6) - base.left + wrap.scrollLeft;
-      const y2 = rb.top + rb.height / 2 - base.top + wrap.scrollTop;
-      const span = Math.min(40, Math.max(6, Math.abs(x2 - x1) / 2));
-      const dx = fwd ? span : -span;
-      paths.push(`<path d="M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}" />`);
-    });
-    svg.innerHTML = `
-      <defs>
-        <marker id="cpArrowHead" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-          <path d="M0,0 L7,3.5 L0,7 Z" fill="#4d7cfe" />
-        </marker>
-      </defs>
-      <g fill="none" stroke="#4d7cfe" stroke-width="1.6" marker-end="url(#cpArrowHead)" opacity=".75">
-        ${paths.join('')}
-      </g>`;
-  }
-
-  function renderChannelTracker() {
-    const root = document.getElementById('channelTrackerBody');
-    if (!root) return;
-    if (cpError) {
-      root.innerHTML = `<section class="panel"><div class="td-empty">
-        트래커를 불러오지 못했습니다 — channel_plans.sql 을 Supabase에서 실행해주세요.</div></section>`;
-      return;
-    }
-    const total = cpCards.filter(cpVisible).length;
-    const blocked = cpCards.filter((c) => cpVisible(c) && cpBlockText(c)).length;
-    const sel = (key, label, list) => `
-      <select class="cp-filter" onchange="cpSetFilter('${key}', this.value)">
-        <option value="">${label}</option>
-        ${list.map((x) => `<option value="${escapeAttr(x)}" ${cpFilter[key] === x ? 'selected' : ''}>${escapeAttr(x)}</option>`).join('')}
-      </select>`;
-
-    root.innerHTML = `
-      <section class="panel">
-        <div class="panel-head">
-          <h2>판매기획 플로우</h2>
-          <span class="panel-note">${total}건${blocked ? ' · 병목 ' + blocked + '건' : ''}</span>
-          <span class="cp-filters">
-            ${sel('month', '월 전체', cpMonths())}
-            ${sel('channel', '채널 전체', CP_CHANNELS)}
-            ${sel('brand', '브랜드 전체', cpBrands())}
-            ${sel('status', '상태 전체', CP_STATUSES)}
-            <button type="button" class="jw-proj-btn" onclick="cpClearFilter()">필터 해제</button>
-          </span>
-        </div>
-        <div class="cp-wrap" id="cpGrid">
-          <svg class="cp-arrows" id="cpArrows"></svg>
-          <div class="cp-grid">
-            <div class="cp-h cp-h-ch">판매채널</div>
-            ${CP_STAGES.map((st) => `<div class="cp-h">${escapeAttr(st)}</div>`).join('')}
-            ${CP_CHANNELS.map((ch, i) => `
-              <div class="cp-rowhead">
-                <span class="ct-dot ${CP_COLORS[i % CP_COLORS.length]}"></span>${escapeAttr(ch)}
-              </div>
-              ${CP_STAGES.map((st) => `
-                <div class="cp-cell" data-ch="${escapeAttr(ch)}" data-st="${escapeAttr(st)}">
-                  ${cpOf(ch, st).map(cpCardHtml).join('')}
-                  <button type="button" class="cp-add"
-                    onclick="cpAdd('${escapeAttr(ch).replace(/'/g, '&#39;')}', '${escapeAttr(st).replace(/'/g, '&#39;')}')">+</button>
-                </div>`).join('')}`).join('')}
-          </div>
-        </div>
-      </section>`;
-    cpDrawArrows();
-  }
-
   // ==================== 내 업무 보드 ====================
   // 흩어져 있는 윤효선 업무를 한 화면에 모읍니다.
   // 세로축은 대분류(진행중인 업무에서 쓰는 여섯 가지), 가로축은 진행 단계입니다.
@@ -5696,40 +4879,17 @@
   const MT_STAGES = ['대기', '준비중', '진행중', '확인 필요', '완료'];
   const MT_GROUP_CLS = { 'E커머스': 'c1', '공구': 'c2', 'B2B': 'c3', '수출': 'c4', '광고': 'c5', 'ETC': 'c7' };
 
-  // 프로젝트 대분류 → 여섯 가지로 묶어 읽습니다
-  const MT_PROJ_GROUP = {
-    '이커머스 판매채널계획': 'E커머스', '공동구매 관리': '공구', 'B2B': 'B2B',
-    '수출': '수출', '광고 관리': '광고', '대만 시딩': 'ETC', '큐텐': 'ETC',
-  };
-  // 출처마다 다른 상태값 → 가로축 다섯 칸으로 읽습니다
-  const MT_PROJ_STAGE = {
-    '기획중': '준비중', '진행중': '진행중', '외부 대기': '대기', '내부 검토': '확인 필요',
-    '병목': '대기', '완료': '완료', '보류': '대기',
-  };
+  // 업무 상태 → 가로축 다섯 칸
   const MT_TASK_STAGE = { '할일': '준비중', '진행중': '진행중', '검수대기': '확인 필요', '확인완료': '완료' };
-  const MT_PLAN_STAGE = {
-    '기획중': '준비중', '협의중': '진행중', '준비중': '준비중', '진행중': '진행중',
-    '분석중': '확인 필요', '대기': '대기', '완료': '완료', '보류': '대기',
-  };
 
-  // 칸 → 프로젝트가 쓰는 상태값. '병목'·'보류'도 대기 칸에 있지만 대표값은 '외부 대기'입니다.
-  const MT_BACK_PROJ = { '대기': '외부 대기', '준비중': '기획중', '진행중': '진행중', '확인 필요': '내부 검토', '완료': '완료' };
-  // 업무에는 "대기"가 없습니다 — 그 칸으로는 못 옮깁니다.
+  // 칸 → 업무가 쓰는 상태값. 업무에는 "대기"가 없어 그 칸으로는 못 옮깁니다.
   const MT_BACK_TASK = { '준비중': '할일', '진행중': '진행중', '확인 필요': '검수대기', '완료': '확인완료' };
-  const MT_BACK_PLAN = { '대기': '대기', '준비중': '준비중', '진행중': '진행중', '확인 필요': '분석중', '완료': '완료' };
-  // 대분류 → 프로젝트가 쓰는 대분류. ETC 는 대만 시딩·큐텐이 섞여 있어 하나로 못 정합니다.
-  const MT_BACK_GROUP = {
-    'E커머스': '이커머스 판매채널계획', '공구': '공동구매 관리', 'B2B': 'B2B',
-    '수출': '수출', '광고': '광고 관리',
-  };
-  const MT_TABLE = { proj: 'team_projects', task: 'team_tasks', plan: 'channel_plans' };
+  const MT_TABLE = { task: 'team_tasks' };
 
   // 어떤 출처를 켜 둘지. 광고 일지는 매일 쌓이는 기록이라 기본은 꺼 둡니다.
-  const mtOn = { task: true, plan: true, ad: false };
+
   let mtHideDone = true;   // 끝난 건 접어두기
 
-  function mtToggle(key) { mtOn[key] = !mtOn[key]; renderMyTracker(); }
-  window.mtToggle = mtToggle;
   function mtToggleDone() { mtHideDone = !mtHideDone; renderMyTracker(); }
   window.mtToggleDone = mtToggleDone;
 
@@ -5740,7 +4900,7 @@
     const out = [];
     const me = MT_OWNER;
 
-    if (mtOn.task) {
+    {
       (currentTasks || []).filter((t) => t.assignee === me && !t.archived_at).forEach((t) => {
         const st = t.status;
         if (!MT_TASK_STAGE[st]) return;
@@ -5752,34 +4912,6 @@
           sub: t.purpose || '',
           due: t.due_date ? String(t.due_date).slice(0, 10) : '',
           raw: st, stuck: false, blocker: '',
-        });
-      });
-    }
-
-    if (mtOn.plan) {
-      (cpCards || []).forEach((c) => {
-        const block = typeof cpBlockText === 'function' ? cpBlockText(c) : (c.blocker || '');
-        out.push({
-          src: 'plan', label: '기획', id: c.id,
-          group: 'E커머스',
-          stage: MT_PLAN_STAGE[c.status] || '진행중',
-          title: c.title || '(기획명 없음)',
-          sub: [c.channel, c.stage].filter(Boolean).join(' · '),
-          due: c.end_date ? String(c.end_date).slice(0, 10) : '',
-          raw: c.status, stuck: !!block, blocker: block,
-        });
-      });
-    }
-
-    if (mtOn.ad) {
-      (adLogs || []).forEach((r) => {
-        out.push({
-          src: 'ad', label: '광고 일지', id: r.id,
-          group: '광고', stage: '완료',
-          title: r.title || '(내용 없음)',
-          sub: [r.media, r.agency].filter(Boolean).join(' · '),
-          due: String(r.log_date).slice(0, 10),
-          raw: r.work_type, stuck: false, blocker: '',
         });
       });
     }
@@ -5797,17 +4929,9 @@
 
   // 카드를 누르면 원래 있던 자리로 데려갑니다
   function mtOpen(src, id) {
-    const here = (document.getElementById('teamTasksView') || {}).style.display === '';
-    if (src === 'proj') {
-      if (here) { jwOpenProjectPanel(id); return; }
-      switchView('team-tasks', MT_OWNER); setTimeout(() => jwOpenProjectPanel(id), 600); return;
-    }
-    if (src === 'task') {
-      if (here) { openTaskPanel(id); return; }
-      switchView('team-tasks', MT_OWNER); setTimeout(() => openTaskPanel(id), 600); return;
-    }
-    if (src === 'plan') { switchView('channel-tracker'); setTimeout(() => cpOpenPanel(id), 600); return; }
-    if (src === 'ad') { switchView('ad-log'); return; }
+    if ((document.getElementById('teamTasksView') || {}).style.display === '') { openTaskPanel(id); return; }
+    switchView('team-tasks', MT_OWNER);
+    setTimeout(() => openTaskPanel(id), 600);
   }
   window.mtOpen = mtOpen;
 
@@ -5815,7 +4939,7 @@
     const dday = x.due ? jwProjDays(x.due) : null;
     const late = dday !== null && dday > 0;
     return `
-      <div class="mt-card${x.stuck ? ' stuck' : ''}${x.src === 'ad' ? ' fixed' : ''}"
+      <div class="mt-card${x.stuck ? ' stuck' : ''}"
         data-src="${x.src}" data-id="${x.id}"
         onmousedown="mtPointerDown(event, '${x.src}', ${x.id})"
         title="끌면 칸을 옮기고, 그냥 누르면 원래 자리로 갑니다">
@@ -5834,8 +4958,6 @@
     if (!root) return;
     const items = mtItems();
     const stuck = items.filter((x) => x.stuck).length;
-    const chip = (key, label) => `
-      <button type="button" class="mt-chip${mtOn[key] ? ' on' : ''}" onclick="mtToggle('${key}')">${label}</button>`;
 
     root.innerHTML = `
       <section class="panel">
@@ -5843,7 +4965,6 @@
           <h2>내 업무 보드</h2>
           <span class="panel-note">${items.length}건${stuck ? ' · 막힌 것 ' + stuck + '건' : ''}</span>
           <span class="mt-chips">
-            ${chip('task', '진행중인 업무')}${chip('plan', '판매기획')}${chip('ad', '광고 일지')}
             <button type="button" class="mt-chip done${mtHideDone ? '' : ' on'}" onclick="mtToggleDone()">
               ${mtHideDone ? '끝난 것 보기' : '끝난 것 숨기기'}</button>
           </span>
@@ -5855,7 +4976,6 @@
           </select>
           <button type="button" class="jw-proj-btn main" onclick="jwAddMyTask()">업무 추가</button>
         </div>
-        ${cpError ? `<div class="mt-err">⚠ 판매기획 카드를 불러오지 못했습니다 — channel_plans.sql 을 확인해주세요.</div>` : ''}
         <div class="mt-wrap">
           <div class="mt-grid">
             <div class="mt-h mt-h-g">대분류</div>
@@ -5900,36 +5020,19 @@
 
   // 이 카드를 저 칸으로 옮겨도 되는지 — 되면 무엇을 고쳐 쓸지 돌려줍니다.
   function mtMovePlan(x, group, stage) {
-    if (x.src === 'ad') return { ok: false, why: '광고 일지는 그날의 기록이라 옮기지 않습니다.' };
     const patch = {};
     if (stage !== x.stage) {
-      const map = x.src === 'proj' ? MT_BACK_PROJ : (x.src === 'task' ? MT_BACK_TASK : MT_BACK_PLAN);
-      const next = map[stage];
-      if (!next) {
-        return { ok: false, why: x.src === 'task'
-          ? '업무에는 "대기" 상태가 없습니다. 프로젝트나 기획 카드만 이 칸에 둘 수 있습니다.'
-          : '이 칸으로는 옮길 수 없습니다.' };
-      }
+      const next = MT_BACK_TASK[stage];
+      if (!next) return { ok: false, why: '업무에는 "대기" 상태가 없습니다.' };
       patch.status = next;
     }
-    if (group !== x.group) {
-      if (x.src === 'plan') return { ok: false, why: '판매기획 카드는 E커머스 줄에서만 씁니다. 채널은 카드 상세에서 바꿔주세요.' };
-      if (x.src === 'task') patch.category = group;
-      if (x.src === 'proj') {
-        const back = MT_BACK_GROUP[group];
-        if (!back) return { ok: false, why: 'ETC 는 대만 시딩·큐텐이 섞여 있어 여기서는 못 정합니다. 카드를 눌러 [수정] 에서 골라주세요.' };
-        patch.category = back;
-      }
-    }
+    if (group !== x.group) patch.category = group;
     return { ok: true, patch };
   }
 
   // 카드가 원래 들어 있던 자료 한 줄
   function mtRowOf(src, id) {
-    if (src === 'proj') return (jwProjects || []).find((o) => o.id === id);
-    if (src === 'task') return (currentTasks || []).find((o) => o.id === id);
-    if (src === 'plan') return (cpCards || []).find((o) => o.id === id);
-    return null;
+    return (currentTasks || []).find((o) => o.id === id);
   }
 
   function mtCellAtPoint(x, y) {
@@ -6012,10 +5115,7 @@
     mtToast(x.title + ' → ' + stage + (group !== x.group ? ' · ' + group : ''));
   }
 
-  // 할일 관리 화면 안에서 보드를 그립니다.
-  // 프로젝트와 업무는 loadTeamTasks() 가 이미 받아 왔고,
-  // 판매기획·광고 일지는 이 화면에서만 쓰니 처음 한 번만 더 받아 옵니다.
-  let mtExtraLoaded = false;
+  // 할일 관리 화면 안에서 보드를 그립니다. 업무는 loadTeamTasks() 가 이미 받아 왔습니다.
 
   function renderJwBoard() {
     const el = document.getElementById('myTrackerBody');
@@ -6024,269 +5124,6 @@
     if (jwHasRoutine()) { el.style.display = 'none'; return; }
     el.style.display = '';
     renderMyTracker();
-    if (!mtExtraLoaded) {
-      mtExtraLoaded = true;
-      Promise.all([loadChannelPlans(), loadAdLogs()]).then(renderMyTracker).catch(() => {});
-    }
-  }
-
-  // ==================== 광고 채널 운영 일지 ====================
-  // 「광고 채널 운영 관리」 프로젝트에서 [운영 일지 열기] 로 들어옵니다.
-  // 위에 적는 칸을 두고, [저장]을 누르면 아래 목록에 한 줄씩 쌓입니다.
-  const AD_WORK_TYPES = [
-    '소재 교체', '예산 조정', '캠페인 생성', '일시중지 · 종료',
-    '성과 확인', '대행사 커뮤니케이션', '세팅 점검', '기타',
-  ];
-  const AD_TYPE_CLS = {
-    '소재 교체': 'plan', '예산 조정': 'prep', '캠페인 생성': 'go', '일시중지 · 종료': 'hold',
-    '성과 확인': 'study', '대행사 커뮤니케이션': 'talk', '세팅 점검': 'wait', '기타': 'wait',
-  };
-  const AD_MEDIA = ['네이버', '메타', '쿠팡', '카카오', '구글', '당근', '오늘의집', '기타'];
-
-  let adLogs = [];
-  let adError = '';
-  let adDay = '';        // 보고 있는 날짜. 비어 있으면 오늘.
-  let adEditId = null;   // 목록에서 [수정] 을 누른 줄
-  // 적다 만 내용 — 화면을 다시 그려도 날아가지 않게 들고 있습니다.
-  let adDraft = { title: '', work_type: '기타', media: '', agency: '', memo: '' };
-
-  function adToday() { return jwTodayKST(); }
-  function adCurDay() { return adDay || adToday(); }
-
-  async function loadAdLogs() {
-    const { data, error } = await client.from('ad_daily_logs')
-      .select('*').order('log_date', { ascending: false }).order('sort_no').order('id');
-    adError = error ? error.message : '';
-    adLogs = error ? [] : (data || []);
-  }
-
-  function adOfDay(day) {
-    return adLogs.filter((r) => String(r.log_date) === day)
-      .sort((a, b) => (a.sort_no - b.sort_no) || (a.id - b.id));
-  }
-
-  function adShiftDay(n) {
-    const d = new Date(adCurDay() + 'T00:00:00');
-    d.setDate(d.getDate() + n);
-    adDay = d.toLocaleDateString('en-CA');
-    adEditId = null;
-    renderAdLog();
-  }
-  window.adShiftDay = adShiftDay;
-
-  function adGoDay(day) { adDay = day; adEditId = null; renderAdLog(); }
-  window.adGoDay = adGoDay;
-
-  function adLabel(day) {
-    const d = new Date(day + 'T00:00:00');
-    const w = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
-    return day + ' (' + w + ')';
-  }
-
-  // ---- 위 입력칸 ----
-  // 입력칸에 적힌 것을 들고 있다가, 화면을 다시 그릴 때 되돌려 놓습니다.
-  function adKeepDraft() {
-    const g = (id) => { const e = document.getElementById(id); return e ? String(e.value || '') : null; };
-    const t = g('adNewTitle');
-    if (t === null) return;
-    adDraft = {
-      title: t, work_type: g('adNewType') || '기타',
-      media: g('adNewMedia') || '', agency: g('adNewAgency') || '', memo: g('adNewMemo') || '',
-    };
-  }
-  window.adKeepDraft = adKeepDraft;
-
-  async function adSubmit() {
-    adKeepDraft();
-    const title = adDraft.title.trim();
-    if (!title) {
-      const el = document.getElementById('adNewTitle');
-      if (el) el.focus();
-      return;
-    }
-    const day = adCurDay();
-    const { error } = await client.from('ad_daily_logs').insert({
-      log_date: day, title,
-      work_type: adDraft.work_type || '기타',
-      media: adDraft.media.trim() || null,
-      agency: adDraft.agency.trim() || null,
-      memo: adDraft.memo.trim() || null,
-      sort_no: adOfDay(day).length,
-    });
-    if (error) {
-      alert('저장하지 못했습니다: ' + error.message
-        + '\n\nad_daily_logs.sql 을 Supabase에서 실행했는지 확인해주세요.');
-      return;
-    }
-    // 매체와 대행사는 연달아 적는 일이 많아 남겨 둡니다.
-    adDraft = { title: '', work_type: adDraft.work_type, media: adDraft.media, agency: adDraft.agency, memo: '' };
-    await loadAdLogs();
-    renderAdLog();
-    const el = document.getElementById('adNewTitle');
-    if (el) el.focus();
-  }
-  window.adSubmit = adSubmit;
-
-  // ---- 목록에서 고치기 · 지우기 ----
-  function adEdit(id) { adKeepDraft(); adEditId = id; renderAdLog(); }
-  window.adEdit = adEdit;
-
-  function adEditCancel() { adKeepDraft(); adEditId = null; renderAdLog(); }
-  window.adEditCancel = adEditCancel;
-
-  async function adEditSave(id) {
-    adKeepDraft();
-    const el = document.querySelector('.ad-item[data-id="' + id + '"]');
-    if (!el) return;
-    const g = (cls) => { const e = el.querySelector('.' + cls); return e ? String(e.value || '').trim() : ''; };
-    const { error } = await client.from('ad_daily_logs').update({
-      title: g('ad-f-title'), work_type: g('ad-f-type'),
-      media: g('ad-f-media') || null, agency: g('ad-f-agency') || null,
-      memo: g('ad-f-memo') || null, updated_at: new Date().toISOString(),
-    }).eq('id', id);
-    if (error) { alert('고치지 못했습니다: ' + error.message); return; }
-    adEditId = null;
-    await loadAdLogs();
-    renderAdLog();
-  }
-  window.adEditSave = adEditSave;
-
-  async function adDel(id) {
-    const r = adLogs.find((x) => x.id === id);
-    if (r && String(r.title || '').trim() && !confirm('이 기록을 지울까요?')) return;
-    adKeepDraft();
-    const { error } = await client.from('ad_daily_logs').delete().eq('id', id);
-    if (error) { alert('지우지 못했습니다: ' + error.message); return; }
-    adEditId = null;
-    await loadAdLogs();
-    renderAdLog();
-  }
-  window.adDel = adDel;
-
-  // ---- 그리기 ----
-  function adFormHtml() {
-    const d = adDraft;
-    return `
-      <div class="ad-form">
-        <div class="ad-form-top">
-          <input id="adNewTitle" type="text" value="${escapeAttr(d.title)}" oninput="adKeepDraft()"
-            placeholder="오늘 한 일을 적으세요  예) 코드니처 스마트스토어 AD 부스트 추가 작업 요청"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();adSubmit();}">
-          <select id="adNewType" onchange="adKeepDraft()">
-            ${AD_WORK_TYPES.map((x) => `<option value="${escapeAttr(x)}" ${x === d.work_type ? 'selected' : ''}>${escapeAttr(x)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="ad-form-sub">
-          <label>매체<input id="adNewMedia" type="text" list="adMediaList" value="${escapeAttr(d.media)}"
-            oninput="adKeepDraft()" placeholder="예) 네이버"></label>
-          <label>대행사 · 담당자<input id="adNewAgency" type="text" value="${escapeAttr(d.agency)}"
-            oninput="adKeepDraft()" placeholder="예) 애드쿡 김일교"></label>
-          <label class="wide">결과 · 메모<input id="adNewMemo" type="text" value="${escapeAttr(d.memo)}"
-            oninput="adKeepDraft()" placeholder="바뀐 점이나 다음에 볼 것"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();adSubmit();}"></label>
-          <button type="button" class="btn-primary ad-submit" onclick="adSubmit()">저장</button>
-        </div>
-      </div>`;
-  }
-
-  function adItemHtml(r, i) {
-    if (r.id === adEditId) {
-      return `
-        <div class="ad-item editing" data-id="${r.id}">
-          <div class="ad-row-top">
-            <input class="ad-f-title" type="text" value="${escapeAttr(r.title || '')}" placeholder="한 일">
-            <select class="ad-f-type">
-              ${AD_WORK_TYPES.map((x) => `<option value="${escapeAttr(x)}" ${x === r.work_type ? 'selected' : ''}>${escapeAttr(x)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="ad-row-sub">
-            <label>매체<input class="ad-f-media" type="text" list="adMediaList" value="${escapeAttr(r.media || '')}"></label>
-            <label>대행사 · 담당자<input class="ad-f-agency" type="text" value="${escapeAttr(r.agency || '')}"></label>
-            <label class="wide">결과 · 메모<input class="ad-f-memo" type="text" value="${escapeAttr(r.memo || '')}"></label>
-          </div>
-          <div class="ad-item-btns">
-            <button type="button" class="jw-proj-btn" onclick="adEditCancel()">취소</button>
-            <button type="button" class="jw-proj-btn main" onclick="adEditSave(${r.id})">저장</button>
-          </div>
-        </div>`;
-    }
-    const sub = [r.media, r.agency].map((x) => String(x || '').trim()).filter(Boolean).join(' · ');
-    return `
-      <div class="ad-item" data-id="${r.id}">
-        <span class="ad-no">${i + 1}</span>
-        <span class="ad-tag ${AD_TYPE_CLS[r.work_type] || 'wait'}">${escapeAttr(r.work_type || '기타')}</span>
-        <div class="ad-item-main">
-          <div class="ad-item-title">${escapeAttr(r.title || '(내용 없음)')}</div>
-          ${sub || r.memo ? `<div class="ad-item-meta">
-            ${sub ? `<span>${escapeAttr(sub)}</span>` : ''}
-            ${r.memo ? `<span class="m">${escapeAttr(r.memo)}</span>` : ''}
-          </div>` : ''}
-        </div>
-        <button type="button" class="ad-mini" onclick="adEdit(${r.id})">수정</button>
-        <button type="button" class="ad-del" onclick="adDel(${r.id})" title="이 기록 지우기">✕</button>
-      </div>`;
-  }
-
-  // 최근 14일 중 기록이 있는 날 — 눌러서 그 날짜로 갑니다.
-  function adRecentHtml() {
-    const today = adToday();
-    const days = [];
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(today + 'T00:00:00');
-      d.setDate(d.getDate() - i);
-      const key = d.toLocaleDateString('en-CA');
-      const n = adOfDay(key).length;
-      if (n) days.push({ key, n });
-    }
-    if (!days.length) return '<div class="td-empty">최근 2주 안에 적어둔 기록이 없습니다.</div>';
-    return '<div class="ad-recent">' + days.map((x) => `
-      <button type="button" class="ad-chip${x.key === adCurDay() ? ' on' : ''}" onclick="adGoDay('${x.key}')">
-        ${escapeAttr(x.key.slice(5).replace('-', '/'))}<i>${x.n}건</i>
-      </button>`).join('') + '</div>';
-  }
-
-  function renderAdLog() {
-    const root = document.getElementById('adLogBody');
-    if (!root) return;
-    if (adError) {
-      root.innerHTML = `<section class="panel"><div class="td-empty">
-        일지를 불러오지 못했습니다 — ad_daily_logs.sql 을 Supabase에서 실행해주세요.</div></section>`;
-      return;
-    }
-    const day = adCurDay();
-    const rows = adOfDay(day);
-    const isToday = day === adToday();
-    // 매체별로 몇 건인지 한눈에
-    const byMedia = {};
-    rows.forEach((r) => { const m = String(r.media || '').trim() || '매체 미정'; byMedia[m] = (byMedia[m] || 0) + 1; });
-    const chips = Object.keys(byMedia).sort((a, b) => byMedia[b] - byMedia[a])
-      .map((m) => `<span class="ad-sum">${escapeAttr(m)} <i>${byMedia[m]}</i></span>`).join('');
-
-    root.innerHTML = `
-      <section class="panel">
-        <div class="panel-head">
-          <h2>${escapeAttr(adLabel(day))}${isToday ? ' · 오늘' : ''}</h2>
-          <span class="panel-note">${rows.length ? rows.length + '건' : '아직 없음'}</span>
-          <span class="ad-nav">
-            <button type="button" class="jw-proj-btn" onclick="adShiftDay(-1)">‹ 전날</button>
-            <input type="date" class="ad-date" value="${escapeAttr(day)}" onchange="adGoDay(this.value)">
-            <button type="button" class="jw-proj-btn" onclick="adShiftDay(1)">다음날 ›</button>
-            ${isToday ? '' : '<button type="button" class="jw-proj-btn" onclick="adGoDay(\'' + adToday() + '\')">오늘</button>'}
-          </span>
-        </div>
-        ${adFormHtml()}
-        ${chips ? `<div class="ad-sums">${chips}</div>` : ''}
-        <div id="adRows">
-          ${rows.length ? rows.map(adItemHtml).join('')
-            : '<div class="td-empty">이 날 적어둔 일이 없습니다. 위 칸에 적고 [저장]을 누르면 여기에 쌓입니다.</div>'}
-        </div>
-        <datalist id="adMediaList">${AD_MEDIA.map((m) => `<option value="${escapeAttr(m)}">`).join('')}</datalist>
-      </section>
-      <section class="panel">
-        <div class="panel-head"><h2>최근 기록</h2>
-          <span class="panel-note">최근 2주</span></div>
-        ${adRecentHtml()}
-      </section>`;
   }
 
   // ==================== 업무분장 ====================
