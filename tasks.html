@@ -835,6 +835,7 @@
     text-align: center; padding: 7px 4px;
   }
   .mt-h i { font-style: normal; color: #7f93b5; margin-left: 4px; font-weight: 700; }
+  .mt-h b { font-weight: 700; color: #a8b6cd; font-size: 10px; }
   .mt-h.mt-h-g { text-align: left; padding-left: 9px; }
   .mt-rowhead {
     background: #fbfcfe; display: flex; align-items: center; gap: 5px; padding: 8px 8px;
@@ -4898,9 +4899,17 @@
 
   // 어떤 출처를 켜 둘지. 광고 일지는 매일 쌓이는 기록이라 기본은 꺼 둡니다.
 
-  let mtHideDone = true;   // 끝난 건 접어두기
+  const MT_DONE_DAYS = 7;   // 완료 칸에 보여줄 기간
+  let mtDoneAll = false;    // true 면 오래된 완료까지 전부
 
-  function mtToggleDone() { mtHideDone = !mtHideDone; renderMyTracker(); }
+  // 언제 끝냈는지 따로 적는 칸이 없어, 그 업무의 마감일로 봅니다.
+  // 마감일을 안 정한 업무는 만든 날로 봅니다.
+  function mtDoneOn(t) {
+    return t.due_date ? String(t.due_date).slice(0, 10) : String(t.created_at || '').slice(0, 10);
+  }
+  function mtDoneFrom() { return jwAddDays(jwTodayKST(), -MT_DONE_DAYS); }
+
+  function mtToggleDone() { mtDoneAll = !mtDoneAll; renderMyTracker(); }
   window.mtToggleDone = mtToggleDone;
 
   // ---- 네 군데에서 카드를 모읍니다 ----
@@ -4921,12 +4930,15 @@
           title: t.title || '(제목 없음)',
           sub: t.purpose || '',
           due: t.due_date ? String(t.due_date).slice(0, 10) : '',
+          doneOn: mtDoneOn(t),
           raw: st, stuck: false, blocker: '',
         });
       });
     }
 
-    return mtHideDone ? out.filter((x) => x.stage !== '완료') : out;
+    if (mtDoneAll) return out;
+    const from = mtDoneFrom();
+    return out.filter((x) => x.stage !== '완료' || (x.doneOn && x.doneOn >= from));
   }
 
   function mtOf(items, group, stage) {
@@ -4975,8 +4987,9 @@
           <h2>내 업무 보드</h2>
           <span class="panel-note">${items.length}건${stuck ? ' · 막힌 것 ' + stuck + '건' : ''}</span>
           <span class="mt-chips">
-            <button type="button" class="mt-chip done${mtHideDone ? '' : ' on'}" onclick="mtToggleDone()">
-              ${mtHideDone ? '끝난 것 보기' : '끝난 것 숨기기'}</button>
+            <button type="button" class="mt-chip done${mtDoneAll ? ' on' : ''}" onclick="mtToggleDone()"
+              title="완료 칸은 평소 최근 ${MT_DONE_DAYS}일치만 보여줍니다">
+              ${mtDoneAll ? '최근 1주만' : '완료 전체 보기'}</button>
           </span>
         </div>
         <div class="mt-add">
@@ -4992,7 +5005,8 @@
             <div class="mt-h mt-h-g">대분류</div>
             ${MT_STAGES.map((st) => {
               const n = items.filter((x) => x.stage === st).length;
-              return `<div class="mt-h">${escapeAttr(st)}<i>${n}</i></div>`;
+              const tail = st === '완료' && !mtDoneAll ? ' <b>최근 1주</b>' : '';
+              return `<div class="mt-h">${escapeAttr(st)}${tail}<i>${n}</i></div>`;
             }).join('')}
             ${MT_GROUPS.map((g) => {
               const mine = items.filter((x) => x.group === g);
