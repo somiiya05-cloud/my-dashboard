@@ -19,21 +19,29 @@
 
 const GITHUB_OWNER = 'somiiya05-cloud';
 const GITHUB_REPO = 'my-dashboard';
-// 버튼은 "오늘치를 지금 당겨오는" 용도입니다 (2026-09-12 변경).
+// 버튼은 "어제·오늘치를 지금 당겨오는" 용도입니다 (2026-10-13 변경).
 //  - ping-naver-ads-sync: 입력 없이 = 이번 달. 오늘치 광고비·매출이 여기서 들어옵니다.
-//  - ping-naver-keywords-daily-sync: from=to=오늘. 예전엔 입력을 안 줘서 "어제"만 받았고,
-//    그래서 「오늘」 탭의 상세 성과(캠페인·키워드)가 늘 비어 있었습니다.
+//  - ping-naver-keywords-daily-sync: from=어제, to=오늘.
+//    처음엔 입력을 안 줘서 "어제"만 받아 「오늘」 탭이 비었고, 2026-09-12 에 오늘치만
+//    받게 바꿨더니 이번엔 「하루전」 탭의 상세 성과가 비었습니다. 스케줄(UTC 05:30)이
+//    깃허브 쪽에서 6~8시간씩 밀려 밤에야 돌기 때문에, 낮에는 어제가 영영 안 들어옵니다.
+//    그래서 버튼이 어제~오늘 이틀을 받습니다(같은 날짜는 덮어쓰기라 중복 안 생김).
 //  - ping-naver-keywords-sync(월 단위)는 버튼에서 뺐습니다. 같은 키워드 목록을 처음부터
 //    다시 훑는 무거운 작업인데다 위 일별과 concurrency 그룹이 같아서 큐에서 기다리느라
 //    버튼 한 번에 342초까지 걸렸습니다. 이건 매일 05:00(UTC) 스케줄로 계속 돕니다.
 const WORKFLOWS = [
   { file: 'ping-naver-ads-sync.yml' },
-  { file: 'ping-naver-keywords-daily-sync.yml', todayRange: true }
+  { file: 'ping-naver-keywords-daily-sync.yml', recentRange: true }
 ];
 
 // 워크플로 안에서는 TZ=Asia/Seoul 로 날짜를 잡습니다. 여기(Vercel)는 UTC 라 9시간 더해서 맞춥니다.
+// daysAgo=0 이면 서울 기준 오늘, 1 이면 어제입니다.
+function seoulDate(daysAgo) {
+  const ms = Date.now() + 9 * 60 * 60 * 1000 - (daysAgo || 0) * 24 * 60 * 60 * 1000;
+  return new Date(ms).toISOString().slice(0, 10);
+}
 function seoulToday() {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return seoulDate(0);
 }
 const ALLOWED_ORIGINS = [
   'https://ad-marketing-dashboard.vercel.app',
@@ -49,9 +57,9 @@ function applyCors(req, res) {
 
 async function dispatchWorkflow(workflow, token) {
   const body = { ref: 'main' };
-  if (workflow.todayRange) {
-    const today = seoulToday();
-    body.inputs = { from: today, to: today };
+  if (workflow.recentRange) {
+    // 어제~오늘 이틀. 워크플로가 조각 안에서 하루씩 순회하므로 Vercel 60초 제한과는 무관합니다.
+    body.inputs = { from: seoulDate(1), to: seoulDate(0) };
   }
   const res = await fetch(
     `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${workflow.file}/dispatches`,
