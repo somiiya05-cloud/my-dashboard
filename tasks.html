@@ -893,6 +893,47 @@
     border-radius: 8px; padding: 8px 11px; margin-bottom: 9px;
   }
 
+  /* 머리의 날짜 — 누르면 하루 보기 */
+  .mt-day-chip {
+    border: 1px solid #cfdcf4; border-radius: 999px; background: #f8fbff; color: #2f5ce4;
+    font-family: inherit; font-size: 11.5px; font-weight: 800; padding: 5px 12px; cursor: pointer;
+    margin-left: 10px;
+  }
+  .mt-day-chip:hover { background: #eef3ff; border-color: #4d7cfe; }
+
+  /* 하루 보기 — 오전 / 오후 */
+  .mt-day-sec { margin-top: 14px; }
+  .mt-day-head {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 800; color: #0f172a;
+    border-bottom: 1px solid #eef2f7; padding-bottom: 7px; margin-bottom: 4px;
+  }
+  .mt-day-head i { font-style: normal; font-size: 11.5px; font-weight: 700; color: #94a3b8; }
+  .mt-day-head em { font-style: normal; font-size: 11px; font-weight: 700; color: #b6c2d2; margin-left: auto; }
+  .mt-day-empty { font-size: 11.5px; color: #b6c2d2; padding: 10px 4px; }
+  .mt-day-row {
+    display: flex; align-items: center; gap: 9px;
+    border-bottom: 1px solid #f3f6fb; padding: 9px 4px;
+  }
+  .mt-day-row.done .mt-day-title { color: #94a3b8; text-decoration: line-through; }
+  .mt-check {
+    flex: none; width: 19px; height: 19px; border-radius: 6px; cursor: pointer;
+    border: 1.5px solid #cbd5e1; background: #fff; color: #fff;
+    font-family: inherit; font-size: 11px; font-weight: 800; line-height: 1;
+  }
+  .mt-check:hover { border-color: #4d7cfe; }
+  .mt-check.on { background: #16a34a; border-color: #16a34a; }
+  .mt-day-title { flex: 1; font-size: 13px; font-weight: 700; color: #0f172a; cursor: pointer; }
+  .mt-day-title:hover { color: #2f5ce4; }
+  .mt-day-cat { font-size: 10.5px; font-weight: 700; color: #94a3b8; }
+  .mt-part-sw { display: inline-flex; border: 1px solid #e2e8f0; border-radius: 7px; overflow: hidden; flex: none; }
+  .mt-part-sw button {
+    border: none; background: #fff; color: #94a3b8; cursor: pointer;
+    font-family: inherit; font-size: 10.5px; font-weight: 700; padding: 4px 9px;
+  }
+  .mt-part-sw button + button { border-left: 1px solid #e2e8f0; }
+  .mt-part-sw button.on { background: #eef3ff; color: #1d4ed8; }
+
   /* 보드 머리 — 업무 적기와 새 프로젝트 */
   .mt-add { display: flex; gap: 7px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
   .mt-add input, .mt-add select {
@@ -4899,6 +4940,35 @@
 
   // 어떤 출처를 켜 둘지. 광고 일지는 매일 쌓이는 기록이라 기본은 꺼 둡니다.
 
+  const MT_PARTS = ['오전', '오후'];
+  let mtMode = 'board';   // 'board' = 격자, 'day' = 하루 보기
+  let mtDay = '';         // 하루 보기에서 보고 있는 날짜. 비어 있으면 오늘.
+
+  function mtCurDay() { return mtDay || jwTodayKST(); }
+  function mtDayLabel(d) {
+    const w = ['일', '월', '화', '수', '목', '금', '토'][new Date(d + 'T00:00:00Z').getUTCDay()];
+    return d + ' (' + w + ')';
+  }
+  // 지금이 오후면 새 업무를 오후로 미리 골라 둡니다.
+  function mtDefaultPart() {
+    const h = Number(new Date().toLocaleString('en-GB', { timeZone: 'Asia/Seoul', hour: '2-digit', hour12: false }));
+    return h >= 12 ? '오후' : '오전';
+  }
+
+  function mtOpenDay(day) { mtMode = 'day'; mtDay = day || jwTodayKST(); renderMyTracker(); }
+  window.mtOpenDay = mtOpenDay;
+  function mtBackToBoard() { mtMode = 'board'; renderMyTracker(); }
+  window.mtBackToBoard = mtBackToBoard;
+  function mtDayShift(n) {
+    const d = new Date(mtCurDay() + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    mtDay = d.toISOString().slice(0, 10);
+    renderMyTracker();
+  }
+  window.mtDayShift = mtDayShift;
+  function mtDayGo(day) { mtDay = day || jwTodayKST(); renderMyTracker(); }
+  window.mtDayGo = mtDayGo;
+
   const MT_DONE_DAYS = 7;   // 완료 칸에 보여줄 기간
   let mtDoneAll = false;    // true 면 오래된 완료까지 전부
 
@@ -4975,9 +5045,103 @@
       </div>`;
   }
 
+  // 그날 할 일 — 마감일이 그 날짜인 내 업무. 끝난 것도 같이 보여 체크를 되돌릴 수 있게 합니다.
+  function mtDayTasks(day) {
+    return (currentTasks || [])
+      .filter((t) => t.assignee === MT_OWNER && !t.archived_at
+        && String(t.due_date || '').slice(0, 10) === day)
+      .sort((a, b) => a.id - b.id);
+  }
+
+  async function mtSetPart(id, part) {
+    const t = (currentTasks || []).find((x) => x.id === id);
+    const before = t ? t.day_part : null;
+    if (t) { t.day_part = part; renderMyTracker(); }
+    const { error } = await client.from('team_tasks').update({ day_part: part }).eq('id', id);
+    if (error) {
+      if (t) { t.day_part = before; renderMyTracker(); }
+      mtToast('바꾸지 못했습니다: ' + error.message
+        + ' (team_tasks_day_part.sql 을 실행했는지 확인해주세요)');
+    }
+  }
+  window.mtSetPart = mtSetPart;
+
+  async function mtToggleTaskDone(id) {
+    const t = (currentTasks || []).find((x) => x.id === id);
+    if (!t) return;
+    const next = t.status === '확인완료' ? '진행중' : '확인완료';
+    const before = t.status;
+    t.status = next; renderMyTracker();
+    const { error } = await client.from('team_tasks').update({ status: next }).eq('id', id);
+    if (error) { t.status = before; renderMyTracker(); mtToast('바꾸지 못했습니다: ' + error.message); }
+  }
+  window.mtToggleTaskDone = mtToggleTaskDone;
+
+  function mtDayRowHtml(t) {
+    const done = t.status === '확인완료';
+    const g = jwMyTaskGroupOf(t);
+    return `
+      <div class="mt-day-row${done ? ' done' : ''}">
+        <button type="button" class="mt-check${done ? ' on' : ''}" onclick="mtToggleTaskDone(${t.id})"
+          title="${done ? '되돌리기' : '다 했으면 누르세요'}">${done ? '✓' : ''}</button>
+        <span class="ct-dot ${MT_GROUP_CLS[g] || 'c7'}" title="${escapeAttr(g)}"></span>
+        <span class="mt-day-title" onclick="openTaskPanel(${t.id})" title="누르면 상세가 열립니다">${escapeAttr(t.title || '(제목 없음)')}</span>
+        <span class="mt-day-cat">${escapeAttr(g)}</span>
+        <span class="mt-part-sw">
+          ${MT_PARTS.map((x) => `<button type="button" class="${t.day_part === x ? 'on' : ''}"
+            onclick="mtSetPart(${t.id}, '${x}')">${x}</button>`).join('')}
+        </span>
+      </div>`;
+  }
+
+  function renderMyTrackerDay(root) {
+    const day = mtCurDay();
+    const rows = mtDayTasks(day);
+    const isToday = day === jwTodayKST();
+    const part = (x) => rows.filter((t) => t.day_part === x);
+    const none = rows.filter((t) => !t.day_part);
+    const block = (label, list, hint) => `
+      <div class="mt-day-sec">
+        <div class="mt-day-head">${escapeAttr(label)}<i>${list.length}</i>
+          ${hint ? `<em>${escapeAttr(hint)}</em>` : ''}</div>
+        ${list.length ? list.map(mtDayRowHtml).join('')
+          : '<div class="mt-day-empty">없습니다.</div>'}
+      </div>`;
+
+    root.innerHTML = `
+      <section class="panel">
+        <div class="panel-head">
+          <h2>${escapeAttr(mtDayLabel(day))}${isToday ? ' · 오늘' : ''}</h2>
+          <span class="panel-note">${rows.length}건</span>
+          <span class="mt-chips">
+            <button type="button" class="jw-proj-btn" onclick="mtDayShift(-1)">‹ 전날</button>
+            <input type="date" class="ad-date" value="${escapeAttr(day)}" onchange="mtDayGo(this.value)">
+            <button type="button" class="jw-proj-btn" onclick="mtDayShift(1)">다음날 ›</button>
+            ${isToday ? '' : '<button type="button" class="jw-proj-btn" onclick="mtDayGo()">오늘</button>'}
+            <button type="button" class="jw-proj-btn main" onclick="mtBackToBoard()">보드로</button>
+          </span>
+        </div>
+        <div class="mt-add">
+          <input type="text" id="jwMyTaskInput" placeholder="업무를 적고 엔터" autocomplete="off" onkeydown="jwMyTaskKey(event)">
+          <select id="jwMyTaskCat" title="어느 줄에 넣을지">
+            ${MT_GROUPS.map((g) => `<option value="${g}" ${g === 'ETC' ? 'selected' : ''}>${g}</option>`).join('')}
+          </select>
+          <select id="jwMyTaskPart" title="오전에 할 일인지 오후에 할 일인지">
+            ${MT_PARTS.map((x) => `<option value="${x}" ${x === mtDefaultPart() ? 'selected' : ''}>${x}</option>`).join('')}
+          </select>
+          <input type="date" id="jwMyTaskDue" value="${escapeAttr(day)}">
+          <button type="button" class="jw-proj-btn main" onclick="jwAddMyTask()">업무 추가</button>
+        </div>
+        ${block('오전', part('오전'))}
+        ${block('오후', part('오후'))}
+        ${none.length ? block('시간 미정', none, '오른쪽에서 오전·오후를 골라주세요') : ''}
+      </section>`;
+  }
+
   function renderMyTracker() {
     const root = document.getElementById('myTrackerBody');
     if (!root) return;
+    if (mtMode === 'day') { renderMyTrackerDay(root); return; }
     const items = mtItems();
     const stuck = items.filter((x) => x.stuck).length;
 
@@ -4986,6 +5150,8 @@
         <div class="panel-head">
           <h2>내 업무 보드</h2>
           <span class="panel-note">${items.length}건${stuck ? ' · 막힌 것 ' + stuck + '건' : ''}</span>
+          <button type="button" class="mt-day-chip" onclick="mtOpenDay()"
+            title="누르면 그날 업무를 오전·오후로 나눠 봅니다">${escapeAttr(mtDayLabel(jwTodayKST()))} 하루 보기</button>
           <span class="mt-chips">
             <button type="button" class="mt-chip done${mtDoneAll ? ' on' : ''}" onclick="mtToggleDone()"
               title="완료 칸은 평소 최근 ${MT_DONE_DAYS}일치만 보여줍니다">
@@ -4997,7 +5163,10 @@
           <select id="jwMyTaskCat" title="어느 줄에 넣을지">
             ${MT_GROUPS.map((g) => `<option value="${g}" ${g === 'ETC' ? 'selected' : ''}>${g}</option>`).join('')}
           </select>
-          <input type="date" id="jwMyTaskDue" value="${escapeAttr(jwTodayKST())}" title="마감일 — 비우면 날짜 없이 들어갑니다">
+          <select id="jwMyTaskPart" title="오전에 할 일인지 오후에 할 일인지">
+            ${MT_PARTS.map((x) => `<option value="${x}" ${x === mtDefaultPart() ? 'selected' : ''}>${x}</option>`).join('')}
+          </select>
+          <input type="date" id="jwMyTaskDue" value="${escapeAttr(mtMode === 'day' ? mtCurDay() : jwTodayKST())}" title="마감일 — 비우면 날짜 없이 들어갑니다">
           <button type="button" class="jw-proj-btn main" onclick="jwAddMyTask()">업무 추가</button>
         </div>
         <div class="mt-wrap">
@@ -5474,6 +5643,8 @@
     const { error } = await client.from('team_tasks').insert({
       title, assignee: jwViewAssignee(), status: '진행중',
       due_date: due, start_date: due || jwTodayKST(), priority: '보통',
+      // 오전/오후 — 하루 보기에서 이 값으로 나눕니다.
+      day_part: (document.getElementById('jwMyTaskPart') || {}).value || null,
       // 보드 머리에서 고른 줄로 들어갑니다.
       category: (document.getElementById('jwMyTaskCat') || {}).value || jwMyTaskFilter || JW_MYTASK_CATEGORY,
     });
