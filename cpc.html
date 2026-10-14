@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>오픈마켓 CPC 광고 리포트</title>
+<title>외부 광고 리포트</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -103,8 +103,8 @@
   <div class="top">
     <a class="back" href="index.html">← 영업 대시보드</a>
     <div>
-      <h1>오픈마켓 CPC 광고 리포트</h1>
-      <div class="sub">광고센터 보고서 파일을 올리면 키워드·캠페인·상품·요일별 효율과 운영 액션을 정리합니다</div>
+      <h1>외부 광고 리포트</h1>
+      <div class="sub">스마트스토어(애드부스트) · G마켓 · 오늘의집 · 카카오모먼트 광고 보고서를 올리면 캠페인·상품·요일별 효율과 운영 액션을 정리합니다</div>
     </div>
     <div class="spacer"></div>
   </div>
@@ -112,12 +112,12 @@
   <!-- 업로드 -->
   <div class="card" id="uploadCard">
     <h2>1. 광고 보고서 올리기</h2>
-    <p class="hint">쿠팡·11번가·G마켓/옥션·SSG 등 광고센터에서 받은 <b>일별 · 키워드별</b> 보고서(xlsx/csv)를 넣으세요. 몰을 바꿔가며 여러 파일을 계속 추가할 수 있습니다. 올린 데이터는 팀원 모두에게 같이 보입니다.</p>
+    <p class="hint">각 광고 관리자에서 받은 <b>일별</b> 보고서(xlsx/csv)를 넣으세요. 전환은 장바구니가 아닌 <b>구매완료</b> 열을 고르세요. 몰을 바꿔가며 여러 파일을 계속 추가할 수 있습니다. 올린 데이터는 팀원 모두에게 같이 보입니다.</p>
     <div class="row" style="margin-bottom:12px;">
       <label class="f">몰
         <select id="upMall">
-          <option>쿠팡</option><option>11번가</option><option>G마켓</option><option>옥션</option>
-          <option>SSG</option><option>롯데ON</option><option>네이버</option><option>기타</option>
+          <option value="네이버 ADVoost">스마트스토어 (네이버 애드부스트)</option>
+          <option>G마켓</option><option>오늘의집</option><option>카카오모먼트</option>
           <option value="__col">파일 안의 몰/매체 열 사용</option>
         </select>
       </label>
@@ -170,12 +170,12 @@
 
     <div class="card">
       <div class="tabs" id="tabs">
-        <button class="tab active" data-tab="keyword">키워드</button>
-        <button class="tab" data-tab="campaign">캠페인</button>
+        <button class="tab active" data-tab="campaign">캠페인</button>
         <button class="tab" data-tab="product">상품</button>
         <button class="tab" data-tab="mall">몰</button>
         <button class="tab" data-tab="weekday">요일</button>
         <button class="tab" data-tab="daily">일자</button>
+        <button class="tab" data-tab="keyword">키워드</button>
       </div>
       <div class="row" style="margin-bottom:10px;justify-content:space-between;">
         <div class="gradebar" id="gradebar" style="margin:0;"></div>
@@ -222,8 +222,8 @@
     imp: { s: ['노출수', '노출'], ex: ['순위', '률', '율', '점유'] },
     clk: { s: ['클릭수', '클릭'], ex: ['률', '율', '단가', 'cpc', '당'] },
     cost: { s: ['집행광고비', '광고비', '총비용', '소진액', '사용금액', '비용', 'spend', 'cost'], ex: ['당', '률', '율', 'cpc', '단가', '대비', 'roas'] },
-    conv: { s: ['총주문수', '전환수', '주문수', '구매수', '판매수량', '전환건수'], ex: ['률', '율', '단가', '당', '직접', '간접'] },
-    rev: { s: ['총전환매출액', '광고전환매출', '전환매출', '구매금액', '전환금액', '총매출액', '매출액', 'revenue'], ex: ['률', '율', 'roas', '당', '직접', '간접'] },
+    conv: { s: ['구매완료수', '구매수', '총주문수', '주문수', '판매수량', '전환수', '전환건수'], ex: ['률', '율', '단가', '당', '직접', '간접', '장바구니'] },
+    rev: { s: ['구매완료전환매출', '구매전환매출', '구매금액', '총전환매출액', '광고전환매출', '전환매출', '전환금액', '총매출액', '매출액', 'revenue'], ex: ['률', '율', 'roas', '당', '직접', '간접', '장바구니'] },
   };
   const WD = ['일', '월', '화', '수', '목', '금', '토'];
   const NOKW = '(비검색 영역)';
@@ -247,7 +247,7 @@
 
   let rows = [];
   let isSample = false; // 예시 데이터는 화면에만 띄우고 저장하지 않습니다.
-  let state = { tab: 'keyword', sort: { key: 'cost', dir: -1 }, grade: 'all', q: '' };
+  let state = { tab: 'campaign', sort: { key: 'cost', dir: -1 }, grade: 'all', q: '' };
 
   // 최근 13개월치를 1000줄씩 끊어 받습니다. id로 정렬해야 페이지 사이에 줄이 빠지거나 겹치지 않습니다.
   async function loadAll() {
