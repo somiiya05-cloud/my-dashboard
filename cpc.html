@@ -34,6 +34,11 @@
   label.f { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #64748b; font-weight: 600; }
   label.f input, label.f select { border: 1px solid #d5d9e2; border-radius: 8px; padding: 7px 9px; font-size: 13.5px; color: #0f172a; background: #fff; min-width: 0; }
   .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+  .fold-head { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; padding: 0; cursor: pointer; text-align: left; color: inherit; flex-wrap: wrap; }
+  .fold-head h2 { margin: 0; }
+  .fold-arrow { color: #64748b; font-size: 13px; width: 14px; transition: transform .15s ease; }
+  .fold-head[aria-expanded="false"] .fold-arrow { transform: rotate(-90deg); }
+  .fold-sum { font-size: 12.5px; color: #64748b; font-weight: 600; }
   .drop { border: 2px dashed #cbd5e1; border-radius: 12px; padding: 22px; text-align: center; color: #64748b; font-size: 14px; cursor: pointer; background: #f8fafc; }
   .drop.over { border-color: #4d7cfe; background: #eef3ff; color: #1e40af; }
   .drop b { color: #0f172a; }
@@ -113,8 +118,12 @@
 
   <!-- 업로드 -->
   <div class="card" id="uploadCard">
-    <h2>1. 광고 보고서 올리기</h2>
-    <p class="hint">각 광고 관리자에서 받은 <b>일별</b> 보고서(xlsx/csv)를 넣으세요. 전환은 장바구니가 아닌 <b>구매완료</b> 열을 고르세요. 몰을 바꿔가며 여러 파일을 계속 추가할 수 있습니다. 올린 데이터는 팀원 모두에게 같이 보입니다.</p>
+    <button type="button" class="fold-head" id="uploadToggle" aria-expanded="true">
+      <span class="fold-arrow">▾</span><h2>광고 보고서 올리기</h2>
+      <span class="fold-sum" id="uploadSum"></span>
+    </button>
+    <div id="uploadBody">
+    <p class="hint" style="margin-top:10px;">각 광고 관리자에서 받은 <b>일별</b> 보고서(xlsx/csv)를 넣으세요. 전환은 장바구니가 아닌 <b>구매완료</b> 열을 고르세요. 몰을 바꿔가며 여러 파일을 계속 추가할 수 있습니다. 올린 데이터는 팀원 모두에게 같이 보입니다.</p>
     <div class="row" style="margin-bottom:12px;">
       <label class="f">몰
         <select id="upMall">
@@ -134,6 +143,7 @@
     </div>
     <div id="mapping"></div>
     <div class="loaded" id="loaded" style="margin-top:14px;"></div>
+    </div>
   </div>
 
   <div id="report" style="display:none;">
@@ -503,9 +513,29 @@
     $('fCamp').innerHTML = '<option value="">전체</option>' + camps.map((c) => `<option ${c === cur ? 'selected' : ''}>${esc(c)}</option>`).join('');
   }
 
+  // 업로드 칸은 매일 자동 수집이 채우므로 평소엔 접어 둡니다. 데이터가 없을 때와 파일을 고르는 중엔 펼칩니다.
+  const FOLD_KEY = 'cpc_upload_open';
+  function setUploadOpen(open, remember) {
+    $('uploadToggle').setAttribute('aria-expanded', String(open));
+    $('uploadBody').style.display = open ? '' : 'none';
+    if (remember) { try { localStorage.setItem(FOLD_KEY, open ? '1' : '0'); } catch {} }
+  }
+  $('uploadToggle').onclick = () => setUploadOpen($('uploadToggle').getAttribute('aria-expanded') !== 'true', true);
+  function syncUploadFold() {
+    let saved = null;
+    try { saved = localStorage.getItem(FOLD_KEY); } catch {}
+    const busy = !!$('mapping').innerHTML;
+    setUploadOpen(!rows.length || isSample || busy || saved === '1', false);
+    const malls = [...new Set(rows.map((r) => r.mall))];
+    const last = rows.reduce((m, r) => (r.date > m ? r.date : m), '');
+    $('uploadSum').textContent = isSample ? '예시 데이터를 보는 중'
+      : rows.length ? `자동 수집 중 · ${malls.join(', ')} · ${last}까지` : '';
+  }
+
   function render() {
     const has = rows.length > 0;
     $('report').style.display = has ? '' : 'none';
+    syncUploadFold();
     $('emptyState').style.display = has ? 'none' : '';
     const malls = {};
     rows.forEach((r) => { malls[r.mall] = malls[r.mall] || new Set(); malls[r.mall].add(r.date); });
