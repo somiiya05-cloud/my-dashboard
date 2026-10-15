@@ -193,6 +193,7 @@
       <div class="row" style="margin-bottom:10px;justify-content:space-between;">
         <div class="gradebar" id="gradebar" style="margin:0;"></div>
         <div class="row" style="gap:8px;">
+          <button class="btn sm" id="activeOnly" title="광고 관리자에서 지금 켜져 있는 캠페인만 봅니다" style="display:none;">운영 중만</button>
           <input id="search" placeholder="검색" style="border:1px solid #d5d9e2;border-radius:8px;padding:7px 10px;font-size:13px;width:180px;">
           <button class="btn sm" id="export">CSV 내려받기</button>
         </div>
@@ -260,6 +261,8 @@
 
   let rows = [];
   let storeRows = []; // 스마트스토어 방문 분석 기준 광고 유입 결제 (ad_store_attribution)
+  let statusMap = new Map(); // 몰 + 캠페인 → 광고 관리자 운영 상태 (ad_campaign_status)
+  let activeOnly = true;
   let isSample = false; // 예시 데이터는 화면에만 띄우고 저장하지 않습니다.
   let state = { tab: 'campaign', sort: { key: 'cost', dir: -1 }, grade: 'all', q: '' };
 
@@ -283,6 +286,10 @@
         const { data, error } = await db.from('ad_store_attribution').select('date,channel,path,visits,pays,sales,store_pays,store_sales').order('date').limit(5000);
         storeRows = error ? [] : data.map((r) => ({ ...r, visits: +r.visits, pays: +r.pays, sales: +r.sales, store_pays: +r.store_pays, store_sales: +r.store_sales }));
       } catch { storeRows = []; }
+      try {
+        const { data, error } = await db.from('ad_campaign_status').select('mall,campaign,active,status,updated_at').limit(5000);
+        statusMap = new Map(error ? [] : data.map((r) => [r.mall + '' + r.campaign, r]));
+      } catch { statusMap = new Map(); }
       $('emptyTitle').textContent = '아직 올린 보고서가 없습니다';
     } catch (err) {
       rows = [];
@@ -683,7 +690,9 @@
     ctr: '썸네일·상품명 점검',
     wait: '학습 중 — 데이터 더 모으기',
   };
-  const actionFor = (r) => (r.auto ? AUTO_ACT : null)?.[r.g] || GRADES[r.g].act;
+  const actionFor = (r) => r.paused ? '중단됨 — 다시 켤 때 참고' : (r.auto ? AUTO_ACT : null)?.[r.g] || GRADES[r.g].act;
+  // 상태를 아는 캠페인만 판정합니다. 상태가 없는 몰(수동 업로드)은 모름으로 두고 그대로 보여줍니다.
+  const campStatus = (mall, camp) => statusMap.get(mall + '' + camp);
   function grade(r, avg) {
     const T = +$('fTarget').value / 100, minClk = +$('fMinClk').value;
     if (r.clk >= minClk && r.conv === 0 && r.rev === 0) return 'waste';
@@ -766,7 +775,7 @@
       if (sorted.length >= 10 && share > 0.7) push('집중도', 't-info', `상위 20% 키워드(${top.length}개)가 전환매출의 <b>${pct(share)}</b>를 만듭니다. 나머지 키워드는 입찰을 낮추고 예산을 상위로 모으는 편이 효율적입니다.`);
     }
 
-    const camps = groupBy(cur, (r) => r.mall + ' · ' + r.campaign).filter((c) => c.cost >= total.cost * 0.1);
+    const camps = groupBy(cur.filter((r) => { const st = campStatus(r.mall, r.campaign); return !st || st.active; }), (r) => r.mall + ' · ' + r.campaign).filter((c) => c.cost >= total.cost * 0.1);
     if (camps.length >= 2) {
       camps.sort((a, b) => a.roas - b.roas);
       const w = camps[0], b = camps[camps.length - 1];
@@ -801,8 +810,15 @@
     if (t === 'campaign') {
       const g = groupBy(cur, (r) => r.mall + '\u0001' + r.campaign).map((x) => { const [m, c] = x.name.split('\u0001'); return { ...x, mall: m, name: c }; });
       const avg = metrics(g.reduce(add, blank()));
-      g.forEach((x) => { x.g = grade(x, avg); x.auto = AUTO_BID.test(x.mall); });
-      return { rows: g, cols: ['name:캠페인', 'mall:몰'], graded: true };
+      g.forEach((x) => {
+        x.g = grade(x, avg); x.auto = AUTO_BID.test(x.mall);
+        const st = campStatus(x.mall, x.name);
+        x.paused = !!st && !st.active;
+        x.st = !st ? '-' : st.active ? '운영 중' : '중단';
+      });
+      const list = activeOnly && statusMap.size ? g.filter((x) => !x.paused) : g;
+      return { rows: list, cols: ['name:캠페인', 'st:상태', 'mall:몰'], graded: true,
+        note: g.length && !list.length ? '운영 중인 캠페인이 이 기간에 없습니다. "운영 중만"을 끄면 전체가 보입니다.' : '' };
     }
     if (t === 'product') {
       const g = groupBy(cur, (r) => r.product);
@@ -829,7 +845,12 @@
   ];
 
   let lastView = [];
+  $('activeOnly').onclick = () => { activeOnly = !activeOnly; drawTable(); };
   function drawTable() {
+    const ab = $('activeOnly');
+    ab.style.display = state.tab === 'campaign' && statusMap.size ? '' : 'none';
+    ab.classList.toggle('primary', activeOnly);
+    ab.textContent = activeOnly ? '운영 중만 ✓' : '운영 중만';
     const d = tableData();
     const gb = $('gradebar');
     if (d.graded) {
@@ -862,7 +883,9 @@
       NUMCOLS.map(([k, l]) => `<th data-s="${k}">${l} ${arrow(k)}</th>`).join('');
     const LIMIT = 500;
     const body = list.slice(0, LIMIT).map((r) =>
-      '<tr>' + textCols.map(([k]) => `<td class="l" title="${esc(r[k])}">${esc(r[k])}</td>`).join('') +
+      '<tr' + (r.paused ? ' style="opacity:.55"' : '') + '>' + textCols.map(([k]) => k === 'st'
+        ? `<td class="l"><span class="grade ${r[k] === '운영 중' ? 'g-star' : r[k] === '중단' ? 'g-wait' : ''}">${esc(r[k])}</span></td>`
+        : `<td class="l" title="${esc(r[k])}">${esc(r[k])}</td>`).join('') +
       (d.graded ? `<td class="l"><span class="grade ${GRADES[r.g].cls}">${GRADES[r.g].label}</span></td><td class="l" style="color:#475569;">${actionFor(r)}</td>` : '') +
       extra.map(([k, , f]) => `<td>${f(r[k])}</td>`).join('') +
       NUMCOLS.map(([k, , f, c]) => {
