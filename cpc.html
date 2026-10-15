@@ -50,6 +50,8 @@
   .kpi .k { font-size: 12.5px; color: #64748b; font-weight: 700; }
   .kpi .v { font-size: 22px; font-weight: 800; margin-top: 4px; letter-spacing: -.4px; font-variant-numeric: tabular-nums; }
   .kpi .d { font-size: 12px; margin-top: 4px; font-weight: 700; }
+  .store-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 12px; }
+  .store-grid .kpi { background: #f8fafc; border-color: #eef0f4; }
   .up { color: #16a34a; } .down { color: #dc2626; } .flat { color: #94a3b8; }
 
   .grid2 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; }
@@ -153,6 +155,7 @@
     </div>
 
     <div class="kpis" id="kpis"></div>
+    <div class="card" id="storeCard" style="display:none;"></div>
 
     <div class="grid2" style="margin-bottom:16px;">
       <div class="card">
@@ -246,6 +249,7 @@
   const COLS = 'date,mall,campaign,adgroup,product,keyword,imp,clk,cost,conv,rev';
 
   let rows = [];
+  let storeRows = []; // 스마트스토어 방문 분석 기준 광고 유입 결제 (ad_store_attribution)
   let isSample = false; // 예시 데이터는 화면에만 띄우고 저장하지 않습니다.
   let state = { tab: 'campaign', sort: { key: 'cost', dir: -1 }, grade: 'all', q: '' };
 
@@ -264,6 +268,11 @@
   async function reload() {
     try {
       rows = await loadAll(); isSample = false;
+      // 테이블이 아직 없거나 비어 있으면 카드만 숨깁니다.
+      try {
+        const { data, error } = await db.from('ad_store_attribution').select('date,channel,path,visits,pays,sales,store_pays,store_sales').order('date').limit(5000);
+        storeRows = error ? [] : data.map((r) => ({ ...r, visits: +r.visits, pays: +r.pays, sales: +r.sales, store_pays: +r.store_pays, store_sales: +r.store_sales }));
+      } catch { storeRows = []; }
       $('emptyTitle').textContent = '아직 올린 보고서가 없습니다';
     } catch (err) {
       rows = [];
@@ -552,6 +561,7 @@
     const prev = scoped(ymd(pFrom), ymd(pTo));
     prevTotal = prev.length ? metrics(prev.reduce(add, blank())) : null;
     drawKpis(days);
+    drawStore(from, to);
     drawTrend();
     drawStrategy();
     drawTable();
@@ -653,6 +663,35 @@
     return 'keep';
   }
 
+  // ---------- 스마트스토어 실제 결제 ----------
+  // 광고 관리자 구매는 광고를 본 뒤 다른 경로로 산 것까지 세서 크게 나옵니다. 스마트스토어 방문 분석은
+  // 그 광고 경로로 들어와 결제한 것만 세서 작게 나옵니다. 실제 효과는 두 숫자 사이라 나란히 보여줍니다.
+  let store = null;
+  function drawStore(from, to) {
+    const card = $('storeCard');
+    const mall = $('fMall').value, camp = $('fCamp').value;
+    const channels = [...new Set(storeRows.map((r) => r.channel))].filter((c) => !mall || c === mall);
+    const sr = storeRows.filter((r) => channels.includes(r.channel) && r.date >= from && r.date <= to);
+    if (camp || isSample || !sr.length) { card.style.display = 'none'; store = null; return; }
+    const ad = metrics(rows.filter((r) => channels.includes(r.mall) && r.date >= from && r.date <= to).reduce(add, blank()));
+    const s = sr.reduce((a, r) => ({ visits: a.visits + r.visits, pays: a.pays + r.pays, sales: a.sales + r.sales, storePays: a.storePays + r.store_pays, storeSales: a.storeSales + r.store_sales }),
+      { visits: 0, pays: 0, sales: 0, storePays: 0, storeSales: 0 });
+    const days = new Set(sr.map((r) => r.date)).size;
+    store = { ...s, roas: ad.cost ? s.sales / ad.cost : NaN, adRoas: ad.roas, cost: ad.cost, adConv: ad.conv };
+    const T = +$('fTarget').value / 100;
+    const item = (k, v, d) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div>${d ? `<div class="d flat" style="color:#64748b;font-weight:600;">${d}</div>` : ''}</div>`;
+    card.style.display = '';
+    card.innerHTML = `<h2>스마트스토어 실제 결제 기준 <span class="pill">${esc(channels.join(', '))}</span></h2>
+      <p class="hint" style="margin:0;">스마트스토어센터 데이터분석 → 방문 분석에서 <b>광고 경로로 들어와 결제한 것만</b> 센 숫자입니다(${days}일치). 광고 관리자 숫자보다 작게 나오며, 실제 효과는 두 숫자 사이에 있습니다.</p>
+      <div class="store-grid">
+        ${item('광고 유입 결제', won(s.pays) + '건', `광고 관리자 ${won(ad.conv)}건의 ${ad.conv ? pct(s.pays / ad.conv) : '-'}`)}
+        ${item('광고 유입 판매금액', won(s.sales) + '원', `스토어 전체의 ${s.storeSales ? pct(s.sales / s.storeSales) : '-'}`)}
+        ${item('실결제 ROAS', `<span style="color:${!isFinite(store.roas) ? '#94a3b8' : store.roas >= T ? '#16a34a' : store.roas >= 1.4 ? '#0f172a' : '#dc2626'}">${pct(store.roas)}</span>`, `광고 관리자 기준 ${pct(ad.roas)}`)}
+        ${item('결제 1건당 광고비', s.pays ? won(ad.cost / s.pays) + '원' : '-', `광고비 ${won(ad.cost)}원`)}
+        ${item('광고 유입 구매전환율', s.visits ? pct(s.pays / s.visits, 1) : '-', `방문 ${won(s.visits)}명`)}
+      </div>`;
+  }
+
   // ---------- 전략 코멘트 ----------
   function drawStrategy() {
     const T = +$('fTarget').value / 100;
@@ -660,6 +699,10 @@
     const push = (tag, cls, html) => out.push(`<li><span class="tag ${cls}">${tag}</span><div>${html}</div></li>`);
     if (!cur.length) { $('strategy').innerHTML = '<li>선택한 기간에 데이터가 없습니다.</li>'; return; }
 
+    if (store && isFinite(store.roas)) {
+      push('실결제', store.roas >= 1.4 ? 't-info' : 't-warn', `스마트스토어 실제 결제 기준 ROAS는 <b>${pct(store.roas)}</b>입니다(광고 관리자 ${pct(store.adRoas)}). ` +
+        (store.roas >= 1.4 ? '손익분기(약 135~145%)는 넘지만, 광고 관리자 숫자만 보고 증액하면 과해질 수 있습니다.' : '손익분기(약 135~145%)에 못 미칩니다. 증액보다 효율 개선이 먼저입니다.'));
+    }
     const gap = total.roas - T;
     push('종합', gap >= 0 ? 't-good' : 't-bad', `ROAS <b>${pct(total.roas)}</b>로 목표 ${pct(T)} 대비 <b>${gap >= 0 ? '+' : ''}${Math.round(gap * 100)}%p</b>. ` +
       (prevTotal && isFinite(prevTotal.roas) ? `이전 기간(${pct(prevTotal.roas)})보다 ${total.roas >= prevTotal.roas ? '개선' : '하락'}했습니다.` : ''));
