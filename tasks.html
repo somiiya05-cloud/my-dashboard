@@ -5153,6 +5153,40 @@
       </div>`;
   }
 
+  // ---- 하루 보기에서 순서 바꾸기 ----
+  // 끌어 옮기는 건 느려서, 번호 칸에 자리를 적어 넣는 방식으로 합니다.
+  // 3번 줄에 1을 적으면 그 줄이 맨 위로 가고 나머지가 한 칸씩 밀립니다.
+  async function mtSetRank(id, value) {
+    const want = Math.round(Number(value));
+    const moving = (currentTasks || []).find((t) => t.id === id);
+    if (!moving || !Number.isFinite(want)) { renderMyTracker(); return; }
+
+    const part = moving.day_part || null;
+    const list = mtDayTasks(mtCurDay()).filter((t) => (t.day_part || null) === part);
+    const at = Math.min(Math.max(want, 1), list.length) - 1;
+    const now = list.findIndex((t) => t.id === id);
+    if (now < 0 || now === at) { renderMyTracker(); return; }
+
+    list.splice(now, 1);
+    list.splice(at, 0, moving);
+
+    // 손대는 줄을 적어 둡니다 — 저장이 실패하면 그대로 되돌립니다.
+    const before = list.map((t) => ({ t, seq: t.seq_no }));
+    list.forEach((t, i) => { t.seq_no = (i + 1) * 10; });
+    renderMyTracker();
+
+    for (const t of list) {
+      const { error } = await client.from('team_tasks').update({ seq_no: t.seq_no }).eq('id', t.id);
+      if (error) {
+        before.forEach((b) => { b.t.seq_no = b.seq; });
+        renderMyTracker();
+        mtToast('순서를 저장하지 못했습니다: ' + error.message);
+        return;
+      }
+    }
+  }
+  window.mtSetRank = mtSetRank;
+
   function renderMyTrackerDay(root) {
     const day = mtCurDay();
     const rows = mtDayTasks(day);
