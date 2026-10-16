@@ -2535,7 +2535,7 @@
     </div>
       <div id="taskNavGroups" style="display:none;">
         <div class="nav-group">
-          <div class="nav-label nav-label-clickable" onclick="opsNavClick('overview')" title="영업팀 업무 가이드 보기">업무관리</div>
+          <div class="nav-label nav-label-clickable" onclick="opsNavClick('overview')" title="누르면 영업팀 업무 가이드가 열립니다">업무관리</div>
           <div class="nav-item" id="navTeamDash" onclick="switchView('team-dashboard')">
             <span class="dot dot-task"></span>팀 대시보드
           </div>
@@ -3846,7 +3846,7 @@
     if (ws === 'sales') {
       switchView('dashboard');
     } else if (ws === 'task') {
-      switchView('team-overview');
+      switchView('team-dashboard');
       ensureTaskAssigneeNav();
     } else {
       switchView('team-schedule', 'main');
