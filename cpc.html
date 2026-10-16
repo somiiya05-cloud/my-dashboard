@@ -620,6 +620,15 @@
   // 그래서 위 카드·차트는 스마트스토어 방문 분석(광고 경로로 들어와 결제한 것)을 기준으로 봅니다.
   // 스토어 데이터가 있는 채널(지금은 네이버 ADVoost)만 계산하고, 캠페인을 고르면 캠페인별 스토어 결제가 없어 광고 관리자 기준으로 돌아갑니다.
   const BE_ROAS = 1.5; // 증액 판단 기준(손익분기 약 135~145% + 여유)
+  const TARGET_SHARE = 0.15; // 애드부스트 광고비 비중 목표: 스마트스토어 매출의 15% 이내 (10/16 결정)
+  // 적정 하루 광고비 = 끝날짜까지 최근 7일 스마트스토어 매출 평균 × 목표 비중
+  function suggestedDaily(to, ch) {
+    const sr = storeRows.filter((r) => ch.includes(r.channel) && r.date <= to);
+    const days = [...new Set(sr.map((r) => r.date))].sort().slice(-7);
+    if (!days.length) return null;
+    const sales = sr.filter((r) => days.includes(r.date)).reduce((t, r) => t + r.store_sales, 0);
+    return { avg: sales / days.length, budget: sales / days.length * TARGET_SHARE, days: days.length };
+  }
   let sv = null, svPrev = null;
   function storeChannels() {
     const mall = $('fMall').value;
@@ -651,15 +660,21 @@
         ['광고비', won(sv.cost) + '원', change(sv.cost, P.cost, false), ''],
         ['광고를 통한 매출', won(sv.sales) + '원', change(sv.sales, P.sales, true), `결제 ${won(sv.pays)}건`],
         ['스마트스토어 매출', won(sv.storeSales) + '원', change(sv.storeSales, P.storeSales, true), `광고 유입 ${sv.storeSales ? pct(sv.sales / sv.storeSales) : '-'}`],
-        ['광고비 비중', pct(sv.share, 1), change(sv.share, P.share, false, true), '광고비 ÷ 스마트스토어 매출'],
+        ['광고비 비중', pct(sv.share, 1), change(sv.share, P.share, false, true), (() => {
+          const sg = suggestedDaily($('fTo').value, sv.ch);
+          return `목표 ${pct(TARGET_SHARE)} · 적정 광고비 하루 약 ${sg ? won(Math.round(sg.budget / 1000) * 1000) : '-'}원`;
+        })()],
         ['ROAS', pct(sv.roas), change(sv.roas, P.roas, true), '광고를 통한 매출 ÷ 광고비'],
       ];
       $('kpis').innerHTML = cards.map(([k, v, d, sub]) => {
-        const flag = k === 'ROAS' && isFinite(sv.roas) ? (sv.roas >= BE_ROAS ? ' <span class="grade g-star">기준 이상</span>' : ' <span class="grade g-low">기준 미달</span>') : '';
+        const flag = k === 'ROAS' && isFinite(sv.roas) ? (sv.roas >= BE_ROAS ? ' <span class="grade g-star">기준 이상</span>' : ' <span class="grade g-low">기준 미달</span>')
+          : k === '광고비 비중' && isFinite(sv.share) ? (sv.share <= TARGET_SHARE ? ' <span class="grade g-star">목표 이내</span>' : ' <span class="grade g-waste">목표 초과</span>') : '';
         return `<div class="kpi"><div class="k">${k}${flag}</div><div class="v">${v}</div>${d}${sub ? `<div class="d flat" style="color:#94a3b8;font-weight:600;">${sub}</div>` : ''}</div>`;
       }).join('');
       const others = [...new Set(cur.map((r) => r.mall))].filter((m) => !sv.ch.includes(m));
+      const sg = suggestedDaily($('fTo').value, sv.ch);
       $('kpiNote').innerHTML = `스마트스토어센터 방문 분석 기준(광고를 눌러 들어와 결제한 것만) · ${esc(sv.ch.join(', '))} · ROAS 기준선 ${pct(BE_ROAS)}` +
+        (sg ? ` · 적정 광고비 = 최근 ${sg.days}일 스마트스토어 매출 평균 ${won(Math.round(sg.avg))}원 × ${pct(TARGET_SHARE)}` : '') +
         (others.length ? ` · <b>${esc(others.join(', '))}</b>는 스마트스토어 결제 데이터가 없어 위 숫자에서 빠집니다` : '');
       return;
     }
@@ -821,6 +836,10 @@
       push('종합', sv.roas >= BE_ROAS ? 't-good' : 't-bad', `스마트스토어 실제 결제 기준 ROAS <b>${pct(sv.roas)}</b>, 광고비 비중 <b>${pct(sv.share, 1)}</b>입니다. ` +
         (svPrev && isFinite(svPrev.roas) ? `이전 기간(${pct(svPrev.roas)})보다 ${sv.roas >= svPrev.roas ? '개선' : '하락'}했습니다. ` : '') +
         (sv.roas >= BE_ROAS ? '기준(150%)을 넘어, 효율을 지키며 단계적으로 늘릴 수 있는 구간입니다.' : '기준(150%)에 못 미칩니다. 증액보다 효율 개선이 먼저입니다.'));
+      const sg = suggestedDaily($('fTo').value, sv.ch);
+      if (isFinite(sv.share) && sg) push('비중', sv.share <= TARGET_SHARE ? 't-good' : 't-warn',
+        `광고비 비중 목표는 ${pct(TARGET_SHARE)}입니다. 최근 ${sg.days}일 스마트스토어 매출 평균(${won(Math.round(sg.avg))}원) 기준 적정 광고비는 하루 약 <b>${won(Math.round(sg.budget / 1000) * 1000)}원</b>입니다. ` +
+        (sv.share <= TARGET_SHARE ? '지금은 목표 안에 있습니다.' : '지금은 목표를 넘으니 일예산을 줄이거나 효율 낮은 캠페인(부스트 업 등)을 끄는 것을 검토하세요.'));
     } else if (store && isFinite(store.roas)) {
       push('실결제', store.roas >= 1.4 ? 't-info' : 't-warn', `스마트스토어 실제 결제 기준 ROAS는 <b>${pct(store.roas)}</b>입니다(광고 관리자 ${pct(store.adRoas)}). ` +
         (store.roas >= 1.4 ? '손익분기(약 135~145%)는 넘지만, 광고 관리자 숫자만 보고 증액하면 과해질 수 있습니다.' : '손익분기(약 135~145%)에 못 미칩니다. 증액보다 효율 개선이 먼저입니다.'));
