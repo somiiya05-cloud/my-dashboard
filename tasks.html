@@ -5640,17 +5640,22 @@
     if (!title) return;
     // 옆 칸에서 고른 마감일. 비워두면 날짜 없이 들어갑니다.
     const due = (document.getElementById('jwMyTaskDue') || {}).value || null;
-    const { error } = await client.from('team_tasks').insert({
+    const { data, error } = await client.from('team_tasks').insert({
       title, assignee: jwViewAssignee(), status: '진행중',
       due_date: due, start_date: due || jwTodayKST(), priority: '보통',
       // 오전/오후 — 하루 보기에서 이 값으로 나눕니다.
       day_part: (document.getElementById('jwMyTaskPart') || {}).value || null,
       // 보드 머리에서 고른 줄로 들어갑니다.
       category: (document.getElementById('jwMyTaskCat') || {}).value || jwMyTaskFilter || JW_MYTASK_CATEGORY,
-    });
+    }).select();
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
-    if (input) input.value = '';
-    loadTeamTasks();
+    if (input) { input.value = ''; input.focus(); }
+    if (data && data[0]) {
+      currentTasks.unshift({ ...data[0], status: normalizeStatus(data[0].status) });
+      renderMyTracker();
+    } else {
+      loadTeamTasks();   // 돌려받지 못했으면 평소대로 다시 받습니다
+    }
   }
   window.jwAddMyTask = jwAddMyTask;
 
