@@ -3888,16 +3888,42 @@
   // 불러오는 동안인지 — 빈 화면에 "없습니다" 대신 "불러오는 중"을 띄우는 데 씁니다.
   let jwLoading = false;
 
-  const TEAM_TASK_PAGE = 1000;   // 서버가 한 번에 주는 최대 건수
+  const TEAM_TASK_PAGE = 1000;        // 서버가 한 번에 주는 최대 건수
+  const JW_ROUTINE_CATS = ['오전 필수업무', '오후 필수업무'];
+  const TEAM_TASK_ROUTINE_DAYS = 14;  // 데일리 루틴은 최근 이만큼만 미리 받습니다
+  let jwRoutineFrom = '';             // 받아 둔 루틴의 가장 이른 날짜
+  const jwLoadedDays = new Set();     // 그보다 전이라 따로 더 받아 둔 날짜
+
+  // 2주보다 전 날짜를 펼칠 때, 그날 루틴만 따로 받아 목록에 끼웁니다.
+  async function jwEnsureDay(date) {
+    if (!date || !jwRoutineFrom || date >= jwRoutineFrom || jwLoadedDays.has(date)) return;
+    jwLoadedDays.add(date);
+    const { data, error } = await client.from('team_tasks')
+      .select('*').in('category', JW_ROUTINE_CATS).eq('due_date', date);
+    if (error || !data || !data.length) return;
+    const have = new Set(currentTasks.map((t) => t.id));
+    data.forEach((t) => {
+      if (!have.has(t.id)) currentTasks.push({ ...t, status: normalizeStatus(t.status) });
+    });
+  }
+  window.jwEnsureDay = jwEnsureDay;
 
   async function loadTeamTasks() {
     jwLoading = true;
     const note = document.getElementById('taskListNote');
 
     // 업무 목록 — 서버가 한 번에 1000건까지만 주므로 나눠 받되, 두 쪽씩 같이 받습니다.
+    // 루틴은 최근 2주치만. 분류가 없는 줄은 not.in 으로 같이 떨어져 나가므로 따로 챙깁니다.
+    jwRoutineFrom = jwAddDays(jwTodayKST(), -TEAM_TASK_ROUTINE_DAYS);
+    jwLoadedDays.clear();
+    const routineWindow = 'category.is.null'
+      + ',category.not.in.("' + JW_ROUTINE_CATS.join('","') + '")'
+      + ',due_date.gte.' + jwRoutineFrom;
+
     const page = (from) => client
       .from('team_tasks')
       .select('*')
+      .or(routineWindow)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .range(from, from + TEAM_TASK_PAGE - 1);
@@ -5773,6 +5799,7 @@
   function jwGoDay(who, date) {
     jwViewDate = (date === jwTodayKST()) ? '' : date;
     switchView('team-tasks', who);
+    jwEnsureDay(jwSelectedDate()).then(renderJwView);
   }
   window.jwGoDay = jwGoDay;
 
@@ -6658,6 +6685,7 @@
     jwOpenDetailIds.add(id);
     jwViewDate = (t.due_date && tdDue(t) !== jwTodayKST()) ? tdDue(t) : '';
     switchView('team-tasks', t.assignee);
+    jwEnsureDay(jwSelectedDate()).then(renderJwView);
   }
   window.tdGoTask = tdGoTask;
 
@@ -7170,6 +7198,8 @@
   function setJwViewDate(value) {
     jwViewDate = value || '';
     renderJwView();
+    // 2주보다 전이면 그날 루틴을 더 받아 다시 그립니다.
+    jwEnsureDay(jwSelectedDate()).then(renderJwView);
   }
 
   function renderJwToolbar() {
