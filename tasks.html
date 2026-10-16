@@ -6381,27 +6381,60 @@
   window.tcSelectDay = tcSelectDay;
 
   // 하루치 항목 — 업무와 프로젝트를 한 갈래로 모읍니다.
-  function tcItemsOf(date) {
-    const items = [];
-    currentTasks.forEach((t) => {
+  // 이어지는 줄을 묶어 둔 띠 목록. 달력을 그리기 직전에 한 번 만듭니다.
+  let tcTaskBands = [];
+  const TC_BAND_GAP = 3;   // 주말을 건너뛴 줄까지 같은 띠로 봅니다
+
+  function tcBuildTaskBands() {
+    const groups = new Map();
+    (currentTasks || []).forEach((t) => {
       const due = String(t.due_date || '').slice(0, 10);
       if (!due) return;
-      // 시작일이 있으면 그날부터 마감일까지 걸칩니다 (거꾸로 적힌 건 하루로 봅니다).
-      const from = String(t.start_date || '').slice(0, 10);
-      const a = (from && from < due) ? from : due;
-      if (date < a || date > due) return;
       if (t.archived_at && t.status === '확인완료') return;   // 끝나서 치운 건 달력에서 뺍니다
       // 전휘원 데일리 루틴은 하루 20건이 넘어 달력이 묻힙니다. 여기서는 빼고,
       // 루틴 진행률은 팀 대시보드의 "전휘원 데일리 업무" 위젯에서 봅니다.
       if (t.assignee === JW_ASSIGNEE && JW_ROUTINE_TITLES.has(t.title)) return;
+      const key = (t.assignee || '') + '|' + (t.title || '');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(t);
+    });
+
+    const out = [];
+    groups.forEach((rows) => {
+      rows.sort((x, y) => String(x.due_date).localeCompare(String(y.due_date)) || x.id - y.id);
+      let run = null;
+      rows.forEach((t) => {
+        const due = String(t.due_date).slice(0, 10);
+        const from = String(t.start_date || '').slice(0, 10);
+        const a = (from && from < due) ? from : due;
+        if (run && a <= jwAddDays(run.to, TC_BAND_GAP)) {
+          run.ids.push(t.id);
+          if (a < run.from) run.from = a;
+          if (due > run.to) run.to = due;
+          run.last = t;
+          run.allDone = run.allDone && t.status === '확인완료';
+        } else {
+          run = { ids: [t.id], who: t.assignee || '', title: t.title || '',
+            from: a, to: due, last: t, allDone: t.status === '확인완료' };
+          out.push(run);
+        }
+      });
+    });
+    tcTaskBands = out;
+  }
+
+  function tcItemsOf(date) {
+    const items = [];
+    tcTaskBands.forEach((b) => {
+      if (date < b.from || date > b.to) return;
       items.push({
-        kind: 'task', id: t.id, who: t.assignee || '', title: t.title || '',
-        status: t.status, routine: false,
-        span: a < due, spanFrom: a, spanTo: due,
-        spanStart: date === a, spanEnd: date === due,
-        done: t.status === '확인완료',
-        // 지났는지는 마감일로 봅니다 — 기간 중의 지난 날까지 빨갛게 되면 안 되니까요.
-        late: ['할일', '진행중', '검수대기'].includes(t.status) && due < jwTodayKST(),
+        kind: 'task', id: b.last.id, who: b.who, title: b.title,
+        status: b.last.status, routine: false,
+        span: b.from < b.to, spanFrom: b.from, spanTo: b.to,
+        spanStart: date === b.from, spanEnd: date === b.to,
+        done: b.allDone,
+        // 지났는지는 마지막 날로 봅니다 — 기간 중의 지난 날까지 빨갛게 되면 안 되니까요.
+        late: ['할일', '진행중', '검수대기'].includes(b.last.status) && b.to < jwTodayKST(),
       });
     });
     tcEventsOf(date).forEach((e) => {
@@ -6541,6 +6574,7 @@
   window.tcAddItem = tcAddItem;
 
   function renderTeamCal() {
+    tcBuildTaskBands();
     const root = document.getElementById('teamCalBody');
     if (!root) return;
     const first = tcMonthKey() + '-01';
