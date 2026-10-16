@@ -2531,7 +2531,7 @@
     <div class="workspace-menu">
       <a class="workspace-menu-item" href="index.html"><span class="dot" style="background:#4d7cfe;"></span>매출관리</a>
       <a class="workspace-menu-item" href="index.html#team"><span class="dot dot-team"></span>영업 운영관리</a>
-      <div class="workspace-menu-item active"><span class="dot dot-task"></span>업무관리</div>
+      <div class="workspace-menu-item active" onclick="switchView('team-dashboard')" style="cursor:pointer;" title="누르면 팀 대시보드로 갑니다"><span class="dot dot-task"></span>업무관리</div>
     </div>
       <div id="taskNavGroups" style="display:none;">
         <div class="nav-group">
@@ -9271,7 +9271,7 @@
   document.getElementById('taskNavGroups').style.display = '';
   document.addEventListener('DOMContentLoaded', () => {
     if (!unlockTaskPage()) return;
-    switchView('team-overview');
+    switchView('team-dashboard');
     ensureTaskAssigneeNav();
     loadTeamNotices();   // 공지사항을 받아 띠에 건수를 띄웁니다
     loadTeamEvents();    // 팀 캘린더에 올릴 회의·외근 일정
