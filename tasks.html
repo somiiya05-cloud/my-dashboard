@@ -3893,38 +3893,51 @@
   async function loadTeamTasks() {
     jwLoading = true;
     const note = document.getElementById('taskListNote');
+
+    // 업무 목록 — 서버가 한 번에 1000건까지만 주므로 나눠 받되, 두 쪽씩 같이 받습니다.
+    const page = (from) => client
+      .from('team_tasks')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, from + TEAM_TASK_PAGE - 1);
+
     const rows = [];
-    for (let from = 0; ; from += TEAM_TASK_PAGE) {
-      const { data, error } = await client
-        .from('team_tasks')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false })
-        .range(from, from + TEAM_TASK_PAGE - 1);
-      if (error) {
-        note.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
+    for (let from = 0; ; from += TEAM_TASK_PAGE * 2) {
+      const res = await Promise.all([page(from), page(from + TEAM_TASK_PAGE)]);
+      const bad = res.find((r) => r.error);
+      if (bad) {
+        if (note) note.innerHTML = '<span class="error">불러오지 못했습니다: ' + bad.error.message + '</span>';
+        jwLoading = false;
         return;
       }
-      rows.push(...(data || []));
-      if (!data || data.length < TEAM_TASK_PAGE) break;
+      res.forEach((r) => rows.push(...(r.data || [])));
+      if (res.some((r) => (r.data || []).length < TEAM_TASK_PAGE)) break;
     }
     currentTasks = rows.map(t => ({ ...t, status: normalizeStatus(t.status) }));
-    await loadJwNotes();           // 상세보기의 목적·코멘트를 화면 그리기 전에 받아둡니다
-    await loadJwProjects();        // 프로젝트형 업무 (윤효선 화면에서만 씁니다)
-    await loadJwInvoicePending();  // "계산서 발행" 배지에 쓸 입금 완료 건수
-    await loadJwSettleDue();       // 정산일이 된 공동구매 건 (상단 배너)
-    await loadJwRegCheck();        // "상품등록" 배지에 쓸 사방넷 등록 실패 건수
-    await loadJwNewProducts();     // 자사몰에 오늘 새로 올라온 상품
-    await loadJwMallRegs();        // 그중 이미 등록에 성공한 건을 빼기 위한 등록 현황
+
+    // 서로 다른 표를 보는 조회들이라 한 줄로 세울 까닭이 없습니다. 같이 받습니다.
+    await Promise.all([
+      loadJwNotes(),           // 상세보기의 목적·코멘트
+      loadJwProjects(),        // 프로젝트형 업무
+      loadJwInvoicePending(),  // "계산서 발행" 배지에 쓸 입금 완료 건수
+      loadJwSettleDue(),       // 정산일이 된 공동구매 건 (상단 배너)
+      loadJwRegCheck(),        // "상품등록" 배지에 쓸 사방넷 등록 실패 건수
+      loadJwNewProducts(),     // 자사몰에 오늘 새로 올라온 상품
+      loadJwMallRegs(),        // 그중 이미 등록에 성공한 건을 빼기 위한 등록 현황
+    ]);
+
     renderTaskAssigneeNav();
     updateTaskViewHeader();
     populateTaskFilterOptions();
     jwLoading = false;
+
+    // 지금 보이는 화면만 그립니다. 나머지는 그 화면으로 넘어갈 때 다시 그려집니다.
+    const shown = (id) => { const el = document.getElementById(id); return !!el && el.style.display !== 'none'; };
     renderTaskView();
-    renderTeamDash();   // 팀 대시보드도 같은 데이터를 씁니다
-    renderTeamCal();    // 팀 캘린더도 같은 데이터를 씁니다
-    renderTaskWeeklyAssigneeChips();
-    renderTaskWeeklyTable();
+    if (shown('teamDashView')) renderTeamDash();
+    if (shown('teamCalView')) renderTeamCal();
+    if (shown('teamWeeklyView')) { renderTaskWeeklyAssigneeChips(); renderTaskWeeklyTable(); }
   }
 
   // 담당자 미선택 = 팀 서머리, 담당자 선택 = 개인 업무관리(전휘원은 전용 화면). 표시 영역과 렌더 함수를 여기서 나눔.
