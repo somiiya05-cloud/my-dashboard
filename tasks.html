@@ -911,25 +911,22 @@
   .mt-day-head i { font-style: normal; font-size: 11.5px; font-weight: 700; color: #94a3b8; }
   .mt-day-head em { font-style: normal; font-size: 11px; font-weight: 700; color: #b6c2d2; margin-left: auto; }
   .mt-day-empty { font-size: 11.5px; color: #b6c2d2; padding: 10px 4px; }
-  .mt-day-rows { min-height: 10px; }
-  .mt-day-sec.over .mt-day-rows { background: #f6f9ff; border-radius: 8px; }
   .mt-day-row {
     display: flex; align-items: center; gap: 9px;
     border-bottom: 1px solid #f3f6fb; padding: 9px 4px;
-    cursor: grab; user-select: none;
   }
-  .mt-day-row.dragging { opacity: .35; }
-  .mt-row-ghost {
-    position: fixed; z-index: 1200; pointer-events: none; margin: 0;
-    background: #fff; border-radius: 9px; padding: 9px 12px;
-    box-shadow: 0 8px 20px rgba(15,23,42,.18);
-  }
-  .mt-grip { flex: none; color: #dbe3ee; font-size: 12px; line-height: 1; letter-spacing: -1px; }
-  .mt-day-row:hover .mt-grip { color: #94a3b8; }
+  /* 자리 번호를 직접 적는 칸 */
   .mt-no {
-    flex: none; width: 18px; text-align: right;
-    font-size: 11px; font-weight: 800; color: #94a3b8;
+    flex: none; width: 34px; text-align: center;
+    border: 1px solid #e7edf5; border-radius: 6px; background: #fff;
+    font-family: inherit; font-size: 11.5px; font-weight: 800; color: #64748b;
+    padding: 4px 2px;
   }
+  .mt-no:hover { border-color: #cfdcf4; }
+  .mt-no:focus { outline: none; border-color: #4d7cfe; color: #1d4ed8; }
+  /* 숫자 칸 옆 화살표는 자리를 많이 먹어 감춥니다 */
+  .mt-no::-webkit-outer-spin-button, .mt-no::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .mt-no { -moz-appearance: textfield; }
   .mt-day-row.done .mt-day-title { color: #94a3b8; text-decoration: line-through; }
   .mt-check {
     flex: none; width: 19px; height: 19px; border-radius: 6px; cursor: pointer;
@@ -5139,10 +5136,11 @@
     const done = t.status === '확인완료';
     const g = jwMyTaskGroupOf(t);
     return `
-      <div class="mt-day-row${done ? ' done' : ''}" data-id="${t.id}"
-        onmousedown="mtRankDown(event, ${t.id})">
-        <span class="mt-grip" title="끌어서 순서를 바꿉니다">⠿</span>
-        <span class="mt-no">${no}</span>
+      <div class="mt-day-row${done ? ' done' : ''}" data-id="${t.id}">
+        <input class="mt-no" type="number" min="1" value="${no}"
+          title="자리 번호를 적고 엔터 — 3번에 1을 적으면 맨 위로 갑니다"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+          onchange="mtSetRank(${t.id}, this.value)">
         <button type="button" class="mt-check${done ? ' on' : ''}" onclick="mtToggleTaskDone(${t.id})"
           title="${done ? '되돌리기' : '다 했으면 누르세요'}">${done ? '✓' : ''}</button>
         <span class="ct-dot ${MT_GROUP_CLS[g] || 'c7'}" title="${escapeAttr(g)}"></span>
@@ -5153,98 +5151,6 @@
             onclick="mtSetPart(${t.id}, '${x}')">${x}</button>`).join('')}
         </span>
       </div>`;
-  }
-
-  // ---- 하루 보기에서 순서 바꾸기 (보드와 같은 마우스 좌표 방식) ----
-  let mtRank = null;
-
-  function mtRankDown(e, id) {
-    if (e.button !== 0) return;
-    if (e.target && e.target.closest('button, input, select, a')) return;
-    const el = e.currentTarget;
-    mtRank = { id, el, startX: e.clientX, startY: e.clientY, moved: false, ghost: null, offX: 0, offY: 0 };
-    document.addEventListener('mousemove', mtRankMove);
-    document.addEventListener('mouseup', mtRankUp);
-    e.preventDefault();
-  }
-  window.mtRankDown = mtRankDown;
-
-  function mtRankMove(e) {
-    if (!mtRank) return;
-    if (!mtRank.moved) {
-      if (Math.abs(e.clientX - mtRank.startX) + Math.abs(e.clientY - mtRank.startY) < 5) return;
-      mtRank.moved = true;
-      const r = mtRank.el.getBoundingClientRect();
-      const g = mtRank.el.cloneNode(true);
-      g.classList.add('mt-row-ghost');
-      g.style.width = r.width + 'px';
-      document.body.appendChild(g);
-      mtRank.ghost = g;
-      mtRank.offX = mtRank.startX - r.left;
-      mtRank.offY = mtRank.startY - r.top;
-      mtRank.el.classList.add('dragging');
-    }
-    mtRank.ghost.style.left = (e.clientX - mtRank.offX) + 'px';
-    mtRank.ghost.style.top = (e.clientY - mtRank.offY) + 'px';
-    document.querySelectorAll('.mt-day-sec.over').forEach((x) => x.classList.remove('over'));
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const sec = el ? el.closest('.mt-day-sec') : null;
-    if (sec) sec.classList.add('over');
-  }
-
-  async function mtRankUp(e) {
-    document.removeEventListener('mousemove', mtRankMove);
-    document.removeEventListener('mouseup', mtRankUp);
-    const d = mtRank;
-    mtRank = null;
-    if (!d) return;
-    if (d.ghost) d.ghost.remove();
-    d.el.classList.remove('dragging');
-    document.querySelectorAll('.mt-day-sec.over').forEach((x) => x.classList.remove('over'));
-    if (!d.moved) return;
-
-    const at = document.elementFromPoint(e.clientX, e.clientY);
-    const sec = at ? at.closest('.mt-day-sec') : null;
-    if (!sec) return;
-    const part = sec.dataset.part || null;
-
-    const moving = (currentTasks || []).find((t) => t.id === d.id);
-    if (!moving) return;
-
-    // 그 칸에 남아 있는 줄들 사이에서 놓은 자리를 찾습니다.
-    const rest = mtDayTasks(mtCurDay())
-      .filter((t) => (t.day_part || null) === part && t.id !== d.id);
-    let idx = rest.length;
-    for (let i = 0; i < rest.length; i++) {
-      const el = sec.querySelector('.mt-day-row[data-id="' + rest[i].id + '"]');
-      if (!el) continue;
-      const b = el.getBoundingClientRect();
-      if (e.clientY < b.top + b.height / 2) { idx = i; break; }
-    }
-    rest.splice(idx, 0, moving);
-
-    // 손대는 줄을 전부 적어 둡니다 — 저장이 실패하면 그대로 되돌립니다.
-    const before = rest.map((t) => ({ t, seq: t.seq_no, part: t.day_part }));
-    const undo = () => {
-      before.forEach((b) => { b.t.seq_no = b.seq; b.t.day_part = b.part; });
-      renderMyTracker();
-    };
-
-    moving.day_part = part;
-    rest.forEach((t, i) => { t.seq_no = (i + 1) * 10; });
-    renderMyTracker();
-
-    for (let i = 0; i < rest.length; i++) {
-      const t = rest[i];
-      const patch = { seq_no: t.seq_no };
-      if (t.id === moving.id) patch.day_part = part;
-      const { error } = await client.from('team_tasks').update(patch).eq('id', t.id);
-      if (error) {
-        undo();
-        mtToast('순서를 저장하지 못했습니다: ' + error.message);
-        return;
-      }
-    }
   }
 
   function renderMyTrackerDay(root) {
@@ -5259,7 +5165,7 @@
           ${hint ? `<em>${escapeAttr(hint)}</em>` : ''}</div>
         <div class="mt-day-rows">
           ${list.length ? list.map((t, i) => mtDayRowHtml(t, i + 1)).join('')
-            : '<div class="mt-day-empty">없습니다. 여기로 끌어다 놓을 수 있습니다.</div>'}
+            : '<div class="mt-day-empty">없습니다.</div>'}
         </div>
       </div>`;
 
