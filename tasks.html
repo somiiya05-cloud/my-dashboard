@@ -6255,7 +6255,7 @@
 
   async function loadTeamEvents() {
     const { data, error } = await client.from('team_events')
-      .select('id,event_date,kind,title,who')
+      .select('id,event_date,end_date,kind,title,who')
       .order('event_date');
     tcEventError = error ? error.message : '';
     tcEvents = error ? [] : (data || []);
