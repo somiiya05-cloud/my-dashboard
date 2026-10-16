@@ -583,7 +583,7 @@
   const blank = () => ({ imp: 0, clk: 0, cost: 0, conv: 0, rev: 0 });
   function add(a, r) { a.imp += r.imp; a.clk += r.clk; a.cost += r.cost; a.conv += r.conv; a.rev += r.rev; return a; }
   function metrics(a) {
-    return { ...a, ctr: a.imp ? a.clk / a.imp : NaN, cpc: a.clk ? a.cost / a.clk : NaN, cvr: a.clk ? a.conv / a.clk : NaN, roas: a.cost ? a.rev / a.cost : NaN, cpa: a.conv ? a.cost / a.conv : NaN };
+    return { ...a, ctr: a.imp ? a.clk / a.imp : NaN, cpc: a.clk ? a.cost / a.clk : NaN, cvr: a.clk ? a.conv / a.clk : NaN, roas: a.cost ? a.rev / a.cost : NaN, share: a.rev ? a.cost / a.rev : NaN, cpa: a.conv ? a.cost / a.conv : NaN };
   }
   function scoped(from, to) {
     const mall = $('fMall').value, camp = $('fCamp').value;
@@ -618,26 +618,33 @@
       ['광고비', won(total.cost) + '원', 'cost', false],
       ['전환매출', won(total.rev) + '원', 'rev', true],
       ['ROAS', pct(total.roas), 'roas', true],
-      ['클릭수', won(total.clk), 'clk', true],
-      ['CTR', pct(total.ctr, 2), 'ctr', true],
-      ['평균 CPC', won(total.cpc) + '원', 'cpc', false],
-      ['전환율(CVR)', pct(total.cvr, 2), 'cvr', true],
-      ['전환당 비용', won(total.cpa) + '원', 'cpa', false],
+      ['광고비 비중', pct(total.share, 1), 'share', false],
     ];
     $('kpis').innerHTML = items.map(([k, v, key, goodUp]) => {
       let d = `<div class="d flat">이전 ${days}일 데이터 없음</div>`;
-      if (prevTotal && isFinite(prevTotal[key]) && prevTotal[key] && isFinite(total[key])) {
+      if (key === 'share' && prevTotal && isFinite(prevTotal.share) && isFinite(total.share)) {
+        const p = (total.share - prevTotal.share) * 100;
+        const cls = Math.abs(p) < 0.05 ? 'flat' : p < 0 ? 'up' : 'down';
+        d = `<div class="d ${cls}">${p > 0 ? '▲' : p < 0 ? '▼' : ''} ${Math.abs(p).toFixed(1)}%p <span class="muted" style="font-weight:600;">vs 이전 ${days}일</span></div>`;
+      } else if (prevTotal && isFinite(prevTotal[key]) && prevTotal[key] && isFinite(total[key])) {
         const ch = total[key] / prevTotal[key] - 1;
         const cls = Math.abs(ch) < 0.005 ? 'flat' : (ch > 0) === goodUp ? 'up' : 'down';
         d = `<div class="d ${cls}">${ch > 0 ? '▲' : ch < 0 ? '▼' : ''} ${Math.abs(ch * 100).toFixed(1)}% <span class="muted" style="font-weight:600;">vs 이전 ${days}일</span></div>`;
       }
       const flag = key === 'roas' && isFinite(total.roas) ? (total.roas >= T ? ' <span class="grade g-star">목표 달성</span>' : ' <span class="grade g-low">목표 미달</span>') : '';
-      return `<div class="kpi"><div class="k">${k}${flag}</div><div class="v">${v}</div>${d}</div>`;
+      const tip = key === 'share' ? ' title="광고비 ÷ 전환매출(광고 관리자 기준). 낮을수록 좋습니다."' : '';
+      return `<div class="kpi"${tip}><div class="k">${k}${key === 'share' ? ' <span class="muted" style="font-weight:600;">광고비÷전환매출</span>' : ''}${flag}</div><div class="v">${v}</div>${d}</div>`;
     }).join('');
   }
 
   function drawTrend() {
-    const daily = groupBy(cur, (r) => r.date).sort((a, b) => a.name < b.name ? -1 : 1);
+    // 기간이 7일보다 짧으면(기본값은 어제 하루) 흐름이 안 보이니, 끝날짜까지 최근 14일을 그리고 고른 날을 진하게 표시합니다.
+    const from = $('fFrom').value, to = $('fTo').value;
+    const short = (new Date(to) - new Date(from)) / 864e5 < 6;
+    let list = cur;
+    if (short) { const s = new Date(to); s.setDate(s.getDate() - 13); list = scoped(ymd(s), to); }
+    const daily = groupBy(list, (r) => r.date).sort((a, b) => a.name < b.name ? -1 : 1);
+    const picked = (d) => !short || (d >= from && d <= to);
     const T = +$('fTarget').value / 100;
     if (!daily.length) { $('trend').innerHTML = '<div class="empty">선택한 기간에 데이터가 없습니다</div>'; $('trendHint').textContent = ''; return; }
     const W = 760, H = 280, L = 56, R = 46, TOP = 14, B = 34;
@@ -655,7 +662,7 @@
       g += `<text x="${L - 6}" y="${y + 4}" text-anchor="end" font-size="10.5" fill="#94a3b8">${shortWon(maxC * (1 - i / 4))}</text>`;
       g += `<text x="${W - R + 6}" y="${y + 4}" font-size="10.5" fill="#16a34a">${Math.round(maxR * (1 - i / 4) * 100)}%</text>`;
     }
-    const bars = daily.map((d, i) => `<rect x="${x(i) - bw * 0.36}" y="${yC(d.cost)}" width="${bw * 0.72}" height="${TOP + ih - yC(d.cost)}" rx="2" fill="${new Date(d.name).getDay() % 6 === 0 ? '#c4d4ff' : '#93b4ff'}"/>`).join('');
+    const bars = daily.map((d, i) => `<rect x="${x(i) - bw * 0.36}" y="${yC(d.cost)}" width="${bw * 0.72}" height="${TOP + ih - yC(d.cost)}" rx="2" fill="${!picked(d.name) ? '#dbe3f3' : new Date(d.name).getDay() % 6 === 0 ? '#c4d4ff' : short ? '#4d7cfe' : '#93b4ff'}"/>`).join('');
     const pts = daily.map((d, i) => isFinite(d.roas) ? `${x(i)},${yR(d.roas)}` : null).filter(Boolean).join(' ');
     const step = Math.ceil(daily.length / 10);
     const labels = daily.map((d, i) => i % step === 0 ? `<text x="${x(i)}" y="${H - 12}" text-anchor="middle" font-size="10.5" fill="#64748b">${d.name.slice(5).replace('-', '/')}</text>` : '').join('');
@@ -675,7 +682,8 @@
       h.onmouseleave = () => tip.style.display = 'none';
     });
     const under = daily.filter((d) => d.cost && d.roas < T).length;
-    $('trendHint').textContent = `${daily.length}일 중 ${under}일이 목표 ROAS ${Math.round(T * 100)}% 미달 · 연한 막대는 주말`;
+    $('trendHint').textContent = (short ? `흐름이 보이도록 ${to.slice(5).replace('-', '/')}까지 최근 14일을 보여줍니다(고른 날짜는 진하게) · ` : '') +
+      `${daily.length}일 중 ${under}일이 목표 ROAS ${Math.round(T * 100)}% 미달 · 연한 막대는 주말`;
   }
   function shortWon(v) { return v >= 1e8 ? (v / 1e8).toFixed(1) + '억' : v >= 1e4 ? Math.round(v / 1e4).toLocaleString() + '만' : Math.round(v).toLocaleString(); }
 
@@ -735,6 +743,7 @@
         ${item('광고 유입 판매금액', won(s.sales) + '원', `스토어 전체의 ${s.storeSales ? pct(s.sales / s.storeSales) : '-'}`)}
         ${item('실결제 ROAS', `<span style="color:${!isFinite(store.roas) ? '#94a3b8' : store.roas >= T ? '#16a34a' : store.roas >= 1.4 ? '#0f172a' : '#dc2626'}">${pct(store.roas)}</span>`, `광고 관리자 기준 ${pct(ad.roas)}`)}
         ${item('결제 1건당 광고비', s.pays ? won(ad.cost / s.pays) + '원' : '-', `광고비 ${won(ad.cost)}원`)}
+        ${item('스토어 매출 대비 광고비', s.storeSales ? pct(ad.cost / s.storeSales, 1) : '-', `스토어 전체 판매 ${won(s.storeSales)}원 · 실결제 대비 ${s.sales ? pct(ad.cost / s.sales, 1) : '-'}`)}
         ${item('광고 유입 구매전환율', s.visits ? pct(s.pays / s.visits, 1) : '-', `방문 ${won(s.visits)}명`)}
       </div>`;
   }
