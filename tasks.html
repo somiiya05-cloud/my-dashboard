@@ -1198,6 +1198,10 @@
   .tc-item.sp.k-week  { background: #a7f3d0; color: #065f46; }
   .tc-item.sp.k-month { background: #c7d2fe; color: #3730a3; }
   .tc-item.sp.k-etc   { background: #e2e8f0; color: #334155; }
+  /* 업무 띠 — 일정보다 눈에 덜 띄게, 담당자 색으로 */
+  .tc-item.task.sp { background: #e8edf7; color: #334155; }
+  .tc-item.task.sp.late { background: #fee2e2; color: #b91c1c; }
+  .tc-item.task.sp.done { background: #eef2f7; color: #94a3b8; }
   .tc-span-wrap {
     display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
     font-size: 11.5px; font-weight: 700; color: #64748b;
@@ -6380,7 +6384,12 @@
   function tcItemsOf(date) {
     const items = [];
     currentTasks.forEach((t) => {
-      if (!t.due_date || String(t.due_date).slice(0, 10) !== date) return;
+      const due = String(t.due_date || '').slice(0, 10);
+      if (!due) return;
+      // 시작일이 있으면 그날부터 마감일까지 걸칩니다 (거꾸로 적힌 건 하루로 봅니다).
+      const from = String(t.start_date || '').slice(0, 10);
+      const a = (from && from < due) ? from : due;
+      if (date < a || date > due) return;
       if (t.archived_at && t.status === '확인완료') return;   // 끝나서 치운 건 달력에서 뺍니다
       // 전휘원 데일리 루틴은 하루 20건이 넘어 달력이 묻힙니다. 여기서는 빼고,
       // 루틴 진행률은 팀 대시보드의 "전휘원 데일리 업무" 위젯에서 봅니다.
@@ -6388,8 +6397,11 @@
       items.push({
         kind: 'task', id: t.id, who: t.assignee || '', title: t.title || '',
         status: t.status, routine: false,
+        span: a < due, spanFrom: a, spanTo: due,
+        spanStart: date === a, spanEnd: date === due,
         done: t.status === '확인완료',
-        late: ['할일', '진행중', '검수대기'].includes(t.status) && date < jwTodayKST(),
+        // 지났는지는 마감일로 봅니다 — 기간 중의 지난 날까지 빨갛게 되면 안 되니까요.
+        late: ['할일', '진행중', '검수대기'].includes(t.status) && due < jwTodayKST(),
       });
     });
     tcEventsOf(date).forEach((e) => {
@@ -6445,7 +6457,7 @@
           return `
           <div class="tc-item ${x.kind}${x.cls ? ' ' + x.cls : ''}${cls}${x.done ? ' done' : ''}${x.late ? ' late' : ''}"
             title="${escapeAttr(x.who)} · ${escapeAttr(x.sub ? x.sub + ' — ' : '')}${escapeAttr(x.title)}${x.span ? ' (' + x.spanFrom + ' ~ ' + x.spanTo + ')' : ''}">
-            ${x.span ? '' : `<i class="${x.who === '윤효선' ? 'hs' : 'hw'}"></i>`}${escapeAttr(label)}
+            ${(!x.span || x.spanStart) ? `<i class="${x.who === '윤효선' ? 'hs' : 'hw'}"></i>` : ''}${escapeAttr(label)}
           </div>`;
         }).join('')}
         ${rest.length > show.length ? `<div class="tc-more">+${rest.length - show.length}건</div>` : ''}
@@ -6543,6 +6555,7 @@
     let other = 0;
     days.filter((d) => d.slice(0, 7) === tcMonthKey()).forEach((d) => {
       tcItemsOf(d).forEach((x) => {
+        if (x.span && !x.spanStart) return;   // 띠는 시작한 날에만 셉니다
         if (x.who === '윤효선') mine += 1; else other += 1;
       });
     });
