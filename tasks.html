@@ -1184,6 +1184,19 @@
     display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
     font-size: 11.5px; font-weight: 700; color: #64748b;
   }
+  /* 기간 일정 — 칸 좌우 여백 밖까지 늘여서 옆 날짜와 이어져 보이게 합니다 */
+  .tc-item.sp {
+    margin-left: -7px; margin-right: -7px; padding-left: 7px; padding-right: 7px;
+    border-radius: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tc-item.sp.sp-s { margin-left: 0; border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+  .tc-item.sp.sp-e { margin-right: 0; border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+  .tc-span-wrap {
+    display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+    font-size: 11.5px; font-weight: 700; color: #64748b;
+  }
+  .tc-span-wrap input[type="date"] { padding: 6px 8px; }
+
   .tc-item.event { background: #ecfdf5; color: #047857; font-weight: 700; }
   .tc-row.event { background: #f0fdf9; border-color: rgba(4,120,87,.18); cursor: default; }
   /* 일정 종류별 색 — 회의는 초록, 외근은 주황, 유관부서 미팅은 파랑 */
@@ -6248,8 +6261,13 @@
     tcEvents = error ? [] : (data || []);
   }
 
+  // 기간 일정이면 시작일부터 끝나는 날까지 그 날짜마다 걸립니다.
   function tcEventsOf(date) {
-    return tcEvents.filter((e) => String(e.event_date).slice(0, 10) === date);
+    return tcEvents.filter((e) => {
+      const a = String(e.event_date).slice(0, 10);
+      const b = String(e.end_date || e.event_date).slice(0, 10);
+      return a <= date && date <= b;
+    });
   }
 
   async function tcAddItem() {
@@ -6276,7 +6294,10 @@
     // 그 밖에는 일정으로 넣습니다. 매주 도는 회의는 한 번에 여러 주를 만들 수 있습니다.
     const repeat = !!(document.getElementById('tcAddRepeat') || {}).checked;
     const rows = [];
+    const end = (document.getElementById('tcAddEnd') || {}).value || '';
     const base = { kind, title: title || null, who: who || null };
+    // 끝나는 날이 시작보다 앞서면 무시합니다.
+    if (end && end > tcSelected) base.end_date = end;
     rows.push({ ...base, event_date: tcSelected });
     if (repeat) {
       for (let i = 1; i < TC_REPEAT_WEEKS; i++) rows.push({ ...base, event_date: jwAddDays(tcSelected, 7 * i) });
@@ -6288,6 +6309,8 @@
       return;
     }
     if (input) input.value = '';
+    const endEl = document.getElementById('tcAddEnd');
+    if (endEl) endEl.value = '';
     await loadTeamEvents();
     renderTeamCal();
   }
@@ -6307,6 +6330,9 @@
     const kind = (document.getElementById('tcAddKind') || {}).value || '업무';
     const wrap = document.getElementById('tcRepeatWrap');
     if (wrap) wrap.style.display = TC_WEEKLY_KIND[kind] ? '' : 'none';
+    // 업무가 아닌 일정에는 기간을 줄 수 있습니다.
+    const endWrap = document.getElementById('tcEndWrap');
+    if (endWrap) endWrap.style.display = kind === '업무' ? 'none' : '';
     const input = document.getElementById('tcAddTitle');
     if (input) input.placeholder = kind === '업무'
       ? tcSelected + ' 에 추가할 업무'
@@ -6360,8 +6386,13 @@
       });
     });
     tcEventsOf(date).forEach((e) => {
+      const a = String(e.event_date).slice(0, 10);
+      const b = String(e.end_date || e.event_date).slice(0, 10);
+      const span = b > a;   // 하루보다 길면 띠로 그립니다
       items.push({ kind: 'event', id: e.id, who: e.who || '팀 전체', title: e.kind,
         sub: e.title || '', status: e.kind, cls: tcKindCls(e.kind),
+        span, spanFrom: a, spanTo: b,
+        spanStart: date === a, spanEnd: date === b,
         routine: false, done: false, late: false });
     });
     jwProjects.forEach((p) => {
@@ -6395,11 +6426,21 @@
           <span class="tc-dnum${(hol || dow === 0) ? ' sun' : (dow === 6 ? ' sat' : '')}">${Number(date.slice(8))}</span>
           ${hol ? `<span class="tc-hol">${escapeAttr(hol)}</span>` : ''}
         </div>
-        ${show.map((x) => `
-          <div class="tc-item ${x.kind}${x.cls ? ' ' + x.cls : ''}${x.done ? ' done' : ''}${x.late ? ' late' : ''}"
-            title="${escapeAttr(x.who)} · ${escapeAttr(x.sub ? x.sub + ' — ' : '')}${escapeAttr(x.title)}">
-            <i class="${x.who === '윤효선' ? 'hs' : 'hw'}"></i>${escapeAttr(x.title)}
-          </div>`).join('')}
+        ${show.map((x) => {
+          // 기간 일정은 이어진 띠처럼 보이게 합니다.
+          // 이름은 시작일과 주의 첫 칸(월요일)에만 적고, 가운데 날은 비워 둡니다.
+          const monday = new Date(date + 'T00:00:00Z').getUTCDay() === 1;
+          const label = !x.span || x.spanStart || monday
+            ? (x.span ? (x.sub || x.title) : x.title) : '';
+          const cls = x.span
+            ? ' sp' + (x.spanStart ? ' sp-s' : '') + (x.spanEnd ? ' sp-e' : '')
+            : '';
+          return `
+          <div class="tc-item ${x.kind}${x.cls ? ' ' + x.cls : ''}${cls}${x.done ? ' done' : ''}${x.late ? ' late' : ''}"
+            title="${escapeAttr(x.who)} · ${escapeAttr(x.sub ? x.sub + ' — ' : '')}${escapeAttr(x.title)}${x.span ? ' (' + x.spanFrom + ' ~ ' + x.spanTo + ')' : ''}">
+            ${x.span ? '' : `<i class="${x.who === '윤효선' ? 'hs' : 'hw'}"></i>`}${escapeAttr(label)}
+          </div>`;
+        }).join('')}
         ${rest.length > show.length ? `<div class="tc-more">+${rest.length - show.length}건</div>` : ''}
       </div>`;
   }
@@ -6422,6 +6463,9 @@
         </select>
         <input type="text" id="tcAddTitle" placeholder="${escapeAttr(tcSelected)} 에 추가할 업무" autocomplete="off"
           onkeydown="if(event.key==='Enter'){event.preventDefault();tcAddItem();}">
+        <label class="tc-span-wrap" id="tcEndWrap" style="display:none" title="며칠에 걸치는 일정이면 끝나는 날을 고르세요">
+          ~ <input type="date" id="tcAddEnd" min="${escapeAttr(tcSelected)}">
+        </label>
         <label class="tc-repeat" id="tcRepeatWrap" style="display:none">
           <input type="checkbox" id="tcAddRepeat" checked>매주
         </label>
