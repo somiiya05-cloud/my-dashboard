@@ -911,9 +911,24 @@
   .mt-day-head i { font-style: normal; font-size: 11.5px; font-weight: 700; color: #94a3b8; }
   .mt-day-head em { font-style: normal; font-size: 11px; font-weight: 700; color: #b6c2d2; margin-left: auto; }
   .mt-day-empty { font-size: 11.5px; color: #b6c2d2; padding: 10px 4px; }
+  .mt-day-rows { min-height: 10px; }
+  .mt-day-sec.over .mt-day-rows { background: #f6f9ff; border-radius: 8px; }
   .mt-day-row {
     display: flex; align-items: center; gap: 9px;
     border-bottom: 1px solid #f3f6fb; padding: 9px 4px;
+    cursor: grab; user-select: none;
+  }
+  .mt-day-row.dragging { opacity: .35; }
+  .mt-row-ghost {
+    position: fixed; z-index: 1200; pointer-events: none; margin: 0;
+    background: #fff; border-radius: 9px; padding: 9px 12px;
+    box-shadow: 0 8px 20px rgba(15,23,42,.18);
+  }
+  .mt-grip { flex: none; color: #dbe3ee; font-size: 12px; line-height: 1; letter-spacing: -1px; }
+  .mt-day-row:hover .mt-grip { color: #94a3b8; }
+  .mt-no {
+    flex: none; width: 18px; text-align: right;
+    font-size: 11px; font-weight: 800; color: #94a3b8;
   }
   .mt-day-row.done .mt-day-title { color: #94a3b8; text-decoration: line-through; }
   .mt-check {
@@ -5089,7 +5104,11 @@
     return (currentTasks || [])
       .filter((t) => t.assignee === MT_OWNER && !t.archived_at
         && String(t.due_date || '').slice(0, 10) === day)
-      .sort((a, b) => a.id - b.id);
+      .sort((a, b) => {
+        const av = a.seq_no == null ? Infinity : a.seq_no;
+        const bv = b.seq_no == null ? Infinity : b.seq_no;
+        return av - bv || a.id - b.id;
+      });
   }
 
   async function mtSetPart(id, part) {
@@ -5116,11 +5135,14 @@
   }
   window.mtToggleTaskDone = mtToggleTaskDone;
 
-  function mtDayRowHtml(t) {
+  function mtDayRowHtml(t, no) {
     const done = t.status === '확인완료';
     const g = jwMyTaskGroupOf(t);
     return `
-      <div class="mt-day-row${done ? ' done' : ''}">
+      <div class="mt-day-row${done ? ' done' : ''}" data-id="${t.id}"
+        onmousedown="mtRankDown(event, ${t.id})">
+        <span class="mt-grip" title="끌어서 순서를 바꿉니다">⠿</span>
+        <span class="mt-no">${no}</span>
         <button type="button" class="mt-check${done ? ' on' : ''}" onclick="mtToggleTaskDone(${t.id})"
           title="${done ? '되돌리기' : '다 했으면 누르세요'}">${done ? '✓' : ''}</button>
         <span class="ct-dot ${MT_GROUP_CLS[g] || 'c7'}" title="${escapeAttr(g)}"></span>
@@ -5133,6 +5155,93 @@
       </div>`;
   }
 
+  // ---- 하루 보기에서 순서 바꾸기 (보드와 같은 마우스 좌표 방식) ----
+  let mtRank = null;
+
+  function mtRankDown(e, id) {
+    if (e.button !== 0) return;
+    if (e.target && e.target.closest('button, input, select, a')) return;
+    const el = e.currentTarget;
+    mtRank = { id, el, startX: e.clientX, startY: e.clientY, moved: false, ghost: null, offX: 0, offY: 0 };
+    document.addEventListener('mousemove', mtRankMove);
+    document.addEventListener('mouseup', mtRankUp);
+    e.preventDefault();
+  }
+  window.mtRankDown = mtRankDown;
+
+  function mtRankMove(e) {
+    if (!mtRank) return;
+    if (!mtRank.moved) {
+      if (Math.abs(e.clientX - mtRank.startX) + Math.abs(e.clientY - mtRank.startY) < 5) return;
+      mtRank.moved = true;
+      const r = mtRank.el.getBoundingClientRect();
+      const g = mtRank.el.cloneNode(true);
+      g.classList.add('mt-row-ghost');
+      g.style.width = r.width + 'px';
+      document.body.appendChild(g);
+      mtRank.ghost = g;
+      mtRank.offX = mtRank.startX - r.left;
+      mtRank.offY = mtRank.startY - r.top;
+      mtRank.el.classList.add('dragging');
+    }
+    mtRank.ghost.style.left = (e.clientX - mtRank.offX) + 'px';
+    mtRank.ghost.style.top = (e.clientY - mtRank.offY) + 'px';
+    document.querySelectorAll('.mt-day-sec.over').forEach((x) => x.classList.remove('over'));
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const sec = el ? el.closest('.mt-day-sec') : null;
+    if (sec) sec.classList.add('over');
+  }
+
+  async function mtRankUp(e) {
+    document.removeEventListener('mousemove', mtRankMove);
+    document.removeEventListener('mouseup', mtRankUp);
+    const d = mtRank;
+    mtRank = null;
+    if (!d) return;
+    if (d.ghost) d.ghost.remove();
+    d.el.classList.remove('dragging');
+    document.querySelectorAll('.mt-day-sec.over').forEach((x) => x.classList.remove('over'));
+    if (!d.moved) return;
+
+    const at = document.elementFromPoint(e.clientX, e.clientY);
+    const sec = at ? at.closest('.mt-day-sec') : null;
+    if (!sec) return;
+    const part = sec.dataset.part || null;
+
+    const moving = (currentTasks || []).find((t) => t.id === d.id);
+    if (!moving) return;
+
+    // 그 칸에 남아 있는 줄들 사이에서 놓은 자리를 찾습니다.
+    const rest = mtDayTasks(mtCurDay())
+      .filter((t) => (t.day_part || null) === part && t.id !== d.id);
+    let idx = rest.length;
+    for (let i = 0; i < rest.length; i++) {
+      const el = sec.querySelector('.mt-day-row[data-id="' + rest[i].id + '"]');
+      if (!el) continue;
+      const b = el.getBoundingClientRect();
+      if (e.clientY < b.top + b.height / 2) { idx = i; break; }
+    }
+    rest.splice(idx, 0, moving);
+
+    const before = { part: moving.day_part, seq: moving.seq_no };
+    moving.day_part = part;
+    rest.forEach((t, i) => { t.seq_no = (i + 1) * 10; });
+    renderMyTracker();
+
+    for (let i = 0; i < rest.length; i++) {
+      const t = rest[i];
+      const patch = { seq_no: t.seq_no };
+      if (t.id === moving.id) patch.day_part = part;
+      const { error } = await client.from('team_tasks').update(patch).eq('id', t.id);
+      if (error) {
+        moving.day_part = before.part; moving.seq_no = before.seq;
+        renderMyTracker();
+        mtToast('순서를 저장하지 못했습니다: ' + error.message);
+        return;
+      }
+    }
+  }
+
   function renderMyTrackerDay(root) {
     const day = mtCurDay();
     const rows = mtDayTasks(day);
@@ -5140,11 +5249,13 @@
     const part = (x) => rows.filter((t) => t.day_part === x);
     const none = rows.filter((t) => !t.day_part);
     const block = (label, list, hint) => `
-      <div class="mt-day-sec">
+      <div class="mt-day-sec" data-part="${label === '시간 미정' ? '' : escapeAttr(label)}">
         <div class="mt-day-head">${escapeAttr(label)}<i>${list.length}</i>
           ${hint ? `<em>${escapeAttr(hint)}</em>` : ''}</div>
-        ${list.length ? list.map(mtDayRowHtml).join('')
-          : '<div class="mt-day-empty">없습니다.</div>'}
+        <div class="mt-day-rows">
+          ${list.length ? list.map((t, i) => mtDayRowHtml(t, i + 1)).join('')
+            : '<div class="mt-day-empty">없습니다. 여기로 끌어다 놓을 수 있습니다.</div>'}
+        </div>
       </div>`;
 
     root.innerHTML = `
