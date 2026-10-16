@@ -156,6 +156,7 @@
         <label class="f" title="이 ROAS 이상이면 '효자', 절반 미만이면 '저효율'로 봅니다">목표 ROAS(%)<input type="number" id="fTarget" value="300" step="50" style="width:100px;"></label>
         <label class="f" title="클릭이 이보다 적으면 판단을 보류합니다">판단 최소 클릭<input type="number" id="fMinClk" value="20" step="5" style="width:100px;"></label>
         <div class="row" style="gap:6px;">
+          <button class="btn sm" data-range="1">어제</button>
           <button class="btn sm" data-range="7">최근 7일</button>
           <button class="btn sm" data-range="14">14일</button>
           <button class="btn sm" data-range="30">30일</button>
@@ -566,8 +567,15 @@
     const curMall = $('fMall').value;
     $('fMall').innerHTML = '<option value="">전체</option>' + Object.keys(malls).sort().map((m) => `<option ${m === curMall ? 'selected' : ''}>${esc(m)}</option>`).join('');
     fillCampaigns();
-    if (!$('fFrom').value || $('fFrom').value < ds[0] || $('fFrom').value > ds[ds.length - 1]) $('fFrom').value = ds[0];
-    if (!$('fTo').value || $('fTo').value > ds[ds.length - 1] || $('fTo').value < ds[0]) $('fTo').value = ds[ds.length - 1];
+    // 처음 열면 어제 하루를 봅니다(자동 수집이 어제까지 채움). 어제 데이터가 아직 없으면 마지막 수집일.
+    const first = ds[0], last = ds[ds.length - 1];
+    if (!$('fFrom').value || !$('fTo').value) {
+      const y = new Date(); y.setDate(y.getDate() - 1);
+      const day = isSample || ymd(y) > last ? last : ymd(y) < first ? first : ymd(y);
+      $('fFrom').value = day; $('fTo').value = day;
+    }
+    if ($('fFrom').value < first || $('fFrom').value > last) $('fFrom').value = first;
+    if ($('fTo').value > last || $('fTo').value < first) $('fTo').value = last;
     draw();
   }
 
