@@ -111,7 +111,7 @@
     <a class="back" href="index.html">← 영업 대시보드</a>
     <div>
       <h1>외부 광고 리포트</h1>
-      <div class="sub">스마트스토어(애드부스트) · G마켓 · 오늘의집 · 카카오모먼트 광고 보고서를 올리면 캠페인·상품·요일별 효율과 운영 액션을 정리합니다</div>
+      <div class="sub">스마트스토어(애드부스트) · G마켓 · 오늘의집 광고 보고서를 올리면 캠페인·상품·요일별 효율과 운영 액션을 정리합니다</div>
     </div>
     <div class="spacer"></div>
   </div>
@@ -128,7 +128,7 @@
       <label class="f">몰
         <select id="upMall">
           <option value="네이버 ADVoost">스마트스토어 (네이버 애드부스트)</option>
-          <option>G마켓</option><option>오늘의집</option><option>카카오모먼트</option>
+          <option>G마켓</option><option>오늘의집</option>
           <option value="__col">파일 안의 몰/매체 열 사용</option>
         </select>
       </label>
@@ -259,6 +259,8 @@
 
   const db = window.supabase.createClient('https://fwsszzjfjktliredmjcn.supabase.co', 'sb_publishable_uE-8s2DbZBUSs0z1uQ-nIA_za2Ah3uT');
   const TABLE = 'cpc_ad_rows';
+  // 더 이상 보지 않는 채널(데이터는 지우지 않고 화면에서만 뺌). 카카오모먼트는 10/18 사용자 요청.
+  const HIDDEN_MALLS = ['카카오모먼트'];
   const COLS = 'date,mall,campaign,adgroup,product,keyword,imp,clk,cost,conv,rev';
 
   let rows = [];
@@ -275,7 +277,7 @@
     for (let from = 0; ; from += 1000) {
       const { data, error } = await db.from(TABLE).select(COLS).gte('date', ymd(since)).order('id').range(from, from + 999);
       if (error) throw error;
-      for (const r of data) out.push({ ...r, imp: +r.imp, clk: +r.clk, cost: +r.cost, conv: +r.conv, rev: +r.rev });
+      for (const r of data) if (!HIDDEN_MALLS.includes(r.mall)) out.push({ ...r, imp: +r.imp, clk: +r.clk, cost: +r.cost, conv: +r.conv, rev: +r.rev });
       if (data.length < 1000) break;
     }
     return out;
