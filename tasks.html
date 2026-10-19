@@ -871,6 +871,18 @@
   .mt-src.task { background: #ecfdf5; color: #047857; }
   .mt-src.plan { background: #e0ecff; color: #1d4ed8; }
   .mt-src.ad { background: #fff7ed; color: #c2410c; }
+  /* 판매채널 꼬리표 */
+  .mt-ch {
+    flex: none; font-size: 9px; font-weight: 800; border-radius: 4px;
+    padding: 1px 5px; white-space: nowrap;
+  }
+  .mt-ch.ch-cp { background: #ffe4e6; color: #be123c; }   /* 쿠팡 */
+  .mt-ch.ch-nv { background: #dcfce7; color: #15803d; }   /* 네이버 · 스마트스토어 */
+  .mt-ch.ch-td { background: #fef3c7; color: #a16207; }   /* 톡딜 · 카카오 */
+  .mt-ch.ch-gm { background: #ccfbf1; color: #0f766e; }   /* G마켓 */
+  .mt-ch.ch-oh { background: #e0f2fe; color: #0369a1; }   /* 오늘의집 */
+  .mt-ch.ch-kr { background: #f3e8ff; color: #7e22ce; }   /* 컬리 */
+
   .mt-due { margin-left: auto; font-size: 9.5px; font-weight: 700; color: #94a3b8; }
   .mt-due.late { color: #dc2626; }
   .mt-card-title {
@@ -5007,6 +5019,25 @@
   const MT_STAGES = ['진행중', '확인 필요', '완료'];
   const MT_GROUP_CLS = { 'E커머스': 'c1', '공구': 'c2', 'B2B': 'c3', '수출': 'c4', '광고': 'c5', '영업팀': 'c6', 'ETC': 'c7' };
 
+  // 업무 이름에 들어간 낱말로 판매채널을 알아봅니다. 위에서부터 먼저 걸리는 것을 씁니다
+  // (톡딜을 카카오보다 앞에 둬야 톡딜로 잡힙니다).
+  const MT_CHANNELS = [
+    { key: '톡딜', cls: 'ch-td', words: ['톡딜'] },
+    { key: '쿠팡', cls: 'ch-cp', words: ['쿠팡'] },
+    { key: '네이버', cls: 'ch-nv', words: ['네이버', '스마트스토어', '스스 ', '스스_'] },
+    { key: 'G마켓', cls: 'ch-gm', words: ['G마켓', 'g마켓', '지마켓', '지마캣'] },
+    { key: '오늘의집', cls: 'ch-oh', words: ['오늘의집'] },
+    { key: '컬리', cls: 'ch-kr', words: ['컬리'] },
+    { key: '카카오', cls: 'ch-td', words: ['카카오'] },
+  ];
+  function mtChannelOf(title) {
+    const t = String(title || '');
+    for (const c of MT_CHANNELS) {
+      if (c.words.some((w) => t.includes(w))) return c;
+    }
+    return null;
+  }
+
   // 업무 상태 → 가로축 세 칸. '할일'도 진행중 칸에서 같이 봅니다.
   const MT_TASK_STAGE = { '할일': '진행중', '진행중': '진행중', '검수대기': '확인 필요', '확인완료': '완료' };
 
@@ -5113,6 +5144,7 @@
         title="끌면 칸을 옮기고, 그냥 누르면 원래 자리로 갑니다">
         <div class="mt-card-top">
           <span class="mt-src ${x.src}">${escapeAttr(x.label)}</span>
+          ${(() => { const c = mtChannelOf(x.title); return c ? `<span class="mt-ch ${c.cls}">${escapeAttr(c.key)}</span>` : ''; })()}
           ${x.due ? `<span class="mt-due${late ? ' late' : ''}">${escapeAttr(String(x.due).slice(5).replace('-', '/'))}</span>` : ''}
         </div>
         <div class="mt-card-title">${escapeAttr(x.title)}</div>
@@ -5169,6 +5201,7 @@
         <button type="button" class="mt-check${done ? ' on' : ''}" onclick="mtToggleTaskDone(${t.id})"
           title="${done ? '되돌리기' : '다 했으면 누르세요'}">${done ? '✓' : ''}</button>
         <span class="ct-dot ${MT_GROUP_CLS[g] || 'c7'}" title="${escapeAttr(g)}"></span>
+        ${(() => { const c = mtChannelOf(t.title); return c ? `<span class="mt-ch ${c.cls}">${escapeAttr(c.key)}</span>` : ''; })()}
         <span class="mt-day-title" onclick="openTaskPanel(${t.id})" title="누르면 상세가 열립니다">${escapeAttr(t.title || '(제목 없음)')}</span>
         <span class="mt-day-cat">${escapeAttr(g)}</span>
         <span class="mt-part-sw">
