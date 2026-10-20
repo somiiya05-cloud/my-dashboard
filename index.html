@@ -1153,7 +1153,7 @@
 
   /* ---- 공구 가격표 ---- */
   .gp-table { font-size: 12.5px; }
-  .gp-table td { white-space: nowrap; }
+  .gp-table td, .gp-table th { white-space: nowrap; }
   .gp-table-box { max-height: 640px; }
   .gp-group td { background: #f8fafc; font-weight: 700; color: #0f172a; border-top: 1px solid rgba(15,23,42,.1); }
   .gp-group .gp-brand { display: inline-block; font-size: 11px; font-weight: 700; color: #4d7cfe; background: rgba(77,124,254,.1); border-radius: 6px; padding: 1px 7px; margin-right: 6px; }
@@ -1164,6 +1164,9 @@
   .gp-in.pct { width: 52px; }
   .gp-in:focus { outline: 2px solid rgba(77,124,254,.35); background: #fff; }
   .gp-neg { color: #dc2626; font-weight: 700; }
+  .gp-table th.gp-asis, .gp-table td.gp-asis { background: #f8fafc; }
+  .gp-table th.gp-tobe, .gp-table td.gp-tobe { background: #eef4ff; }
+  .gp-table th.gp-asis, .gp-table th.gp-tobe { line-height: 1.25; }
   .gp-low { color: #d97706; font-weight: 700; }
   .gp-ok { color: #15803d; font-weight: 700; }
   .gp-muted { color: #94a3b8; }
@@ -2917,7 +2920,7 @@
         </form>
         <div class="scroll-box gp-table-box">
           <table class="table-center-head gp-table">
-            <thead><tr id="gpHead"></tr></thead>
+            <thead id="gpHead"></thead>
             <tbody id="gpTable"></tbody>
           </table>
         </div>
@@ -9862,24 +9865,33 @@
     gpRender();
   }
 
-  function gpColCount() { return gpFull() ? 15 : 8; }
+  function gpColCount() { return gpFull() ? 16 : 11; }
 
   function gpRenderHead() {
     const full = gpFull();
     document.getElementById('gpHead').innerHTML = full
-      ? `<th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">공구판매가</th><th class="num">할인율</th>
-         <th class="num">수수료율</th><th class="num">수수료</th><th class="num">원가</th><th class="num">물류비</th><th class="num">부가세</th>
-         <th class="num">경비</th><th class="num">손익</th><th class="num">손익률</th><th class="num">객단가</th><th></th>`
-      : `<th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">공구판매가</th><th class="num">할인율</th>
-         <th class="num">수수료율</th><th class="num">손익</th><th class="num">손익률</th>`;
+      ? `<tr><th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">공구판매가</th><th class="num">할인율</th>
+         <th class="num">수수료율</th><th class="num gp-tobe" title="유관부서가 넣어 본 수수료율">To-be<br>수수료율</th><th class="num">수수료</th><th class="num">원가</th><th class="num">물류비</th><th class="num">부가세</th>
+         <th class="num">경비</th><th class="num">손익</th><th class="num">손익률</th><th class="num">객단가</th><th></th></tr>`
+      : `<tr><th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">공구판매가</th><th class="num">할인율</th>
+         <th class="num gp-asis">As-is<br>수수료율</th><th class="num gp-asis">As-is<br>손익</th><th class="num gp-asis">As-is<br>손익률</th>
+         <th class="num gp-tobe">To-be<br>수수료율</th><th class="num gp-tobe">To-be<br>손익</th><th class="num gp-tobe">To-be<br>손익률</th></tr>`;
     document.getElementById('gpAccessBtn').textContent = full ? '유관부서 화면으로 보기' : '영업팀 전체 보기 🔒';
     document.getElementById('gpNewBtn').style.display = full ? '' : 'none';
     document.getElementById('scheduleSubtitle').textContent = full
       ? '공동구매 옵션별 판매가·수수료와 손익을 유관부서가 함께 봅니다. 판매가·수수료율을 고치면 손익이 바로 다시 계산됩니다.'
-      : '공동구매 옵션별 판매가와 손익을 함께 봅니다. 수수료율을 고치면 손익이 바로 다시 계산됩니다.';
+      : '공동구매 옵션별 판매가와 손익을 함께 봅니다. To-be 수수료율을 넣으면 그 수수료로 손익이 바로 계산됩니다.';
     document.getElementById('gpSaveNote').textContent = full
       ? '공구판매가·수수료율은 칸을 고치면 손익이 바로 바뀌고, 칸을 벗어나면 저장됩니다.'
-      : '수수료율을 고치면 손익·손익률이 바로 바뀌고, 칸을 벗어나면 저장됩니다. 공구판매가는 영업팀만 고칠 수 있습니다.';
+      : 'As-is는 지금 적용 중인 수수료율입니다. To-be 수수료율을 넣으면 손익이 바로 바뀌고, 칸을 벗어나면 저장됩니다.';
+  }
+
+  // To-be 수수료율로 다시 계산한 손익. 비어 있으면 '-' 로 둡니다.
+  function gpToBeCells(it) {
+    const tobe = gpNum(it.fee_rate_tobe);
+    if (tobe == null) return { tprofit: '<span class="gp-muted">-</span>', tmargin: '<span class="gp-muted">-</span>' };
+    const cc = gpCalcCells({ ...it, fee_rate: tobe });
+    return { tprofit: cc.profit, tmargin: cc.margin };
   }
 
   function gpRowHtml(it) {
@@ -9889,16 +9901,23 @@
         oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})">%</td>`;
     const priceCell = `<td class="num"><input class="gp-in" data-field="gb_price" inputmode="numeric" value="${gpNum(it.gb_price) ? gpWon(it.gb_price) : ''}" placeholder="미정"
         oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})"></td>`;
+    const tobe = gpNum(it.fee_rate_tobe);
     if (!full) {
+      // As-is 는 영업팀이 정한 값이라 고정, To-be 만 유관부서가 넣어 봅니다.
+      const tc = gpToBeCells(it);
       return `<tr data-gp-id="${it.id}">
       <td class="gp-opt">${escapeAttr(it.option_name)}</td>
       <td class="num">${gpNum(it.units) || 1}</td>
       <td class="num">${gpWon(gpNum(it.mall_price))}</td>
       <td class="num">${gpWon(gpNum(it.gb_price))}</td>
       <td class="num" data-c="discount">${cc.discount}</td>
-      ${feeCell}
-      <td class="num" data-c="profit">${cc.profit}</td>
-      <td class="num" data-c="margin">${cc.margin}</td>
+      <td class="num gp-asis">${gpNum(it.fee_rate) == null ? '-' : gpRateText(gpNum(it.fee_rate)) + '%'}</td>
+      <td class="num gp-asis">${cc.profit}</td>
+      <td class="num gp-asis">${cc.margin}</td>
+      <td class="num gp-tobe"><input class="gp-in pct" data-field="fee_rate_tobe" inputmode="decimal" value="${gpRateText(tobe)}" placeholder="%"
+        oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})">%</td>
+      <td class="num gp-tobe" data-c="tprofit">${tc.tprofit}</td>
+      <td class="num gp-tobe" data-c="tmargin">${tc.tmargin}</td>
     </tr>`;
     }
     const refs = [['스스', it.ss_price], ['쿠팡', it.coupang_price], ['히든', it.hidden_price]]
@@ -9911,6 +9930,7 @@
       ${priceCell}
       <td class="num" data-c="discount">${cc.discount}</td>
       ${feeCell}
+      <td class="num gp-tobe">${tobe == null ? '<span class="gp-muted">-</span>' : gpRateText(tobe) + '%'}</td>
       <td class="num" data-c="fee">${cc.fee}</td>
       <td class="num">${gpWon(gpNum(it.cost))}</td>
       <td class="num">${gpWon(gpNum(it.logistics))}</td>
@@ -9973,11 +9993,13 @@
   function gpInlineInput(el, id) {
     const it = gpItems.find((x) => x.id === id);
     if (!it) return;
-    if (el.dataset.field === 'gb_price' && !gpFull()) return;
-    if (el.dataset.field === 'gb_price') { gsFormatMoneyInput(el); it.gb_price = gpMoney(el.value); }
-    else it.fee_rate = gpRate(el.value);
+    const field = el.dataset.field;
+    // 유관부서는 To-be 수수료율만 고칩니다(판매가·As-is 수수료율은 영업팀만).
+    if (field !== 'fee_rate_tobe' && !gpFull()) return;
+    if (field === 'gb_price') { gsFormatMoneyInput(el); it.gb_price = gpMoney(el.value); }
+    else it[field] = gpRate(el.value);
     const tr = el.closest('tr');
-    const cc = gpCalcCells(it);
+    const cc = { ...gpCalcCells(it), ...gpToBeCells(it) };
     Object.keys(cc).forEach((k) => { const td = tr.querySelector(`[data-c="${k}"]`); if (td) td.innerHTML = cc[k]; });
     gpRenderKpi();
   }
@@ -9993,11 +10015,11 @@
     if (!it) return;
     const field = el.dataset.field;
     // 공구판매가는 영업팀만 바꿉니다. 화면에서 칸을 숨겨도 혹시 남은 입력이 저장되지 않게 한 번 더 막습니다.
-    if (field === 'gb_price' && !gpFull()) return;
+    if (field !== 'fee_rate_tobe' && !gpFull()) return;
     const { error } = await client.from('groupbuy_price_items')
       .update({ [field]: it[field], updated_at: new Date().toISOString() }).eq('id', id);
     if (error) { gpNote('저장하지 못했습니다: ' + error.message, 'gp-save-err'); return; }
-    const label = field === 'gb_price' ? '공구판매가' : '수수료율';
+    const label = { gb_price: '공구판매가', fee_rate: '수수료율', fee_rate_tobe: 'To-be 수수료율' }[field];
     gpNote(`${it.option_name} · ${label} 저장됨 (${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})`, 'gp-saved');
   }
 
@@ -10209,10 +10231,12 @@
       const r = (v) => (v == null || !isFinite(v) ? '' : Math.round(v));
       const p = (v) => (v == null || !isFinite(v) ? '' : Math.round(v * 1000) / 10);
       if (!full) {
+        const t = gpNum(it.fee_rate_tobe) == null ? null : gpCalc({ ...it, fee_rate: gpNum(it.fee_rate_tobe) });
         return {
           '브랜드': it.brand, '상품': it.product, '옵션': it.option_name, '구성': gpNum(it.units) || 1,
           '자사몰가': r(gpNum(it.mall_price)), '공구판매가': r(gpNum(it.gb_price)), '할인율(%)': p(c.discount),
-          '수수료율(%)': p(gpNum(it.fee_rate)), '손익': r(c.profit), '손익률(%)': p(c.margin)
+          'As-is 수수료율(%)': p(gpNum(it.fee_rate)), 'As-is 손익': r(c.profit), 'As-is 손익률(%)': p(c.margin),
+          'To-be 수수료율(%)': p(gpNum(it.fee_rate_tobe)), 'To-be 손익': r(t ? t.profit : null), 'To-be 손익률(%)': p(t ? t.margin : null)
         };
       }
       return {
