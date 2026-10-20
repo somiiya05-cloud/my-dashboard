@@ -6138,7 +6138,7 @@
         sales: ['프로모션 매출', '일정에 등록한 외부몰 행사가 자동으로 들어옵니다. 참여상품·판매수량을 넣으면 할인율과 매출, 직전 동일기간 대비 증감을 계산합니다.'],
         settlement: ['공동구매 정산', '공구별 매출·수수료·수금을 관리합니다. 매출과 수수료는 공구 정산 계산에서 넣을 수 있습니다.'],
         feecalc: ['공구 정산 계산', '끝난 공구를 고르면 쌓아둔 주문으로 수수료를 계산하고 정산서를 뽑습니다.'],
-        gbprice: ['공구 가격표', '공동구매 옵션별 판매가와 손익을 함께 봅니다. 판매가를 고치면 손익이 바로 다시 계산됩니다.']
+        gbprice: ['공구 가격표', '공동구매 옵션별 판매가와 손익을 함께 봅니다. 수수료율을 고치면 손익이 바로 다시 계산됩니다.']
       }[currentScheduleSub] || ['프로모션', ''];
       document.getElementById('scheduleTitle').textContent = head[0];
       document.getElementById('scheduleSubtitle').textContent = head[1];
@@ -9862,7 +9862,7 @@
     gpRender();
   }
 
-  function gpColCount() { return gpFull() ? 15 : 7; }
+  function gpColCount() { return gpFull() ? 15 : 8; }
 
   function gpRenderHead() {
     const full = gpFull();
@@ -9871,20 +9871,22 @@
          <th class="num">수수료율</th><th class="num">수수료</th><th class="num">원가</th><th class="num">물류비</th><th class="num">부가세</th>
          <th class="num">경비</th><th class="num">손익</th><th class="num">손익률</th><th class="num">객단가</th><th></th>`
       : `<th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">공구판매가</th><th class="num">할인율</th>
-         <th class="num">손익</th><th class="num">손익률</th>`;
+         <th class="num">수수료율</th><th class="num">손익</th><th class="num">손익률</th>`;
     document.getElementById('gpAccessBtn').textContent = full ? '유관부서 화면으로 보기' : '영업팀 전체 보기 🔒';
     document.getElementById('gpNewBtn').style.display = full ? '' : 'none';
     document.getElementById('scheduleSubtitle').textContent = full
       ? '공동구매 옵션별 판매가·수수료와 손익을 유관부서가 함께 봅니다. 판매가·수수료율을 고치면 손익이 바로 다시 계산됩니다.'
-      : '공동구매 옵션별 판매가와 손익을 함께 봅니다. 판매가를 고치면 손익이 바로 다시 계산됩니다.';
+      : '공동구매 옵션별 판매가와 손익을 함께 봅니다. 수수료율을 고치면 손익이 바로 다시 계산됩니다.';
     document.getElementById('gpSaveNote').textContent = full
       ? '공구판매가·수수료율은 칸을 고치면 손익이 바로 바뀌고, 칸을 벗어나면 저장됩니다.'
-      : '공구판매가를 고치면 손익·손익률이 바로 바뀌고, 칸을 벗어나면 저장됩니다.';
+      : '수수료율을 고치면 손익·손익률이 바로 바뀌고, 칸을 벗어나면 저장됩니다. 공구판매가는 영업팀만 고칠 수 있습니다.';
   }
 
   function gpRowHtml(it) {
     const cc = gpCalcCells(it);
     const full = gpFull();
+    const feeCell = `<td class="num"><input class="gp-in pct" data-field="fee_rate" inputmode="decimal" value="${gpRateText(gpNum(it.fee_rate))}"
+        oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})">%</td>`;
     const priceCell = `<td class="num"><input class="gp-in" data-field="gb_price" inputmode="numeric" value="${gpNum(it.gb_price) ? gpWon(it.gb_price) : ''}" placeholder="미정"
         oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})"></td>`;
     if (!full) {
@@ -9892,8 +9894,9 @@
       <td class="gp-opt">${escapeAttr(it.option_name)}</td>
       <td class="num">${gpNum(it.units) || 1}</td>
       <td class="num">${gpWon(gpNum(it.mall_price))}</td>
-      ${priceCell}
+      <td class="num">${gpWon(gpNum(it.gb_price))}</td>
       <td class="num" data-c="discount">${cc.discount}</td>
+      ${feeCell}
       <td class="num" data-c="profit">${cc.profit}</td>
       <td class="num" data-c="margin">${cc.margin}</td>
     </tr>`;
@@ -9907,8 +9910,7 @@
       <td class="num">${gpWon(gpNum(it.mall_price))}${refs ? `<span class="gp-memo">${refs}</span>` : ''}</td>
       ${priceCell}
       <td class="num" data-c="discount">${cc.discount}</td>
-      <td class="num"><input class="gp-in pct" data-field="fee_rate" inputmode="decimal" value="${gpRateText(gpNum(it.fee_rate))}"
-        oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})">%</td>
+      ${feeCell}
       <td class="num" data-c="fee">${cc.fee}</td>
       <td class="num">${gpWon(gpNum(it.cost))}</td>
       <td class="num">${gpWon(gpNum(it.logistics))}</td>
@@ -9971,6 +9973,7 @@
   function gpInlineInput(el, id) {
     const it = gpItems.find((x) => x.id === id);
     if (!it) return;
+    if (el.dataset.field === 'gb_price' && !gpFull()) return;
     if (el.dataset.field === 'gb_price') { gsFormatMoneyInput(el); it.gb_price = gpMoney(el.value); }
     else it.fee_rate = gpRate(el.value);
     const tr = el.closest('tr');
@@ -9989,6 +9992,8 @@
     const it = gpItems.find((x) => x.id === id);
     if (!it) return;
     const field = el.dataset.field;
+    // 공구판매가는 영업팀만 바꿉니다. 화면에서 칸을 숨겨도 혹시 남은 입력이 저장되지 않게 한 번 더 막습니다.
+    if (field === 'gb_price' && !gpFull()) return;
     const { error } = await client.from('groupbuy_price_items')
       .update({ [field]: it[field], updated_at: new Date().toISOString() }).eq('id', id);
     if (error) { gpNote('저장하지 못했습니다: ' + error.message, 'gp-save-err'); return; }
@@ -10207,7 +10212,7 @@
         return {
           '브랜드': it.brand, '상품': it.product, '옵션': it.option_name, '구성': gpNum(it.units) || 1,
           '자사몰가': r(gpNum(it.mall_price)), '공구판매가': r(gpNum(it.gb_price)), '할인율(%)': p(c.discount),
-          '손익': r(c.profit), '손익률(%)': p(c.margin)
+          '수수료율(%)': p(gpNum(it.fee_rate)), '손익': r(c.profit), '손익률(%)': p(c.margin)
         };
       }
       return {
