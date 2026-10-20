@@ -1,6 +1,6 @@
-// 인플루언서 매니저(공구 > 일정)에서 공구 일정만 끌어와 Supabase의
-// groupbuy_schedule 테이블에 저장하는 Vercel 서버리스 함수입니다.
-// 영업팀 워크스페이스의 "일정" 화면이 이 테이블을 읽어서 캘린더로 보여줍니다.
+// 인플루언서 매니저(공구 > 일정)에서 공구 일정을, (시딩 화면에서) 시딩 업로드 일정을 끌어와
+// Supabase의 groupbuy_schedule / seeding_schedule 테이블에 저장하는 Vercel 서버리스 함수입니다.
+// 영업팀 워크스페이스의 "일정" 화면이 이 테이블들을 읽어서 캘린더로 보여줍니다.
 //
 // ⚠️ 배치 위치: GitHub 저장소 최상위의 "api" 폴더 안에 "sync-groupbuy-schedule.js" 로 저장하세요.
 //    최종 경로: api/sync-groupbuy-schedule.js
@@ -84,6 +84,36 @@ function buildRows(data) {
         settlement_method_color: d.정산방식 ? codeColor(codes, '정산방식', d.정산방식) : null,
         department: d.진행부서 || null,
         department_color: d.진행부서 ? codeColor(codes, '진행부서', d.진행부서) : null,
+        synced_at: new Date().toISOString()
+      };
+    });
+}
+
+// 시딩 일정 = 인플루언서 매니저 "시딩" 화면의 업로드 일정(유형이 '협찬'인 건의 업로드일).
+function buildSeedingRows(data) {
+  const deals = data.deals || [];
+  const brandById = new Map((data.brands || []).map((b) => [b.id, b]));
+  const influencerById = new Map((data.influencers || []).map((i) => [i.id, i]));
+  const codes = data.codes || {};
+
+  return deals
+    .filter((d) => typeGroupOf(codes, d.유형) === 'sponsor')
+    .filter((d) => d.업로드일 && d.업로드일.start)
+    .map((d) => {
+      const b = d.브랜드 ? brandById.get(d.브랜드) : null;
+      const inf = d.인플루언서 ? influencerById.get(d.인플루언서) : null;
+      const brandName = b ? [b.브랜드사, b.제품명].filter(Boolean).join('_') : null;
+      return {
+        id: d.id,
+        brand_name: brandName,
+        brand_company: b ? b.브랜드사 || null : null,
+        brand_product: b ? b.제품명 || null : null,
+        influencer_name: inf ? inf.이름 || null : null,
+        upload_date: d.업로드일.start.slice(0, 10),
+        upload_end: d.업로드일.end ? d.업로드일.end.slice(0, 10) : null,
+        draft_date: d.가편전달일 && d.가편전달일.start ? d.가편전달일.start.slice(0, 10) : null,
+        status: d.상태 || null,
+        status_color: d.상태 ? codeColor(codes, '상태', d.상태) : null,
         synced_at: new Date().toISOString()
       };
     });
@@ -196,7 +226,43 @@ module.exports = async function handler(req, res) {
       await supabaseRest('settlements', { method: 'POST', body: JSON.stringify(newSettlements) }, supabaseServiceKey);
     }
 
-    return res.status(200).json({ ok: true, updated: rows.length, deleted: toDelete.length, settlementsAdded: newSettlements.length });
+    // 시딩 일정 동기화 — seeding_schedule 테이블이 아직 없어도 위의 공구/정산 동기화는 영향받지 않도록
+    // 별도로 감싸서, 실패하면 seedingError 로만 알려줍니다.
+    let seedingUpdated = 0;
+    let seedingDeleted = 0;
+    let seedingError = null;
+    try {
+      const seedingRows = buildSeedingRows(data);
+      if (seedingRows.length) {
+        await supabaseRest(
+          'seeding_schedule',
+          { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify(seedingRows) },
+          supabaseServiceKey
+        );
+      }
+      const seedingExistingRes = await supabaseRest('seeding_schedule?select=id', { method: 'GET' }, supabaseServiceKey);
+      const seedingExisting = await seedingExistingRes.json();
+      const seedingIds = new Set(seedingRows.map((r) => r.id));
+      const seedingToDelete = seedingExisting.map((r) => r.id).filter((id) => !seedingIds.has(id));
+      if (seedingToDelete.length) {
+        const f = seedingToDelete.map((id) => encodeURIComponent(id)).join(',');
+        await supabaseRest(`seeding_schedule?id=in.(${f})`, { method: 'DELETE' }, supabaseServiceKey);
+      }
+      seedingUpdated = seedingRows.length;
+      seedingDeleted = seedingToDelete.length;
+    } catch (seedErr) {
+      seedingError = String(seedErr && seedErr.message || seedErr);
+    }
+
+    return res.status(200).json({
+      ok: true,
+      updated: rows.length,
+      deleted: toDelete.length,
+      settlementsAdded: newSettlements.length,
+      seedingUpdated,
+      seedingDeleted,
+      ...(seedingError ? { seedingError } : {})
+    });
   } catch (err) {
     return res.status(500).json({ error: 'sync_failed', detail: String(err && err.message || err) });
   }

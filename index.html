@@ -1438,6 +1438,13 @@
   .gs-ev-card-filled.gs-accent-purple .gs-ev-card-meta { color: #9333ea; }
   .gs-ev-card-filled.gs-accent-purple .gs-ev-card-tags .gs-tag { background: rgba(147,51,234,.16); color: #7e22ce; }
 
+  /* 시딩 일정: 주황 */
+  .gs-ev-card-filled.gs-accent-orange { background: rgba(249,115,22,.13); border-color: rgba(249,115,22,.34); }
+  .gs-ev-card-filled.gs-accent-orange .gs-ev-card-title { color: #9a3412; }
+  .gs-ev-card-filled.gs-accent-orange .gs-ev-card-meta { color: #c2410c; }
+  .gs-ev-card-filled.gs-accent-orange .gs-ev-card-tags .gs-tag { background: rgba(249,115,22,.2); color: #9a3412; }
+  .gs-toggle-dot.gs-accent-orange { background: #f97316; }
+
   .gs-ev-card-filled.gs-accent-lightblue { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.3); }
   .gs-ev-card-filled.gs-accent-lightblue .gs-ev-card-title { color: #1d4ed8; }
   .gs-ev-card-filled.gs-accent-lightblue .gs-ev-card-meta { color: #2563eb; }
@@ -2714,7 +2721,7 @@
       <div class="topbar">
         <div>
           <h1 id="scheduleTitle">프로모션</h1>
-          <div class="subtitle" id="scheduleSubtitle">공구 일정은 인플루언서 매니저에서 자동 동기화되고, 외부몰 행사는 아래에서 직접 등록합니다.</div>
+          <div class="subtitle" id="scheduleSubtitle">공구·시딩 일정은 인플루언서 매니저에서 자동 동기화되고, 외부몰 행사는 아래에서 직접 등록합니다.</div>
         </div>
       </div>
 
@@ -2724,6 +2731,7 @@
           <label class="gs-toggle"><input type="checkbox" id="gsFilterGroupbuyTeam" checked onchange="gsToggleFilter('groupbuyTeam', this.checked)"><span class="gs-toggle-dot gs-accent-blue"></span>공구 일정(영업팀)</label>
           <label class="gs-toggle"><input type="checkbox" id="gsFilterGroupbuyContent" checked onchange="gsToggleFilter('groupbuyContent', this.checked)"><span class="gs-toggle-dot gs-accent-purple"></span>공구 일정(콘텐츠팀)</label>
           <label class="gs-toggle"><input type="checkbox" id="gsFilterMall" checked onchange="gsToggleFilter('mall', this.checked)"><span class="gs-toggle-dot gs-accent-mall"></span>외부몰 행사</label>
+          <label class="gs-toggle"><input type="checkbox" id="gsFilterSeeding" checked onchange="gsToggleFilter('seeding', this.checked)"><span class="gs-toggle-dot gs-accent-orange"></span>시딩 일정</label>
           <input type="text" id="gsSearchInput" class="gs-search-input" placeholder="브랜드·인플루언서·행사명 검색" oninput="gsSearch(this.value)">
           <button type="button" class="filter-reset-btn" id="gsExportBtn" onclick="gsExportExcel()">엑셀 다운로드</button>
           <button type="button" class="filter-reset-btn" id="gsImageExportBtn" onclick="gsExportImage()">이미지로 다운로드</button>
@@ -6126,7 +6134,7 @@
       // 제목·부제는 화면마다 다르게 답니다. 셋이 같은 머리말을 쓰고 있어서, 정산 화면에도
       // 일정 설명이 그대로 떠 있었습니다.
       const head = {
-        main: ['프로모션', '공구 일정은 인플루언서 매니저에서 자동 동기화되고, 외부몰 행사는 아래에서 직접 등록합니다.'],
+        main: ['프로모션', '공구·시딩 일정은 인플루언서 매니저에서 자동 동기화되고, 외부몰 행사는 아래에서 직접 등록합니다.'],
         sales: ['프로모션 매출', '일정에 등록한 외부몰 행사가 자동으로 들어옵니다. 참여상품·판매수량을 넣으면 할인율과 매출, 직전 동일기간 대비 증감을 계산합니다.'],
         settlement: ['공동구매 정산', '공구별 매출·수수료·수금을 관리합니다. 매출과 수수료는 공구 정산 계산에서 넣을 수 있습니다.'],
         feecalc: ['공구 정산 계산', '끝난 공구를 고르면 쌓아둔 주문으로 수수료를 계산하고 정산서를 뽑습니다.'],
@@ -8551,7 +8559,8 @@
   const GS_MAX_LANES = 3;
   let gsRows = [];
   let gsMallRows = [];
-  const gsFilters = { groupbuyTeam: true, groupbuyContent: true, mall: true };
+  let gsSeedRows = [];
+  const gsFilters = { groupbuyTeam: true, groupbuyContent: true, mall: true, seeding: true };
   let gsSearchQuery = '';
 
   function gsToggleFilter(key, checked) {
@@ -8602,8 +8611,20 @@
       '메모': r.memo,
     }));
 
+    const seedingData = gsSeedRows.map((r) => ({
+      '브랜드_상품': r.brand_name,
+      '브랜드사': r.brand_company,
+      '제품': r.brand_product,
+      '인플루언서': r.influencer_name,
+      '업로드일': r.upload_date,
+      '업로드종료일': r.upload_end,
+      '가편전달일': r.draft_date,
+      '상태': r.status,
+    }));
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(groupbuyData), '공구 일정');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(seedingData), '시딩 일정');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mallData), '외부몰 행사');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(settlementData), '정산');
     const stamp = new Date().toISOString().slice(0, 10);
@@ -8649,6 +8670,7 @@
   // ---- 캘린더 카드 클릭 -> 상세/수정 팝업 ----
   function gsFindRecord(kind, rawId) {
     if (kind === 'groupbuy') return gsRows.find((r) => String(r.id) === String(rawId));
+    if (kind === 'seeding') return gsSeedRows.find((r) => String(r.id) === String(rawId));
     return gsMallRows.find((r) => String(r.id) === String(rawId));
   }
 
@@ -8673,6 +8695,19 @@
         <div class="gs-modal-actions">
           <button type="button" class="btn-primary" onclick="gsSaveGroupbuyMemo('${escapeAttr(String(r.id))}')">메모 저장</button>
         </div>
+      `;
+    } else if (kind === 'seeding') {
+      const infoRows = [
+        ['브랜드', r.brand_name || '-'],
+        ['인플루언서', r.influencer_name || '-'],
+        ['업로드일', r.upload_end && r.upload_end !== r.upload_date ? `${r.upload_date} → ${r.upload_end}` : r.upload_date],
+        ['가편전달일', r.draft_date || '-']
+      ];
+      body.innerHTML = `
+        <div class="gs-modal-title">${escapeAttr(r.brand_product || r.brand_name || '시딩 일정')}</div>
+        ${infoRows.map(([label, val]) => `<div class="gs-modal-row"><span class="gs-modal-label">${escapeAttr(label)}</span><span>${escapeAttr(val)}</span></div>`).join('')}
+        <div class="gs-modal-tags">${r.status ? `<span class="gs-tag gs-tag-${escapeAttr(r.status_color || 'default')}">${escapeAttr(r.status)}</span>` : ''}</div>
+        <div class="gs-empty" style="padding:8px 0 0; text-align:left;">이 일정은 인플루언서 매니저 시딩 화면에서 자동 동기화됩니다. 수정은 인플루언서 매니저에서 해주세요.</div>
       `;
     } else {
       body.innerHTML = `
@@ -8730,10 +8765,11 @@
   async function loadTeamSchedule() {
     const root = document.getElementById('scheduleCalendar');
     root.innerHTML = '<div class="gs-empty">불러오는 중...</div>';
-    const [groupbuyRes, mallRes, settlementRes] = await Promise.all([
+    const [groupbuyRes, mallRes, settlementRes, seedRes] = await Promise.all([
       client.from('groupbuy_schedule').select('*').order('start_date', { ascending: true }),
       client.from('mall_events').select('*').order('start_date', { ascending: true }),
-      client.from('settlements').select('*').order('period_start', { ascending: true })
+      client.from('settlements').select('*').order('period_start', { ascending: true }),
+      client.from('seeding_schedule').select('*').order('upload_date', { ascending: true })
     ]);
     if (groupbuyRes.error) {
       root.innerHTML = `<div class="gs-empty error">일정을 불러오지 못했습니다: ${escapeAttr(groupbuyRes.error.message)}</div>`;
@@ -8741,6 +8777,7 @@
     }
     gsRows = groupbuyRes.data || [];
     gsMallRows = mallRes.error ? [] : (mallRes.data || []);
+    gsSeedRows = seedRes.error ? [] : (seedRes.data || []);   // 테이블이 아직 없으면 시딩만 빈 채로 둡니다
     gsSettlementRows = settlementRes.error ? [] : (settlementRes.data || []);
     renderTeamSchedule();
     renderMallEventTable();
@@ -8870,6 +8907,28 @@
     });
   }
 
+  // 시딩 일정: 인플루언서 매니저 시딩 화면의 업로드일(하루 또는 기간)을 주황색 카드로 표시.
+  function gsSeedToRecords(rows) {
+    return rows.map((r) => {
+      const tags = [];
+      if (r.brand_product) tags.push({ text: r.brand_product, color: 'orange' });
+      if (r.status) tags.push({ text: r.status, color: r.status_color || 'default' });
+      return {
+        id: `seed-${r.id}`,
+        kind: 'seeding',
+        rawId: r.id,
+        start: r.upload_date,
+        end: r.upload_end || r.upload_date,
+        title: `${r.brand_name || '브랜드미정'} · ${r.influencer_name || '(이름없음)'}`,
+        catLabel: r.status ? `시딩 · ${r.status}` : '시딩',
+        pctText: null,
+        tags,
+        accent: 'orange',
+        filled: true
+      };
+    });
+  }
+
   function gsEvCardHtml(r, style) {
     const cls = `gs-ev-card gs-accent-${escapeAttr(r.accent)}${r.filled ? ' gs-ev-card-filled' : ''}`;
     const fullStyle = style + (r.styleVars || '');
@@ -8882,6 +8941,7 @@
   // 같은 날짜에 겹칠 때 표시 우선순위: 외부몰 행사 → 영업팀 공동구매 → 콘텐츠기획팀 공동구매
   function gsRecordPriority(r) {
     if (r.kind === 'mall') return 0;
+    if (r.kind === 'seeding') return 3;
     if ((r.department || '').includes('콘텐츠')) return 2;
     return 1;
   }
@@ -8958,6 +9018,7 @@
       allRecords = allRecords.concat(groupbuyRecords);
     }
     if (gsFilters.mall) allRecords = allRecords.concat(gsMallToRecords(gsMallRows));
+    if (gsFilters.seeding) allRecords = allRecords.concat(gsSeedToRecords(gsSeedRows));
     return allRecords;
   }
 
