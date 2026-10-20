@@ -6130,7 +6130,7 @@
         sales: ['프로모션 매출', '일정에 등록한 외부몰 행사가 자동으로 들어옵니다. 참여상품·판매수량을 넣으면 할인율과 매출, 직전 동일기간 대비 증감을 계산합니다.'],
         settlement: ['공동구매 정산', '공구별 매출·수수료·수금을 관리합니다. 매출과 수수료는 공구 정산 계산에서 넣을 수 있습니다.'],
         feecalc: ['공구 정산 계산', '끝난 공구를 고르면 쌓아둔 주문으로 수수료를 계산하고 정산서를 뽑습니다.'],
-        gbprice: ['공구 가격표', '공동구매 옵션별 판매가·수수료와 손익을 유관부서가 함께 봅니다. 판매가·수수료율을 고치면 손익이 바로 다시 계산됩니다.']
+        gbprice: ['공구 가격표', '공동구매 옵션별 판매가와 손익을 함께 봅니다. 판매가를 고치면 손익이 바로 다시 계산됩니다.']
       }[currentScheduleSub] || ['프로모션', ''];
       document.getElementById('scheduleTitle').textContent = head[0];
       document.getElementById('scheduleSubtitle').textContent = head[1];
@@ -9813,6 +9813,9 @@
          <th class="num">손익</th><th class="num">손익률</th>`;
     document.getElementById('gpAccessBtn').textContent = full ? '유관부서 화면으로 보기' : '영업팀 전체 보기 🔒';
     document.getElementById('gpNewBtn').style.display = full ? '' : 'none';
+    document.getElementById('scheduleSubtitle').textContent = full
+      ? '공동구매 옵션별 판매가·수수료와 손익을 유관부서가 함께 봅니다. 판매가·수수료율을 고치면 손익이 바로 다시 계산됩니다.'
+      : '공동구매 옵션별 판매가와 손익을 함께 봅니다. 판매가를 고치면 손익이 바로 다시 계산됩니다.';
     document.getElementById('gpSaveNote').textContent = full
       ? '공구판매가·수수료율은 칸을 고치면 손익이 바로 바뀌고, 칸을 벗어나면 저장됩니다.'
       : '공구판매가를 고치면 손익·손익률이 바로 바뀌고, 칸을 벗어나면 저장됩니다.';
