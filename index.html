@@ -1151,6 +1151,34 @@
   .calendar-day { font-size: 11px; color: #64748b; }
   .calendar-amount { font-size: 12px; font-weight: 700; color: #0f172a; }
 
+  /* ---- 공구 가격표 ---- */
+  .gp-table { font-size: 12.5px; }
+  .gp-table td { white-space: nowrap; }
+  .gp-table-box { max-height: 640px; }
+  .gp-group td { background: #f8fafc; font-weight: 700; color: #0f172a; border-top: 1px solid rgba(15,23,42,.1); }
+  .gp-group .gp-brand { display: inline-block; font-size: 11px; font-weight: 700; color: #4d7cfe; background: rgba(77,124,254,.1); border-radius: 6px; padding: 1px 7px; margin-right: 6px; }
+  .gp-group button { margin-left: 10px; font-size: 11px; padding: 2px 8px; }
+  .gp-opt { white-space: normal !important; min-width: 220px; max-width: 360px; }
+  .gp-memo { display: block; font-size: 11px; color: #94a3b8; font-weight: 400; }
+  .gp-in { width: 84px; text-align: right; padding: 4px 6px; border: 1px solid rgba(77,124,254,.35); border-radius: 6px; background: #f5f8ff; font: inherit; }
+  .gp-in.pct { width: 52px; }
+  .gp-in:focus { outline: 2px solid rgba(77,124,254,.35); background: #fff; }
+  .gp-neg { color: #dc2626; font-weight: 700; }
+  .gp-low { color: #d97706; font-weight: 700; }
+  .gp-ok { color: #15803d; font-weight: 700; }
+  .gp-muted { color: #94a3b8; }
+  .gp-actions button { border: none; background: none; cursor: pointer; color: #64748b; font-size: 13px; padding: 2px 4px; }
+  .gp-actions button:hover { color: #0f172a; }
+  .gp-edit-row td { background: #f5f8ff; white-space: normal; }
+  .gp-edit-row form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  .gp-field { display: flex; flex-direction: column; font-size: 11px; color: #64748b; gap: 3px; }
+  .gp-field input { width: 100px; }
+  .gp-edit-row .gp-field input { padding: 5px 7px; border: 1px solid rgba(15,23,42,.15); border-radius: 6px; font: inherit; font-size: 12.5px; }
+  .gp-check { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: #475569; white-space: nowrap; }
+  .gp-presets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: #64748b; margin: 4px 0 12px; }
+  .gp-saved { color: #15803d; }
+  .gp-save-err { color: #dc2626; }
+
   /* ---- 영업팀 일정 캘린더 (공구 일정 동기화) ---- */
   .gs-empty { font-size: 13px; color: #64748b; padding: 24px 0; text-align: center; }
   .gs-row-done { background: rgba(220,38,38,.05); }
@@ -2011,6 +2039,7 @@
             <div class="nav-subitem" data-schedulesub="sales" onclick="openTeamView('team-schedule', 'sales')" title="영업팀 비밀번호가 필요합니다">프로모션 매출<span class="nav-lock">🔒</span></div>
             <div class="nav-subitem" data-schedulesub="settlement" onclick="openTeamView('team-schedule', 'settlement')" title="영업팀 비밀번호가 필요합니다">공동구매 정산<span class="nav-lock">🔒</span></div>
             <div class="nav-subitem" data-schedulesub="feecalc" onclick="openTeamView('team-schedule', 'feecalc')" title="영업팀 비밀번호가 필요합니다">공구 정산 계산<span class="nav-lock">🔒</span></div>
+            <div class="nav-subitem" data-schedulesub="gbprice" onclick="switchView('team-schedule', 'gbprice')">공구 가격표</div>
           </div>
           <div class="nav-item" id="navTeamProcess" onclick="openTeamView('team-process', 'overview')" title="영업팀 비밀번호가 필요합니다"><span class="dot dot-team"></span>거래처 운영현황<span class="nav-lock">🔒</span></div>
           <div id="navProcessSub">
@@ -2859,6 +2888,76 @@
             <thead><tr><th>옵션명</th><th class="num">공구판매가</th><th class="num">판매수량</th><th class="num">판매금액</th><th class="num">수수료율</th><th class="num">수수료</th></tr></thead>
             <tbody id="gbFeeAggTable"></tbody>
           </table>
+        </div>
+      </section>
+      </div>
+
+      <div id="scheduleSubGbPrice" style="display:none">
+      <section class="kpi-row" id="gpKpiRow"></section>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>옵션별 공구가 · 손익</h2>
+          <span class="panel-note" id="gpSaveNote">공구판매가·수수료율은 칸을 고치면 손익이 바로 바뀌고, 칸을 벗어나면 저장됩니다.</span>
+        </div>
+        <form class="deal-form" onsubmit="return false">
+          <select id="gpBrandFilter" onchange="gpFilters.brand = this.value; gpRender()" style="width:150px;"></select>
+          <input type="text" id="gpSearch" placeholder="상품·옵션 검색" oninput="gpFilters.q = this.value; gpRender()" style="flex:1; min-width:180px;">
+          <label class="gp-check"><input type="checkbox" onchange="gpFilters.lowOnly = this.checked; gpRender()">손익률 10% 미만만</label>
+          <button type="button" class="filter-reset-btn" onclick="gpExportExcel()">엑셀 다운로드</button>
+          <button type="button" class="btn-primary" onclick="gpOpenDraft()">+ 새 상품 옵션 만들기</button>
+        </form>
+        <div class="scroll-box gp-table-box">
+          <table class="table-center-head gp-table">
+            <thead><tr>
+              <th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">공구판매가</th><th class="num">할인율</th>
+              <th class="num">수수료율</th><th class="num">수수료</th><th class="num">원가</th><th class="num">물류비</th><th class="num">부가세</th>
+              <th class="num">경비</th><th class="num">손익</th><th class="num">손익률</th><th class="num">객단가</th><th></th>
+            </tr></thead>
+            <tbody id="gpTable"></tbody>
+          </table>
+        </div>
+        <div class="panel-note" style="margin-top:8px;">손익 = 공구판매가 − 수수료 − 원가 − 물류비 − 부가세(판매가÷11) − 경비(판매가×경비율, 기본 24%) · 손익률 = 손익 ÷ 공구판매가</div>
+      </section>
+
+      <section class="panel" id="gpDraftPanel" style="display:none">
+        <div class="panel-head">
+          <h2 id="gpDraftTitle">새 상품 공구 옵션 만들기</h2>
+          <span class="panel-note">단품 기준 값과 구성만 넣으면 옵션별 원가·자사몰가·추천 공구가가 채워집니다. 공구판매가는 표에서 바로 고칠 수 있습니다.</span>
+        </div>
+        <form class="deal-form" id="gpDraftForm" oninput="gpBuildDraft()" onsubmit="return false">
+          <input type="text" name="brand" list="gpBrandList" placeholder="브랜드" required style="width:120px;">
+          <datalist id="gpBrandList"></datalist>
+          <input type="text" name="product" placeholder="상품명 (예: 건조기 세탁망)" required style="flex:2; min-width:200px;">
+          <label class="gp-field">단품 원가<input type="text" name="unitCost" inputmode="numeric" oninput="gsFormatMoneyInput(this)"></label>
+          <label class="gp-field">단품 자사몰가<input type="text" name="unitMall" inputmode="numeric" oninput="gsFormatMoneyInput(this)"></label>
+          <label class="gp-field">물류비<input type="text" name="logistics" inputmode="numeric" value="2,500" oninput="gsFormatMoneyInput(this)"></label>
+          <label class="gp-field">수수료율 %<input type="text" name="feeRate" inputmode="decimal" value="25"></label>
+          <label class="gp-field">경비율 %<input type="text" name="expenseRate" inputmode="decimal" value="24"></label>
+          <label class="gp-field">목표 손익률 %<input type="text" name="targetMargin" inputmode="decimal" value="15"></label>
+          <label class="gp-field" style="flex:2; min-width:220px;">옵션 구성 (쉼표로 구분)<input type="text" name="spec" value="1, 1+1, 2+1, 3+2"></label>
+        </form>
+        <div class="gp-presets">
+          자주 쓰는 구성:
+          <button type="button" class="filter-reset-btn" onclick="gpSetSpec('1, 1+1, 2+1, 3+2')">1 · 1+1 · 2+1 · 3+2</button>
+          <button type="button" class="filter-reset-btn" onclick="gpSetSpec('1+1, 2+1, 3+2')">1+1 · 2+1 · 3+2</button>
+          <button type="button" class="filter-reset-btn" onclick="gpSetSpec('1+1, 2+2, 3+2')">1+1 · 2+2 · 3+2</button>
+          <button type="button" class="filter-reset-btn" onclick="gpSetSpec('1, 2, 3, 4')">1개 · 2개 · 3개 · 4개</button>
+        </div>
+        <div class="scroll-box">
+          <table class="table-center-head gp-table">
+            <thead><tr>
+              <th>옵션명</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">원가</th><th class="num">추천가</th>
+              <th class="num">공구판매가</th><th class="num">할인율</th><th class="num">손익</th><th class="num">손익률</th><th class="num">객단가</th>
+            </tr></thead>
+            <tbody id="gpDraftTable"></tbody>
+          </table>
+        </div>
+        <div class="panel-head" style="margin:12px 0 0;">
+          <span class="panel-note">추천가 = 목표 손익률이 나오는 가장 낮은 ○○,900원. 공구판매가를 비워 두면 추천가로 저장합니다.</span>
+          <div>
+            <button type="button" class="filter-reset-btn" onclick="gpCloseDraft()">닫기</button>
+            <button type="button" class="btn-primary" onclick="gpSaveDraft()">옵션 저장</button>
+          </div>
         </div>
       </section>
       </div>
@@ -6027,19 +6126,22 @@
       document.getElementById('scheduleSubSales').style.display = currentScheduleSub === 'sales' ? '' : 'none';
       document.getElementById('scheduleSubSettlement').style.display = currentScheduleSub === 'settlement' ? '' : 'none';
       document.getElementById('scheduleSubFeeCalc').style.display = currentScheduleSub === 'feecalc' ? '' : 'none';
+      document.getElementById('scheduleSubGbPrice').style.display = currentScheduleSub === 'gbprice' ? '' : 'none';
       // 제목·부제는 화면마다 다르게 답니다. 셋이 같은 머리말을 쓰고 있어서, 정산 화면에도
       // 일정 설명이 그대로 떠 있었습니다.
       const head = {
         main: ['프로모션', '공구 일정은 인플루언서 매니저에서 자동 동기화되고, 외부몰 행사는 아래에서 직접 등록합니다.'],
         sales: ['프로모션 매출', '일정에 등록한 외부몰 행사가 자동으로 들어옵니다. 참여상품·판매수량을 넣으면 할인율과 매출, 직전 동일기간 대비 증감을 계산합니다.'],
         settlement: ['공동구매 정산', '공구별 매출·수수료·수금을 관리합니다. 매출과 수수료는 공구 정산 계산에서 넣을 수 있습니다.'],
-        feecalc: ['공구 정산 계산', '끝난 공구를 고르면 쌓아둔 주문으로 수수료를 계산하고 정산서를 뽑습니다.']
+        feecalc: ['공구 정산 계산', '끝난 공구를 고르면 쌓아둔 주문으로 수수료를 계산하고 정산서를 뽑습니다.'],
+        gbprice: ['공구 가격표', '공동구매 옵션별 판매가·수수료와 손익을 유관부서가 함께 봅니다. 판매가·수수료율을 고치면 손익이 바로 다시 계산됩니다.']
       }[currentScheduleSub] || ['프로모션', ''];
       document.getElementById('scheduleTitle').textContent = head[0];
       document.getElementById('scheduleSubtitle').textContent = head[1];
       // 요율 표는 이 화면에 들어올 때만 불러옵니다(일정·정산 화면에는 쓰이지 않습니다).
       if (currentScheduleSub === 'feecalc') loadGbFeeRates();
       if (currentScheduleSub === 'sales') loadPromoSales();
+      if (currentScheduleSub === 'gbprice') loadGbPriceItems();
     }
     if (view === 'monthly-trend') renderMonthlyTrendView();
     if (view === 'pipeline') loadPipeline();
@@ -9582,6 +9684,427 @@
     const { error } = await client.from('settlements').delete().eq('id', id);
     if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
     loadTeamSchedule();
+  }
+
+  // ---- 공구 가격표 (옵션별 공구판매가·수수료 → 손익 자동 계산) ----
+  // groupbuy_price_items 한 줄이 공구 옵션 하나입니다. 손익은 저장하지 않고 엑셀 "금액최종"
+  // 시트와 같은 식으로 화면에서 매번 계산합니다. 유관부서가 같이 보므로 비밀번호 없이 열립니다.
+  let gpItems = [];
+  let gpEditingId = null;
+  let gpDraftRows = [];        // 새 옵션 미리보기 (저장 전)
+  let gpDraftPrices = {};      // 미리보기에서 손으로 고친 공구판매가 (구성 라벨 → 값)
+  const gpFilters = { brand: '', q: '', lowOnly: false };
+  const GP_LOW_MARGIN = 0.10;
+  const GP_DEFAULT_EXPENSE = 0.24;
+
+  function gpNum(v) { return v == null || v === '' || isNaN(Number(v)) ? null : Number(v); }
+  function gpMoney(str) { const d = String(str ?? '').replace(/[^0-9]/g, ''); return d === '' ? null : Number(d); }
+  function gpRate(str) { const s = String(str ?? '').replace(/[^0-9.]/g, ''); return s === '' ? null : Number(s) / 100; }
+  function gpWon(v) { return v == null || !isFinite(v) ? '-' : Math.round(v).toLocaleString('ko-KR'); }
+  function gpPct(v) { return v == null || !isFinite(v) ? '-' : (v * 100).toFixed(1) + '%'; }
+  function gpRateText(v) { return v == null ? '' : String(Math.round(v * 1000) / 10); }
+  function gpMarginClass(m) { return m == null ? 'gp-muted' : m < 0 ? 'gp-neg' : m < GP_LOW_MARGIN ? 'gp-low' : 'gp-ok'; }
+
+  function gpCalc(it) {
+    const p = gpNum(it.gb_price);
+    const mall = gpNum(it.mall_price);
+    const units = gpNum(it.units) || 1;
+    if (!p) return { fee: null, vat: null, exp: null, profit: null, margin: null, discount: null, perUnit: null };
+    const fee = p * (gpNum(it.fee_rate) || 0);
+    const vat = p / 11;
+    const exp = p * (it.expense_rate == null ? GP_DEFAULT_EXPENSE : Number(it.expense_rate));
+    const profit = p - fee - (gpNum(it.cost) || 0) - (gpNum(it.logistics) || 0) - vat - exp;
+    return { fee, vat, exp, profit, margin: profit / p, discount: mall ? 1 - p / mall : null, perUnit: p / units };
+  }
+
+  // 목표 손익률이 나오는 가장 낮은 ○○,900원. 수수료+부가세+경비+목표가 100%를 넘으면 낼 수 없습니다.
+  function gpSuggestPrice(cost, logistics, feeRate, expenseRate, target) {
+    const denom = 1 - feeRate - 1 / 11 - expenseRate - target;
+    if (denom <= 0) return null;
+    const p = ((cost || 0) + (logistics || 0)) / denom;
+    return Math.ceil((p + 100) / 1000) * 1000 - 100;
+  }
+
+  async function loadGbPriceItems() {
+    const tbody = document.getElementById('gpTable');
+    if (!gpItems.length) tbody.innerHTML = '<tr><td colspan="15" class="gs-empty">불러오는 중...</td></tr>';
+    const { data, error } = await client.from('groupbuy_price_items').select('*')
+      .order('sort_order', { ascending: true }).order('id', { ascending: true });
+    if (error) {
+      tbody.innerHTML = `<tr><td colspan="15" class="gs-empty error">가격표를 불러오지 못했습니다: ${escapeAttr(error.message)}<br>
+        처음이라면 Supabase SQL Editor 에서 groupbuy_price_items.sql 을 실행해 주세요.</td></tr>`;
+      return;
+    }
+    gpItems = data || [];
+    gpRenderBrandOptions();
+    gpRender();
+  }
+
+  function gpBrands() { return [...new Set(gpItems.map((it) => it.brand))]; }
+
+  function gpRenderBrandOptions() {
+    const brands = gpBrands();
+    const sel = document.getElementById('gpBrandFilter');
+    if (!brands.includes(gpFilters.brand)) gpFilters.brand = '';
+    sel.innerHTML = '<option value="">전체 브랜드</option>' +
+      brands.map((b) => `<option value="${escapeAttr(b)}"${b === gpFilters.brand ? ' selected' : ''}>${escapeAttr(b)}</option>`).join('');
+    document.getElementById('gpBrandList').innerHTML = brands.map((b) => `<option value="${escapeAttr(b)}">`).join('');
+  }
+
+  function gpFiltered() {
+    const q = gpFilters.q.trim().toLowerCase();
+    return gpItems.filter((it) => {
+      if (gpFilters.brand && it.brand !== gpFilters.brand) return false;
+      if (q && !`${it.brand} ${it.product} ${it.option_name} ${it.memo || ''}`.toLowerCase().includes(q)) return false;
+      if (gpFilters.lowOnly) { const m = gpCalc(it).margin; if (m == null || m >= GP_LOW_MARGIN) return false; }
+      return true;
+    });
+  }
+
+  function gpRenderKpi() {
+    const rows = gpFiltered();
+    const priced = rows.map(gpCalc).filter((c) => c.margin != null);
+    const avg = priced.length ? priced.reduce((s, c) => s + c.margin, 0) / priced.length : null;
+    const low = priced.filter((c) => c.margin >= 0 && c.margin < GP_LOW_MARGIN).length;
+    const neg = priced.filter((c) => c.margin < 0).length;
+    const products = new Set(rows.map((it) => it.brand + '|' + it.product)).size;
+    document.getElementById('gpKpiRow').innerHTML = `
+      <div class="kpi-card"><div class="kpi-label">상품 · 옵션</div><div class="kpi-value">${products}개 · ${rows.length}개</div><div class="kpi-sub">공구가 미정 ${rows.length - priced.length}개</div></div>
+      <div class="kpi-card"><div class="kpi-label">평균 손익률</div><div class="kpi-value ${gpMarginClass(avg)}">${gpPct(avg)}</div><div class="kpi-sub">공구가가 있는 옵션 단순 평균</div></div>
+      <div class="kpi-card"><div class="kpi-label">손익률 10% 미만</div><div class="kpi-value gp-low">${low}개</div><div class="kpi-sub">적자 <span class="gp-neg">${neg}개</span></div></div>`;
+  }
+
+  // 계산 칸만 따로 만들어 두면, 입력 중에는 이 칸들만 바꿔 끼워 커서가 튀지 않습니다.
+  function gpCalcCells(it) {
+    const c = gpCalc(it);
+    return {
+      // 공구가가 자사몰가보다 비싸면 빨갛게 — 공구 혜택이 없다는 뜻입니다.
+      discount: c.discount != null && c.discount < 0 ? `<span class="gp-neg">${gpPct(c.discount)}</span>` : gpPct(c.discount),
+      fee: gpWon(c.fee),
+      vat: gpWon(c.vat),
+      exp: gpWon(c.exp),
+      profit: `<span class="${gpMarginClass(c.margin)}">${gpWon(c.profit)}</span>`,
+      margin: `<span class="${gpMarginClass(c.margin)}">${gpPct(c.margin)}</span>`,
+      perUnit: gpWon(c.perUnit)
+    };
+  }
+
+  function gpRowHtml(it) {
+    const cc = gpCalcCells(it);
+    const refs = [['스스', it.ss_price], ['쿠팡', it.coupang_price], ['히든', it.hidden_price]]
+      .filter(([, v]) => gpNum(v)).map(([k, v]) => `${k} ${gpWon(v)}`).join(' · ');
+    const expRate = it.expense_rate == null ? GP_DEFAULT_EXPENSE : Number(it.expense_rate);
+    let html = `<tr data-gp-id="${it.id}">
+      <td class="gp-opt">${escapeAttr(it.option_name)}${it.memo ? `<span class="gp-memo">${escapeAttr(it.memo)}</span>` : ''}</td>
+      <td class="num">${gpNum(it.units) || 1}</td>
+      <td class="num">${gpWon(gpNum(it.mall_price))}${refs ? `<span class="gp-memo">${refs}</span>` : ''}</td>
+      <td class="num"><input class="gp-in" data-field="gb_price" inputmode="numeric" value="${gpNum(it.gb_price) ? gpWon(it.gb_price) : ''}" placeholder="미정"
+        oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})"></td>
+      <td class="num" data-c="discount">${cc.discount}</td>
+      <td class="num"><input class="gp-in pct" data-field="fee_rate" inputmode="decimal" value="${gpRateText(gpNum(it.fee_rate))}"
+        oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})">%</td>
+      <td class="num" data-c="fee">${cc.fee}</td>
+      <td class="num">${gpWon(gpNum(it.cost))}</td>
+      <td class="num">${gpWon(gpNum(it.logistics))}</td>
+      <td class="num" data-c="vat">${cc.vat}</td>
+      <td class="num" data-c="exp" title="경비율 ${gpRateText(expRate)}%">${cc.exp}</td>
+      <td class="num" data-c="profit">${cc.profit}</td>
+      <td class="num" data-c="margin">${cc.margin}</td>
+      <td class="num" data-c="perUnit">${cc.perUnit}</td>
+      <td class="gp-actions"><button type="button" title="원가·물류비 등 고치기" onclick="gpToggleEdit(${it.id})">✎</button><button type="button" title="옵션 삭제" onclick="gpDelete(${it.id})">✕</button></td>
+    </tr>`;
+    if (gpEditingId === it.id) html += gpEditRowHtml(it);
+    return html;
+  }
+
+  function gpEditRowHtml(it) {
+    const f = (label, name, val, money = true) => `<label class="gp-field">${label}<input name="${name}" value="${val == null ? '' : escapeAttr(val)}"
+      ${money ? 'inputmode="numeric" oninput="gsFormatMoneyInput(this)"' : ''}></label>`;
+    const won = (v) => (gpNum(v) ? gpWon(v) : '');
+    return `<tr class="gp-edit-row"><td colspan="15"><form onsubmit="gpSaveEdit(event, ${it.id})">
+      <label class="gp-field" style="flex:2; min-width:240px;">옵션명<input name="option_name" value="${escapeAttr(it.option_name)}" required style="width:100%;"></label>
+      <label class="gp-field">묶음 상품명<input name="product" value="${escapeAttr(it.product)}" style="width:180px;"></label>
+      ${f('구성 개수', 'units', gpNum(it.units) || 1, false)}
+      ${f('자사몰가', 'mall_price', won(it.mall_price))}
+      ${f('스스가', 'ss_price', won(it.ss_price))}
+      ${f('쿠팡가', 'coupang_price', won(it.coupang_price))}
+      ${f('히든링크', 'hidden_price', won(it.hidden_price))}
+      ${f('원가', 'cost', won(it.cost))}
+      ${f('물류비', 'logistics', won(it.logistics))}
+      ${f('경비율 %', 'expense_rate', gpRateText(it.expense_rate == null ? GP_DEFAULT_EXPENSE : Number(it.expense_rate)), false)}
+      <label class="gp-field" style="flex:1; min-width:180px;">메모<input name="memo" value="${escapeAttr(it.memo || '')}" style="width:100%;"></label>
+      <button type="submit" class="btn-primary">저장</button>
+      <button type="button" class="filter-reset-btn" onclick="gpToggleEdit(${it.id})">취소</button>
+    </form></td></tr>`;
+  }
+
+  function gpRender() {
+    const rows = gpFiltered();
+    const tbody = document.getElementById('gpTable');
+    gpRenderKpi();
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="15" class="gs-empty">${gpItems.length ? '조건에 맞는 옵션이 없습니다.' : '아직 등록된 옵션이 없습니다. "+ 새 상품 옵션 만들기"로 추가하세요.'}</td></tr>`;
+      return;
+    }
+    let html = '', lastKey = null;
+    rows.forEach((it) => {
+      const key = it.brand + '|' + it.product;
+      if (key !== lastKey) {
+        lastKey = key;
+        html += `<tr class="gp-group"><td colspan="15"><span class="gp-brand">${escapeAttr(it.brand)}</span>${escapeAttr(it.product)}
+          <button type="button" class="filter-reset-btn" onclick="gpOpenDraft('${escapeAttr(encodeURIComponent(key))}')">+ 옵션 추가</button></td></tr>`;
+      }
+      html += gpRowHtml(it);
+    });
+    tbody.innerHTML = html;
+  }
+
+  function gpInlineInput(el, id) {
+    const it = gpItems.find((x) => x.id === id);
+    if (!it) return;
+    if (el.dataset.field === 'gb_price') { gsFormatMoneyInput(el); it.gb_price = gpMoney(el.value); }
+    else it.fee_rate = gpRate(el.value);
+    const tr = el.closest('tr');
+    const cc = gpCalcCells(it);
+    Object.keys(cc).forEach((k) => { const td = tr.querySelector(`[data-c="${k}"]`); if (td) td.innerHTML = cc[k]; });
+    gpRenderKpi();
+  }
+
+  function gpNote(text, cls) {
+    const el = document.getElementById('gpSaveNote');
+    el.className = 'panel-note ' + (cls || '');
+    el.textContent = text;
+  }
+
+  async function gpInlineSave(el, id) {
+    const it = gpItems.find((x) => x.id === id);
+    if (!it) return;
+    const field = el.dataset.field;
+    const { error } = await client.from('groupbuy_price_items')
+      .update({ [field]: it[field], updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { gpNote('저장하지 못했습니다: ' + error.message, 'gp-save-err'); return; }
+    const label = field === 'gb_price' ? '공구판매가' : '수수료율';
+    gpNote(`${it.option_name} · ${label} 저장됨 (${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})`, 'gp-saved');
+  }
+
+  function gpToggleEdit(id) {
+    gpEditingId = gpEditingId === id ? null : id;
+    gpRender();
+  }
+
+  async function gpSaveEdit(ev, id) {
+    ev.preventDefault();
+    const fd = new FormData(ev.target);
+    const patch = {
+      option_name: String(fd.get('option_name') || '').trim(),
+      product: String(fd.get('product') || '').trim(),
+      units: gpNum(fd.get('units')) || 1,
+      mall_price: gpMoney(fd.get('mall_price')),
+      ss_price: gpMoney(fd.get('ss_price')),
+      coupang_price: gpMoney(fd.get('coupang_price')),
+      hidden_price: gpMoney(fd.get('hidden_price')),
+      cost: gpMoney(fd.get('cost')),
+      logistics: gpMoney(fd.get('logistics')),
+      expense_rate: gpRate(fd.get('expense_rate')) ?? GP_DEFAULT_EXPENSE,
+      memo: String(fd.get('memo') || '').trim() || null,
+      updated_at: new Date().toISOString()
+    };
+    if (!patch.option_name) return;
+    const it = gpItems.find((x) => x.id === id);
+    if (!patch.product) patch.product = it.product;
+    const { error } = await client.from('groupbuy_price_items').update(patch).eq('id', id);
+    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
+    Object.assign(it, patch);
+    gpEditingId = null;
+    gpRender();
+    gpNote(`${it.option_name} 저장됨`, 'gp-saved');
+  }
+
+  async function gpDelete(id) {
+    const it = gpItems.find((x) => x.id === id);
+    if (!it || !confirm(`"${it.option_name}" 옵션을 가격표에서 지울까요?`)) return;
+    const { error } = await client.from('groupbuy_price_items').delete().eq('id', id);
+    if (error) { alert('지우지 못했습니다: ' + error.message); return; }
+    gpItems = gpItems.filter((x) => x.id !== id);
+    gpRenderBrandOptions();
+    gpRender();
+  }
+
+  // ---- 새 상품 / 옵션 추가: 단품 값 × 구성 개수로 옵션을 자동으로 만듭니다 ----
+  // "1+1" → 2개, "3+2" → 5개, "2" 나 "2개" → 2개. 원가·자사몰가는 단품 값 × 개수입니다.
+  function gpParseSpec(spec) {
+    const out = [];
+    String(spec || '').split(/[,\/·]+/).map((s) => s.trim()).filter(Boolean).forEach((tok) => {
+      let m = tok.match(/^(\d+)\s*\+\s*(\d+)$/);
+      if (m) { out.push({ label: `${Number(m[1])}+${Number(m[2])}`, units: Number(m[1]) + Number(m[2]) }); return; }
+      m = tok.match(/^(\d+)\s*(개|ea|EA)?$/);
+      if (m && Number(m[1]) > 0) out.push({ label: `${Number(m[1])}개`, units: Number(m[1]) });
+    });
+    return out.filter((o, i, arr) => arr.findIndex((x) => x.label === o.label) === i);
+  }
+
+  function gpOpenDraft(encodedKey) {
+    const panel = document.getElementById('gpDraftPanel');
+    const form = document.getElementById('gpDraftForm');
+    form.reset();
+    gpDraftPrices = {};
+    document.getElementById('gpDraftTitle').textContent = '새 상품 공구 옵션 만들기';
+    if (encodedKey) {
+      // 기존 상품에 옵션 추가: 그 상품 첫 옵션에서 단품 값을 거꾸로 구해 채워 둡니다.
+      const key = decodeURIComponent(encodedKey);
+      const group = gpItems.filter((it) => it.brand + '|' + it.product === key);
+      const base = group.find((it) => gpNum(it.cost)) || group[0];
+      if (base) {
+        const u = gpNum(base.units) || 1;
+        form.brand.value = base.brand;
+        form.product.value = base.product;
+        form.unitCost.value = gpNum(base.cost) ? gpWon(base.cost / u) : '';
+        form.unitMall.value = gpNum(base.mall_price) ? gpWon(base.mall_price / u) : '';
+        form.logistics.value = gpNum(base.logistics) ? gpWon(base.logistics) : '';
+        form.feeRate.value = gpRateText(gpNum(base.fee_rate) ?? 0.25);
+        form.expenseRate.value = gpRateText(base.expense_rate == null ? GP_DEFAULT_EXPENSE : Number(base.expense_rate));
+        const have = new Set(group.map((it) => gpNum(it.units) || 1));
+        form.spec.value = ['1', '1+1', '2+1', '3+2', '4+3'].filter((s) => !have.has(gpParseSpec(s)[0].units)).slice(0, 3).join(', ');
+        document.getElementById('gpDraftTitle').textContent = `${base.brand} · ${base.product} 에 옵션 추가`;
+      }
+    }
+    panel.style.display = '';
+    gpBuildDraft();
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function gpCloseDraft() { document.getElementById('gpDraftPanel').style.display = 'none'; }
+
+  function gpSetSpec(spec) {
+    document.getElementById('gpDraftForm').spec.value = spec;
+    gpBuildDraft();
+  }
+
+  function gpBuildDraft() {
+    const form = document.getElementById('gpDraftForm');
+    const product = form.product.value.trim();
+    const unitCost = gpMoney(form.unitCost.value);
+    const unitMall = gpMoney(form.unitMall.value);
+    const logistics = gpMoney(form.logistics.value) || 0;
+    const feeRate = gpRate(form.feeRate.value) ?? 0;
+    const expenseRate = gpRate(form.expenseRate.value) ?? GP_DEFAULT_EXPENSE;
+    const target = gpRate(form.targetMargin.value) ?? 0;
+    gpDraftRows = gpParseSpec(form.spec.value).map((o) => {
+      const cost = unitCost != null ? unitCost * o.units : null;
+      const suggested = cost != null ? gpSuggestPrice(cost, logistics, feeRate, expenseRate, target) : null;
+      const manual = gpDraftPrices[o.label];
+      return {
+        label: o.label,
+        option_name: (gpDraftPrices['name:' + o.label]) || (product ? `${product} ${o.label}` : o.label),
+        units: o.units,
+        mall_price: unitMall != null ? unitMall * o.units : null,
+        cost, logistics, fee_rate: feeRate, expense_rate: expenseRate,
+        suggested,
+        gb_price: manual != null ? manual : suggested
+      };
+    });
+    gpRenderDraft();
+  }
+
+  function gpRenderDraft() {
+    const tbody = document.getElementById('gpDraftTable');
+    if (!gpDraftRows.length) {
+      tbody.innerHTML = '<tr><td colspan="10" class="gs-empty">옵션 구성을 넣어 주세요 (예: 1, 1+1, 2+1, 3+2)</td></tr>';
+      return;
+    }
+    tbody.innerHTML = gpDraftRows.map((r, i) => {
+      const cc = gpCalcCells(r);
+      const manual = gpDraftPrices[r.label] != null;
+      return `<tr data-gp-draft="${i}">
+        <td><input class="gp-in" style="width:100%; min-width:220px; text-align:left;" value="${escapeAttr(r.option_name)}" oninput="gpDraftName(this, ${i})"></td>
+        <td class="num">${r.units}</td>
+        <td class="num">${gpWon(r.mall_price)}</td>
+        <td class="num">${gpWon(r.cost)}</td>
+        <td class="num gp-muted">${r.suggested ? gpWon(r.suggested) : '-'}</td>
+        <td class="num"><input class="gp-in" inputmode="numeric" value="${manual && r.gb_price ? gpWon(r.gb_price) : ''}" placeholder="${r.suggested ? gpWon(r.suggested) : '판매가'}" oninput="gpDraftPrice(this, ${i})"></td>
+        <td class="num" data-c="discount">${cc.discount}</td>
+        <td class="num" data-c="profit">${cc.profit}</td>
+        <td class="num" data-c="margin">${cc.margin}</td>
+        <td class="num" data-c="perUnit">${cc.perUnit}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function gpDraftName(el, i) {
+    const r = gpDraftRows[i];
+    r.option_name = el.value;
+    gpDraftPrices['name:' + r.label] = el.value;
+  }
+
+  function gpDraftPrice(el, i) {
+    gsFormatMoneyInput(el);
+    const r = gpDraftRows[i];
+    const v = gpMoney(el.value);
+    if (v == null) delete gpDraftPrices[r.label]; else gpDraftPrices[r.label] = v;
+    r.gb_price = v != null ? v : r.suggested;
+    const cc = gpCalcCells(r);
+    const tr = el.closest('tr');
+    Object.keys(cc).forEach((k) => { const td = tr.querySelector(`[data-c="${k}"]`); if (td) td.innerHTML = cc[k]; });
+  }
+
+  async function gpSaveDraft() {
+    const form = document.getElementById('gpDraftForm');
+    const brand = form.brand.value.trim();
+    const product = form.product.value.trim();
+    if (!brand || !product) { alert('브랜드와 상품명을 넣어 주세요.'); return; }
+    if (!gpDraftRows.length) { alert('옵션 구성을 넣어 주세요.'); return; }
+    // 같은 상품의 마지막 옵션 뒤에, 새 상품이면 표 맨 뒤에 붙입니다.
+    const same = gpItems.filter((it) => it.brand === brand && it.product === product);
+    const base = Math.max(0, ...(same.length ? same : gpItems).map((it) => it.sort_order || 0));
+    const n = gpDraftRows.length;
+    // 뒤 상품과 순서 번호가 겹치면 뒤쪽을 한꺼번에 밀어 자리를 만듭니다.
+    const after = gpItems.filter((it) => (it.sort_order || 0) > base);
+    if (after.some((it) => it.sort_order <= base + n)) {
+      const results = await Promise.all(after.map((it) =>
+        client.from('groupbuy_price_items').update({ sort_order: it.sort_order + n + 10 }).eq('id', it.id)));
+      const failed = results.find((r) => r.error);
+      if (failed) { alert('순서를 정리하지 못했습니다: ' + failed.error.message); return; }
+      after.forEach((it) => { it.sort_order += n + 10; });
+    }
+    let order = base;
+    const rows = gpDraftRows.map((r) => ({
+      brand, product,
+      option_name: r.option_name.trim() || `${product} ${r.label}`,
+      sort_order: (order += 1),
+      units: r.units,
+      mall_price: r.mall_price,
+      gb_price: r.gb_price,
+      fee_rate: r.fee_rate,
+      cost: r.cost,
+      logistics: r.logistics,
+      expense_rate: r.expense_rate
+    }));
+    const { data, error } = await client.from('groupbuy_price_items').insert(rows).select();
+    if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
+    gpItems = gpItems.concat(data || []).sort((a, b) => (a.sort_order - b.sort_order) || (a.id - b.id));
+    gpCloseDraft();
+    gpRenderBrandOptions();
+    gpRender();
+    gpNote(`${brand} · ${product} 옵션 ${rows.length}개 저장됨`, 'gp-saved');
+  }
+
+  function gpExportExcel() {
+    const rows = gpFiltered().map((it) => {
+      const c = gpCalc(it);
+      const r = (v) => (v == null || !isFinite(v) ? '' : Math.round(v));
+      const p = (v) => (v == null || !isFinite(v) ? '' : Math.round(v * 1000) / 10);
+      return {
+        '브랜드': it.brand, '상품': it.product, '옵션': it.option_name, '구성': gpNum(it.units) || 1,
+        '자사몰가': r(gpNum(it.mall_price)), '스스가': r(gpNum(it.ss_price)), '쿠팡가': r(gpNum(it.coupang_price)), '히든링크': r(gpNum(it.hidden_price)),
+        '공구판매가': r(gpNum(it.gb_price)), '할인율(%)': p(c.discount), '수수료율(%)': p(gpNum(it.fee_rate)), '수수료': r(c.fee),
+        '원가': r(gpNum(it.cost)), '물류비': r(gpNum(it.logistics)), '부가세': r(c.vat), '경비': r(c.exp),
+        '손익': r(c.profit), '손익률(%)': p(c.margin), '객단가': r(c.perUnit), '메모': it.memo || ''
+      };
+    });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '공구 가격표');
+    const d = new Date();
+    XLSX.writeFile(wb, `공구가격표_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.xlsx`);
   }
 
   // ---- 공구 정산 계산 (주문 RAW → 옵션별 수수료 → 정산서 발행) ----
