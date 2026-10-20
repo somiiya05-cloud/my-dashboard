@@ -2904,15 +2904,12 @@
           <input type="text" id="gpSearch" placeholder="상품·옵션 검색" oninput="gpFilters.q = this.value; gpRender()" style="flex:1; min-width:180px;">
           <label class="gp-check"><input type="checkbox" onchange="gpFilters.lowOnly = this.checked; gpRender()">손익률 10% 미만만</label>
           <button type="button" class="filter-reset-btn" onclick="gpExportExcel()">엑셀 다운로드</button>
-          <button type="button" class="btn-primary" onclick="gpOpenDraft()">+ 새 상품 옵션 만들기</button>
+          <button type="button" class="filter-reset-btn" id="gpAccessBtn" onclick="gpToggleAccess()"></button>
+          <button type="button" class="btn-primary" id="gpNewBtn" onclick="gpOpenDraft()">+ 새 상품 옵션 만들기</button>
         </form>
         <div class="scroll-box gp-table-box">
           <table class="table-center-head gp-table">
-            <thead><tr>
-              <th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">공구판매가</th><th class="num">할인율</th>
-              <th class="num">수수료율</th><th class="num">수수료</th><th class="num">원가</th><th class="num">물류비</th><th class="num">부가세</th>
-              <th class="num">경비</th><th class="num">손익</th><th class="num">손익률</th><th class="num">객단가</th><th></th>
-            </tr></thead>
+            <thead><tr id="gpHead"></tr></thead>
             <tbody id="gpTable"></tbody>
           </table>
         </div>
@@ -9788,8 +9785,55 @@
     };
   }
 
+  // 유관부서는 공구판매가와 손익·손익률만 봅니다. 수수료·원가·물류비 같은 내역과
+  // 옵션 만들기·수정·삭제는 영업팀 비밀번호를 넣은 사람에게만 그립니다.
+  let gpLimitedPreview = false;   // 영업팀이 "유관부서 화면으로 보기"를 눌렀을 때
+  function gpFull() { return isUnlocked('teamUnlockedUntil') && !gpLimitedPreview; }
+
+  function gpToggleAccess() {
+    if (gpFull()) { gpLimitedPreview = true; gpCloseDraft(); gpEditingId = null; gpRender(); return; }
+    if (isUnlocked('teamUnlockedUntil')) { gpLimitedPreview = false; gpRender(); return; }
+    const input = prompt('영업팀 메뉴 비밀번호를 입력하세요');
+    if (input === null) return;
+    if (input !== TEAM_PASSWORD) { alert('비밀번호가 올바르지 않습니다.'); return; }
+    markUnlocked('teamUnlockedUntil');
+    gpLimitedPreview = false;
+    gpRender();
+  }
+
+  function gpColCount() { return gpFull() ? 15 : 7; }
+
+  function gpRenderHead() {
+    const full = gpFull();
+    document.getElementById('gpHead').innerHTML = full
+      ? `<th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">공구판매가</th><th class="num">할인율</th>
+         <th class="num">수수료율</th><th class="num">수수료</th><th class="num">원가</th><th class="num">물류비</th><th class="num">부가세</th>
+         <th class="num">경비</th><th class="num">손익</th><th class="num">손익률</th><th class="num">객단가</th><th></th>`
+      : `<th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">공구판매가</th><th class="num">할인율</th>
+         <th class="num">손익</th><th class="num">손익률</th>`;
+    document.getElementById('gpAccessBtn').textContent = full ? '유관부서 화면으로 보기' : '영업팀 전체 보기 🔒';
+    document.getElementById('gpNewBtn').style.display = full ? '' : 'none';
+    document.getElementById('gpSaveNote').textContent = full
+      ? '공구판매가·수수료율은 칸을 고치면 손익이 바로 바뀌고, 칸을 벗어나면 저장됩니다.'
+      : '공구판매가를 고치면 손익·손익률이 바로 바뀌고, 칸을 벗어나면 저장됩니다.';
+  }
+
   function gpRowHtml(it) {
     const cc = gpCalcCells(it);
+    const full = gpFull();
+    const priceCell = `<td class="num"><input class="gp-in" data-field="gb_price" inputmode="numeric" value="${gpNum(it.gb_price) ? gpWon(it.gb_price) : ''}" placeholder="미정"
+        oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})"></td>`;
+    if (!full) {
+      return `<tr data-gp-id="${it.id}">
+      <td class="gp-opt">${escapeAttr(it.option_name)}</td>
+      <td class="num">${gpNum(it.units) || 1}</td>
+      <td class="num">${gpWon(gpNum(it.mall_price))}</td>
+      ${priceCell}
+      <td class="num" data-c="discount">${cc.discount}</td>
+      <td class="num" data-c="profit">${cc.profit}</td>
+      <td class="num" data-c="margin">${cc.margin}</td>
+    </tr>`;
+    }
     const refs = [['스스', it.ss_price], ['쿠팡', it.coupang_price], ['히든', it.hidden_price]]
       .filter(([, v]) => gpNum(v)).map(([k, v]) => `${k} ${gpWon(v)}`).join(' · ');
     const expRate = it.expense_rate == null ? GP_DEFAULT_EXPENSE : Number(it.expense_rate);
@@ -9797,8 +9841,7 @@
       <td class="gp-opt">${escapeAttr(it.option_name)}${it.memo ? `<span class="gp-memo">${escapeAttr(it.memo)}</span>` : ''}</td>
       <td class="num">${gpNum(it.units) || 1}</td>
       <td class="num">${gpWon(gpNum(it.mall_price))}${refs ? `<span class="gp-memo">${refs}</span>` : ''}</td>
-      <td class="num"><input class="gp-in" data-field="gb_price" inputmode="numeric" value="${gpNum(it.gb_price) ? gpWon(it.gb_price) : ''}" placeholder="미정"
-        oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})"></td>
+      ${priceCell}
       <td class="num" data-c="discount">${cc.discount}</td>
       <td class="num"><input class="gp-in pct" data-field="fee_rate" inputmode="decimal" value="${gpRateText(gpNum(it.fee_rate))}"
         oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})">%</td>
@@ -9840,9 +9883,12 @@
   function gpRender() {
     const rows = gpFiltered();
     const tbody = document.getElementById('gpTable');
+    const full = gpFull();
+    const cols = gpColCount();
+    gpRenderHead();
     gpRenderKpi();
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="15" class="gs-empty">${gpItems.length ? '조건에 맞는 옵션이 없습니다.' : '아직 등록된 옵션이 없습니다. "+ 새 상품 옵션 만들기"로 추가하세요.'}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${cols}" class="gs-empty">${gpItems.length ? '조건에 맞는 옵션이 없습니다.' : '아직 등록된 옵션이 없습니다.'}</td></tr>`;
       return;
     }
     let html = '', lastKey = null;
@@ -9850,8 +9896,8 @@
       const key = it.brand + '|' + it.product;
       if (key !== lastKey) {
         lastKey = key;
-        html += `<tr class="gp-group"><td colspan="15"><span class="gp-brand">${escapeAttr(it.brand)}</span>${escapeAttr(it.product)}
-          <button type="button" class="filter-reset-btn" onclick="gpOpenDraft('${escapeAttr(encodeURIComponent(key))}')">+ 옵션 추가</button></td></tr>`;
+        html += `<tr class="gp-group"><td colspan="${cols}"><span class="gp-brand">${escapeAttr(it.brand)}</span>${escapeAttr(it.product)}
+          ${full ? `<button type="button" class="filter-reset-btn" onclick="gpOpenDraft('${escapeAttr(encodeURIComponent(key))}')">+ 옵션 추가</button>` : ''}</td></tr>`;
       }
       html += gpRowHtml(it);
     });
@@ -10088,10 +10134,18 @@
   }
 
   function gpExportExcel() {
+    const full = gpFull();
     const rows = gpFiltered().map((it) => {
       const c = gpCalc(it);
       const r = (v) => (v == null || !isFinite(v) ? '' : Math.round(v));
       const p = (v) => (v == null || !isFinite(v) ? '' : Math.round(v * 1000) / 10);
+      if (!full) {
+        return {
+          '브랜드': it.brand, '상품': it.product, '옵션': it.option_name, '구성': gpNum(it.units) || 1,
+          '자사몰가': r(gpNum(it.mall_price)), '공구판매가': r(gpNum(it.gb_price)), '할인율(%)': p(c.discount),
+          '손익': r(c.profit), '손익률(%)': p(c.margin)
+        };
+      }
       return {
         '브랜드': it.brand, '상품': it.product, '옵션': it.option_name, '구성': gpNum(it.units) || 1,
         '자사몰가': r(gpNum(it.mall_price)), '스스가': r(gpNum(it.ss_price)), '쿠팡가': r(gpNum(it.coupang_price)), '히든링크': r(gpNum(it.hidden_price)),
