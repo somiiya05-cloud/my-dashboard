@@ -1248,6 +1248,12 @@
     border-radius: 999px; padding: 0 6px; height: 14px; line-height: 14px; cursor: pointer; white-space: nowrap;
   }
   .gs-day-seed:hover { background: rgba(249,115,22,.28); }
+  /* 공구 칩 — 시딩 칩과 같은 크기, 파란색 */
+  .gs-day-gb {
+    font-size: 9px; font-weight: 700; color: #1d4ed8; background: rgba(77,124,254,.14);
+    border-radius: 999px; padding: 0 6px; height: 14px; line-height: 14px; cursor: pointer; white-space: nowrap;
+  }
+  .gs-day-gb:hover { background: rgba(77,124,254,.28); }
   .gs-day-count {
     font-size: 10px; font-weight: 700; color: #64748b; background: rgba(100,116,139,.14);
     border-radius: 999px; min-width: 16px; height: 16px; line-height: 16px; text-align: center; padding: 0 4px;
@@ -8999,10 +9005,14 @@
       const dayCount = records.filter((r) => r.start <= day.key && r.end >= day.key).length;
       const badge = dayCount > 0 ? `<span class="gs-day-count">${dayCount}</span>` : '';
       const seedCount = records.filter((r) => r.kind === 'seeding' && r.start <= day.key && r.end >= day.key).length;
+      const gbCount = records.filter((r) => r.kind === 'groupbuy' && r.start <= day.key && r.end >= day.key).length;
+      const gbChip = gbCount > 0
+        ? `<span class="gs-day-gb" title="이 날 공구 일정 보기" onclick="event.stopPropagation(); gsShowDayGroupbuy('${day.key}')">공구 ${gbCount}</span>`
+        : '';
       const seedChip = seedCount > 0
         ? `<span class="gs-day-seed" title="이 날 시딩 일정 보기" onclick="event.stopPropagation(); gsShowDaySeeding('${day.key}')">시딩 ${seedCount}</span>`
         : '';
-      return `<div class="${cls.join(' ')}" style="--c:${day.dow + 1}"><span class="gs-day-label"><span>${label}</span>${seedChip}</span>${badge}</div>`;
+      return `<div class="${cls.join(' ')}" style="--c:${day.dow + 1}"><span class="gs-day-label"><span>${label}</span>${gbChip}${seedChip}</span>${badge}</div>`;
     }).join('');
 
     const cards = occ
@@ -9035,6 +9045,24 @@
     if (gsFilters.mall) allRecords = allRecords.concat(gsMallToRecords(gsMallRows));
     if (gsFilters.seeding) allRecords = allRecords.concat(gsSeedToRecords(gsSeedRows));
     return allRecords;
+  }
+
+  // 날짜 옆 "공구 N" 칩을 눌렀을 때 — 그 날짜에 걸친 공구 일정만(영업팀/콘텐츠팀 체크박스 필터 적용) 목록으로 보여줍니다.
+  function gsShowDayGroupbuy(dateKey) {
+    const dayRecords = gsBuildFilteredRecords()
+      .filter((r) => r.kind === 'groupbuy' && r.start <= dateKey && r.end >= dateKey)
+      .sort((a, b) => a.start.localeCompare(b.start));
+    const body = document.getElementById('gsCardModalBody');
+    body.innerHTML = `
+      <div class="gs-modal-title">${escapeAttr(dateKey)} 공구 일정 · ${dayRecords.length}건</div>
+      <div class="gs-day-overflow-list">
+        ${dayRecords.map((r) => `
+          <div class="gs-day-overflow-row gs-accent-${escapeAttr(r.accent)}" onclick="gsOpenCardModal('${r.kind}', '${escapeAttr(String(r.rawId))}')">
+            <span class="gs-day-overflow-cat">${escapeAttr(r.catLabel || '')}</span>
+            <span class="gs-day-overflow-title">${escapeAttr(r.title)}</span>
+          </div>`).join('')}
+      </div>`;
+    document.getElementById('gsCardModalOverlay').style.display = 'flex';
   }
 
   // 날짜 옆 "시딩 N" 칩을 눌렀을 때 — 그 날짜에 걸친 시딩 일정만 목록으로 보여줍니다.
