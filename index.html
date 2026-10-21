@@ -1184,6 +1184,15 @@
   .gp-check { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: #475569; white-space: nowrap; }
   .gp-presets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: #64748b; margin: 4px 0 12px; }
   .gp-saved { color: #15803d; }
+  .gp-status { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 7px; }
+  .gp-status.wait { color: #b45309; background: rgba(217,119,6,.12); }
+  .gp-status.done { color: #15803d; background: rgba(22,163,74,.12); }
+  .gp-status.rejected { color: #64748b; background: rgba(100,116,139,.12); }
+  .gp-proposal-wait td { background: #fffbeb; }
+  .gp-toast { position: fixed; right: 24px; bottom: 24px; z-index: 9999; background: #0f172a; color: #fff; border-radius: 12px;
+    padding: 14px 16px; font-size: 13px; box-shadow: 0 10px 30px rgba(15,23,42,.25); display: flex; gap: 12px; align-items: center; max-width: 420px; }
+  .gp-toast button { background: #4d7cfe; color: #fff; border: none; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .gp-toast .gp-toast-x { background: transparent; color: #94a3b8; padding: 4px; }
   .gp-save-err { color: #dc2626; }
 
   /* ---- 영업팀 일정 캘린더 (공구 일정 동기화) ---- */
@@ -2066,7 +2075,7 @@
             <div class="nav-subitem" data-schedulesub="sales" onclick="openTeamView('team-schedule', 'sales')" title="영업팀 비밀번호가 필요합니다">프로모션 매출<span class="nav-lock">🔒</span></div>
             <div class="nav-subitem" data-schedulesub="settlement" onclick="openTeamView('team-schedule', 'settlement')" title="영업팀 비밀번호가 필요합니다">공동구매 정산<span class="nav-lock">🔒</span></div>
             <div class="nav-subitem" data-schedulesub="feecalc" onclick="openTeamView('team-schedule', 'feecalc')" title="영업팀 비밀번호가 필요합니다">공구 정산 계산<span class="nav-lock">🔒</span></div>
-            <div class="nav-subitem" data-schedulesub="gbprice" onclick="switchView('team-schedule', 'gbprice')">공구 가격표</div>
+            <div class="nav-subitem" data-schedulesub="gbprice" onclick="switchView('team-schedule', 'gbprice')">공구 가격표<span class="nav-count-badge" id="gpProposalBadge" style="display:none;" title="영업팀이 손익을 짜 줘야 할 옵션 제안"></span></div>
           </div>
           <div class="nav-item" id="navTeamProcess" onclick="openTeamView('team-process', 'overview')" title="영업팀 비밀번호가 필요합니다"><span class="dot dot-team"></span>거래처 운영현황<span class="nav-lock">🔒</span></div>
           <div id="navProcessSub">
@@ -2922,6 +2931,36 @@
 
       <div id="scheduleSubGbPrice" style="display:none">
       <section class="kpi-row" id="gpKpiRow"></section>
+      <section class="panel" id="gpProposalPanel" style="display:none">
+        <div class="panel-head">
+          <h2 id="gpProposalTitle">옵션 제안</h2>
+          <span class="panel-note" id="gpProposalNote"></span>
+        </div>
+        <div class="scroll-box" style="max-height:300px;">
+          <table class="table-center-head gp-table">
+            <thead><tr><th>제안일</th><th>제안자</th><th>상품</th><th>구성</th><th class="num">희망 공구가</th><th class="num">희망 수수료율</th><th>요청 내용</th><th>상태</th><th></th></tr></thead>
+            <tbody id="gpProposalTable"></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="panel" id="gpProposeFormPanel" style="display:none">
+        <div class="panel-head">
+          <h2>옵션 제안하기</h2>
+          <span class="panel-note">만들고 싶은 옵션을 남기면 영업팀에 알림이 가고, 영업팀이 원가·물류비를 넣어 손익을 짠 뒤 가격표에 올립니다.</span>
+        </div>
+        <form class="deal-form" id="gpProposeForm" onsubmit="gpSubmitProposal(event)">
+          <label class="gp-field">제안자<input type="text" name="proposer" placeholder="이름 · 부서" required style="width:130px;"></label>
+          <label class="gp-field">브랜드<input type="text" name="brand" list="gpBrandList" required style="width:110px;" oninput="gpFillProductList(this.value.trim())"></label>
+          <label class="gp-field" style="flex:2; min-width:200px;">상품명 (기존 상품이면 목록에서 고르기)<input type="text" name="product" list="gpProductList" required style="width:100%;"></label>
+          <datalist id="gpProductList"></datalist>
+          <label class="gp-field">옵션 구성<input type="text" name="spec" placeholder="예: 2+1 또는 1+1, 3+2" required style="width:150px;"></label>
+          <label class="gp-field">희망 공구가<input type="text" name="desiredPrice" inputmode="numeric" oninput="gsFormatMoneyInput(this)" style="width:110px;"></label>
+          <label class="gp-field">희망 수수료율 %<input type="text" name="feeRate" inputmode="decimal" style="width:90px;"></label>
+          <label class="gp-field" style="flex:3; min-width:240px;">요청 내용<input type="text" name="memo" placeholder="예: OO 인플루언서 공구용, 사은품 포함 희망" style="width:100%;"></label>
+          <button type="submit" class="btn-primary">제안 보내기</button>
+          <button type="button" class="filter-reset-btn" onclick="gpCloseProposal()">닫기</button>
+        </form>
+      </section>
       <section class="panel">
         <div class="panel-head">
           <h2>옵션별 공구가 · 손익</h2>
@@ -2934,6 +2973,7 @@
           <button type="button" class="filter-reset-btn" onclick="gpExportExcel()">엑셀 다운로드</button>
           <button type="button" class="filter-reset-btn" id="gpAccessBtn" onclick="gpToggleAccess()"></button>
           <button type="button" class="btn-primary" id="gpNewBtn" onclick="gpOpenDraft()">+ 새 상품 옵션 만들기</button>
+          <button type="button" class="btn-primary" id="gpProposeBtn" onclick="gpOpenProposal()">+ 옵션 제안</button>
         </form>
         <div class="scroll-box gp-table-box">
           <table class="table-center-head gp-table">
@@ -9819,7 +9859,8 @@
   let gpCostRows = [];         // 원가 대시보드(product_cost) 제품
   let gpCostById = new Map();
   let gpDraftRows = [];        // 새 옵션 미리보기 (저장 전)
-  let gpDraftPrices = {};      // 미리보기에서 손으로 고친 공구판매가 (구성 라벨 → 값)
+  let gpDraftPrices = {};
+  let gpDraftProposalId = null; // 제안에서 시작한 새 옵션이면 그 제안 번호      // 미리보기에서 손으로 고친 공구판매가 (구성 라벨 → 값)
   const gpFilters = { brand: '', q: '', lowOnly: false };
   const GP_LOW_MARGIN = 0.10;
   const GP_DEFAULT_EXPENSE = 0.24;
@@ -9874,6 +9915,7 @@
     gpCostById = new Map(gpCostRows.map((r) => [Number(r.id), r]));
     gpRenderBrandOptions();
     gpRender();
+    loadGbProposals();
   }
 
   // 물류비는 연결된 물류 대시보드 상품의 택배비를 그대로 씁니다. 물류 대시보드에서
@@ -10022,6 +10064,9 @@
          <th class="num gp-tobe">To-be<br>수수료율</th><th class="num gp-tobe">To-be<br>손익</th><th class="num gp-tobe">To-be<br>손익률</th></tr>`;
     document.getElementById('gpAccessBtn').textContent = full ? '유관부서 화면으로 보기' : '영업팀 전체 보기 🔒';
     document.getElementById('gpNewBtn').style.display = full ? '' : 'none';
+    document.getElementById('gpProposeBtn').style.display = full ? 'none' : '';
+    if (full) gpCloseProposal();
+    gpRenderProposals();
     document.getElementById('scheduleSubtitle').textContent = full
       ? '공동구매 옵션별 판매가·수수료와 손익을 유관부서가 함께 봅니다. 판매가·수수료율을 고치면 손익이 바로 다시 계산됩니다.'
       : '공동구매 옵션별 판매가와 손익을 함께 봅니다. To-be 수수료율을 넣으면 그 수수료로 손익이 바로 계산됩니다.';
@@ -10314,7 +10359,7 @@
     if (!silent) gpBuildDraft();
   }
 
-  function gpCloseDraft() { document.getElementById('gpDraftPanel').style.display = 'none'; }
+  function gpCloseDraft() { document.getElementById('gpDraftPanel').style.display = 'none'; gpDraftProposalId = null; }
 
   function gpSetSpec(spec) {
     document.getElementById('gpDraftForm').spec.value = spec;
@@ -10427,11 +10472,173 @@
     }));
     const { data, error } = await client.from('groupbuy_price_items').insert(rows).select();
     if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
+    if (gpDraftProposalId != null && data && data.length) {
+      // 제안에서 시작한 옵션이면 그 제안을 "완료"로 닫고 만들어진 옵션을 이어 둡니다.
+      const pid = gpDraftProposalId;
+      const r3 = await client.from('groupbuy_option_proposals')
+        .update({ status: '완료', price_item_id: data[0].id, handled_at: new Date().toISOString() }).eq('id', pid);
+      if (r3.error) alert('옵션은 저장했지만 제안을 완료로 바꾸지 못했습니다: ' + r3.error.message);
+      gpDraftProposalId = null;
+      loadGbProposals();
+    }
     gpItems = gpItems.concat(data || []).sort((a, b) => (a.sort_order - b.sort_order) || (a.id - b.id));
     gpCloseDraft();
     gpRenderBrandOptions();
     gpRender();
     gpNote(`${brand} · ${product} 옵션 ${rows.length}개 저장됨`, 'gp-saved');
+  }
+
+  // ---- 옵션 제안: 유관부서가 남기고 → 영업팀이 손익을 짜서 가격표에 올립니다 ----
+  let gpProposals = [];
+
+  async function loadGbProposals() {
+    const { data, error } = await client.from('groupbuy_option_proposals').select('*')
+      .order('created_at', { ascending: false }).limit(100);
+    if (error) { gpProposals = []; document.getElementById('gpProposalPanel').style.display = 'none'; return; }
+    gpProposals = data || [];
+    gpRenderProposals();
+    refreshGpProposalBadge();
+  }
+
+  async function refreshGpProposalBadge() {
+    const badge = document.getElementById('gpProposalBadge');
+    const { count, error } = await client.from('groupbuy_option_proposals').select('id', { count: 'exact', head: true }).eq('status', '대기');
+    if (error || !count) { badge.style.display = 'none'; return; }
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.style.display = '';
+  }
+
+  function gpRenderProposals() {
+    const panel = document.getElementById('gpProposalPanel');
+    if (!panel) return;
+    const full = gpFull();
+    const waiting = gpProposals.filter((p) => p.status === '대기');
+    // 대기 중인 건은 전부, 처리한 건은 최근 10건만 보여 줍니다.
+    const rows = waiting.concat(gpProposals.filter((p) => p.status !== '대기').slice(0, 10));
+    if (!rows.length) { panel.style.display = 'none'; return; }
+    panel.style.display = '';
+    document.getElementById('gpProposalTitle').textContent = `옵션 제안 · 대기 ${waiting.length}건`;
+    document.getElementById('gpProposalNote').textContent = full
+      ? '"손익 짜기"를 누르면 제안 내용으로 새 옵션 만들기가 열립니다. 저장하면 제안이 완료로 바뀝니다.'
+      : '영업팀이 손익을 짜서 가격표에 올리면 "완료"로 바뀝니다.';
+    const fmtDate = (v) => { const d = new Date(v); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    document.getElementById('gpProposalTable').innerHTML = rows.map((p) => {
+      const cls = p.status === '대기' ? 'wait' : p.status === '완료' ? 'done' : 'rejected';
+      const made = p.price_item_id != null ? gpItems.find((x) => x.id === Number(p.price_item_id)) : null;
+      const madeNote = made ? `<span class="gp-memo">${escapeAttr(made.option_name)} · 손익률 ${gpPct(gpCalc(made).margin)}</span>` : '';
+      const actions = full && p.status === '대기'
+        ? `<button type="button" class="btn-primary" style="padding:4px 10px; font-size:12px;" onclick="gpStartFromProposal(${p.id})">손익 짜기</button>
+           <button type="button" class="filter-reset-btn" onclick="gpRejectProposal(${p.id})">반려</button>`
+        : '';
+      return `<tr class="${p.status === '대기' ? 'gp-proposal-wait' : ''}">
+        <td>${fmtDate(p.created_at)}</td>
+        <td>${escapeAttr(p.proposer || '-')}</td>
+        <td class="gp-opt"><span class="gp-brand">${escapeAttr(p.brand)}</span>${escapeAttr(p.product)}</td>
+        <td>${escapeAttr(p.spec)}</td>
+        <td class="num">${gpWon(gpNum(p.desired_price))}</td>
+        <td class="num">${gpNum(p.fee_rate) == null ? '-' : gpRateText(gpNum(p.fee_rate)) + '%'}</td>
+        <td class="gp-opt">${escapeAttr(p.memo || '')}${p.reply ? `<span class="gp-memo">영업팀: ${escapeAttr(p.reply)}</span>` : ''}</td>
+        <td><span class="gp-status ${cls}">${escapeAttr(p.status)}</span>${madeNote}</td>
+        <td class="gp-actions" style="white-space:nowrap;">${actions}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function gpFillProductList(brand) {
+    const products = [...new Set(gpItems.filter((it) => !brand || it.brand === brand).map((it) => it.product))];
+    document.getElementById('gpProductList').innerHTML = products.map((v) => `<option value="${escapeAttr(v)}">`).join('');
+  }
+
+  function gpOpenProposal() {
+    const panel = document.getElementById('gpProposeFormPanel');
+    const form = document.getElementById('gpProposeForm');
+    form.reset();
+    try { form.proposer.value = localStorage.getItem('gpProposer') || ''; } catch (e) {}
+    gpFillProductList('');
+    panel.style.display = '';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function gpCloseProposal() {
+    const panel = document.getElementById('gpProposeFormPanel');
+    if (panel) panel.style.display = 'none';
+  }
+
+  async function gpSubmitProposal(ev) {
+    ev.preventDefault();
+    const form = ev.target;
+    const row = {
+      proposer: form.proposer.value.trim(),
+      brand: form.brand.value.trim(),
+      product: form.product.value.trim(),
+      spec: form.spec.value.trim(),
+      desired_price: gpMoney(form.desiredPrice.value),
+      fee_rate: gpRate(form.feeRate.value),
+      memo: form.memo.value.trim() || null
+    };
+    if (!row.brand || !row.product || !row.spec) return;
+    if (!gpParseSpec(row.spec).length) { alert('옵션 구성을 1+1, 2+1, 3개 처럼 넣어 주세요.'); return; }
+    const { error } = await client.from('groupbuy_option_proposals').insert(row);
+    if (error) { alert('제안을 보내지 못했습니다: ' + error.message); return; }
+    try { localStorage.setItem('gpProposer', row.proposer); } catch (e) {}
+    gpCloseProposal();
+    gpToast(`제안을 보냈습니다. 영업팀이 손익을 짜면 "완료"로 바뀝니다.`);
+    loadGbProposals();
+  }
+
+  // 제안 내용으로 새 옵션 만들기를 엽니다. 기존 상품이면 그 상품의 원가·물류 연결을 그대로 가져옵니다.
+  function gpStartFromProposal(id) {
+    const p = gpProposals.find((x) => x.id === id);
+    if (!p) return;
+    const key = p.brand + '|' + p.product;
+    const exists = gpItems.some((it) => it.brand + '|' + it.product === key);
+    gpOpenDraft(exists ? encodeURIComponent(key) : undefined);
+    const form = document.getElementById('gpDraftForm');
+    if (!exists) { form.brand.value = p.brand; form.product.value = p.product; gpFillLogiSelect(p.brand, null); gpFillCostSelect(p.brand, null); }
+    form.spec.value = p.spec;
+    if (gpNum(p.fee_rate) != null) form.feeRate.value = gpRateText(gpNum(p.fee_rate));
+    if (gpNum(p.desired_price) != null) gpParseSpec(p.spec).forEach((o) => { gpDraftPrices[o.label] = gpNum(p.desired_price); });
+    gpDraftProposalId = id;
+    document.getElementById('gpDraftTitle').textContent = `제안 손익 짜기 · ${p.brand} ${p.product} ${p.spec}${p.proposer ? ' (' + p.proposer + ')' : ''}`;
+    gpBuildDraft();
+  }
+
+  async function gpRejectProposal(id) {
+    const reply = prompt('반려 사유를 남겨 주세요 (제안자 화면에 보입니다)');
+    if (reply === null) return;
+    const { error } = await client.from('groupbuy_option_proposals')
+      .update({ status: '반려', reply: reply.trim() || null, handled_at: new Date().toISOString() }).eq('id', id);
+    if (error) { alert('반려하지 못했습니다: ' + error.message); return; }
+    loadGbProposals();
+  }
+
+  function gpToast(text, actionLabel, action) {
+    document.querySelectorAll('.gp-toast').forEach((el) => el.remove());
+    const el = document.createElement('div');
+    el.className = 'gp-toast';
+    el.innerHTML = `<span>${escapeAttr(text)}</span>${actionLabel ? `<button type="button" class="gp-toast-go">${escapeAttr(actionLabel)}</button>` : ''}<button type="button" class="gp-toast-x" title="닫기">✕</button>`;
+    if (actionLabel) el.querySelector('.gp-toast-go').onclick = () => { el.remove(); action(); };
+    el.querySelector('.gp-toast-x').onclick = () => el.remove();
+    document.body.appendChild(el);
+    if (!actionLabel) setTimeout(() => el.remove(), 5000);
+  }
+
+  // 새 제안이 들어오면 메뉴 숫자를 올리고, 영업팀 비밀번호가 열린 화면에는 바로 알림을 띄웁니다.
+  function gpWatchProposals() {
+    try {
+      client.channel('gp-proposals')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'groupbuy_option_proposals' }, (payload) => {
+          refreshGpProposalBadge();
+          const onPage = document.getElementById('teamScheduleView').style.display !== 'none' && currentScheduleSub === 'gbprice';
+          if (onPage) loadGbProposals();
+          const p = payload.new || {};
+          if (payload.eventType === 'INSERT' && isUnlocked('teamUnlockedUntil')) {
+            gpToast(`새 공구 옵션 제안: ${p.brand || ''} ${p.product || ''} ${p.spec || ''}${p.proposer ? ' · ' + p.proposer : ''}`,
+              '손익 짜러 가기', () => switchView('team-schedule', 'gbprice'));
+          }
+        })
+        .subscribe();
+    } catch (e) { /* 실시간이 안 되면 메뉴 숫자만 페이지를 열 때 갱신합니다 */ }
   }
 
   function gpExportExcel() {
@@ -11654,6 +11861,8 @@
   }
 
   refreshReviewAlertBadge();
+  refreshGpProposalBadge();
+  gpWatchProposals();
   setupOpsScrollSpy();
   syncOpsFilterCounts();
 
