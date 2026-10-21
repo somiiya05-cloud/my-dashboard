@@ -10888,8 +10888,8 @@
     if (!panel) return;
     const full = gpFull();
     const waiting = gpProposals.filter((p) => p.status === '대기');
-    // 대기 중인 건은 전부, 처리한 건은 최근 10건만 보여 줍니다.
-    const rows = waiting.concat(gpProposals.filter((p) => p.status !== '대기').slice(0, 10));
+    // 대기 중인 건은 전부, 완료한 건은 최근 10건만 보여 줍니다. 반려한 건은 목록에서 바로 뺍니다.
+    const rows = waiting.concat(gpProposals.filter((p) => p.status === '완료').slice(0, 10));
     if (!rows.length) { panel.style.display = 'none'; return; }
     panel.style.display = '';
     document.getElementById('gpProposalTitle').textContent = `옵션 제안 · 대기 ${waiting.length}건`;
