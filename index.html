@@ -10243,7 +10243,10 @@
       (others.length ? `<optgroup label="다른 브랜드">${others.map(opt).join('')}</optgroup>` : '');
   }
 
-  function gpBrands() { return [...new Set(gpItems.map((it) => it.brand))]; }
+  // 공구를 하는 브랜드인데 아직 가격표에 옵션이 없는 브랜드도 목록에 늘 보이게 둡니다.
+  // 옵션이 하나라도 생기면 가격표에서 자연히 잡히니, 새 브랜드가 생길 때만 여기에 더하면 됩니다.
+  const GP_EXTRA_BRANDS = ['슬로우케어'];
+  function gpBrands() { return [...new Set(gpItems.map((it) => it.brand).concat(GP_EXTRA_BRANDS))]; }
 
   function gpRenderBrandOptions() {
     const brands = gpBrands();
@@ -10425,7 +10428,13 @@
     gpRenderHead();
     gpRenderKpi();
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="${cols}" class="gs-empty">${gpItems.length ? '조건에 맞는 옵션이 없습니다.' : '아직 등록된 옵션이 없습니다.'}</td></tr>`;
+      const emptyBrand = gpFilters.brand && !gpItems.some((it) => it.brand === gpFilters.brand);
+      const msg = emptyBrand
+        ? `${escapeAttr(gpFilters.brand)}는 아직 가격표에 옵션이 없습니다. ` + (full
+          ? `<button type="button" class="btn-primary" style="margin-left:8px;" onclick="gpOpenDraft()">+ ${escapeAttr(gpFilters.brand)} 옵션 만들기</button>`
+          : `<button type="button" class="btn-primary" style="margin-left:8px;" onclick="gpOpenProposal()">+ ${escapeAttr(gpFilters.brand)} 옵션 제안</button>`)
+        : (gpItems.length ? '조건에 맞는 옵션이 없습니다.' : '아직 등록된 옵션이 없습니다.');
+      tbody.innerHTML = `<tr><td colspan="${cols}" class="gs-empty">${msg}</td></tr>`;
       return;
     }
     let html = '', lastKey = null;
@@ -10557,6 +10566,11 @@
     gpDraftPrices = {};
     gpFillLogiSelect('', null);
     gpFillCostSelect('', null);
+    if (!encodedKey && gpFilters.brand) {
+      form.brand.value = gpFilters.brand;
+      gpFillLogiSelect(gpFilters.brand, null);
+      gpFillCostSelect(gpFilters.brand, null);
+    }
     document.getElementById('gpDraftTitle').textContent = '새 상품 공구 옵션 만들기';
     if (encodedKey) {
       // 기존 상품에 옵션 추가: 그 상품 첫 옵션에서 단품 값을 거꾸로 구해 채워 둡니다.
@@ -10811,7 +10825,8 @@
     const form = document.getElementById('gpProposeForm');
     form.reset();
     try { form.proposer.value = localStorage.getItem('gpProposer') || ''; } catch (e) {}
-    gpFillProductList('');
+    form.brand.value = gpFilters.brand || '';
+    gpFillProductList(gpFilters.brand || '');
     panel.style.display = '';
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
