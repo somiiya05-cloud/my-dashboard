@@ -2649,9 +2649,9 @@
           <button type="button" class="btn-primary" onclick="addReviewTask()">+ 추가</button>
         </div>
         <div class="ra-filter-tabs" id="rtFilterTabs">
-          <button type="button" class="ra-filter-btn active" data-filter="open" onclick="setReviewTaskFilter('open')">진행중</button>
-          <button type="button" class="ra-filter-btn" data-filter="done" onclick="setReviewTaskFilter('done')">적재완료</button>
-          <button type="button" class="ra-filter-btn" data-filter="all" onclick="setReviewTaskFilter('all')">전체</button>
+          <button type="button" class="ra-filter-btn active" data-filter="all" onclick="setReviewTaskFilter('all')">전체</button>
+          <button type="button" class="ra-filter-btn" data-filter="open" onclick="setReviewTaskFilter('open')">진행중</button>
+          <button type="button" class="ra-filter-btn" data-filter="done" onclick="setReviewTaskFilter('done')">완료</button>
         </div>
         <div class="scroll-box">
           <table>
@@ -7706,7 +7706,7 @@
   const RT_STATUSES = ['요청', '구매완료', '적재완료', '취소'];
   const RT_CHANNELS = ['쿠팡', '스마트스토어', '지마켓', '오늘의집', '컬리', '톡딜', '지그재그', '토스'];
   let allReviewTasks = [];
-  let reviewTaskFilter = 'open'; // 'open' | 'done' | 'all'
+  let reviewTaskFilter = 'all'; // 'all' | 'open' | 'done'
 
   function rtToday() {
     const d = new Date();
