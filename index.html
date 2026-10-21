@@ -1170,6 +1170,7 @@
   .gp-low { color: #d97706; font-weight: 700; }
   .gp-ok { color: #15803d; font-weight: 700; }
   .gp-muted { color: #94a3b8; }
+  .gp-th-sub { display: block; font-size: 10px; font-weight: 500; color: #94a3b8; }
   .gp-actions button { border: none; background: none; cursor: pointer; color: #64748b; font-size: 13px; padding: 2px 4px; }
   .gp-actions button:hover { color: #0f172a; }
   .gp-edit-row td { background: #f5f8ff; white-space: normal; }
@@ -10014,7 +10015,7 @@
     const full = gpFull();
     document.getElementById('gpHead').innerHTML = full
       ? `<tr><th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">공구판매가</th><th class="num">할인율</th>
-         <th class="num">수수료율</th><th class="num gp-tobe" title="유관부서가 넣어 본 수수료율">To-be<br>수수료율</th><th class="num">수수료</th><th class="num">원가</th><th class="num">물류비</th><th class="num">부가세</th>
+         <th class="num">수수료율</th><th class="num gp-tobe" title="유관부서가 넣어 본 수수료율">To-be<br>수수료율</th><th class="num">수수료</th><th class="num" title="원가 대시보드의 원가 × 구성 개수">원가<span class="gp-th-sub">원가 연동</span></th><th class="num" title="물류 대시보드의 택배비">물류비<span class="gp-th-sub">택배비 연동</span></th><th class="num">부가세</th>
          <th class="num">경비</th><th class="num">손익</th><th class="num">손익률</th><th class="num">객단가</th><th></th></tr>`
       : `<tr><th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">공구판매가</th><th class="num">할인율</th>
          <th class="num gp-asis">As-is<br>수수료율</th><th class="num gp-asis">As-is<br>손익</th><th class="num gp-asis">As-is<br>손익률</th>
@@ -10075,11 +10076,8 @@
       ${feeCell}
       <td class="num gp-tobe">${tobe == null ? '<span class="gp-muted">-</span>' : gpRateText(tobe) + '%'}</td>
       <td class="num" data-c="fee">${cc.fee}</td>
-      <td class="num" title="${escapeAttr(gpCostTitle(it))}">${gpWon(gpCost(it))}${gpCostItems(it)
-        ? '<span class="gp-memo">원가 연동</span>' : '<span class="gp-memo">직접 입력</span>'}</td>
-      <td class="num">${gpWon(gpLogistics(it))}${gpLogiProduct(it)
-        ? `<span class="gp-memo" title="${escapeAttr(gpLogiProduct(it).product_name || '')}">택배비 연동</span>`
-        : '<span class="gp-memo">직접 입력</span>'}</td>
+      <td class="num" title="${escapeAttr(gpCostTitle(it))}">${gpWon(gpCost(it))}</td>
+      <td class="num" title="${escapeAttr(gpLogiProduct(it) ? gpLogiProduct(it).product_name || '' : '')}">${gpWon(gpLogistics(it))}</td>
       <td class="num" data-c="vat">${cc.vat}</td>
       <td class="num" data-c="exp" title="경비율 ${gpRateText(expRate)}%">${cc.exp}</td>
       <td class="num" data-c="profit">${cc.profit}</td>
