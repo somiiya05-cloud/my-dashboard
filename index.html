@@ -1780,6 +1780,10 @@
   .rt-row-late td:first-child { box-shadow: inset 3px 0 0 #dc2626; }
   .rt-row-done td { color: #94a3b8; }
   .rt-row-done .rt-cell-input { color: #94a3b8; }
+  #reviewTasksView th, #reviewTasksView td { text-align: center; }
+  #reviewTasksView .rt-cell-input { text-align: center; }
+  #reviewTasksView .rt-tags { justify-content: center; margin: 0 auto; }
+  #reviewTasksView .stage-select { text-align-last: center; }
   .rt-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 200px; max-width: 320px; }
   .rt-tag { display: inline-flex; align-items: center; gap: 2px; background: #eef2ff; color: #3730a3; border-radius: 999px; padding: 2px 4px 2px 9px; font-size: 12px; white-space: nowrap; }
   .rt-tag button { border: 0; background: transparent; color: #6366f1; cursor: pointer; font-size: 13px; line-height: 1; padding: 0 3px; }
@@ -7832,7 +7836,7 @@
         <td class="num" style="font-weight:600;">${r.review_count != null ? Number(r.review_count).toLocaleString('ko-KR') : '-'}</td>
         <td>${dateCell(r, 'upload_date')}</td>
         <td>${textCell(r, 'memo', 180)}</td>
-        <td><button class="btn-danger" onclick="deleteReviewTask(${r.id})">삭제</button></td>
+        <td><button class="btn-danger" style="white-space:nowrap;" onclick="deleteReviewTask(${r.id})">삭제</button></td>
       </tr>
     `).join('') || '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:24px;">등록된 리뷰작업이 없습니다.</td></tr>';
   }
