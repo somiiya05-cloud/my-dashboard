@@ -1757,6 +1757,14 @@
   .rt-cell-input.rt-num { width: 70px; text-align: right; }
   .rt-row-late td:first-child { box-shadow: inset 3px 0 0 #dc2626; }
   .rt-row-done td { color: #94a3b8; }
+  .rt-row-done .rt-cell-input { color: #94a3b8; }
+  .rt-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 200px; max-width: 320px; }
+  .rt-tag { display: inline-flex; align-items: center; gap: 2px; background: #eef2ff; color: #3730a3; border-radius: 999px; padding: 2px 4px 2px 9px; font-size: 12px; white-space: nowrap; }
+  .rt-tag button { border: 0; background: transparent; color: #6366f1; cursor: pointer; font-size: 13px; line-height: 1; padding: 0 3px; }
+  .rt-tag-input { border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 3px 6px; font-size: 12px; width: 90px; font-family: inherit; }
+  .rt-tag-input:hover, .rt-tag-input:focus { border-color: rgba(15,23,42,.18); background: #fff; outline: none; }
+  .rt-stage { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; font-size: 12px; cursor: pointer; }
+  .rt-stage input { margin: 0; cursor: pointer; }
   .stage-select {
     background: #f4f5f8; color: #0f172a; border: 1px solid rgba(15,23,42,.12);
     border-radius: 6px; padding: 5px 8px; font-size: 12px;
@@ -2661,7 +2669,7 @@
         <div class="scroll-box">
           <table>
             <thead>
-              <tr><th>요청일</th><th>판매채널</th><th>상품명</th><th>구매일</th><th class="num">포토</th><th class="num">텍스트</th><th class="num" style="white-space:nowrap;">합계</th><th>적재일</th><th>진행상태</th><th>메모</th><th></th></tr>
+              <tr><th>요청일</th><th>판매채널</th><th>상품명</th><th>요청 · 진행중 · 완료</th><th class="num">포토</th><th class="num">텍스트</th><th class="num" style="white-space:nowrap;">합계</th><th>완료일</th><th>메모</th><th></th></tr>
             </thead>
             <tbody id="rtTable"></tbody>
           </table>
@@ -7708,7 +7716,13 @@
   }
 
   // ==================== 리뷰작업 (CX팀 요청 트래킹, review_tasks.sql) ====================
-  const RT_STATUSES = ['요청', '구매완료', '적재완료', '취소'];
+  // 진행 단계. 예전 값(구매완료·적재완료)은 읽을 때 진행중·완료로 봅니다.
+  const RT_STAGES = ['요청', '진행중', '완료'];
+  const RT_LEGACY_STAGE = { '구매완료': '진행중', '적재완료': '완료' };
+
+  function rtStage(r) {
+    return RT_LEGACY_STAGE[r.status] || r.status;
+  }
   const RT_CHANNELS = ['쿠팡', '스마트스토어', '지마켓', '오늘의집', '컬리', '톡딜', '지그재그', '토스'];
   let allReviewTasks = [];
   let reviewTaskFilter = 'all'; // 'all' | 'open' | 'done'
@@ -7719,15 +7733,14 @@
   }
 
   function rtIsOpen(r) {
-    return r.status !== '적재완료' && r.status !== '취소';
+    const st = rtStage(r);
+    return st !== '완료' && st !== '취소';
   }
 
-  // 날짜가 지났는데 그 단계가 끝나지 않은 작업(구매일 지났는데 '요청', 적재일 지났는데 미완료)
+  // 완료일(upload_date)이 지났는데 아직 완료가 아닌 작업
   function rtIsLate(r) {
-    const today = rtToday();
     if (!rtIsOpen(r)) return false;
-    if (r.status === '요청' && r.purchase_date && r.purchase_date < today) return true;
-    return !!(r.upload_date && r.upload_date < today);
+    return !!(r.upload_date && r.upload_date < rtToday());
   }
 
   function setReviewTaskFilter(filter) {
@@ -7756,7 +7769,7 @@
   function renderReviewTaskTable() {
     const rows = allReviewTasks.filter(r => {
       if (reviewTaskFilter === 'open') return rtIsOpen(r);
-      if (reviewTaskFilter === 'done') return r.status === '적재완료';
+      if (reviewTaskFilter === 'done') return rtStage(r) === '완료';
       return true;
     });
     const open = allReviewTasks.filter(rtIsOpen);
@@ -7766,27 +7779,31 @@
       + (late ? ` · <span style="color:#dc2626;">일정 지남 ${late}건</span>` : '');
     const dateCell = (r, field) => `<input type="date" class="rt-cell-input" value="${escapeAttr(r[field] || '')}" onchange="updateReviewTask(${r.id}, '${field}', this.value)">`;
     const countCell = (r, field) => `<input type="number" min="0" class="rt-cell-input rt-num" value="${r[field] != null ? r[field] : ''}" onchange="updateReviewTask(${r.id}, '${field}', this.value)">`;
+    // 단계 체크박스: 지금 단계까지 체크돼 보입니다. 체크하면 그 단계로, 체크를 풀면 한 단계 전으로.
+    const stageCell = (r) => {
+      const idx = RT_STAGES.indexOf(rtStage(r));
+      return RT_STAGES.map((st, i) => `<label class="rt-stage"><input type="checkbox" ${i <= idx ? 'checked' : ''} onchange="setReviewTaskStage(${r.id}, ${i}, this.checked)">${st}</label>`).join('');
+    };
+    // 상품명: 한 신청에 여러 상품을 태그로. DB에는 ' / '로 이어서 한 칸에 저장합니다.
+    const productCell = (r) => `<div class="rt-tags">${rtProducts(r).map((name, i) => `<span class="rt-tag">${escapeAttr(name)}<button type="button" title="빼기" onclick="removeReviewTaskProduct(${r.id}, ${i})">×</button></span>`).join('')}<input type="text" class="rt-tag-input" data-rt-product="${r.id}" placeholder="${rtProducts(r).length ? '+ 상품' : '상품명 입력'}" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();addReviewTaskProduct(${r.id}, this);}" onblur="addReviewTaskProduct(${r.id}, this)"></div>`;
     const textCell = (r, field, width) => `<input type="text" class="rt-cell-input" style="width:${width}px;" value="${escapeAttr(r[field] || '')}" onchange="updateReviewTask(${r.id}, '${field}', this.value)">`;
     document.getElementById('rtTable').innerHTML = rows.map(r => `
-      <tr class="${rtIsLate(r) ? 'rt-row-late' : ''} ${r.status === '취소' ? 'rt-row-done' : ''}">
+      <tr class="${rtIsLate(r) ? 'rt-row-late' : ''} ${rtStage(r) === '완료' ? 'rt-row-done' : ''}">
         <td>${dateCell(r, 'requested_at')}</td>
         <td><select class="stage-select" onchange="updateReviewTask(${r.id}, 'channel', this.value)">
           <option value="" ${r.channel ? '' : 'selected'}>선택</option>
           ${RT_CHANNELS.concat(r.channel && !RT_CHANNELS.includes(r.channel) ? [r.channel] : []).map(c => `<option value="${escapeAttr(c)}" ${c === r.channel ? 'selected' : ''}>${escapeAttr(c)}</option>`).join('')}
         </select></td>
-        <td>${textCell(r, 'product_name', 180)}</td>
-        <td>${dateCell(r, 'purchase_date')}</td>
+        <td>${productCell(r)}</td>
+        <td style="white-space:nowrap;">${stageCell(r)}</td>
         <td class="num">${countCell(r, 'photo_count')}</td>
         <td class="num">${countCell(r, 'text_count')}</td>
         <td class="num" style="font-weight:600;">${r.review_count != null ? Number(r.review_count).toLocaleString('ko-KR') : '-'}</td>
         <td>${dateCell(r, 'upload_date')}</td>
-        <td><select class="stage-select" onchange="updateReviewTask(${r.id}, 'status', this.value)">
-          ${RT_STATUSES.map(s => `<option value="${s}" ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}
-        </select></td>
         <td>${textCell(r, 'memo', 180)}</td>
         <td><button class="btn-danger" onclick="deleteReviewTask(${r.id})">삭제</button></td>
       </tr>
-    `).join('') || '<tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:24px;">등록된 리뷰작업이 없습니다.</td></tr>';
+    `).join('') || '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:24px;">등록된 리뷰작업이 없습니다.</td></tr>';
   }
 
   async function updateReviewTask(id, field, value) {
@@ -7808,7 +7825,38 @@
     const row = allReviewTasks.find(r => r.id === id);
     if (row) Object.assign(row, patch);
     // 상태가 바뀌면 필터에서 빠지거나 지연 표시가 달라지므로 표를 다시 그립니다.
-    if (field === 'status' || field.endsWith('_date') || 'review_count' in patch) renderReviewTaskTable();
+    if (field === 'status' || field === 'product_name' || field.endsWith('_date') || 'review_count' in patch) renderReviewTaskTable();
+  }
+
+  function rtProducts(r) {
+    return String(r.product_name || '').split('/').map(x => x.trim()).filter(Boolean);
+  }
+
+  function addReviewTaskProduct(id, input) {
+    const names = input.value.split('/').map(x => x.trim()).filter(Boolean);
+    if (!names.length) return;
+    input.value = '';
+    const row = allReviewTasks.find(r => r.id === id);
+    const list = rtProducts(row || {});
+    names.forEach(n => { if (!list.includes(n)) list.push(n); });
+    updateReviewTask(id, 'product_name', list.join(' / ')).then(() => {
+      const next = document.querySelector(`#rtTable [data-rt-product="${id}"]`);
+      if (next) next.focus();
+    });
+  }
+
+  function removeReviewTaskProduct(id, idx) {
+    const row = allReviewTasks.find(r => r.id === id);
+    const list = rtProducts(row || {});
+    if (list.length <= 1) { alert('상품은 하나 이상 있어야 합니다. 신청 자체를 지우려면 삭제를 눌러주세요.'); return; }
+    list.splice(idx, 1);
+    updateReviewTask(id, 'product_name', list.join(' / '));
+  }
+
+  function setReviewTaskStage(id, idx, checked) {
+    const next = checked ? idx : idx - 1;
+    // 맨 앞 '요청'까지 풀면 요청 상태로 둡니다(단계가 비는 일은 없게).
+    updateReviewTask(id, 'status', RT_STAGES[Math.max(0, next)]);
   }
 
   async function deleteReviewTask(id) {
@@ -7827,7 +7875,7 @@
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
     allReviewTasks.unshift(data);
     if (reviewTaskFilter === 'done') setReviewTaskFilter('open'); else renderReviewTaskTable();
-    const input = document.querySelector(`#rtTable input[onchange^="updateReviewTask(${data.id}, 'product_name'"]`);
+    const input = document.querySelector(`#rtTable [data-rt-product="${data.id}"]`);
     if (input) input.focus();
   }
 
