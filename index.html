@@ -1241,6 +1241,13 @@
   .gs-day-num.dow-sun { color: #dc2626; }
   .gs-day-num.dow-sat { color: #2f5ce4; }
   .gs-day-num.month-label { font-weight: 800; }
+  .gs-day-label { display: inline-flex; align-items: center; gap: 5px; }
+  /* 그 날 시딩 일정이 있으면 날짜 옆에 뜨는 작은 칩 — 누르면 그날 시딩 목록 */
+  .gs-day-seed {
+    font-size: 9px; font-weight: 700; color: #c2410c; background: rgba(249,115,22,.14);
+    border-radius: 999px; padding: 0 6px; height: 14px; line-height: 14px; cursor: pointer; white-space: nowrap;
+  }
+  .gs-day-seed:hover { background: rgba(249,115,22,.28); }
   .gs-day-count {
     font-size: 10px; font-weight: 700; color: #64748b; background: rgba(100,116,139,.14);
     border-radius: 999px; min-width: 16px; height: 16px; line-height: 16px; text-align: center; padding: 0 4px;
@@ -2932,11 +2939,12 @@
           <span class="panel-note">단품 기준 값과 구성만 넣으면 옵션별 원가·자사몰가·추천 공구가가 채워집니다. 공구판매가는 표에서 바로 고칠 수 있습니다.</span>
         </div>
         <form class="deal-form" id="gpDraftForm" oninput="gpBuildDraft()" onsubmit="return false">
-          <input type="text" name="brand" list="gpBrandList" placeholder="브랜드" required style="width:120px;">
+          <input type="text" name="brand" list="gpBrandList" placeholder="브랜드" required style="width:120px;" onchange="gpFillLogiSelect(this.value.trim(), this.form.logiProduct.value || null)">
           <datalist id="gpBrandList"></datalist>
           <input type="text" name="product" placeholder="상품명 (예: 건조기 세탁망)" required style="flex:2; min-width:200px;">
           <label class="gp-field">단품 원가<input type="text" name="unitCost" inputmode="numeric" oninput="gsFormatMoneyInput(this)"></label>
           <label class="gp-field">단품 자사몰가<input type="text" name="unitMall" inputmode="numeric" oninput="gsFormatMoneyInput(this)"></label>
+          <label class="gp-field" style="min-width:240px;">물류 상품 (택배비 연동)<select name="logiProduct" onchange="gpPickLogiProduct()" style="width:260px;"></select></label>
           <label class="gp-field">물류비<input type="text" name="logistics" inputmode="numeric" value="3,000" oninput="gsFormatMoneyInput(this)"></label>
           <label class="gp-field">수수료율 %<input type="text" name="feeRate" inputmode="decimal" value="25"></label>
           <label class="gp-field">경비율 %<input type="text" name="expenseRate" inputmode="decimal" value="24"></label>
@@ -8990,7 +8998,11 @@
       const label = day.isFirstOfMonth ? day.monthLabel : String(day.day);
       const dayCount = records.filter((r) => r.start <= day.key && r.end >= day.key).length;
       const badge = dayCount > 0 ? `<span class="gs-day-count">${dayCount}</span>` : '';
-      return `<div class="${cls.join(' ')}" style="--c:${day.dow + 1}"><span>${label}</span>${badge}</div>`;
+      const seedCount = records.filter((r) => r.kind === 'seeding' && r.start <= day.key && r.end >= day.key).length;
+      const seedChip = seedCount > 0
+        ? `<span class="gs-day-seed" title="이 날 시딩 일정 보기" onclick="event.stopPropagation(); gsShowDaySeeding('${day.key}')">시딩 ${seedCount}</span>`
+        : '';
+      return `<div class="${cls.join(' ')}" style="--c:${day.dow + 1}"><span class="gs-day-label"><span>${label}</span>${seedChip}</span>${badge}</div>`;
     }).join('');
 
     const cards = occ
@@ -9023,6 +9035,24 @@
     if (gsFilters.mall) allRecords = allRecords.concat(gsMallToRecords(gsMallRows));
     if (gsFilters.seeding) allRecords = allRecords.concat(gsSeedToRecords(gsSeedRows));
     return allRecords;
+  }
+
+  // 날짜 옆 "시딩 N" 칩을 눌렀을 때 — 그 날짜에 걸친 시딩 일정만 목록으로 보여줍니다.
+  function gsShowDaySeeding(dateKey) {
+    const dayRecords = gsSeedToRecords(gsSeedRows)
+      .filter((r) => r.start <= dateKey && r.end >= dateKey)
+      .sort((a, b) => a.start.localeCompare(b.start));
+    const body = document.getElementById('gsCardModalBody');
+    body.innerHTML = `
+      <div class="gs-modal-title">${escapeAttr(dateKey)} 시딩 일정 · ${dayRecords.length}건</div>
+      <div class="gs-day-overflow-list">
+        ${dayRecords.map((r) => `
+          <div class="gs-day-overflow-row gs-accent-orange" onclick="gsOpenCardModal('${r.kind}', '${escapeAttr(String(r.rawId))}')">
+            <span class="gs-day-overflow-cat">${escapeAttr(r.catLabel || '')}</span>
+            <span class="gs-day-overflow-title">${escapeAttr(r.title)}</span>
+          </div>`).join('')}
+      </div>`;
+    document.getElementById('gsCardModalOverlay').style.display = 'flex';
   }
 
   function gsShowDayOverflow(dateKey) {
@@ -9751,6 +9781,8 @@
   // 시트와 같은 식으로 화면에서 매번 계산합니다. 유관부서가 같이 보므로 비밀번호 없이 열립니다.
   let gpItems = [];
   let gpEditingId = null;
+  let gpLogiRows = [];         // 물류 대시보드(product_logistics) 상품
+  let gpLogiById = new Map();
   let gpDraftRows = [];        // 새 옵션 미리보기 (저장 전)
   let gpDraftPrices = {};      // 미리보기에서 손으로 고친 공구판매가 (구성 라벨 → 값)
   const gpFilters = { brand: '', q: '', lowOnly: false };
@@ -9773,7 +9805,7 @@
     const fee = p * (gpNum(it.fee_rate) || 0);
     const vat = p / 11;
     const exp = p * (it.expense_rate == null ? GP_DEFAULT_EXPENSE : Number(it.expense_rate));
-    const profit = p - fee - (gpNum(it.cost) || 0) - (gpNum(it.logistics) || 0) - vat - exp;
+    const profit = p - fee - (gpNum(it.cost) || 0) - (gpLogistics(it) || 0) - vat - exp;
     return { fee, vat, exp, profit, margin: profit / p, discount: mall ? 1 - p / mall : null, perUnit: p / units };
   }
 
@@ -9788,16 +9820,46 @@
   async function loadGbPriceItems() {
     const tbody = document.getElementById('gpTable');
     if (!gpItems.length) tbody.innerHTML = '<tr><td colspan="15" class="gs-empty">불러오는 중...</td></tr>';
-    const { data, error } = await client.from('groupbuy_price_items').select('*')
-      .order('sort_order', { ascending: true }).order('id', { ascending: true });
+    const [res, logiRes] = await Promise.all([
+      client.from('groupbuy_price_items').select('*').order('sort_order', { ascending: true }).order('id', { ascending: true }),
+      client.from('product_logistics').select('id,brand,product_name,delivery_fee,combo_qty').order('brand', { ascending: true })
+    ]);
+    const { data, error } = res;
     if (error) {
       tbody.innerHTML = `<tr><td colspan="15" class="gs-empty error">가격표를 불러오지 못했습니다: ${escapeAttr(error.message)}<br>
         처음이라면 Supabase SQL Editor 에서 groupbuy_price_items.sql 을 실행해 주세요.</td></tr>`;
       return;
     }
     gpItems = data || [];
+    // 물류 표를 못 읽어도 가격표는 그대로 보여 줍니다(그때는 직접 넣은 물류비를 씁니다).
+    gpLogiRows = logiRes.error ? [] : (logiRes.data || []);
+    gpLogiById = new Map(gpLogiRows.map((r) => [Number(r.id), r]));
     gpRenderBrandOptions();
     gpRender();
+  }
+
+  // 물류비는 연결된 물류 대시보드 상품의 택배비를 그대로 씁니다. 물류 대시보드에서
+  // 택배비를 고치면 가격표도 따라 바뀝니다. 연결이 없거나 택배비가 비면 직접 넣은 값을 씁니다.
+  function gpLogiProduct(it) {
+    return it.logistics_product_id == null ? null : gpLogiById.get(Number(it.logistics_product_id)) || null;
+  }
+  function gpLogistics(it) {
+    const pl = gpLogiProduct(it);
+    if (pl && gpNum(pl.delivery_fee) != null) return gpNum(pl.delivery_fee);
+    return gpNum(it.logistics);
+  }
+
+  // 물류 상품 고르기 — 같은 브랜드 상품을 위에 둡니다.
+  function gpLogiOptionsHtml(brand, selectedId) {
+    const sel = selectedId == null ? null : Number(selectedId);
+    const label = (r) => `${escapeAttr(r.product_name || '(이름 없음)')} · 택배비 ${gpNum(r.delivery_fee) == null ? '없음' : gpWon(r.delivery_fee) + '원'}`;
+    const opt = (r) => `<option value="${r.id}"${Number(r.id) === sel ? ' selected' : ''}>${label(r)}</option>`;
+    const byName = (a, b) => String(a.product_name || '').localeCompare(String(b.product_name || ''), 'ko');
+    const same = gpLogiRows.filter((r) => r.brand === brand).sort(byName);
+    const others = gpLogiRows.filter((r) => r.brand !== brand);
+    return `<option value="">연결 안 함 (직접 입력)</option>` +
+      (same.length ? `<optgroup label="${escapeAttr(brand || '')}">${same.map(opt).join('')}</optgroup>` : '') +
+      (others.length ? `<optgroup label="다른 브랜드">${others.map(opt).join('')}</optgroup>` : '');
   }
 
   function gpBrands() { return [...new Set(gpItems.map((it) => it.brand))]; }
@@ -9933,7 +9995,9 @@
       <td class="num gp-tobe">${tobe == null ? '<span class="gp-muted">-</span>' : gpRateText(tobe) + '%'}</td>
       <td class="num" data-c="fee">${cc.fee}</td>
       <td class="num">${gpWon(gpNum(it.cost))}</td>
-      <td class="num">${gpWon(gpNum(it.logistics))}</td>
+      <td class="num">${gpWon(gpLogistics(it))}${gpLogiProduct(it)
+        ? `<span class="gp-memo" title="${escapeAttr(gpLogiProduct(it).product_name || '')}">택배비 연동</span>`
+        : '<span class="gp-memo">직접 입력</span>'}</td>
       <td class="num" data-c="vat">${cc.vat}</td>
       <td class="num" data-c="exp" title="경비율 ${gpRateText(expRate)}%">${cc.exp}</td>
       <td class="num" data-c="profit">${cc.profit}</td>
@@ -9958,7 +10022,8 @@
       ${f('쿠팡가', 'coupang_price', won(it.coupang_price))}
       ${f('히든링크', 'hidden_price', won(it.hidden_price))}
       ${f('원가', 'cost', won(it.cost))}
-      ${f('물류비', 'logistics', won(it.logistics))}
+      <label class="gp-field" style="min-width:260px;">물류 상품 (택배비 연동)<select name="logistics_product_id" style="width:280px;">${gpLogiOptionsHtml(it.brand, it.logistics_product_id)}</select></label>
+      ${f('물류비 (연결 안 할 때)', 'logistics', won(it.logistics))}
       ${f('경비율 %', 'expense_rate', gpRateText(it.expense_rate == null ? GP_DEFAULT_EXPENSE : Number(it.expense_rate)), false)}
       <label class="gp-field" style="flex:1; min-width:180px;">메모<input name="memo" value="${escapeAttr(it.memo || '')}" style="width:100%;"></label>
       <button type="submit" class="btn-primary">저장</button>
@@ -10041,6 +10106,7 @@
       hidden_price: gpMoney(fd.get('hidden_price')),
       cost: gpMoney(fd.get('cost')),
       logistics: gpMoney(fd.get('logistics')),
+      logistics_product_id: fd.get('logistics_product_id') ? Number(fd.get('logistics_product_id')) : null,
       expense_rate: gpRate(fd.get('expense_rate')) ?? GP_DEFAULT_EXPENSE,
       memo: String(fd.get('memo') || '').trim() || null,
       updated_at: new Date().toISOString()
@@ -10048,12 +10114,24 @@
     if (!patch.option_name) return;
     const it = gpItems.find((x) => x.id === id);
     if (!patch.product) patch.product = it.product;
+    const linkChanged = (it.logistics_product_id ?? null) !== patch.logistics_product_id;
     const { error } = await client.from('groupbuy_price_items').update(patch).eq('id', id);
     if (error) { alert('저장하지 못했습니다: ' + error.message); return; }
     Object.assign(it, patch);
+    // 물류 상품은 보통 상품 단위로 같으니, 바꾸면 같은 상품의 다른 옵션에도 똑같이 잇습니다.
+    let extra = 0;
+    if (linkChanged) {
+      const siblings = gpItems.filter((x) => x.id !== id && x.brand === it.brand && x.product === it.product);
+      if (siblings.length) {
+        const r2 = await client.from('groupbuy_price_items')
+          .update({ logistics_product_id: patch.logistics_product_id, updated_at: patch.updated_at })
+          .in('id', siblings.map((x) => x.id));
+        if (!r2.error) { siblings.forEach((x) => { x.logistics_product_id = patch.logistics_product_id; }); extra = siblings.length; }
+      }
+    }
     gpEditingId = null;
     gpRender();
-    gpNote(`${it.option_name} 저장됨`, 'gp-saved');
+    gpNote(`${it.option_name} 저장됨${extra ? ` · 같은 상품 옵션 ${extra}개도 같은 물류 상품에 연결` : ''}`, 'gp-saved');
   }
 
   async function gpDelete(id) {
@@ -10084,6 +10162,7 @@
     const form = document.getElementById('gpDraftForm');
     form.reset();
     gpDraftPrices = {};
+    gpFillLogiSelect('', null);
     document.getElementById('gpDraftTitle').textContent = '새 상품 공구 옵션 만들기';
     if (encodedKey) {
       // 기존 상품에 옵션 추가: 그 상품 첫 옵션에서 단품 값을 거꾸로 구해 채워 둡니다.
@@ -10096,7 +10175,8 @@
         form.product.value = base.product;
         form.unitCost.value = gpNum(base.cost) ? gpWon(base.cost / u) : '';
         form.unitMall.value = gpNum(base.mall_price) ? gpWon(base.mall_price / u) : '';
-        form.logistics.value = gpNum(base.logistics) ? gpWon(base.logistics) : '';
+        form.logistics.value = gpLogistics(base) ? gpWon(gpLogistics(base)) : '';
+        gpFillLogiSelect(base.brand, base.logistics_product_id);
         form.feeRate.value = gpRateText(gpNum(base.fee_rate) ?? 0.25);
         form.expenseRate.value = gpRateText(base.expense_rate == null ? GP_DEFAULT_EXPENSE : Number(base.expense_rate));
         const have = new Set(group.map((it) => gpNum(it.units) || 1));
@@ -10107,6 +10187,21 @@
     panel.style.display = '';
     gpBuildDraft();
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function gpFillLogiSelect(brand, selectedId) {
+    const form = document.getElementById('gpDraftForm');
+    form.logiProduct.innerHTML = gpLogiOptionsHtml(brand, selectedId);
+    gpPickLogiProduct(true);
+  }
+
+  // 물류 상품을 고르면 그 택배비를 물류비 칸에 넣고 잠급니다(직접 입력은 "연결 안 함"일 때만).
+  function gpPickLogiProduct(silent) {
+    const form = document.getElementById('gpDraftForm');
+    const pl = form.logiProduct.value ? gpLogiById.get(Number(form.logiProduct.value)) : null;
+    if (pl && gpNum(pl.delivery_fee) != null) form.logistics.value = gpWon(pl.delivery_fee);
+    form.logistics.readOnly = !!(pl && gpNum(pl.delivery_fee) != null);
+    if (!silent) gpBuildDraft();
   }
 
   function gpCloseDraft() { document.getElementById('gpDraftPanel').style.display = 'none'; }
@@ -10122,6 +10217,7 @@
     const unitCost = gpMoney(form.unitCost.value);
     const unitMall = gpMoney(form.unitMall.value);
     const logistics = gpMoney(form.logistics.value) || 0;
+    const logisticsProductId = form.logiProduct.value ? Number(form.logiProduct.value) : null;
     const feeRate = gpRate(form.feeRate.value) ?? 0;
     const expenseRate = gpRate(form.expenseRate.value) ?? GP_DEFAULT_EXPENSE;
     const target = gpRate(form.targetMargin.value) ?? 0;
@@ -10134,7 +10230,7 @@
         option_name: (gpDraftPrices['name:' + o.label]) || (product ? `${product} ${o.label}` : o.label),
         units: o.units,
         mall_price: unitMall != null ? unitMall * o.units : null,
-        cost, logistics, fee_rate: feeRate, expense_rate: expenseRate,
+        cost, logistics, logistics_product_id: logisticsProductId, fee_rate: feeRate, expense_rate: expenseRate,
         suggested,
         gb_price: manual != null ? manual : suggested
       };
@@ -10213,6 +10309,7 @@
       fee_rate: r.fee_rate,
       cost: r.cost,
       logistics: r.logistics,
+      logistics_product_id: r.logistics_product_id,
       expense_rate: r.expense_rate
     }));
     const { data, error } = await client.from('groupbuy_price_items').insert(rows).select();
@@ -10243,7 +10340,7 @@
         '브랜드': it.brand, '상품': it.product, '옵션': it.option_name, '구성': gpNum(it.units) || 1,
         '자사몰가': r(gpNum(it.mall_price)), '스스가': r(gpNum(it.ss_price)), '쿠팡가': r(gpNum(it.coupang_price)), '히든링크': r(gpNum(it.hidden_price)),
         '공구판매가': r(gpNum(it.gb_price)), '할인율(%)': p(c.discount), '수수료율(%)': p(gpNum(it.fee_rate)), '수수료': r(c.fee),
-        '원가': r(gpNum(it.cost)), '물류비': r(gpNum(it.logistics)), '부가세': r(c.vat), '경비': r(c.exp),
+        '원가': r(gpNum(it.cost)), '물류비': r(gpLogistics(it)), '물류 상품': gpLogiProduct(it) ? gpLogiProduct(it).product_name : '', '부가세': r(c.vat), '경비': r(c.exp),
         '손익': r(c.profit), '손익률(%)': p(c.margin), '객단가': r(c.perUnit), '메모': it.memo || ''
       };
     });
