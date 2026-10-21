@@ -2640,7 +2640,7 @@
       <div class="topbar">
         <div>
           <h1>리뷰작업</h1>
-          <div class="subtitle">CX팀에 요청한 리뷰작업의 구매일 · 리뷰 건수 · 적재일을 정리합니다. 표에서 날짜·진행상태를 바로 고치면 저장돼요.</div>
+          <div class="subtitle">CX팀에 요청한 리뷰작업의 구매일 · 리뷰 건수(포토/텍스트) · 적재일을 정리합니다. 표에서 날짜·진행상태를 바로 고치면 저장돼요.</div>
         </div>
       </div>
 
@@ -2657,7 +2657,8 @@
           </datalist>
           <input type="text" name="requester" placeholder="요청자" style="width:90px;">
           <label class="rt-form-label">구매일 <input type="date" name="purchaseDate" style="width:150px;"></label>
-          <input type="number" name="reviewCount" placeholder="리뷰 건수" min="0" style="width:100px;">
+          <input type="number" name="photoCount" placeholder="포토 건수" min="0" style="width:100px;">
+          <input type="number" name="textCount" placeholder="텍스트 건수" min="0" style="width:100px;">
           <label class="rt-form-label">적재일 <input type="date" name="uploadDate" style="width:150px;"></label>
           <input type="text" name="memo" placeholder="메모 (옵션·키워드·포토 여부 등)" style="flex:1; min-width:180px;">
           <button type="submit" class="btn-primary">추가</button>
@@ -2678,7 +2679,7 @@
         <div class="scroll-box">
           <table>
             <thead>
-              <tr><th>요청일</th><th>상품명</th><th>판매처</th><th>요청자</th><th>구매일</th><th class="num">리뷰 건수</th><th>적재일</th><th>진행상태</th><th>메모</th><th></th></tr>
+              <tr><th>요청일</th><th>상품명</th><th>판매처</th><th>요청자</th><th>구매일</th><th class="num">포토</th><th class="num">텍스트</th><th class="num">합계</th><th>적재일</th><th>진행상태</th><th>메모</th><th></th></tr>
             </thead>
             <tbody id="rtTable"></tbody>
           </table>
@@ -7823,6 +7824,7 @@
     });
     document.getElementById('rtListNote').textContent = `${rows.length.toLocaleString('ko-KR')}건`;
     const dateCell = (r, field) => `<input type="date" class="rt-cell-input" value="${escapeAttr(r[field] || '')}" onchange="updateReviewTask(${r.id}, '${field}', this.value)">`;
+    const countCell = (r, field) => `<input type="number" min="0" class="rt-cell-input rt-num" value="${r[field] != null ? r[field] : ''}" onchange="updateReviewTask(${r.id}, '${field}', this.value)">`;
     const textCell = (r, field, width) => `<input type="text" class="rt-cell-input" style="width:${width}px;" value="${escapeAttr(r[field] || '')}" onchange="updateReviewTask(${r.id}, '${field}', this.value)">`;
     document.getElementById('rtTable').innerHTML = rows.map(r => `
       <tr class="${rtIsLate(r) ? 'rt-row-late' : ''} ${r.status === '취소' ? 'rt-row-done' : ''}">
@@ -7831,7 +7833,9 @@
         <td>${textCell(r, 'channel', 100)}</td>
         <td>${textCell(r, 'requester', 70)}</td>
         <td>${dateCell(r, 'purchase_date')}</td>
-        <td class="num"><input type="number" min="0" class="rt-cell-input rt-num" value="${r.review_count != null ? r.review_count : ''}" onchange="updateReviewTask(${r.id}, 'review_count', this.value)"></td>
+        <td class="num">${countCell(r, 'photo_count')}</td>
+        <td class="num">${countCell(r, 'text_count')}</td>
+        <td class="num" style="font-weight:600;">${r.review_count != null ? Number(r.review_count).toLocaleString('ko-KR') : '-'}</td>
         <td>${dateCell(r, 'upload_date')}</td>
         <td><select class="stage-select" onchange="updateReviewTask(${r.id}, 'status', this.value)">
           ${RT_STATUSES.map(s => `<option value="${s}" ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}
@@ -7839,23 +7843,30 @@
         <td>${textCell(r, 'memo', 220)}</td>
         <td><button class="btn-danger" onclick="deleteReviewTask(${r.id})">삭제</button></td>
       </tr>
-    `).join('') || '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:24px;">등록된 리뷰작업이 없습니다.</td></tr>';
+    `).join('') || '<tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:24px;">등록된 리뷰작업이 없습니다.</td></tr>';
   }
 
   async function updateReviewTask(id, field, value) {
     let v = typeof value === 'string' ? value.trim() : value;
-    if (field === 'review_count') v = v === '' ? null : Number(v);
+    if (field === 'photo_count' || field === 'text_count') v = v === '' ? null : Number(v);
     else if (v === '') v = null;
     if (field === 'product_name' && !v) { alert('상품명은 비울 수 없습니다.'); renderReviewTaskTable(); return; }
     if (field === 'requested_at' && !v) { alert('요청일은 비울 수 없습니다.'); renderReviewTaskTable(); return; }
     const patch = { [field]: v, updated_at: new Date().toISOString() };
+    // 합계(review_count)는 포토 + 텍스트로 같이 저장합니다.
+    if (field === 'photo_count' || field === 'text_count') {
+      const row = allReviewTasks.find(r => r.id === id) || {};
+      const next = { ...row, [field]: v };
+      patch.review_count = next.photo_count == null && next.text_count == null
+        ? null : (Number(next.photo_count) || 0) + (Number(next.text_count) || 0);
+    }
     const { error } = await client.from('review_tasks').update(patch).eq('id', id);
     if (error) { alert('저장하지 못했습니다: ' + error.message); loadReviewTasks(); return; }
     const row = allReviewTasks.find(r => r.id === id);
     if (row) Object.assign(row, patch);
     renderReviewTaskCards();
     // 상태가 바뀌면 필터에서 빠지거나 지연 표시가 달라지므로 표를 다시 그립니다.
-    if (field === 'status' || field.endsWith('_date')) renderReviewTaskTable();
+    if (field === 'status' || field.endsWith('_date') || 'review_count' in patch) renderReviewTaskTable();
   }
 
   async function deleteReviewTask(id) {
@@ -7876,12 +7887,15 @@
       channel: form.channel.value.trim() || null,
       requester: form.requester.value.trim() || null,
       purchase_date: form.purchaseDate.value || null,
-      review_count: form.reviewCount.value === '' ? null : Number(form.reviewCount.value),
+      photo_count: form.photoCount.value === '' ? null : Number(form.photoCount.value),
+      text_count: form.textCount.value === '' ? null : Number(form.textCount.value),
       upload_date: form.uploadDate.value || null,
       memo: form.memo.value.trim() || null,
       status: '요청',
     };
     if (!payload.product_name) return;
+    payload.review_count = payload.photo_count == null && payload.text_count == null
+      ? null : (payload.photo_count || 0) + (payload.text_count || 0);
     status.textContent = '추가하는 중...';
     const { error } = await client.from('review_tasks').insert(payload);
     if (error) {
