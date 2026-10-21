@@ -1782,7 +1782,7 @@
   .rt-row-done .rt-cell-input { color: #94a3b8; }
   #reviewTasksView th, #reviewTasksView td { text-align: center; }
   #reviewTasksView .rt-cell-input { text-align: center; }
-  #reviewTasksView .rt-tags { justify-content: center; margin: 0 auto; }
+  #reviewTasksView .rt-col-product { text-align: left; }
   #reviewTasksView .stage-select { text-align-last: center; }
   .rt-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 200px; max-width: 320px; }
   .rt-tag { display: inline-flex; align-items: center; gap: 2px; background: #eef2ff; color: #3730a3; border-radius: 999px; padding: 2px 4px 2px 9px; font-size: 12px; white-space: nowrap; }
@@ -2691,7 +2691,7 @@
         <div class="scroll-box">
           <table>
             <thead>
-              <tr><th>요청일</th><th>판매채널</th><th>상품명</th><th>요청 · 진행중 · 완료</th><th class="num">포토</th><th class="num">텍스트</th><th class="num" style="white-space:nowrap;">합계</th><th>완료일</th><th>메모</th><th></th></tr>
+              <tr><th>요청일</th><th>판매채널</th><th class="rt-col-product">상품명</th><th>요청 · 진행중 · 완료</th><th class="num">포토</th><th class="num">텍스트</th><th class="num" style="white-space:nowrap;">합계</th><th>완료일</th><th>메모</th><th></th></tr>
             </thead>
             <tbody id="rtTable"></tbody>
           </table>
@@ -7829,7 +7829,7 @@
           <option value="" ${r.channel ? '' : 'selected'}>선택</option>
           ${RT_CHANNELS.concat(r.channel && !RT_CHANNELS.includes(r.channel) ? [r.channel] : []).map(c => `<option value="${escapeAttr(c)}" ${c === r.channel ? 'selected' : ''}>${escapeAttr(c)}</option>`).join('')}
         </select></td>
-        <td>${productCell(r)}</td>
+        <td class="rt-col-product">${productCell(r)}</td>
         <td style="white-space:nowrap;">${stageCell(r)}</td>
         <td class="num">${countCell(r, 'photo_count')}</td>
         <td class="num">${countCell(r, 'text_count')}</td>
