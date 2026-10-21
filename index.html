@@ -2661,11 +2661,7 @@
           <h2>리뷰작업 목록 <span class="panel-note" id="rtListNote" style="font-weight:400;margin-left:6px;"></span></h2>
           <button type="button" class="btn-primary" onclick="addReviewTask()">+ 추가</button>
         </div>
-        <div class="ra-filter-tabs" id="rtFilterTabs">
-          <button type="button" class="ra-filter-btn active" data-filter="all" onclick="setReviewTaskFilter('all')">전체</button>
-          <button type="button" class="ra-filter-btn" data-filter="open" onclick="setReviewTaskFilter('open')">진행중</button>
-          <button type="button" class="ra-filter-btn" data-filter="done" onclick="setReviewTaskFilter('done')">완료</button>
-        </div>
+        <div class="ra-filter-tabs" id="rtFilterTabs" style="flex-wrap:wrap;"></div>
         <div class="scroll-box">
           <table>
             <thead>
@@ -7725,7 +7721,7 @@
   }
   const RT_CHANNELS = ['쿠팡', '스마트스토어', '지마켓', '오늘의집', '컬리', '톡딜', '지그재그', '토스'];
   let allReviewTasks = [];
-  let reviewTaskFilter = 'all'; // 'all' | 'open' | 'done'
+  let reviewTaskFilter = 'all'; // 'all' 또는 판매채널 이름
 
   function rtToday() {
     const d = new Date();
@@ -7745,10 +7741,23 @@
 
   function setReviewTaskFilter(filter) {
     reviewTaskFilter = filter;
-    document.querySelectorAll('#rtFilterTabs .ra-filter-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.filter === filter);
-    });
     renderReviewTaskTable();
+  }
+
+  // 판매채널 탭: 전체 + 지금 진행 중(완료 전)인 신청이 있는 채널만. 숫자는 진행 중 건수입니다.
+  function renderReviewTaskTabs() {
+    const open = allReviewTasks.filter(rtIsOpen);
+    const present = new Set(open.map(r => r.channel || ''));
+    const extra = [...present].filter(c => c && !RT_CHANNELS.includes(c));
+    const tabs = ['all'].concat(RT_CHANNELS.filter(c => present.has(c)), extra);
+    if (present.has('')) tabs.push('');
+    if (!tabs.includes(reviewTaskFilter)) reviewTaskFilter = 'all';
+    const count = (t) => t === 'all' ? open.length : open.filter(r => (r.channel || '') === t).length;
+    document.getElementById('rtFilterTabs').innerHTML = tabs.map(t => {
+      const n = count(t);
+      const label = t === 'all' ? '전체' : (t || '미지정');
+      return `<button type="button" class="ra-filter-btn ${t === reviewTaskFilter ? 'active' : ''}" data-ch="${escapeAttr(t)}" onclick="setReviewTaskFilter(this.dataset.ch)">${escapeAttr(label)}${n ? ` <span style="opacity:.6;font-weight:400;">${n}</span>` : ''}</button>`;
+    }).join('');
   }
 
   async function loadReviewTasks() {
@@ -7767,10 +7776,10 @@
   }
 
   function renderReviewTaskTable() {
+    renderReviewTaskTabs();
     const rows = allReviewTasks.filter(r => {
-      if (reviewTaskFilter === 'open') return rtIsOpen(r);
-      if (reviewTaskFilter === 'done') return rtStage(r) === '완료';
-      return true;
+      if (reviewTaskFilter === 'all') return true;
+      return (r.channel || '') === reviewTaskFilter;
     });
     const open = allReviewTasks.filter(rtIsOpen);
     const openReviews = open.reduce((s, r) => s + (Number(r.review_count) || 0), 0);
@@ -7825,7 +7834,7 @@
     const row = allReviewTasks.find(r => r.id === id);
     if (row) Object.assign(row, patch);
     // 상태가 바뀌면 필터에서 빠지거나 지연 표시가 달라지므로 표를 다시 그립니다.
-    if (field === 'status' || field === 'product_name' || field.endsWith('_date') || 'review_count' in patch) renderReviewTaskTable();
+    if (field === 'status' || field === 'channel' || field === 'product_name' || field.endsWith('_date') || 'review_count' in patch) renderReviewTaskTable();
   }
 
   function rtProducts(r) {
@@ -7874,7 +7883,9 @@
       .select().single();
     if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
     allReviewTasks.unshift(data);
-    if (reviewTaskFilter === 'done') setReviewTaskFilter('open'); else renderReviewTaskTable();
+    // 새 줄은 판매채널이 비어 있으니, 채널 탭을 보고 있었다면 전체로 돌아갑니다.
+    reviewTaskFilter = 'all';
+    renderReviewTaskTable();
     const input = document.querySelector(`#rtTable [data-rt-product="${data.id}"]`);
     if (input) input.focus();
   }
