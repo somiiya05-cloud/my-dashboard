@@ -627,11 +627,13 @@
   const BE_ROAS = 1.5; // 증액 판단 기준(손익분기 약 135~145% + 여유)
   const TARGET_SHARE = 0.15; // 애드부스트 광고비 비중 목표: 스마트스토어 매출의 15% 이내 (10/16 결정)
   // 적정 하루 광고비 = 끝날짜까지 최근 7일 스마트스토어 매출 평균 × 목표 비중
+  // 스마트스토어 전체 매출(store_sales)은 채널 줄마다 같은 값이 들어 있어, 날짜별로 한 번만 센다.
+  const storeTotal = (list) => { const byDay = new Map(); list.forEach((r) => byDay.set(r.date, r.store_sales)); let t = 0; byDay.forEach((v) => { t += v; }); return t; };
   function suggestedDaily(to, ch) {
     const sr = storeRows.filter((r) => ch.includes(r.channel) && r.date <= to);
     const days = [...new Set(sr.map((r) => r.date))].sort().slice(-7);
     if (!days.length) return null;
-    const sales = sr.filter((r) => days.includes(r.date)).reduce((t, r) => t + r.store_sales, 0);
+    const sales = storeTotal(sr.filter((r) => days.includes(r.date)));
     return { avg: sales / days.length, budget: sales / days.length * TARGET_SHARE, days: days.length };
   }
   let sv = null, svPrev = null;
@@ -646,7 +648,7 @@
     const sr = storeRows.filter((r) => ch.includes(r.channel) && r.date >= from && r.date <= to);
     if (!sr.length) return null;
     const cost = rows.filter((r) => ch.includes(r.mall) && r.date >= from && r.date <= to).reduce((t, r) => t + r.cost, 0);
-    const sales = sr.reduce((t, r) => t + r.sales, 0), storeSales = sr.reduce((t, r) => t + r.store_sales, 0);
+    const sales = sr.reduce((t, r) => t + r.sales, 0), storeSales = storeTotal(sr);
     return { ch, cost, sales, storeSales, pays: sr.reduce((t, r) => t + r.pays, 0),
       roas: cost ? sales / cost : NaN, share: storeSales ? cost / storeSales : NaN };
   }
@@ -722,7 +724,7 @@
       const byDay = new Map();
       const slot = (d) => byDay.get(d) || byDay.set(d, { name: d, cost: 0, rev: 0, store: 0, pays: 0 }).get(d);
       list.filter((r) => sv.ch.includes(r.mall)).forEach((r) => { slot(r.date).cost += r.cost; });
-      storeRows.filter((r) => sv.ch.includes(r.channel) && r.date >= lo && r.date <= to).forEach((r) => { const a = slot(r.date); a.rev += r.sales; a.store += r.store_sales; a.pays += r.pays; });
+      storeRows.filter((r) => sv.ch.includes(r.channel) && r.date >= lo && r.date <= to).forEach((r) => { const a = slot(r.date); a.rev += r.sales; a.store = r.store_sales; a.pays += r.pays; });
       daily = [...byDay.values()].sort((a, b) => a.name < b.name ? -1 : 1).map((a) => ({ ...a, roas: a.cost ? a.rev / a.cost : NaN }));
       T = BE_ROAS;
     }
