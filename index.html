@@ -1744,7 +1744,6 @@
   .ra-badge { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
   .ra-badge-flag { background: rgba(239,68,68,.12); color: #dc2626; }
   .ra-badge-normal { background: rgba(100,116,139,.12); color: #475569; }
-  .rt-form-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; }
   .rt-cell-input {
     background: transparent; color: #0f172a; border: 1px solid transparent;
     border-radius: 6px; padding: 4px 6px; font-size: 12px; font-family: inherit;
@@ -2640,36 +2639,14 @@
       <div class="topbar">
         <div>
           <h1>리뷰작업</h1>
-          <div class="subtitle">CX팀에 요청한 리뷰작업의 구매일 · 리뷰 건수(포토/텍스트) · 적재일을 정리합니다. 표에서 날짜·진행상태를 바로 고치면 저장돼요.</div>
+          <div class="subtitle">CX팀에 요청한 리뷰작업을 정리합니다. 표에서 바로 고치면 저장돼요.</div>
         </div>
       </div>
 
-      <section class="kpi-row" id="rtCards"></section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>리뷰작업 요청 추가</h2></div>
-        <form class="deal-form" id="reviewTaskForm">
-          <input type="date" name="requestedAt" style="width:150px;" title="요청일" required>
-          <input type="text" name="productName" placeholder="상품명" required style="flex:1; min-width:180px;">
-          <input type="text" name="channel" placeholder="판매처 (예: 스마트스토어)" list="rtChannelList" style="width:170px;">
-          <datalist id="rtChannelList">
-            <option value="스마트스토어"><option value="쿠팡"><option value="자사몰"><option value="오늘의집"><option value="11번가"><option value="G마켓">
-          </datalist>
-          <input type="text" name="requester" placeholder="요청자" style="width:90px;">
-          <label class="rt-form-label">구매일 <input type="date" name="purchaseDate" style="width:150px;"></label>
-          <input type="number" name="photoCount" placeholder="포토 건수" min="0" style="width:100px;">
-          <input type="number" name="textCount" placeholder="텍스트 건수" min="0" style="width:100px;">
-          <label class="rt-form-label">적재일 <input type="date" name="uploadDate" style="width:150px;"></label>
-          <input type="text" name="memo" placeholder="메모 (옵션·키워드·포토 여부 등)" style="flex:1; min-width:180px;">
-          <button type="submit" class="btn-primary">추가</button>
-        </form>
-        <span class="panel-note" id="reviewTaskStatus"></span>
-      </section>
-
       <section class="panel">
         <div class="panel-head">
-          <h2>리뷰작업 목록</h2>
-          <span class="panel-note" id="rtListNote"></span>
+          <h2>리뷰작업 목록 <span class="panel-note" id="rtListNote" style="font-weight:400;margin-left:6px;"></span></h2>
+          <button type="button" class="btn-primary" onclick="addReviewTask()">+ 추가</button>
         </div>
         <div class="ra-filter-tabs" id="rtFilterTabs">
           <button type="button" class="ra-filter-btn active" data-filter="open" onclick="setReviewTaskFilter('open')">진행중</button>
@@ -2679,7 +2656,7 @@
         <div class="scroll-box">
           <table>
             <thead>
-              <tr><th>요청일</th><th>상품명</th><th>판매처</th><th>요청자</th><th>구매일</th><th class="num">포토</th><th class="num">텍스트</th><th class="num">합계</th><th>적재일</th><th>진행상태</th><th>메모</th><th></th></tr>
+              <tr><th>요청일</th><th>판매채널</th><th>상품명</th><th>구매일</th><th class="num">포토</th><th class="num">텍스트</th><th class="num" style="white-space:nowrap;">합계</th><th>적재일</th><th>진행상태</th><th>메모</th><th></th></tr>
             </thead>
             <tbody id="rtTable"></tbody>
           </table>
@@ -7727,6 +7704,7 @@
 
   // ==================== 리뷰작업 (CX팀 요청 트래킹, review_tasks.sql) ====================
   const RT_STATUSES = ['요청', '구매완료', '적재완료', '취소'];
+  const RT_CHANNELS = ['쿠팡', '스마트스토어', '지마켓', '오늘의집', '컬리', '톡딜', '지그재그', '토스'];
   let allReviewTasks = [];
   let reviewTaskFilter = 'open'; // 'open' | 'done' | 'all'
 
@@ -7756,8 +7734,6 @@
   }
 
   async function loadReviewTasks() {
-    const form = document.getElementById('reviewTaskForm');
-    if (!form.requestedAt.value) form.requestedAt.value = rtToday();
     const note = document.getElementById('rtListNote');
     const { data, error } = await client
       .from('review_tasks')
@@ -7769,51 +7745,7 @@
       return;
     }
     allReviewTasks = data || [];
-    renderReviewTaskCards();
     renderReviewTaskTable();
-  }
-
-  function renderReviewTaskCards() {
-    const today = rtToday();
-    const weekEnd = new Date();
-    weekEnd.setDate(weekEnd.getDate() + 7);
-    const weekEndKey = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth() + 1).padStart(2, '0')}-${String(weekEnd.getDate()).padStart(2, '0')}`;
-    const monthKey = today.slice(0, 7);
-    const sum = (rows) => rows.reduce((s, r) => s + (Number(r.review_count) || 0), 0);
-
-    const open = allReviewTasks.filter(rtIsOpen);
-    const toBuy = open.filter(r => r.status === '요청');
-    const upcoming = open.filter(r => r.upload_date && r.upload_date >= today && r.upload_date <= weekEndKey);
-    const late = open.filter(rtIsLate);
-    const doneThisMonth = allReviewTasks.filter(r => r.status === '적재완료' && (r.upload_date || '').startsWith(monthKey));
-
-    document.getElementById('rtCards').innerHTML = `
-      <div class="kpi-card">
-        <div class="kpi-label">진행중</div>
-        <div class="kpi-value">${open.length.toLocaleString('ko-KR')}건</div>
-        <div class="kpi-label" style="margin-top:4px;">리뷰 ${sum(open).toLocaleString('ko-KR')}개</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">구매 대기</div>
-        <div class="kpi-value">${toBuy.length.toLocaleString('ko-KR')}건</div>
-        <div class="kpi-label" style="margin-top:4px;">리뷰 ${sum(toBuy).toLocaleString('ko-KR')}개</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">7일 내 적재 예정</div>
-        <div class="kpi-value">${upcoming.length.toLocaleString('ko-KR')}건</div>
-        <div class="kpi-label" style="margin-top:4px;">리뷰 ${sum(upcoming).toLocaleString('ko-KR')}개</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">일정 지남</div>
-        <div class="kpi-value" style="${late.length ? 'color:#dc2626;' : ''}">${late.length.toLocaleString('ko-KR')}건</div>
-        <div class="kpi-label" style="margin-top:4px;">구매일·적재일이 지났는데 미완료</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">이번 달 적재 완료</div>
-        <div class="kpi-value">${sum(doneThisMonth).toLocaleString('ko-KR')}개</div>
-        <div class="kpi-label" style="margin-top:4px;">${doneThisMonth.length.toLocaleString('ko-KR')}건</div>
-      </div>
-    `;
   }
 
   function renderReviewTaskTable() {
@@ -7822,16 +7754,22 @@
       if (reviewTaskFilter === 'done') return r.status === '적재완료';
       return true;
     });
-    document.getElementById('rtListNote').textContent = `${rows.length.toLocaleString('ko-KR')}건`;
+    const open = allReviewTasks.filter(rtIsOpen);
+    const openReviews = open.reduce((s, r) => s + (Number(r.review_count) || 0), 0);
+    const late = open.filter(rtIsLate).length;
+    document.getElementById('rtListNote').innerHTML = `진행중 ${open.length.toLocaleString('ko-KR')}건 · 리뷰 ${openReviews.toLocaleString('ko-KR')}개`
+      + (late ? ` · <span style="color:#dc2626;">일정 지남 ${late}건</span>` : '');
     const dateCell = (r, field) => `<input type="date" class="rt-cell-input" value="${escapeAttr(r[field] || '')}" onchange="updateReviewTask(${r.id}, '${field}', this.value)">`;
     const countCell = (r, field) => `<input type="number" min="0" class="rt-cell-input rt-num" value="${r[field] != null ? r[field] : ''}" onchange="updateReviewTask(${r.id}, '${field}', this.value)">`;
     const textCell = (r, field, width) => `<input type="text" class="rt-cell-input" style="width:${width}px;" value="${escapeAttr(r[field] || '')}" onchange="updateReviewTask(${r.id}, '${field}', this.value)">`;
     document.getElementById('rtTable').innerHTML = rows.map(r => `
       <tr class="${rtIsLate(r) ? 'rt-row-late' : ''} ${r.status === '취소' ? 'rt-row-done' : ''}">
         <td>${dateCell(r, 'requested_at')}</td>
-        <td>${textCell(r, 'product_name', 200)}</td>
-        <td>${textCell(r, 'channel', 100)}</td>
-        <td>${textCell(r, 'requester', 70)}</td>
+        <td><select class="stage-select" onchange="updateReviewTask(${r.id}, 'channel', this.value)">
+          <option value="" ${r.channel ? '' : 'selected'}>선택</option>
+          ${RT_CHANNELS.concat(r.channel && !RT_CHANNELS.includes(r.channel) ? [r.channel] : []).map(c => `<option value="${escapeAttr(c)}" ${c === r.channel ? 'selected' : ''}>${escapeAttr(c)}</option>`).join('')}
+        </select></td>
+        <td>${textCell(r, 'product_name', 180)}</td>
         <td>${dateCell(r, 'purchase_date')}</td>
         <td class="num">${countCell(r, 'photo_count')}</td>
         <td class="num">${countCell(r, 'text_count')}</td>
@@ -7840,10 +7778,10 @@
         <td><select class="stage-select" onchange="updateReviewTask(${r.id}, 'status', this.value)">
           ${RT_STATUSES.map(s => `<option value="${s}" ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}
         </select></td>
-        <td>${textCell(r, 'memo', 220)}</td>
+        <td>${textCell(r, 'memo', 180)}</td>
         <td><button class="btn-danger" onclick="deleteReviewTask(${r.id})">삭제</button></td>
       </tr>
-    `).join('') || '<tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:24px;">등록된 리뷰작업이 없습니다.</td></tr>';
+    `).join('') || '<tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:24px;">등록된 리뷰작업이 없습니다.</td></tr>';
   }
 
   async function updateReviewTask(id, field, value) {
@@ -7864,7 +7802,6 @@
     if (error) { alert('저장하지 못했습니다: ' + error.message); loadReviewTasks(); return; }
     const row = allReviewTasks.find(r => r.id === id);
     if (row) Object.assign(row, patch);
-    renderReviewTaskCards();
     // 상태가 바뀌면 필터에서 빠지거나 지연 표시가 달라지므로 표를 다시 그립니다.
     if (field === 'status' || field.endsWith('_date') || 'review_count' in patch) renderReviewTaskTable();
   }
@@ -7877,36 +7814,17 @@
     loadReviewTasks();
   }
 
-  document.getElementById('reviewTaskForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const status = document.getElementById('reviewTaskStatus');
-    const payload = {
-      requested_at: form.requestedAt.value || rtToday(),
-      product_name: form.productName.value.trim(),
-      channel: form.channel.value.trim() || null,
-      requester: form.requester.value.trim() || null,
-      purchase_date: form.purchaseDate.value || null,
-      photo_count: form.photoCount.value === '' ? null : Number(form.photoCount.value),
-      text_count: form.textCount.value === '' ? null : Number(form.textCount.value),
-      upload_date: form.uploadDate.value || null,
-      memo: form.memo.value.trim() || null,
-      status: '요청',
-    };
-    if (!payload.product_name) return;
-    payload.review_count = payload.photo_count == null && payload.text_count == null
-      ? null : (payload.photo_count || 0) + (payload.text_count || 0);
-    status.textContent = '추가하는 중...';
-    const { error } = await client.from('review_tasks').insert(payload);
-    if (error) {
-      status.innerHTML = '<span class="error">추가하지 못했습니다: ' + error.message + '</span>';
-      return;
-    }
-    status.textContent = '추가되었습니다.';
-    form.reset();
-    form.requestedAt.value = rtToday();
-    loadReviewTasks();
-  });
+  // 빈 줄을 하나 넣고 상품명 칸에 커서를 둡니다. 나머지는 표에서 바로 채웁니다.
+  async function addReviewTask() {
+    const { data, error } = await client.from('review_tasks')
+      .insert({ requested_at: rtToday(), product_name: '', status: '요청' })
+      .select().single();
+    if (error) { alert('추가하지 못했습니다: ' + error.message); return; }
+    allReviewTasks.unshift(data);
+    if (reviewTaskFilter === 'done') setReviewTaskFilter('open'); else renderReviewTaskTable();
+    const input = document.querySelector(`#rtTable input[onchange^="updateReviewTask(${data.id}, 'product_name'"]`);
+    if (input) input.focus();
+  }
 
   // ==================== 코드니처 자사몰 상품 ====================
   let allCodenitProducts = [];
