@@ -3066,19 +3066,20 @@
           <span class="panel-note">단품 기준 값과 구성만 넣으면 옵션별 원가·자사몰가·추천 공구가가 채워집니다. 공구판매가는 표에서 바로 고칠 수 있습니다.</span>
         </div>
         <form class="deal-form" id="gpDraftForm" oninput="gpBuildDraft()" onsubmit="return false">
-          <input type="text" name="brand" list="gpBrandList" placeholder="브랜드" required style="width:120px;" onchange="gpFillLogiSelect(this.value.trim(), this.form.logiProduct.value || null); gpFillCostSelect(this.value.trim(), this.form.costProduct.value || null)">
+          <input type="text" name="brand" list="gpBrandList" placeholder="브랜드" required style="width:120px;" onchange="gpAutoLink()">
           <datalist id="gpBrandList"></datalist>
-          <input type="text" name="product" placeholder="상품명 (예: 건조기 세탁망)" required style="flex:2; min-width:200px;">
-          <label class="gp-field" style="min-width:260px;">원가 제품 (원가 연동)<select name="costProduct" onchange="gpPickCostProduct()" style="width:300px;"></select></label>
+          <input type="text" name="product" placeholder="상품명 (예: 건조기 세탁망)" required style="flex:2; min-width:200px;" oninput="gpAutoLinkSoon()">
+          <label class="gp-field" style="min-width:260px;">원가 제품 (원가 연동)<select name="costProduct" onchange="gpDraftTouched.cost = true; gpPickCostProduct()" style="width:300px;"></select></label>
           <label class="gp-field">단품 원가<input type="text" name="unitCost" inputmode="numeric" oninput="gsFormatMoneyInput(this)"></label>
           <label class="gp-field">단품 자사몰가<input type="text" name="unitMall" inputmode="numeric" oninput="gsFormatMoneyInput(this)"></label>
-          <label class="gp-field" style="min-width:240px;">물류 상품 (택배비 연동)<select name="logiProduct" onchange="gpPickLogiProduct()" style="width:260px;"></select></label>
+          <label class="gp-field" style="min-width:240px;">물류 상품 (택배비 연동)<select name="logiProduct" onchange="gpDraftTouched.logi = true; gpPickLogiProduct()" style="width:260px;"></select></label>
           <label class="gp-field">물류비<input type="text" name="logistics" inputmode="numeric" value="3,000" oninput="gsFormatMoneyInput(this)"></label>
           <label class="gp-field">수수료율 %<input type="text" name="feeRate" inputmode="decimal" value="25"></label>
           <label class="gp-field">경비율 %<input type="text" name="expenseRate" inputmode="decimal" value="24"></label>
           <label class="gp-field">목표 손익률 %<input type="text" name="targetMargin" inputmode="decimal" value="15"></label>
           <label class="gp-field" style="flex:2; min-width:220px;">옵션 구성 (쉼표로 구분)<input type="text" name="spec" value="1, 1+1, 2+1, 3+2"></label>
         </form>
+        <div class="panel-note" id="gpAutoLinkNote" style="margin:2px 0 8px;"></div>
         <div class="gp-presets">
           자주 쓰는 구성:
           <button type="button" class="filter-reset-btn" onclick="gpSetSpec('1, 1+1, 2+1, 3+2')">1 · 1+1 · 2+1 · 3+2</button>
@@ -10566,6 +10567,8 @@
     const form = document.getElementById('gpDraftForm');
     form.reset();
     gpDraftPrices = {};
+    gpDraftTouched = { cost: false, logi: false };
+    document.getElementById('gpAutoLinkNote').textContent = '';
     gpFillLogiSelect('', null);
     gpFillCostSelect('', null);
     if (!encodedKey && gpFilters.brand) {
@@ -10595,6 +10598,7 @@
         const have = new Set(group.map((it) => gpNum(it.units) || 1));
         form.spec.value = ['1', '1+1', '2+1', '3+2', '4+3'].filter((s) => !have.has(gpParseSpec(s)[0].units)).slice(0, 3).join(', ');
         document.getElementById('gpDraftTitle').textContent = `${base.brand} · ${base.product} 에 옵션 추가`;
+        gpDraftTouched = { cost: true, logi: true };   // 기존 상품의 연결을 그대로 씁니다
       }
     }
     panel.style.display = '';
@@ -10613,6 +10617,82 @@
       : '원가 제품·물류 상품과 구성을 고르면 옵션별 손익이 바로 계산됩니다. 저장하면 가격표에 올라갑니다.';
     window.scrollTo(0, 0);
     document.querySelectorAll('.main').forEach((m) => { m.scrollTop = 0; });
+  }
+
+  // ---- 브랜드·상품명으로 원가 제품·물류 상품 자동 연결 ----
+  // 이름에서 [브랜드]·(괄호)·기호를 떼고 두 글자씩 겹치는 정도(다이스 계수)로 비교합니다.
+  // 한쪽 이름이 다른 쪽에 통째로 들어 있으면 거의 같은 상품으로 봅니다.
+  let gpDraftTouched = { cost: false, logi: false };   // 손으로 고른 칸은 자동으로 덮어쓰지 않습니다
+  let gpAutoTimer = null;
+  const GP_MATCH_MIN = 0.5;
+
+  function gpNormName(v) {
+    return String(v || '').replace(/\[[^\]]*\]/g, '').replace(/\([^)]*\)/g, '').replace(/[^0-9a-zA-Z가-힣]/g, '').toLowerCase();
+  }
+  function gpNameScore(a, b) {
+    const x = gpNormName(a), y = gpNormName(b);
+    if (!x || !y) return 0;
+    if (x === y) return 1;
+    const grams = (t) => { const g = []; for (let i = 0; i < t.length - 1; i++) g.push(t.slice(i, i + 2)); return g; };
+    const gx = grams(x), pool = grams(y);
+    const total = gx.length + pool.length;
+    if (!total) return 0;
+    let common = 0;
+    gx.forEach((g) => { const i = pool.indexOf(g); if (i >= 0) { common += 1; pool.splice(i, 1); } });
+    let score = (2 * common) / total;
+    // 통째로 들어 있으면 같은 상품으로 보되, 길이가 비슷할수록 높게 칩니다
+    // ("킬파이어" → 선물세트보다 단품 쪽).
+    if (Math.min(x.length, y.length) >= 3 && (x.includes(y) || y.includes(x))) {
+      score = Math.max(score, 0.75 + 0.2 * (Math.min(x.length, y.length) / Math.max(x.length, y.length)));
+    }
+    return score;
+  }
+  // 같은 브랜드 안에서 가장 비슷한 것 하나. bonus 는 같은 이름이 여러 줄일 때 고르는 작은 가산점입니다.
+  function gpBestMatch(rows, brand, product, bonus) {
+    let best = null;
+    rows.forEach((r) => {
+      if (brand && r.brand !== brand) return;
+      const score = gpNameScore(product, r.product_name);
+      if (score < GP_MATCH_MIN) return;
+      const total = score + bonus(r);
+      if (!best || total > best.total) best = { r, score, total };
+    });
+    return best;
+  }
+
+  function gpAutoLinkSoon() { clearTimeout(gpAutoTimer); gpAutoTimer = setTimeout(gpAutoLink, 350); }
+
+  function gpAutoLink() {
+    const form = document.getElementById('gpDraftForm');
+    const brand = form.brand.value.trim();
+    const product = form.product.value.trim();
+    const notes = [];
+    if (gpDraftTouched.cost) {
+      gpFillCostSelect(brand, form.costProduct.value || null);
+    } else {
+      const isSet = /\+|세트|set/i.test(product);
+      const m = product && !isSet ? gpBestMatch(gpCostRows, brand, product, (r) =>
+        (gpNum(r.unit_cost_krw) ? 0.02 : 0) + (r.status === '판매중' ? 0.01 : 0) - (r.status === '단종' ? 0.05 : 0)) : null;
+      const hadAuto = !!form.costProduct.value;
+      gpFillCostSelect(brand, m ? m.r.id : null);
+      if (!m && hadAuto) form.unitCost.value = '';
+      if (m) notes.push(`원가: ${gpCostLabel(m.r)} 자동 연결`);
+      else if (isSet) notes.push('원가: 세트 상품은 구성품이 여럿이라 자동으로 잡지 않습니다. 저장 후 ✎에서 구성품을 골라 주세요');
+      else if (product) notes.push(`원가: 원가 대시보드에서 "${product}"와 맞는 ${brand || ''} 제품을 못 찾았습니다`);
+    }
+    if (gpDraftTouched.logi) {
+      gpFillLogiSelect(brand, form.logiProduct.value || null);
+    } else {
+      const m = product ? gpBestMatch(gpLogiRows, brand, product, (r) => (gpNum(r.delivery_fee) != null ? 0.02 : 0)) : null;
+      const hadAuto = !!form.logiProduct.value;
+      gpFillLogiSelect(brand, m ? m.r.id : null);
+      if (!m && hadAuto) form.logistics.value = '3,000';
+      if (m) notes.push(`물류: ${m.r.product_name} 자동 연결`);
+      else if (product) notes.push(`물류: 물류 대시보드에서 "${product}"와 맞는 상품을 못 찾았습니다`);
+    }
+    const linked = notes.some((t) => t.endsWith('자동 연결'));
+    document.getElementById('gpAutoLinkNote').textContent = notes.join(' · ') + (linked ? ' (틀리면 목록에서 바꿔 주세요)' : '');
+    gpBuildDraft();
   }
 
   function gpFillLogiSelect(brand, selectedId) {
@@ -10890,7 +10970,7 @@
     const exists = gpItems.some((it) => it.brand + '|' + it.product === key);
     gpOpenDraft(exists ? encodeURIComponent(key) : undefined);
     const form = document.getElementById('gpDraftForm');
-    if (!exists) { form.brand.value = p.brand; form.product.value = p.product; gpFillLogiSelect(p.brand, null); gpFillCostSelect(p.brand, null); }
+    if (!exists) { form.brand.value = p.brand; form.product.value = p.product; gpAutoLink(); }
     form.spec.value = p.spec;
     if (gpNum(p.fee_rate) != null) form.feeRate.value = gpRateText(gpNum(p.fee_rate));
     if (gpNum(p.desired_price) != null) gpParseSpec(p.spec).forEach((o) => { gpDraftPrices[o.label] = gpNum(p.desired_price); });
