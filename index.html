@@ -1744,6 +1744,15 @@
   .ra-badge { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
   .ra-badge-flag { background: rgba(239,68,68,.12); color: #dc2626; }
   .ra-badge-normal { background: rgba(100,116,139,.12); color: #475569; }
+  .rt-form-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; }
+  .rt-cell-input {
+    background: transparent; color: #0f172a; border: 1px solid transparent;
+    border-radius: 6px; padding: 4px 6px; font-size: 12px; font-family: inherit;
+  }
+  .rt-cell-input:hover, .rt-cell-input:focus { border-color: rgba(15,23,42,.18); background: #fff; outline: none; }
+  .rt-cell-input.rt-num { width: 70px; text-align: right; }
+  .rt-row-late td:first-child { box-shadow: inset 3px 0 0 #dc2626; }
+  .rt-row-done td { color: #94a3b8; }
   .stage-select {
     background: #f4f5f8; color: #0f172a; border: 1px solid rgba(15,23,42,.12);
     border-radius: 6px; padding: 5px 8px; font-size: 12px;
@@ -2062,6 +2071,9 @@
           <div class="nav-item" id="navReviewAlerts" onclick="switchView('review-alerts')">
             <span class="dot" style="background:#dc2626;"></span>리뷰 알림
             <span class="nav-count-badge" id="reviewAlertBadge" style="display:none;"></span>
+          </div>
+          <div class="nav-item" id="navReviewTasks" onclick="switchView('review-tasks')">
+            <span class="dot" style="background:#dc2626;"></span>리뷰작업
           </div>
         </div>
       </div>
@@ -2619,6 +2631,56 @@
               <tr><th>채널</th><th>상품명</th><th>별점</th><th>리뷰 내용</th><th>작성일</th><th>구분</th><th>감지 사유</th><th></th></tr>
             </thead>
             <tbody id="raTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <main class="main" id="reviewTasksView" style="display:none">
+      <div class="topbar">
+        <div>
+          <h1>리뷰작업</h1>
+          <div class="subtitle">CX팀에 요청한 리뷰작업의 구매일 · 리뷰 건수 · 적재일을 정리합니다. 표에서 날짜·진행상태를 바로 고치면 저장돼요.</div>
+        </div>
+      </div>
+
+      <section class="kpi-row" id="rtCards"></section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>리뷰작업 요청 추가</h2></div>
+        <form class="deal-form" id="reviewTaskForm">
+          <input type="date" name="requestedAt" style="width:150px;" title="요청일" required>
+          <input type="text" name="productName" placeholder="상품명" required style="flex:1; min-width:180px;">
+          <input type="text" name="channel" placeholder="판매처 (예: 스마트스토어)" list="rtChannelList" style="width:170px;">
+          <datalist id="rtChannelList">
+            <option value="스마트스토어"><option value="쿠팡"><option value="자사몰"><option value="오늘의집"><option value="11번가"><option value="G마켓">
+          </datalist>
+          <input type="text" name="requester" placeholder="요청자" style="width:90px;">
+          <label class="rt-form-label">구매일 <input type="date" name="purchaseDate" style="width:150px;"></label>
+          <input type="number" name="reviewCount" placeholder="리뷰 건수" min="0" style="width:100px;">
+          <label class="rt-form-label">적재일 <input type="date" name="uploadDate" style="width:150px;"></label>
+          <input type="text" name="memo" placeholder="메모 (옵션·키워드·포토 여부 등)" style="flex:1; min-width:180px;">
+          <button type="submit" class="btn-primary">추가</button>
+        </form>
+        <span class="panel-note" id="reviewTaskStatus"></span>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>리뷰작업 목록</h2>
+          <span class="panel-note" id="rtListNote"></span>
+        </div>
+        <div class="ra-filter-tabs" id="rtFilterTabs">
+          <button type="button" class="ra-filter-btn active" data-filter="open" onclick="setReviewTaskFilter('open')">진행중</button>
+          <button type="button" class="ra-filter-btn" data-filter="done" onclick="setReviewTaskFilter('done')">적재완료</button>
+          <button type="button" class="ra-filter-btn" data-filter="all" onclick="setReviewTaskFilter('all')">전체</button>
+        </div>
+        <div class="scroll-box">
+          <table>
+            <thead>
+              <tr><th>요청일</th><th>상품명</th><th>판매처</th><th>요청자</th><th>구매일</th><th class="num">리뷰 건수</th><th>적재일</th><th>진행상태</th><th>메모</th><th></th></tr>
+            </thead>
+            <tbody id="rtTable"></tbody>
           </table>
         </div>
       </section>
@@ -6140,6 +6202,7 @@
     document.getElementById('sampleSyncView').style.display = view === 'sample-sync' ? '' : 'none';
     document.getElementById('restockView').style.display = view === 'restock' ? '' : 'none';
     document.getElementById('reviewAlertsView').style.display = view === 'review-alerts' ? '' : 'none';
+    document.getElementById('reviewTasksView').style.display = view === 'review-tasks' ? '' : 'none';
     document.getElementById('teamProcessView').style.display = view === 'team-process' ? '' : 'none';
     document.getElementById('teamScheduleView').style.display = view === 'team-schedule' ? '' : 'none';
     document.getElementById('teamAccountingView').style.display = view === 'team-accounting' ? '' : 'none';
@@ -6158,6 +6221,7 @@
     document.getElementById('navSampleSync').classList.toggle('active', view === 'sample-sync');
     document.getElementById('navRestock').classList.toggle('active', view === 'restock');
     document.getElementById('navReviewAlerts').classList.toggle('active', view === 'review-alerts');
+    document.getElementById('navReviewTasks').classList.toggle('active', view === 'review-tasks');
     document.getElementById('navTeamProcess').classList.toggle('active', view === 'team-process');
     // 주차별 진행 업무 메뉴는 지금 화면에 없습니다(되살리면 다시 동작).
     const weeklyNav = document.getElementById('navTeamWeekly');
@@ -6219,6 +6283,7 @@
     if (view === 'sample-sync') { loadSampleRequests(); setupSampleProductSelect(); loadSampleProductList(); }
     if (view === 'restock') loadRestock();
     if (view === 'review-alerts') loadReviewAlerts();
+    if (view === 'review-tasks') loadReviewTasks();
     if (view === 'team-schedule') loadTeamSchedule();
     if (view === 'team-accounting') loadTeamAccounting();
     if (view === 'mall-audit') loadMallAudit();
@@ -7658,6 +7723,176 @@
     if (error) { alert('처리하지 못했습니다: ' + error.message); return; }
     loadReviewAlerts();
   }
+
+  // ==================== 리뷰작업 (CX팀 요청 트래킹, review_tasks.sql) ====================
+  const RT_STATUSES = ['요청', '구매완료', '적재완료', '취소'];
+  let allReviewTasks = [];
+  let reviewTaskFilter = 'open'; // 'open' | 'done' | 'all'
+
+  function rtToday() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function rtIsOpen(r) {
+    return r.status !== '적재완료' && r.status !== '취소';
+  }
+
+  // 날짜가 지났는데 그 단계가 끝나지 않은 작업(구매일 지났는데 '요청', 적재일 지났는데 미완료)
+  function rtIsLate(r) {
+    const today = rtToday();
+    if (!rtIsOpen(r)) return false;
+    if (r.status === '요청' && r.purchase_date && r.purchase_date < today) return true;
+    return !!(r.upload_date && r.upload_date < today);
+  }
+
+  function setReviewTaskFilter(filter) {
+    reviewTaskFilter = filter;
+    document.querySelectorAll('#rtFilterTabs .ra-filter-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+    renderReviewTaskTable();
+  }
+
+  async function loadReviewTasks() {
+    const form = document.getElementById('reviewTaskForm');
+    if (!form.requestedAt.value) form.requestedAt.value = rtToday();
+    const note = document.getElementById('rtListNote');
+    const { data, error } = await client
+      .from('review_tasks')
+      .select('*')
+      .order('requested_at', { ascending: false })
+      .order('id', { ascending: false });
+    if (error) {
+      note.innerHTML = '<span class="error">불러오지 못했습니다: ' + error.message + '</span>';
+      return;
+    }
+    allReviewTasks = data || [];
+    renderReviewTaskCards();
+    renderReviewTaskTable();
+  }
+
+  function renderReviewTaskCards() {
+    const today = rtToday();
+    const weekEnd = new Date();
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const weekEndKey = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth() + 1).padStart(2, '0')}-${String(weekEnd.getDate()).padStart(2, '0')}`;
+    const monthKey = today.slice(0, 7);
+    const sum = (rows) => rows.reduce((s, r) => s + (Number(r.review_count) || 0), 0);
+
+    const open = allReviewTasks.filter(rtIsOpen);
+    const toBuy = open.filter(r => r.status === '요청');
+    const upcoming = open.filter(r => r.upload_date && r.upload_date >= today && r.upload_date <= weekEndKey);
+    const late = open.filter(rtIsLate);
+    const doneThisMonth = allReviewTasks.filter(r => r.status === '적재완료' && (r.upload_date || '').startsWith(monthKey));
+
+    document.getElementById('rtCards').innerHTML = `
+      <div class="kpi-card">
+        <div class="kpi-label">진행중</div>
+        <div class="kpi-value">${open.length.toLocaleString('ko-KR')}건</div>
+        <div class="kpi-label" style="margin-top:4px;">리뷰 ${sum(open).toLocaleString('ko-KR')}개</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">구매 대기</div>
+        <div class="kpi-value">${toBuy.length.toLocaleString('ko-KR')}건</div>
+        <div class="kpi-label" style="margin-top:4px;">리뷰 ${sum(toBuy).toLocaleString('ko-KR')}개</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">7일 내 적재 예정</div>
+        <div class="kpi-value">${upcoming.length.toLocaleString('ko-KR')}건</div>
+        <div class="kpi-label" style="margin-top:4px;">리뷰 ${sum(upcoming).toLocaleString('ko-KR')}개</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">일정 지남</div>
+        <div class="kpi-value" style="${late.length ? 'color:#dc2626;' : ''}">${late.length.toLocaleString('ko-KR')}건</div>
+        <div class="kpi-label" style="margin-top:4px;">구매일·적재일이 지났는데 미완료</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">이번 달 적재 완료</div>
+        <div class="kpi-value">${sum(doneThisMonth).toLocaleString('ko-KR')}개</div>
+        <div class="kpi-label" style="margin-top:4px;">${doneThisMonth.length.toLocaleString('ko-KR')}건</div>
+      </div>
+    `;
+  }
+
+  function renderReviewTaskTable() {
+    const rows = allReviewTasks.filter(r => {
+      if (reviewTaskFilter === 'open') return rtIsOpen(r);
+      if (reviewTaskFilter === 'done') return r.status === '적재완료';
+      return true;
+    });
+    document.getElementById('rtListNote').textContent = `${rows.length.toLocaleString('ko-KR')}건`;
+    const dateCell = (r, field) => `<input type="date" class="rt-cell-input" value="${escapeAttr(r[field] || '')}" onchange="updateReviewTask(${r.id}, '${field}', this.value)">`;
+    const textCell = (r, field, width) => `<input type="text" class="rt-cell-input" style="width:${width}px;" value="${escapeAttr(r[field] || '')}" onchange="updateReviewTask(${r.id}, '${field}', this.value)">`;
+    document.getElementById('rtTable').innerHTML = rows.map(r => `
+      <tr class="${rtIsLate(r) ? 'rt-row-late' : ''} ${r.status === '취소' ? 'rt-row-done' : ''}">
+        <td>${dateCell(r, 'requested_at')}</td>
+        <td>${textCell(r, 'product_name', 200)}</td>
+        <td>${textCell(r, 'channel', 100)}</td>
+        <td>${textCell(r, 'requester', 70)}</td>
+        <td>${dateCell(r, 'purchase_date')}</td>
+        <td class="num"><input type="number" min="0" class="rt-cell-input rt-num" value="${r.review_count != null ? r.review_count : ''}" onchange="updateReviewTask(${r.id}, 'review_count', this.value)"></td>
+        <td>${dateCell(r, 'upload_date')}</td>
+        <td><select class="stage-select" onchange="updateReviewTask(${r.id}, 'status', this.value)">
+          ${RT_STATUSES.map(s => `<option value="${s}" ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}
+        </select></td>
+        <td>${textCell(r, 'memo', 220)}</td>
+        <td><button class="btn-danger" onclick="deleteReviewTask(${r.id})">삭제</button></td>
+      </tr>
+    `).join('') || '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:24px;">등록된 리뷰작업이 없습니다.</td></tr>';
+  }
+
+  async function updateReviewTask(id, field, value) {
+    let v = typeof value === 'string' ? value.trim() : value;
+    if (field === 'review_count') v = v === '' ? null : Number(v);
+    else if (v === '') v = null;
+    if (field === 'product_name' && !v) { alert('상품명은 비울 수 없습니다.'); renderReviewTaskTable(); return; }
+    if (field === 'requested_at' && !v) { alert('요청일은 비울 수 없습니다.'); renderReviewTaskTable(); return; }
+    const patch = { [field]: v, updated_at: new Date().toISOString() };
+    const { error } = await client.from('review_tasks').update(patch).eq('id', id);
+    if (error) { alert('저장하지 못했습니다: ' + error.message); loadReviewTasks(); return; }
+    const row = allReviewTasks.find(r => r.id === id);
+    if (row) Object.assign(row, patch);
+    renderReviewTaskCards();
+    // 상태가 바뀌면 필터에서 빠지거나 지연 표시가 달라지므로 표를 다시 그립니다.
+    if (field === 'status' || field.endsWith('_date')) renderReviewTaskTable();
+  }
+
+  async function deleteReviewTask(id) {
+    const row = allReviewTasks.find(r => r.id === id);
+    if (!confirm(`'${row ? row.product_name : ''}' 리뷰작업을 삭제할까요?`)) return;
+    const { error } = await client.from('review_tasks').delete().eq('id', id);
+    if (error) { alert('삭제하지 못했습니다: ' + error.message); return; }
+    loadReviewTasks();
+  }
+
+  document.getElementById('reviewTaskForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const status = document.getElementById('reviewTaskStatus');
+    const payload = {
+      requested_at: form.requestedAt.value || rtToday(),
+      product_name: form.productName.value.trim(),
+      channel: form.channel.value.trim() || null,
+      requester: form.requester.value.trim() || null,
+      purchase_date: form.purchaseDate.value || null,
+      review_count: form.reviewCount.value === '' ? null : Number(form.reviewCount.value),
+      upload_date: form.uploadDate.value || null,
+      memo: form.memo.value.trim() || null,
+      status: '요청',
+    };
+    if (!payload.product_name) return;
+    status.textContent = '추가하는 중...';
+    const { error } = await client.from('review_tasks').insert(payload);
+    if (error) {
+      status.innerHTML = '<span class="error">추가하지 못했습니다: ' + error.message + '</span>';
+      return;
+    }
+    status.textContent = '추가되었습니다.';
+    form.reset();
+    form.requestedAt.value = rtToday();
+    loadReviewTasks();
+  });
 
   // ==================== 코드니처 자사몰 상품 ====================
   let allCodenitProducts = [];
