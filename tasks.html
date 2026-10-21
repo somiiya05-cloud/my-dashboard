@@ -19,12 +19,12 @@
 
   /* ---- Sidebar (검정 배경 유지) ---- */
   .sidebar {
-    width: 220px;
+    width: 226px;
     flex-shrink: 0;
     background: #111319;
     color: #f5f6fa;
     border-right: 1px solid rgba(255,255,255,.05);
-    padding: 20px 16px;
+    padding: 18px 12px;
     display: flex;
     flex-direction: column;
   }
@@ -41,48 +41,68 @@
   .workspace-menu-item:hover { background: rgba(255,255,255,.06); color: #f5f6fa; }
   .workspace-menu-item.active { background: rgba(79,124,254,.12); color: #f5f6fa; }
   .workspace-menu-item .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  /* ---- 사이드바 메뉴 (읽기 쉬운 다크 메뉴) ----
+     소제목은 띠 없이 작은 회색 글씨, 메뉴는 14px 한 줄.
+     앞에 붙던 작은 점은 없애고, 고른 메뉴는 연한 남색 바탕 + 왼쪽 파란 줄로 표시합니다. */
   .nav-group { margin-bottom: 22px; }
-  /* 메뉴 소제목 — 어두운 바탕에 짙은 회색이라 잘 안 보여서 옅은 띠를 깔았습니다 */
   .nav-label {
-    font-size: 10.5px; font-weight: 800; color: #c3d0e6; letter-spacing: .04em;
-    background: rgba(148,163,184,.13); border-radius: 6px;
-    padding: 5px 9px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11.5px; font-weight: 600; color: #7c8699; letter-spacing: .02em;
+    padding: 0 10px; margin-bottom: 6px;
   }
   .nav-label-clickable { cursor: pointer; }
-  .nav-label-clickable:hover { background: rgba(148,163,184,.22); color: #f5f6fa; }
+  .nav-label-clickable:hover { color: #c3d0e6; }
   /* 메뉴 안의 작은 소제목 (담당자 줄 위에 붙습니다) */
-  .nav-sublabel { margin: 12px 0 6px; font-size: 10.5px; }
+  .nav-sublabel { margin-top: 18px; }
+
   .nav-item {
-    display: flex; align-items: center; gap: 10px; cursor: pointer;
-    font-size: 15px; font-weight: 700; color: #a7adc1; padding: 8px; border-radius: 8px; margin-bottom: 2px;
+    position: relative;
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    min-height: 38px; padding: 0 10px; border-radius: 7px; margin-bottom: 3px;
+    font-size: 14px; font-weight: 500; color: #b8c0d0;
+    text-decoration: none; line-height: 1.35;
+    transition: background .12s ease, color .12s ease;
   }
-  .nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: #3c4257; flex-shrink:0; }
+  .nav-item:hover { background: rgba(255,255,255,.05); color: #e8ecf5; }
+  /* 메뉴 앞 점은 쓰지 않습니다 (맨 위 워크스페이스 줄의 점은 그대로 둡니다) */
+  .nav-item .dot { display: none; }
+  .dot-mkt { background: #f97316; }
+  .dot-pl { background: #16a34a; }
+  .dot-team { background: #7c3aed; }
+  .dot-task { background: #84cc16; }
+
+  .nav-item.active,
+  #navPl.active, #navProductCost.active, #navTeamProcess.active,
+  #navTeamTasks.active, #navTeamWeekly.active, #navMonthlyTrend.active {
+    background: rgba(56,84,148,.26); color: #fff; font-weight: 600;
+  }
+  .nav-item.active::before {
+    content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 18px; border-radius: 0 3px 3px 0; background: #4d7cfe;
+  }
+
   .nav-count-badge {
     margin-left: auto; background: #dc2626; color: #fff; font-size: 10px; font-weight: 800;
     padding: 1px 7px; border-radius: 999px; line-height: 1.5;
   }
   .ra-unread { background: rgba(220,38,38,.07); }
-  .nav-item.active { background: rgba(79,124,254,.12); color: #f5f6fa; }
-  .nav-item.active .dot { background: #4d7cfe; }
-  .dot-mkt { background: #f97316; }
-  .nav-item.active .dot-mkt { background: #f97316; }
-  .dot-pl { background: #16a34a; }
-  .nav-item.active .dot-pl { background: #16a34a; }
-  #navPl.active { background: rgba(22,163,74,.12); }
-  #navProductCost.active { background: rgba(22,163,74,.12); }
-  .dot-team { background: #7c3aed; }
-  .nav-item.active .dot-team { background: #7c3aed; }
-  #navTeamProcess.active { background: rgba(124,58,237,.12); }
-  .dot-task { background: #84cc16; }
-  .nav-item.active .dot-task { background: #84cc16; }
-  #navTeamTasks.active, #navTeamWeekly.active { background: rgba(132,204,22,.12); }
-  .nav-subitem { padding: 7px 10px 7px 20px; margin-left: 14px; font-size: 14px; color: #c7cbe0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 7px; border-left: 1px solid rgba(255,255,255,.08); }
-  .nav-subitem:hover { background: rgba(255,255,255,.04); color: #f5f6fa; }
-  .nav-subitem.active { background: rgba(249,115,22,.12); color: #fb923c; font-weight: 700; }
-  .nav-subitem .sub-dot { width: 5px; height: 5px; border-radius: 50%; background: #4b5164; flex-shrink: 0; }
-  .nav-subitem.active .sub-dot { background: #fb923c; }
-  #navMonthlyTrend.active { background: rgba(79,124,254,.12); color: #4d7cfe; }
-  #navMonthlyTrend.active .sub-dot { background: #4d7cfe; }
+
+  /* 한 단 들어간 메뉴 (월별 매출 증감추이 등) */
+  .nav-subitem {
+    position: relative;
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    min-height: 34px; padding: 0 10px 0 22px; margin-bottom: 3px; border-radius: 7px;
+    font-size: 13.5px; font-weight: 500; color: #9aa3b5; text-decoration: none;
+    transition: background .12s ease, color .12s ease;
+  }
+  .nav-subitem:hover { background: rgba(255,255,255,.04); color: #e8ecf5; }
+  .nav-subitem.active { background: rgba(56,84,148,.26); color: #fff; font-weight: 600; }
+  .nav-subitem.active::before {
+    content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 15px; border-radius: 0 3px 3px 0; background: #4d7cfe;
+  }
+  .nav-subitem .sub-dot { display: none; }
+
   .nav-subgroup-label { font-size: 15px; font-weight: 700; color: #fb923c; margin: 10px 0 4px 20px; padding: 0 8px; cursor: pointer; display: flex; align-items: center; }
   .nav-subgroup-label:first-child { margin-top: 0; }
   .nav-subgroup-label:hover { color: #f5f6fa; }
