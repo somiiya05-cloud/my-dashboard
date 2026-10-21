@@ -333,12 +333,49 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // 영업 대시보드 "외부 광고 리포트"(cpc.html)용 — 코드니처 스마트스토어로 보내는 SA 캠페인만
+    // 캠페인 × 일 단위로 cpc_ad_rows 에 'mall = 네이버 SA' 로 넣어 애드부스트와 나란히 보이게 합니다.
+    // 캠페인명에 "(스스)"가 붙은 것이 스마트스토어 랜딩입니다(자사몰 랜딩은 "(자사몰)"·"자사_" 로 구분, 2026-10-21).
+    // 이 테이블엔 유일키가 없어서 이번 달 범위를 지우고 다시 넣습니다. 실패해도 위 동기화 결과에는 영향이 없습니다.
+    let cpcRowCount = 0;
+    try {
+      const cpcRows = [];
+      for (const { name, channel, days } of perCampaign) {
+        if (channel !== '네이버 코드니처' || !/\(스스\)/.test(name)) continue;
+        for (const d of days) {
+          if (!d.dateStart) continue;
+          const row = {
+            date: d.dateStart, mall: '네이버 SA', campaign: name, adgroup: '', product: '(상품 없음)', keyword: '',
+            imp: Number(d.impCnt) || 0, clk: Number(d.clkCnt) || 0, cost: Number(d.salesAmt) || 0,
+            conv: Number(d.ccnt) || 0, rev: Number(d.convAmt) || 0
+          };
+          if (row.imp || row.clk || row.cost || row.rev) cpcRows.push(row);
+        }
+      }
+      const sbHeaders = { apikey: supabaseServiceKey, Authorization: `Bearer ${supabaseServiceKey}`, 'Content-Type': 'application/json' };
+      const delRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/cpc_ad_rows?mall=eq.${encodeURIComponent('네이버 SA')}&date=gte.${since}&date=lte.${until}`,
+        { method: 'DELETE', headers: sbHeaders }
+      );
+      if (!delRes.ok) throw new Error(`cpc delete ${delRes.status} ${await delRes.text()}`);
+      if (cpcRows.length) {
+        const insRes = await fetch(`${SUPABASE_URL}/rest/v1/cpc_ad_rows`, {
+          method: 'POST', headers: { ...sbHeaders, Prefer: 'return=minimal' }, body: JSON.stringify(cpcRows)
+        });
+        if (!insRes.ok) throw new Error(`cpc insert ${insRes.status} ${await insRes.text()}`);
+      }
+      cpcRowCount = cpcRows.length;
+    } catch (cpcErr) {
+      results.push({ error: 'cpc_ad_rows_error', detail: String(cpcErr) });
+    }
+
     return res.status(200).json({
       month: monthStr,
       accountsUsed: activeAccounts.map((a) => a.label),
       accountsSkipped: skippedAccounts,
       campaignCount,
       dailyRowCount: dailyRows.length,
+      cpcRowCount,
       results
     });
   } catch (err) {
