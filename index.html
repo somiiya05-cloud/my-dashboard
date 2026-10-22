@@ -3090,14 +3090,14 @@
         <div class="scroll-box">
           <table class="table-center-head gp-table">
             <thead><tr>
-              <th>옵션명</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">원가</th><th class="num">추천가</th>
+              <th>옵션명</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">원가</th><th class="num">추천가</th><th class="num">통상 공구가</th>
               <th class="num">공구판매가</th><th class="num">할인율</th><th class="num">손익</th><th class="num">손익률</th><th class="num">객단가</th>
             </tr></thead>
             <tbody id="gpDraftTable"></tbody>
           </table>
         </div>
         <div class="panel-head" style="margin:12px 0 0;">
-          <span class="panel-note">추천가 = 목표 손익률이 나오는 가장 낮은 ○○,900원. 공구판매가를 비워 두면 추천가로 저장합니다.</span>
+          <span class="panel-note" id="gpDraftPriceNote">추천가 = 목표 손익률이 나오는 가장 낮은 ○○,900원.</span>
           <div>
             <button type="button" class="filter-reset-btn" onclick="gpCloseDraft()">닫기</button>
             <button type="button" class="btn-primary" onclick="gpSaveDraft()">옵션 저장</button>
@@ -10755,6 +10755,8 @@
     gpDraftRows = gpParseSpec(form.spec.value).map((o) => {
       const cost = unitCost != null ? unitCost * o.units : null;
       const suggested = cost != null ? gpSuggestPrice(cost, logistics, feeRate, expenseRate, target) : null;
+      const mall = unitMall != null ? unitMall * o.units : null;
+      const usual = mall ? gpRound900(mall * (1 - gpUsualDiscount(o.units))) : null;
       const manual = gpDraftPrices[o.label];
       return {
         label: o.label,
@@ -10763,17 +10765,44 @@
         mall_price: unitMall != null ? unitMall * o.units : null,
         cost, cost_items: costProductId != null ? [{ id: costProductId, qty: o.units }] : null,
         logistics, logistics_product_id: logisticsProductId, fee_rate: feeRate, expense_rate: expenseRate,
-        suggested,
-        gb_price: manual != null ? manual : suggested
+        suggested, usual,
+        gb_price: manual != null ? manual : null
       };
+    }).map((r) => {
+      // 공구판매가를 비워 두면: 통상 공구가로 목표 손익률이 나오면 통상 공구가, 아니면 추천가.
+      const usualOk = r.usual && gpCalc({ ...r, gb_price: r.usual }).margin >= target;
+      r.default_price = usualOk ? r.usual : r.suggested;
+      if (r.gb_price == null) r.gb_price = r.default_price;
+      return r;
     });
     gpRenderDraft();
   }
 
+  // 지금 가격표 공구들이 자사몰가에서 보통 얼마나 할인됐는지(중앙값). 구성이 클수록 많이 깎아서
+  // (1개 약 15% · 3개 약 26% · 4개 이상 약 31%) 같은 구성 개수끼리 봅니다. 5개 이상은 한 묶음,
+  // 같은 구성이 3건이 안 되면 전체 중앙값, 가격표가 비면 20%.
+  function gpUsualDiscount(units) {
+    const median = (arr) => { const d = arr.slice().sort((a, b) => a - b); const m = Math.floor(d.length / 2); return d.length % 2 ? d[m] : (d[m - 1] + d[m]) / 2; };
+    const bucket = (u) => Math.min(gpNum(u) || 1, 5);
+    const all = gpItems.map((it) => ({ b: bucket(it.units), d: gpNum(it.gb_price) && gpNum(it.mall_price) ? 1 - it.gb_price / it.mall_price : null }))
+      .filter((x) => x.d != null && x.d > 0 && x.d < 0.9);
+    if (!all.length) return 0.2;
+    if (units != null) {
+      const same = all.filter((x) => x.b === bucket(units)).map((x) => x.d);
+      if (same.length >= 3) return median(same);
+    }
+    return median(all.map((x) => x.d));
+  }
+  // 가장 가까운 ○○,900원
+  function gpRound900(v) { return Math.max(900, Math.round((v + 100) / 1000) * 1000 - 100); }
+
   function gpRenderDraft() {
+    const note = document.getElementById('gpDraftPriceNote');
+    if (note) note.textContent = `추천가 = 목표 손익률이 나오는 가장 낮은 ○○,900원 · 통상 공구가 = 자사몰가에서 지금 가격표의 같은 구성 공구들이 보통 깎는 만큼(1개 ${gpPct(gpUsualDiscount(1))} · 3개 ${gpPct(gpUsualDiscount(3))} · 5개 이상 ${gpPct(gpUsualDiscount(5))}) 뺀 ○○,900원. `
+      + '공구판매가를 비워 두면 통상 공구가로 목표 손익률이 나올 때는 통상 공구가, 아니면 추천가로 저장합니다.';
     const tbody = document.getElementById('gpDraftTable');
     if (!gpDraftRows.length) {
-      tbody.innerHTML = '<tr><td colspan="10" class="gs-empty">옵션 구성을 넣어 주세요 (예: 1, 1+1, 2+1, 3+2)</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" class="gs-empty">옵션 구성을 넣어 주세요 (예: 1, 1+1, 2+1, 3+2)</td></tr>';
       return;
     }
     tbody.innerHTML = gpDraftRows.map((r, i) => {
@@ -10785,7 +10814,8 @@
         <td class="num">${gpWon(r.mall_price)}</td>
         <td class="num">${gpWon(r.cost)}</td>
         <td class="num gp-muted">${r.suggested ? gpWon(r.suggested) : '-'}</td>
-        <td class="num"><input class="gp-in" inputmode="numeric" value="${manual && r.gb_price ? gpWon(r.gb_price) : ''}" placeholder="${r.suggested ? gpWon(r.suggested) : '판매가'}" oninput="gpDraftPrice(this, ${i})"></td>
+        <td class="num gp-muted" title="자사몰가 − ${gpPct(gpUsualDiscount(r.units))} (구성 ${r.units}개 공구의 보통 할인율)">${r.usual ? gpWon(r.usual) : '-'}</td>
+        <td class="num"><input class="gp-in" inputmode="numeric" value="${manual && r.gb_price ? gpWon(r.gb_price) : ''}" placeholder="${r.default_price ? gpWon(r.default_price) : '판매가'}" oninput="gpDraftPrice(this, ${i})"></td>
         <td class="num" data-c="discount">${cc.discount}</td>
         <td class="num" data-c="profit">${cc.profit}</td>
         <td class="num" data-c="margin">${cc.margin}</td>
@@ -10805,7 +10835,7 @@
     const r = gpDraftRows[i];
     const v = gpMoney(el.value);
     if (v == null) delete gpDraftPrices[r.label]; else gpDraftPrices[r.label] = v;
-    r.gb_price = v != null ? v : r.suggested;
+    r.gb_price = v != null ? v : r.default_price;
     const cc = gpCalcCells(r);
     const tr = el.closest('tr');
     Object.keys(cc).forEach((k) => { const td = tr.querySelector(`[data-c="${k}"]`); if (td) td.innerHTML = cc[k]; });
