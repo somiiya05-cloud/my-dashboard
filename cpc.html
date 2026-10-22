@@ -624,7 +624,7 @@
   // 광고 관리자 전환매출은 광고를 본 뒤 다른 경로로 산 것, 며칠 뒤 산 것까지 묶어서 스토어 하루 매출보다 커지기도 합니다.
   // 그래서 위 카드·차트는 스마트스토어 방문 분석(광고 경로로 들어와 결제한 것)을 기준으로 봅니다.
   // 스토어 데이터가 있는 채널(지금은 네이버 ADVoost)만 계산하고, 캠페인을 고르면 캠페인별 스토어 결제가 없어 광고 관리자 기준으로 돌아갑니다.
-  const BE_ROAS = 1.5; // 증액 판단 기준(손익분기 약 135~145% + 여유)
+  const BE_ROAS = 2.0; // 판단 기준(10/22 사용자 결정, 손익분기 약 135~145%)
   const TARGET_SHARE = 0.15; // 애드부스트 광고비 비중 목표: 스마트스토어 매출의 15% 이내 (10/16 결정)
   // 적정 하루 광고비 = 끝날짜까지 최근 7일 스마트스토어 매출 평균 × 목표 비중
   // 스마트스토어 전체 매출(store_sales)은 채널 줄마다 같은 값이 들어 있어, 날짜별로 한 번만 센다.
@@ -842,7 +842,7 @@
     if (sv && isFinite(sv.roas)) {
       push('종합', sv.roas >= BE_ROAS ? 't-good' : 't-bad', `스마트스토어 실제 결제 기준 ROAS <b>${pct(sv.roas)}</b>, 광고비 비중 <b>${pct(sv.share, 1)}</b>입니다. ` +
         (svPrev && isFinite(svPrev.roas) ? `이전 기간(${pct(svPrev.roas)})보다 ${sv.roas >= svPrev.roas ? '개선' : '하락'}했습니다. ` : '') +
-        (sv.roas >= BE_ROAS ? '기준(150%)을 넘어, 효율을 지키며 단계적으로 늘릴 수 있는 구간입니다.' : '기준(150%)에 못 미칩니다. 증액보다 효율 개선이 먼저입니다.'));
+        (sv.roas >= BE_ROAS ? `기준(${pct(BE_ROAS)})을 넘어, 효율을 지키며 단계적으로 늘릴 수 있는 구간입니다.` : `기준(${pct(BE_ROAS)})에 못 미칩니다. 증액보다 효율 개선이 먼저입니다.`));
       const sg = suggestedDaily($('fTo').value, sv.ch);
       if (isFinite(sv.share) && sg) push('비중', sv.share <= TARGET_SHARE ? 't-good' : 't-warn',
         `광고비 비중 목표는 ${pct(TARGET_SHARE)}입니다. 최근 ${sg.days}일 스마트스토어 매출 평균(${won(Math.round(sg.avg))}원) 기준 적정 광고비(VAT 포함)는 하루 약 <b>${won(Math.round(sg.budget / 1000) * 1000)}원</b>입니다. ` +
