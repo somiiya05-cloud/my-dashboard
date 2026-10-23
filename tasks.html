@@ -4023,6 +4023,13 @@
     }
     currentTasks = rows.map(t => ({ ...t, status: normalizeStatus(t.status) }));
 
+    // 업무만 있어도 그릴 수 있는 것은 먼저 그립니다. (나머지는 아래에서 받아 한 번 더 그립니다)
+    // jwLoading 은 아직 켜 둡니다 — 프로젝트처럼 덜 온 칸이 "없습니다"로 보이면 안 되니까요.
+    renderTaskAssigneeNav();
+    updateTaskViewHeader();
+    populateTaskFilterOptions();
+    tcRenderIfShown();
+
     // 서로 다른 표를 보는 조회들이라 한 줄로 세울 까닭이 없습니다. 같이 받습니다.
     await Promise.all([
       loadJwNotes(),           // 상세보기의 목적·코멘트
@@ -4034,12 +4041,12 @@
       loadJwMallRegs(),        // 그중 이미 등록에 성공한 건을 빼기 위한 등록 현황
     ]);
 
-    renderTaskAssigneeNav();
-    updateTaskViewHeader();
-    populateTaskFilterOptions();
     jwLoading = false;
+    tcRenderIfShown();
+  }
 
-    // 지금 보이는 화면만 그립니다. 나머지는 그 화면으로 넘어갈 때 다시 그려집니다.
+  // 지금 보이는 화면만 그립니다. 나머지는 그 화면으로 넘어갈 때 그려집니다.
+  function tcRenderIfShown() {
     const shown = (id) => { const el = document.getElementById(id); return !!el && el.style.display !== 'none'; };
     renderTaskView();
     if (shown('teamDashView')) renderTeamDash();
@@ -8820,9 +8827,13 @@
   async function ensureTaskAssigneeNav() {
     const container = document.getElementById('navTeamAssignees');
     if (!container || container.children.length) return;
-    const { data, error } = await client.from('team_tasks').select('assignee').limit(2000);
-    if (error || !data) return;
-    const names = Array.from(new Set(data.map(r => r.assignee).filter(Boolean))).sort();
+    // 이미 업무를 받아 뒀으면 거기서 이름을 뽑습니다 (표를 한 번 더 긁지 않게).
+    let names = Array.from(new Set((currentTasks || []).map(t => t.assignee).filter(Boolean))).sort();
+    if (!names.length) {
+      const { data, error } = await client.from('team_tasks').select('assignee').limit(2000);
+      if (error || !data) return;
+      names = Array.from(new Set(data.map(r => r.assignee).filter(Boolean))).sort();
+    }
     if (names.length && !container.children.length) renderAssigneeNavFrom(names);
   }
 
