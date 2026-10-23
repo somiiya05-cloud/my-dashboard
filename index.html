@@ -10335,12 +10335,12 @@
     gpRender();
   }
 
-  function gpColCount() { return gpFull() ? 16 : 11; }
+  function gpColCount() { return gpFull() ? 18 : 11; }
 
   function gpRenderHead() {
     const full = gpFull();
     document.getElementById('gpHead').innerHTML = full
-      ? `<tr><th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">공구판매가</th><th class="num">할인율</th>
+      ? `<tr><th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">자사몰 히든가</th><th class="num">쿠팡가</th><th class="num">공구판매가</th><th class="num">할인율</th>
          <th class="num">수수료율</th><th class="num gp-tobe" title="유관부서가 넣어 본 수수료율">To-be<br>수수료율</th><th class="num">수수료</th><th class="num" title="원가 대시보드의 원가 × 구성 개수">원가<span class="gp-th-sub">원가 연동</span></th><th class="num" title="물류 대시보드의 택배비">물류비<span class="gp-th-sub">택배비 연동</span></th><th class="num">부가세</th>
          <th class="num">경비</th><th class="num">손익</th><th class="num">손익률</th><th class="num">객단가</th><th></th></tr>`
       : `<tr><th>옵션</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">공구판매가</th><th class="num">할인율</th>
@@ -10393,7 +10393,7 @@
       <td class="num gp-tobe" data-c="tmargin">${tc.tmargin}</td>
     </tr>`;
     }
-    const refs = [['스스', it.ss_price], ['쿠팡', it.coupang_price], ['히든', it.hidden_price]]
+    const refs = [['스스', it.ss_price]]
       .filter(([, v]) => gpNum(v)).map(([k, v]) => `${k} ${gpWon(v)}`).join(' · ');
     const expRate = it.expense_rate == null ? GP_DEFAULT_EXPENSE : Number(it.expense_rate);
     let html = `<tr data-gp-id="${it.id}">
@@ -10401,6 +10401,10 @@
       <td class="num">${gpNum(it.units) || 1}</td>
       <td class="num"><input class="gp-in" data-field="mall_price" inputmode="numeric" value="${gpNum(it.mall_price) ? gpWon(it.mall_price) : ''}" placeholder="자사몰가"
         oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})">${refs ? `<span class="gp-memo">${refs}</span>` : ''}</td>
+      <td class="num"><input class="gp-in" data-field="hidden_price" inputmode="numeric" value="${gpNum(it.hidden_price) ? gpWon(it.hidden_price) : ''}" placeholder="-"
+        oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})"></td>
+      <td class="num"><input class="gp-in" data-field="coupang_price" inputmode="numeric" value="${gpNum(it.coupang_price) ? gpWon(it.coupang_price) : ''}" placeholder="-"
+        oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})"></td>
       ${priceCell}
       <td class="num" data-c="discount">${cc.discount}</td>
       ${feeCell}
@@ -10431,7 +10435,7 @@
       ${f('자사몰가', 'mall_price', won(it.mall_price))}
       ${f('스스가', 'ss_price', won(it.ss_price))}
       ${f('쿠팡가', 'coupang_price', won(it.coupang_price))}
-      ${f('히든링크', 'hidden_price', won(it.hidden_price))}
+      ${f('자사몰 히든가', 'hidden_price', won(it.hidden_price))}
       <div class="gp-field gp-recipe" style="flex-basis:100%;">원가 구성 (원가 대시보드 연동 — 비워 두면 아래 직접 입력 원가를 씁니다)
         ${(gpCostItems(it) || []).map((c) => gpRecipeRowHtml(it.brand, c.id, c.qty)).join('')}
         <button type="button" class="filter-reset-btn" style="align-self:flex-start;" onclick="gpAddRecipeRow(this, '${escapeAttr(it.brand)}')">+ 구성품 추가</button>
@@ -10482,7 +10486,7 @@
     const field = el.dataset.field;
     // 유관부서는 To-be 수수료율만 고칩니다(판매가·As-is 수수료율은 영업팀만).
     if (field !== 'fee_rate_tobe' && !gpFull()) return;
-    if (field === 'gb_price' || field === 'mall_price') { gsFormatMoneyInput(el); it[field] = gpMoney(el.value); }
+    if (['gb_price', 'mall_price', 'hidden_price', 'coupang_price'].includes(field)) { gsFormatMoneyInput(el); it[field] = gpMoney(el.value); }
     else it[field] = gpRate(el.value);
     const tr = el.closest('tr');
     const cc = { ...gpCalcCells(it), ...gpToBeCells(it) };
@@ -10505,7 +10509,7 @@
     const { error } = await client.from('groupbuy_price_items')
       .update({ [field]: it[field], updated_at: new Date().toISOString() }).eq('id', id);
     if (error) { gpNote('저장하지 못했습니다: ' + error.message, 'gp-save-err'); return; }
-    const label = { gb_price: '공구판매가', mall_price: '자사몰가', fee_rate: '수수료율', fee_rate_tobe: 'To-be 수수료율' }[field];
+    const label = { gb_price: '공구판매가', mall_price: '자사몰가', hidden_price: '자사몰 히든가', coupang_price: '쿠팡가', fee_rate: '수수료율', fee_rate_tobe: 'To-be 수수료율' }[field];
     gpNote(`${it.option_name} · ${label} 저장됨 (${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})`, 'gp-saved');
   }
 
@@ -11240,7 +11244,7 @@
       }
       return {
         '브랜드': it.brand, '상품': it.product, '옵션': it.option_name, '구성': gpNum(it.units) || 1,
-        '자사몰가': r(gpNum(it.mall_price)), '스스가': r(gpNum(it.ss_price)), '쿠팡가': r(gpNum(it.coupang_price)), '히든링크': r(gpNum(it.hidden_price)),
+        '자사몰가': r(gpNum(it.mall_price)), '스스가': r(gpNum(it.ss_price)), '쿠팡가': r(gpNum(it.coupang_price)), '자사몰 히든가': r(gpNum(it.hidden_price)),
         '공구판매가': r(gpNum(it.gb_price)), '할인율(%)': p(c.discount), '수수료율(%)': p(gpNum(it.fee_rate)), '수수료': r(c.fee),
         '원가': r(gpCost(it)), '원가 구성': gpCostTitle(it).split('\n').join(' + '), '물류비': r(gpLogistics(it)), '물류 상품': gpLogiProduct(it) ? gpLogiProduct(it).product_name : '', '부가세': r(c.vat), '경비': r(c.exp),
         '손익': r(c.profit), '손익률(%)': p(c.margin), '객단가': r(c.perUnit), '메모': it.memo || ''
