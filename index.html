@@ -1211,6 +1211,14 @@
   .gp-check { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: #475569; white-space: nowrap; }
   .gp-presets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: #64748b; margin: 4px 0 12px; }
   .gp-saved { color: #15803d; }
+  .gp-extra-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin: 0 0 8px; padding: 8px 10px; background: #f8fafc; border-radius: 8px; }
+  .gp-extra-row .gp-field input { padding: 6px 8px; border: 1px solid rgba(15,23,42,.15); border-radius: 6px; font: inherit; font-size: 12.5px; width: 100px; }
+  .gp-extra-row select { padding: 6px 8px; border: 1px solid rgba(15,23,42,.15); border-radius: 6px; font: inherit; font-size: 12.5px; }
+  .gp-extra-no { font-size: 12px; font-weight: 700; color: #475569; align-self: center; }
+  .gp-qtys { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; min-width: 150px; }
+  .gp-qtys label { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #64748b; white-space: nowrap; }
+  .gp-qtys label span { display: inline-block; max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
+  .gp-qtys b { font-size: 12px; color: #0f172a; }
   .gp-draft-mode > section:not(#gpDraftPanel) { display: none !important; }
   .gp-status { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 7px; }
   .gp-status.wait { color: #b45309; background: rgba(217,119,6,.12); }
@@ -3081,6 +3089,11 @@
           <label class="gp-field" style="flex:2; min-width:220px;">옵션 구성 (쉼표로 구분)<input type="text" name="spec" value="1, 1+1, 2+1, 3+2"></label>
         </form>
         <div class="panel-note" id="gpAutoLinkNote" style="margin:2px 0 8px;"></div>
+        <div id="gpDraftExtras"></div>
+        <div class="gp-presets">
+          <button type="button" class="filter-reset-btn" onclick="gpAddExtraProduct()">+ 다른 제품 함께 구성</button>
+          <span class="panel-note">제품을 둘 이상 고르면 옵션마다 제품별 수량을 넣을 수 있고, 원가·자사몰가는 제품별 값 × 수량의 합이 됩니다.</span>
+        </div>
         <div class="gp-presets">
           자주 쓰는 구성:
           <button type="button" class="filter-reset-btn" onclick="gpSetSpec('1, 1+1, 2+1, 3+2')">1 · 1+1 · 2+1 · 3+2</button>
@@ -10571,7 +10584,7 @@
       m = tok.match(/(?:^|[\s=:])(\d+)\s*(개|ea|EA)?$/);
       if (m && Number(m[1]) > 0) out.push({ label: `${Number(m[1])}개`, units: Number(m[1]) });
     });
-    return out.filter((o, i, arr) => arr.findIndex((x) => x.label === o.label) === i);
+    return out;
   }
 
   function gpOpenDraft(encodedKey) {
@@ -10579,6 +10592,7 @@
     const form = document.getElementById('gpDraftForm');
     form.reset();
     gpDraftPrices = {};
+    gpDraftExtras = [];
     gpDraftTouched = { cost: false, logi: false };
     document.getElementById('gpAutoLinkNote').textContent = '';
     gpFillLogiSelect('', null);
@@ -10754,32 +10768,63 @@
     gpBuildDraft();
   }
 
+  // 손익 짜기의 제품 목록: 0번은 위 폼의 원가 제품·단품 원가·단품 자사몰가, 1번부터는 '+ 다른 제품 함께 구성'.
+  let gpDraftExtras = [];   // [{ id, cost, mall }]
+  function gpDraftProducts() {
+    const form = document.getElementById('gpDraftForm');
+    const first = { id: form.costProduct.value ? Number(form.costProduct.value) : null, cost: gpMoney(form.unitCost.value), mall: gpMoney(form.unitMall.value) };
+    return [first].concat(gpDraftExtras);
+  }
+  function gpDraftProductName(prod, k) {
+    const r = prod.id != null ? gpCostById.get(Number(prod.id)) : null;
+    if (r) return String(r.product_name || '').replace(/^\s*\[[^\]]*\]\s*/, '');
+    if (k === 0) return document.getElementById('gpDraftForm').product.value.trim() || '제품 1';
+    return `제품 ${k + 1}`;
+  }
+  // 구성 칸의 각 항목에 고유 키를 붙입니다. 같은 구성(예: 1개)이 두 번 있어도 따로 다룹니다.
+  function gpSpecKeys(spec) {
+    const seen = {};
+    return gpParseSpec(spec).map((o) => { const n = seen[o.label] || 0; seen[o.label] = n + 1; return { ...o, key: `${o.label}#${n}` }; });
+  }
+
   function gpBuildDraft() {
     const form = document.getElementById('gpDraftForm');
     const product = form.product.value.trim();
-    const unitCost = gpMoney(form.unitCost.value);
-    const unitMall = gpMoney(form.unitMall.value);
     const logistics = gpMoney(form.logistics.value) || 0;
     const logisticsProductId = form.logiProduct.value ? Number(form.logiProduct.value) : null;
-    const costProductId = form.costProduct.value ? Number(form.costProduct.value) : null;
     const feeRate = gpRate(form.feeRate.value) ?? 0;
     const expenseRate = gpRate(form.expenseRate.value) ?? GP_DEFAULT_EXPENSE;
     const target = gpRate(form.targetMargin.value) ?? 0;
-    gpDraftRows = gpParseSpec(form.spec.value).map((o) => {
-      const cost = unitCost != null ? unitCost * o.units : null;
+    const packQty = Math.max(1, Math.round(Number(String(form.packQty.value).replace(/[^0-9]/g, '')) || 1));
+    const prods = gpDraftProducts();
+    const multi = prods.length > 1;
+    gpDraftRows = gpSpecKeys(form.spec.value).map((o) => {
+      // 제품별 수량: 손으로 넣은 값이 있으면 그 값, 없으면 첫 제품 = 구성 개수, 나머지 = 0.
+      const qtys = prods.map((_, k) => {
+        const v = gpDraftPrices[`q:${o.key}:${k}`];
+        return v != null ? v : (k === 0 ? o.units : 0);
+      });
+      const units = multi ? qtys.reduce((a, b) => a + b, 0) : o.units;
+      const used = prods.map((pr, k) => ({ pr, q: qtys[k] })).filter((x) => x.q > 0);
+      const cost = used.length && used.every((x) => x.pr.cost != null) ? used.reduce((a, x) => a + x.pr.cost * x.q, 0) : null;
+      const mallAuto = used.length && used.every((x) => x.pr.mall != null) ? used.reduce((a, x) => a + x.pr.mall * x.q, 0) : null;
+      // 원가 연동은 쓰인 제품이 모두 원가 대시보드 제품일 때만 겁니다(하나라도 직접 입력이면 합계 원가를 그대로 저장).
+      const costItems = used.length && used.every((x) => x.pr.id != null) ? used.map((x) => ({ id: x.pr.id, qty: x.q })) : null;
       const suggested = cost != null ? gpSuggestPrice(cost, logistics, feeRate, expenseRate, target) : null;
-      const mallManual = gpDraftPrices['mall:' + o.label];
-      const packQty = Math.max(1, Math.round(Number(String(form.packQty.value).replace(/[^0-9]/g, '')) || 1));
-      const mall = mallManual != null ? mallManual : (unitMall != null ? unitMall * o.units : null);
-      const usual = mall ? gpRound900(mall * (1 - gpUsualDiscount(o.units))) : null;
-      const manual = gpDraftPrices[o.label];
+      const mallManual = gpDraftPrices['mall:' + o.key];
+      const mall = mallManual != null ? mallManual : mallAuto;
+      const usual = mall ? gpRound900(mall * (1 - gpUsualDiscount(units))) : null;
+      const manual = gpDraftPrices[o.key];
+      const autoName = multi
+        ? used.map((x) => `${gpDraftProductName(x.pr, prods.indexOf(x.pr))} ${x.q}개`).join(' + ')
+        : (product ? `${product} ${o.label}` : o.label);
       return {
-        label: o.label,
-        option_name: (gpDraftPrices['name:' + o.label]) || (product ? `${product} ${o.label}` : o.label),
-        units: o.units,
+        key: o.key, label: o.label, qtys, multi,
+        option_name: gpDraftPrices['name:' + o.key] || autoName,
+        units: units || 1,
         mall_price: mall, mall_manual: mallManual != null,
         pack_qty: packQty > 1 ? packQty : null,
-        cost, cost_items: costProductId != null ? [{ id: costProductId, qty: o.units }] : null,
+        cost, cost_items: costItems,
         logistics, logistics_product_id: logisticsProductId, fee_rate: feeRate, expense_rate: expenseRate,
         suggested, usual,
         gb_price: manual != null ? manual : null
@@ -10791,6 +10836,7 @@
       if (r.gb_price == null) r.gb_price = r.default_price;
       return r;
     });
+    gpRenderExtras();
     gpRenderDraft();
   }
 
@@ -10818,18 +10864,92 @@
     const input = document.getElementById('gpSpecAdd');
     const add = gpParseSpec(input.value);
     if (!add.length) { alert('구성을 1, 2+1, 4+4, 10개 처럼 넣어 주세요.'); return; }
-    const labels = gpParseSpec(form.spec.value).map((o) => o.label);
-    add.forEach((o) => { if (!labels.includes(o.label)) labels.push(o.label); });
-    // 구성 개수 순으로 정렬해 둡니다.
-    const units = (l) => gpParseSpec(l)[0].units;
-    form.spec.value = labels.sort((a, b) => units(a) - units(b)).join(', ');
+    // 같은 구성도 한 줄 더 생깁니다(제품을 섞은 옵션을 따로 만들 때). 뒤에 붙여서 이미 고친 줄은 그대로 둡니다.
+    const labels = gpParseSpec(form.spec.value).map((o) => o.label).concat(add.map((o) => o.label));
+    form.spec.value = labels.join(', ');
     input.value = '';
     gpBuildDraft();
   }
-  function gpRemoveSpec(label) {
+  function gpRemoveSpec(key) {
     const form = document.getElementById('gpDraftForm');
-    form.spec.value = gpParseSpec(form.spec.value).map((o) => o.label).filter((l) => l !== label).join(', ');
+    const items = gpSpecKeys(form.spec.value);
+    const idx = items.findIndex((o) => o.key === key);
+    if (idx < 0) return;
+    // 뒤 줄들의 키(같은 구성의 몇 번째인지)가 당겨지므로, 손으로 고친 값도 한 칸씩 옮겨 줍니다.
+    const label = items[idx].label;
+    const later = items.filter((o, j) => j > idx && o.label === label);
+    const prefixes = (k) => ['', 'name:', 'mall:'].map((pre) => pre + k);
+    prefixes(key).forEach((k) => delete gpDraftPrices[k]);
+    Object.keys(gpDraftPrices).filter((k) => k.startsWith(`q:${key}:`)).forEach((k) => delete gpDraftPrices[k]);
+    let prev = key;
+    later.forEach((o) => {
+      prefixes(o.key).forEach((k, n) => { const to = prefixes(prev)[n]; if (gpDraftPrices[k] != null) { gpDraftPrices[to] = gpDraftPrices[k]; delete gpDraftPrices[k]; } });
+      Object.keys(gpDraftPrices).filter((k) => k.startsWith(`q:${o.key}:`)).forEach((k) => {
+        gpDraftPrices[k.replace(`q:${o.key}:`, `q:${prev}:`)] = gpDraftPrices[k]; delete gpDraftPrices[k];
+      });
+      prev = o.key;
+    });
+    items.splice(idx, 1);
+    form.spec.value = items.map((o) => o.label).join(', ');
     gpBuildDraft();
+  }
+
+  // ---- 다른 제품 함께 구성 ----
+  function gpAddExtraProduct() {
+    gpDraftExtras.push({ id: null, cost: null, mall: null });
+    gpBuildDraft();
+  }
+  function gpRemoveExtraProduct(k) {
+    // k 는 1부터(0번은 위 폼). 그 제품의 수량 값을 지우고 뒤 제품들의 수량 키를 당깁니다.
+    const moved = {};
+    Object.keys(gpDraftPrices).forEach((key) => {
+      const m = key.match(/^q:(.+):(\d+)$/);
+      if (!m) return;
+      const n = Number(m[2]);
+      if (n === k) { delete gpDraftPrices[key]; return; }
+      if (n > k) { moved[`q:${m[1]}:${n - 1}`] = gpDraftPrices[key]; delete gpDraftPrices[key]; }
+    });
+    Object.assign(gpDraftPrices, moved);
+    gpDraftExtras.splice(k - 1, 1);
+    gpBuildDraft();
+  }
+  function gpPickExtra(el, k) {
+    const ex = gpDraftExtras[k - 1];
+    ex.id = el.value ? Number(el.value) : null;
+    const r = ex.id != null ? gpCostById.get(ex.id) : null;
+    if (r && gpNum(r.unit_cost_krw) != null) ex.cost = gpNum(r.unit_cost_krw);
+    gpBuildDraft();
+  }
+  function gpExtraInput(el, k, field) {
+    gsFormatMoneyInput(el);
+    gpDraftExtras[k - 1][field] = gpMoney(el.value);
+  }
+  function gpRenderExtras() {
+    const box = document.getElementById('gpDraftExtras');
+    if (!box) return;
+    const brand = document.getElementById('gpDraftForm').brand.value.trim();
+    // 입력 중인 칸이 이 안에 있으면 다시 그리지 않습니다(커서가 튀지 않게).
+    if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+    box.innerHTML = gpDraftExtras.map((ex, j) => {
+      const k = j + 1;
+      const r = ex.id != null ? gpCostById.get(ex.id) : null;
+      const linked = !!(r && gpNum(r.unit_cost_krw) != null);
+      return `<div class="gp-extra-row">
+        <span class="gp-extra-no">제품 ${k + 1}</span>
+        <select onchange="gpPickExtra(this, ${k})" style="width:320px;">${gpCostOptionsHtml(brand, ex.id, '원가 대시보드에서 고르기 (없으면 직접 입력)')}</select>
+        <label class="gp-field">단품 원가<input type="text" inputmode="numeric" value="${ex.cost != null ? gpWon(ex.cost) : ''}" ${linked ? 'readonly' : ''}
+          oninput="gpExtraInput(this, ${k}, 'cost')" onchange="gpBuildDraft()"></label>
+        <label class="gp-field">단품 자사몰가<input type="text" inputmode="numeric" value="${ex.mall != null ? gpWon(ex.mall) : ''}"
+          oninput="gpExtraInput(this, ${k}, 'mall')" onchange="gpBuildDraft()"></label>
+        <button type="button" class="filter-reset-btn" onclick="gpRemoveExtraProduct(${k})">빼기</button>
+      </div>`;
+    }).join('');
+  }
+  // 제품이 여럿일 때 옵션 줄의 제품별 수량
+  function gpDraftQty(el, i, k) {
+    const r = gpDraftRows[i];
+    const v = Math.max(0, Math.round(Number(String(el.value).replace(/[^0-9]/g, '')) || 0));
+    gpDraftPrices[`q:${r.key}:${k}`] = v;
   }
 
   function gpRenderDraft() {
@@ -10843,12 +10963,14 @@
     }
     tbody.innerHTML = gpDraftRows.map((r, i) => {
       const cc = gpCalcCells(r);
-      const manual = gpDraftPrices[r.label] != null;
+      const manual = gpDraftPrices[r.key] != null;
       return `<tr data-gp-draft="${i}">
         <td><input class="gp-in" style="width:100%; min-width:220px; text-align:left;" value="${escapeAttr(r.option_name)}" oninput="gpDraftName(this, ${i})"></td>
-        <td class="num">${r.units}</td>
+        <td class="num">${r.multi
+          ? `<div class="gp-qtys">${gpDraftProducts().map((pr, k) => `<label title="${escapeAttr(gpDraftProductName(pr, k))}"><span>${escapeAttr(gpDraftProductName(pr, k).slice(0, 8))}</span><input class="gp-in pct" inputmode="numeric" value="${r.qtys[k]}" oninput="gpDraftQty(this, ${i}, ${k})" onchange="gpBuildDraft()"></label>`).join('')}<b>= ${r.units}개</b></div>`
+          : r.units}</td>
         <td class="num"><input class="gp-in" inputmode="numeric" value="${r.mall_manual ? gpWon(r.mall_price) : ''}" placeholder="${r.mall_price ? gpWon(r.mall_price) : '자사몰가'}"
-          title="비워 두면 단품 자사몰가 × 구성 개수" oninput="gpDraftMall(this, ${i})" onchange="gpBuildDraft()"></td>
+          title="비워 두면 제품별 단품 자사몰가 × 수량의 합" oninput="gpDraftMall(this, ${i})" onchange="gpBuildDraft()"></td>
         <td class="num">${gpWon(r.cost)}</td>
         <td class="num gp-muted">${r.suggested ? gpWon(r.suggested) : '-'}</td>
         <td class="num gp-muted" title="자사몰가 − ${gpPct(gpUsualDiscount(r.units))} (구성 ${r.units}개 공구의 보통 할인율)">${r.usual ? gpWon(r.usual) : '-'}</td>
@@ -10857,7 +10979,7 @@
         <td class="num" data-c="profit">${cc.profit}</td>
         <td class="num" data-c="margin">${cc.margin}</td>
         <td class="num" data-c="perUnit">${cc.perUnit}</td>
-        <td class="gp-actions"><button type="button" title="이 구성 빼기" onclick="gpRemoveSpec('${escapeAttr(r.label)}')">✕</button></td>
+        <td class="gp-actions"><button type="button" title="이 구성 빼기" onclick="gpRemoveSpec('${escapeAttr(r.key)}')">✕</button></td>
       </tr>`;
     }).join('');
   }
@@ -10865,7 +10987,7 @@
   function gpDraftName(el, i) {
     const r = gpDraftRows[i];
     r.option_name = el.value;
-    gpDraftPrices['name:' + r.label] = el.value;
+    gpDraftPrices['name:' + r.key] = el.value;
   }
 
   // 옵션별 자사몰가: 입력하는 동안은 할인율만 바로 바꾸고, 칸을 벗어나면 통상 공구가·기본 공구가까지 다시 계산합니다.
@@ -10873,9 +10995,11 @@
     gsFormatMoneyInput(el);
     const r = gpDraftRows[i];
     const v = gpMoney(el.value);
-    if (v == null || v <= 0) delete gpDraftPrices['mall:' + r.label]; else gpDraftPrices['mall:' + r.label] = v;
-    const unitMall = gpMoney(document.getElementById('gpDraftForm').unitMall.value);
-    r.mall_price = v > 0 ? v : (unitMall != null ? unitMall * r.units : null);
+    if (v == null || v <= 0) delete gpDraftPrices['mall:' + r.key]; else gpDraftPrices['mall:' + r.key] = v;
+    const prods = gpDraftProducts();
+    const used = prods.map((pr, k) => ({ pr, q: r.multi ? r.qtys[k] : (k === 0 ? r.units : 0) })).filter((x) => x.q > 0);
+    const auto = used.length && used.every((x) => x.pr.mall != null) ? used.reduce((a, x) => a + x.pr.mall * x.q, 0) : null;
+    r.mall_price = v > 0 ? v : auto;
     const td = el.closest('tr').querySelector('[data-c="discount"]');
     if (td) td.innerHTML = gpCalcCells(r).discount;
   }
@@ -10884,7 +11008,7 @@
     gsFormatMoneyInput(el);
     const r = gpDraftRows[i];
     const v = gpMoney(el.value);
-    if (v == null) delete gpDraftPrices[r.label]; else gpDraftPrices[r.label] = v;
+    if (v == null) delete gpDraftPrices[r.key]; else gpDraftPrices[r.key] = v;
     r.gb_price = v != null ? v : r.default_price;
     const cc = gpCalcCells(r);
     const tr = el.closest('tr');
@@ -11054,7 +11178,7 @@
     if (!exists) { form.brand.value = p.brand; form.product.value = p.product; gpAutoLink(); }
     form.spec.value = p.spec;
     if (gpNum(p.fee_rate) != null) form.feeRate.value = gpRateText(gpNum(p.fee_rate));
-    if (gpNum(p.desired_price) != null) gpParseSpec(p.spec).forEach((o) => { gpDraftPrices[o.label] = gpNum(p.desired_price); });
+    if (gpNum(p.desired_price) != null) gpSpecKeys(p.spec).forEach((o) => { gpDraftPrices[o.key] = gpNum(p.desired_price); });
     gpDraftProposalId = id;
     document.getElementById('gpDraftTitle').textContent = `제안 손익 짜기 · ${p.brand} ${p.product} ${p.spec}${p.proposer ? ' (' + p.proposer + ')' : ''}`;
     gpBuildDraft();
