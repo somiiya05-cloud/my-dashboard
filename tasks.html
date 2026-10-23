@@ -975,6 +975,19 @@
   .mt-day-title { flex: 1; font-size: 13px; font-weight: 700; color: #0f172a; cursor: pointer; }
   .mt-day-title:hover { color: #2f5ce4; }
   .mt-day-cat { font-size: 10.5px; font-weight: 700; color: #94a3b8; }
+  /* 다른 날로 옮기기 */
+  .mt-mini {
+    flex: none; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; color: #64748b;
+    font-family: inherit; font-size: 10.5px; font-weight: 700; padding: 4px 9px; cursor: pointer;
+  }
+  .mt-mini:hover { border-color: #4d7cfe; color: #2f5ce4; }
+  .mt-move {
+    flex: none; width: 132px; border: 1px solid #e7edf5; border-radius: 7px; background: #fff;
+    font-family: inherit; font-size: 11px; font-weight: 700; color: #64748b; padding: 3px 6px;
+  }
+  .mt-move:hover { border-color: #cfdcf4; }
+  .mt-move:focus { outline: none; border-color: #4d7cfe; color: #1d4ed8; }
+
   .mt-part-sw { display: inline-flex; border: 1px solid #e2e8f0; border-radius: 7px; overflow: hidden; flex: none; }
   .mt-part-sw button {
     border: none; background: #fff; color: #94a3b8; cursor: pointer;
@@ -5229,6 +5242,11 @@
         ${(() => { const c = mtChannelOf(t.title); return c ? `<span class="mt-ch ${c.cls}">${escapeAttr(c.key)}</span>` : ''; })()}
         <span class="mt-day-title" onclick="openTaskPanel(${t.id})" title="누르면 상세가 열립니다">${escapeAttr(t.title || '(제목 없음)')}</span>
         <span class="mt-day-cat">${escapeAttr(g)}</span>
+        ${done ? '' : `
+        <button type="button" class="mt-mini" onclick="mtMoveNextDay(${t.id})"
+          title="내일로 미룹니다">내일로</button>
+        <input class="mt-move" type="date" value="${escapeAttr(String(t.due_date || '').slice(0, 10))}"
+          onchange="mtMoveDay(${t.id}, this.value)" title="다른 날로 옮깁니다">`}
         <span class="mt-part-sw">
           ${MT_PARTS.map((x) => `<button type="button" class="${t.day_part === x ? 'on' : ''}"
             onclick="mtSetPart(${t.id}, '${x}')">${x}</button>`).join('')}
@@ -5239,6 +5257,41 @@
   // ---- 하루 보기에서 순서 바꾸기 ----
   // 끌어 옮기는 건 느려서, 번호 칸에 자리를 적어 넣는 방식으로 합니다.
   // 3번 줄에 1을 적으면 그 줄이 맨 위로 가고 나머지가 한 칸씩 밀립니다.
+  // 못 끝낸 업무를 다른 날로 보냅니다.
+  // 시작일이 마감일과 같은(하루짜리) 업무는 시작일도 같이 옮깁니다 —
+  // 그러지 않으면 어제 시작해서 오늘 끝나는 기간 업무처럼 보입니다.
+  async function mtMoveDay(id, date) {
+    const t = (currentTasks || []).find((x) => x.id === id);
+    if (!t || !date) { renderMyTracker(); return; }
+    const due = String(t.due_date || '').slice(0, 10);
+    if (date === due) { renderMyTracker(); return; }
+    const sameStart = String(t.start_date || '').slice(0, 10) === due;
+
+    const before = { due: t.due_date, start: t.start_date };
+    t.due_date = date;
+    if (sameStart) t.start_date = date;
+    renderMyTracker();
+
+    const patch = { due_date: date };
+    if (sameStart) patch.start_date = date;
+    const { error } = await client.from('team_tasks').update(patch).eq('id', id);
+    if (error) {
+      t.due_date = before.due; t.start_date = before.start;
+      renderMyTracker();
+      mtToast('옮기지 못했습니다: ' + error.message);
+      return;
+    }
+    mtToast(t.title + ' → ' + date);
+  }
+  window.mtMoveDay = mtMoveDay;
+
+  function mtMoveNextDay(id) {
+    const t = (currentTasks || []).find((x) => x.id === id);
+    if (!t) return;
+    mtMoveDay(id, jwAddDays(String(t.due_date || mtCurDay()).slice(0, 10), 1));
+  }
+  window.mtMoveNextDay = mtMoveNextDay;
+
   async function mtSetRank(id, value) {
     const want = Math.round(Number(value));
     const moving = (currentTasks || []).find((t) => t.id === id);
