@@ -4031,14 +4031,19 @@
     tcRenderIfShown();
 
     // 서로 다른 표를 보는 조회들이라 한 줄로 세울 까닭이 없습니다. 같이 받습니다.
+    const onTasks = (document.getElementById('teamTasksView') || {}).style
+      && document.getElementById('teamTasksView').style.display !== 'none';
     await Promise.all([
-      loadJwNotes(),           // 상세보기의 목적·코멘트
-      loadJwProjects(),        // 프로젝트형 업무
-      loadJwInvoicePending(),  // "계산서 발행" 배지에 쓸 입금 완료 건수
-      loadJwSettleDue(),       // 정산일이 된 공동구매 건 (상단 배너)
-      loadJwRegCheck(),        // "상품등록" 배지에 쓸 사방넷 등록 실패 건수
-      loadJwNewProducts(),     // 자사몰에 오늘 새로 올라온 상품
-      loadJwMallRegs(),        // 그중 이미 등록에 성공한 건을 빼기 위한 등록 현황
+      loadJwNotes(),           // 상세보기의 목적·코멘트 (대시보드의 코멘트 표시에도 씁니다)
+      loadJwProjects(),        // 프로젝트형 업무 (대시보드 간트·프로젝트 현황)
+      // 아래 다섯은 할일 관리 화면의 배지·배너 전용이라 그 화면일 때만 받습니다.
+      ...(onTasks ? [
+        loadJwInvoicePending(),  // "계산서 발행" 배지에 쓸 입금 완료 건수
+        loadJwSettleDue(),       // 정산일이 된 공동구매 건 (상단 배너)
+        loadJwRegCheck(),        // "상품등록" 배지에 쓸 사방넷 등록 실패 건수
+        loadJwNewProducts(),     // 자사몰에 오늘 새로 올라온 상품
+        loadJwMallRegs(),        // 그중 이미 등록에 성공한 건을 빼기 위한 등록 현황
+      ] : []),
     ]);
 
     jwLoading = false;
