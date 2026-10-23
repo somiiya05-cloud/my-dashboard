@@ -10385,7 +10385,8 @@
     let html = `<tr data-gp-id="${it.id}">
       <td class="gp-opt">${escapeAttr(it.option_name)}${it.memo ? `<span class="gp-memo">${escapeAttr(it.memo)}</span>` : ''}</td>
       <td class="num">${gpNum(it.units) || 1}</td>
-      <td class="num">${gpWon(gpNum(it.mall_price))}${refs ? `<span class="gp-memo">${refs}</span>` : ''}</td>
+      <td class="num"><input class="gp-in" data-field="mall_price" inputmode="numeric" value="${gpNum(it.mall_price) ? gpWon(it.mall_price) : ''}" placeholder="자사몰가"
+        oninput="gpInlineInput(this, ${it.id})" onchange="gpInlineSave(this, ${it.id})">${refs ? `<span class="gp-memo">${refs}</span>` : ''}</td>
       ${priceCell}
       <td class="num" data-c="discount">${cc.discount}</td>
       ${feeCell}
@@ -10466,7 +10467,7 @@
     const field = el.dataset.field;
     // 유관부서는 To-be 수수료율만 고칩니다(판매가·As-is 수수료율은 영업팀만).
     if (field !== 'fee_rate_tobe' && !gpFull()) return;
-    if (field === 'gb_price') { gsFormatMoneyInput(el); it.gb_price = gpMoney(el.value); }
+    if (field === 'gb_price' || field === 'mall_price') { gsFormatMoneyInput(el); it[field] = gpMoney(el.value); }
     else it[field] = gpRate(el.value);
     const tr = el.closest('tr');
     const cc = { ...gpCalcCells(it), ...gpToBeCells(it) };
@@ -10489,7 +10490,7 @@
     const { error } = await client.from('groupbuy_price_items')
       .update({ [field]: it[field], updated_at: new Date().toISOString() }).eq('id', id);
     if (error) { gpNote('저장하지 못했습니다: ' + error.message, 'gp-save-err'); return; }
-    const label = { gb_price: '공구판매가', fee_rate: '수수료율', fee_rate_tobe: 'To-be 수수료율' }[field];
+    const label = { gb_price: '공구판매가', mall_price: '자사몰가', fee_rate: '수수료율', fee_rate_tobe: 'To-be 수수료율' }[field];
     gpNote(`${it.option_name} · ${label} 저장됨 (${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})`, 'gp-saved');
   }
 
@@ -10763,14 +10764,15 @@
     gpDraftRows = gpParseSpec(form.spec.value).map((o) => {
       const cost = unitCost != null ? unitCost * o.units : null;
       const suggested = cost != null ? gpSuggestPrice(cost, logistics, feeRate, expenseRate, target) : null;
-      const mall = unitMall != null ? unitMall * o.units : null;
+      const mallManual = gpDraftPrices['mall:' + o.label];
+      const mall = mallManual != null ? mallManual : (unitMall != null ? unitMall * o.units : null);
       const usual = mall ? gpRound900(mall * (1 - gpUsualDiscount(o.units))) : null;
       const manual = gpDraftPrices[o.label];
       return {
         label: o.label,
         option_name: (gpDraftPrices['name:' + o.label]) || (product ? `${product} ${o.label}` : o.label),
         units: o.units,
-        mall_price: unitMall != null ? unitMall * o.units : null,
+        mall_price: mall, mall_manual: mallManual != null,
         cost, cost_items: costProductId != null ? [{ id: costProductId, qty: o.units }] : null,
         logistics, logistics_product_id: logisticsProductId, fee_rate: feeRate, expense_rate: expenseRate,
         suggested, usual,
@@ -10839,7 +10841,8 @@
       return `<tr data-gp-draft="${i}">
         <td><input class="gp-in" style="width:100%; min-width:220px; text-align:left;" value="${escapeAttr(r.option_name)}" oninput="gpDraftName(this, ${i})"></td>
         <td class="num">${r.units}</td>
-        <td class="num">${gpWon(r.mall_price)}</td>
+        <td class="num"><input class="gp-in" inputmode="numeric" value="${r.mall_manual ? gpWon(r.mall_price) : ''}" placeholder="${r.mall_price ? gpWon(r.mall_price) : '자사몰가'}"
+          title="비워 두면 단품 자사몰가 × 구성 개수" oninput="gpDraftMall(this, ${i})" onchange="gpBuildDraft()"></td>
         <td class="num">${gpWon(r.cost)}</td>
         <td class="num gp-muted">${r.suggested ? gpWon(r.suggested) : '-'}</td>
         <td class="num gp-muted" title="자사몰가 − ${gpPct(gpUsualDiscount(r.units))} (구성 ${r.units}개 공구의 보통 할인율)">${r.usual ? gpWon(r.usual) : '-'}</td>
@@ -10857,6 +10860,18 @@
     const r = gpDraftRows[i];
     r.option_name = el.value;
     gpDraftPrices['name:' + r.label] = el.value;
+  }
+
+  // 옵션별 자사몰가: 입력하는 동안은 할인율만 바로 바꾸고, 칸을 벗어나면 통상 공구가·기본 공구가까지 다시 계산합니다.
+  function gpDraftMall(el, i) {
+    gsFormatMoneyInput(el);
+    const r = gpDraftRows[i];
+    const v = gpMoney(el.value);
+    if (v == null) delete gpDraftPrices['mall:' + r.label]; else gpDraftPrices['mall:' + r.label] = v;
+    const unitMall = gpMoney(document.getElementById('gpDraftForm').unitMall.value);
+    r.mall_price = v != null ? v : (unitMall != null ? unitMall * r.units : null);
+    const td = el.closest('tr').querySelector('[data-c="discount"]');
+    if (td) td.innerHTML = gpCalcCells(r).discount;
   }
 
   function gpDraftPrice(el, i) {
