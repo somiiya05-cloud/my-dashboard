@@ -981,12 +981,6 @@
     font-family: inherit; font-size: 10.5px; font-weight: 700; padding: 4px 9px; cursor: pointer;
   }
   .mt-mini:hover { border-color: #4d7cfe; color: #2f5ce4; }
-  .mt-move {
-    flex: none; width: 132px; border: 1px solid #e7edf5; border-radius: 7px; background: #fff;
-    font-family: inherit; font-size: 11px; font-weight: 700; color: #64748b; padding: 3px 6px;
-  }
-  .mt-move:hover { border-color: #cfdcf4; }
-  .mt-move:focus { outline: none; border-color: #4d7cfe; color: #1d4ed8; }
 
   .mt-part-sw { display: inline-flex; border: 1px solid #e2e8f0; border-radius: 7px; overflow: hidden; flex: none; }
   .mt-part-sw button {
@@ -5244,9 +5238,7 @@
         <span class="mt-day-cat">${escapeAttr(g)}</span>
         ${done ? '' : `
         <button type="button" class="mt-mini" onclick="mtMoveNextDay(${t.id})"
-          title="내일로 미룹니다">내일로</button>
-        <input class="mt-move" type="date" value="${escapeAttr(String(t.due_date || '').slice(0, 10))}"
-          onchange="mtMoveDay(${t.id}, this.value)" title="다른 날로 옮깁니다">`}
+          title="내일로 미룹니다">내일로</button>`}
         <span class="mt-part-sw">
           ${MT_PARTS.map((x) => `<button type="button" class="${t.day_part === x ? 'on' : ''}"
             onclick="mtSetPart(${t.id}, '${x}')">${x}</button>`).join('')}
