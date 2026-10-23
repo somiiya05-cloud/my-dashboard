@@ -3072,6 +3072,7 @@
           <label class="gp-field" style="min-width:260px;">원가 제품 (원가 연동)<select name="costProduct" onchange="gpDraftTouched.cost = true; gpPickCostProduct()" style="width:300px;"></select></label>
           <label class="gp-field">단품 원가<input type="text" name="unitCost" inputmode="numeric" oninput="gsFormatMoneyInput(this)"></label>
           <label class="gp-field">단품 자사몰가<input type="text" name="unitMall" inputmode="numeric" oninput="gsFormatMoneyInput(this)"></label>
+          <label class="gp-field" title="1세트에 든 낱개 수. 객단가 = 공구판매가 ÷ (세트 수 × 개입)">세트당 개입<input type="text" name="packQty" inputmode="numeric" value="1" style="width:70px;"></label>
           <label class="gp-field" style="min-width:240px;">물류 상품 (택배비 연동)<select name="logiProduct" onchange="gpDraftTouched.logi = true; gpPickLogiProduct()" style="width:260px;"></select></label>
           <label class="gp-field">물류비<input type="text" name="logistics" inputmode="numeric" value="3,000" oninput="gsFormatMoneyInput(this)"></label>
           <label class="gp-field">수수료율 %<input type="text" name="feeRate" inputmode="decimal" value="25"></label>
@@ -10149,7 +10150,7 @@
     const vat = p / 11;
     const exp = p * (it.expense_rate == null ? GP_DEFAULT_EXPENSE : Number(it.expense_rate));
     const profit = p - fee - (gpCost(it) || 0) - (gpLogistics(it) || 0) - vat - exp;
-    return { fee, vat, exp, profit, margin: profit / p, discount: mall ? 1 - p / mall : null, perUnit: p / units };
+    return { fee, vat, exp, profit, margin: profit / p, discount: mall ? 1 - p / mall : null, perUnit: p / (units * (gpNum(it.pack_qty) || 1)) };
   }
 
   // 목표 손익률이 나오는 가장 낮은 ○○,900원. 수수료+부가세+경비+목표가 100%를 넘으면 낼 수 없습니다.
@@ -10413,6 +10414,7 @@
       <label class="gp-field" style="flex:2; min-width:240px;">옵션명<input name="option_name" value="${escapeAttr(it.option_name)}" required style="width:100%;"></label>
       <label class="gp-field">묶음 상품명<input name="product" value="${escapeAttr(it.product)}" style="width:180px;"></label>
       ${f('구성 개수', 'units', gpNum(it.units) || 1, false)}
+      ${f('세트당 개입', 'pack_qty', gpNum(it.pack_qty) || 1, false)}
       ${f('자사몰가', 'mall_price', won(it.mall_price))}
       ${f('스스가', 'ss_price', won(it.ss_price))}
       ${f('쿠팡가', 'coupang_price', won(it.coupang_price))}
@@ -10506,6 +10508,7 @@
       option_name: String(fd.get('option_name') || '').trim(),
       product: String(fd.get('product') || '').trim(),
       units: gpNum(fd.get('units')) || 1,
+      pack_qty: (gpNum(fd.get('pack_qty')) || 1) > 1 ? gpNum(fd.get('pack_qty')) : null,
       mall_price: gpMoney(fd.get('mall_price')),
       ss_price: gpMoney(fd.get('ss_price')),
       coupang_price: gpMoney(fd.get('coupang_price')),
@@ -10600,6 +10603,7 @@
         const baseItems = gpCostItems(base);
         gpFillCostSelect(base.brand, baseItems && baseItems.length === 1 ? baseItems[0].id : null);
         form.unitMall.value = gpNum(base.mall_price) ? gpWon(base.mall_price / u) : '';
+        form.packQty.value = gpNum(base.pack_qty) || 1;
         form.logistics.value = gpLogistics(base) ? gpWon(gpLogistics(base)) : '';
         gpFillLogiSelect(base.brand, base.logistics_product_id);
         form.feeRate.value = gpRateText(gpNum(base.fee_rate) ?? 0.25);
@@ -10765,6 +10769,7 @@
       const cost = unitCost != null ? unitCost * o.units : null;
       const suggested = cost != null ? gpSuggestPrice(cost, logistics, feeRate, expenseRate, target) : null;
       const mallManual = gpDraftPrices['mall:' + o.label];
+      const packQty = Math.max(1, Math.round(Number(String(form.packQty.value).replace(/[^0-9]/g, '')) || 1));
       const mall = mallManual != null ? mallManual : (unitMall != null ? unitMall * o.units : null);
       const usual = mall ? gpRound900(mall * (1 - gpUsualDiscount(o.units))) : null;
       const manual = gpDraftPrices[o.label];
@@ -10773,6 +10778,7 @@
         option_name: (gpDraftPrices['name:' + o.label]) || (product ? `${product} ${o.label}` : o.label),
         units: o.units,
         mall_price: mall, mall_manual: mallManual != null,
+        pack_qty: packQty > 1 ? packQty : null,
         cost, cost_items: costProductId != null ? [{ id: costProductId, qty: o.units }] : null,
         logistics, logistics_product_id: logisticsProductId, fee_rate: feeRate, expense_rate: expenseRate,
         suggested, usual,
@@ -10867,9 +10873,9 @@
     gsFormatMoneyInput(el);
     const r = gpDraftRows[i];
     const v = gpMoney(el.value);
-    if (v == null) delete gpDraftPrices['mall:' + r.label]; else gpDraftPrices['mall:' + r.label] = v;
+    if (v == null || v <= 0) delete gpDraftPrices['mall:' + r.label]; else gpDraftPrices['mall:' + r.label] = v;
     const unitMall = gpMoney(document.getElementById('gpDraftForm').unitMall.value);
-    r.mall_price = v != null ? v : (unitMall != null ? unitMall * r.units : null);
+    r.mall_price = v > 0 ? v : (unitMall != null ? unitMall * r.units : null);
     const td = el.closest('tr').querySelector('[data-c="discount"]');
     if (td) td.innerHTML = gpCalcCells(r).discount;
   }
@@ -10915,6 +10921,7 @@
       fee_rate: r.fee_rate,
       cost: r.cost,
       cost_items: r.cost_items,
+      pack_qty: r.pack_qty,
       logistics: r.logistics,
       logistics_product_id: r.logistics_product_id,
       expense_rate: r.expense_rate
