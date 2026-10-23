@@ -8823,10 +8823,11 @@
   }
 
   // 업무관리로 들어오면 "할일 관리" 아래 담당자 줄이 바로 보이게 합니다.
-  // 업무 목록 전체를 불러오면 무거워서 담당자 이름만 가져옵니다.
+  // 업무를 받는 중이면 비켜섭니다 — 다 받으면 renderTaskAssigneeNav 가 채웁니다.
   async function ensureTaskAssigneeNav() {
     const container = document.getElementById('navTeamAssignees');
     if (!container || container.children.length) return;
+    if (jwLoading) return;
     // 이미 업무를 받아 뒀으면 거기서 이름을 뽑습니다 (표를 한 번 더 긁지 않게).
     let names = Array.from(new Set((currentTasks || []).map(t => t.assignee).filter(Boolean))).sort();
     if (!names.length) {
