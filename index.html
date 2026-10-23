@@ -3104,7 +3104,7 @@
         <div class="scroll-box">
           <table class="table-center-head gp-table">
             <thead><tr>
-              <th>옵션명</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">원가</th><th class="num">추천가</th><th class="num">통상 공구가</th>
+              <th>옵션명</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">자사몰 히든가</th><th class="num">쿠팡가</th><th class="num">원가</th><th class="num">추천가</th><th class="num">통상 공구가</th>
               <th class="num">공구판매가</th><th class="num">할인율</th><th class="num">손익</th><th class="num">손익률</th><th class="num">객단가</th><th></th>
             </tr></thead>
             <tbody id="gpDraftTable"></tbody>
@@ -10139,6 +10139,8 @@
   let gpLogiById = new Map();
   let gpCostRows = [];         // 원가 대시보드(product_cost) 제품
   let gpCostById = new Map();
+  let gpSecretRows = [];       // 코드니처 자사몰의 ★비밀링크 상품 (히든가)
+  let gpCoupangRows = [];      // 외부몰 판매가의 쿠팡 상품 (쿠팡가)
   let gpDraftRows = [];        // 새 옵션 미리보기 (저장 전)
   let gpDraftPrices = {};
   let gpDraftProposalId = null; // 제안에서 시작한 새 옵션이면 그 제안 번호      // 미리보기에서 손으로 고친 공구판매가 (구성 라벨 → 값)
@@ -10177,10 +10179,12 @@
   async function loadGbPriceItems() {
     const tbody = document.getElementById('gpTable');
     if (!gpItems.length) tbody.innerHTML = '<tr><td colspan="15" class="gs-empty">불러오는 중...</td></tr>';
-    const [res, logiRes, costRes] = await Promise.all([
+    const [res, logiRes, costRes, secretRes, coupangRes] = await Promise.all([
       client.from('groupbuy_price_items').select('*').order('sort_order', { ascending: true }).order('id', { ascending: true }),
       client.from('product_logistics').select('id,brand,product_name,delivery_fee,combo_qty').order('brand', { ascending: true }),
-      client.from('product_cost').select('id,brand,product_name,option_size,option_color,status,unit_cost_krw').order('brand', { ascending: true })
+      client.from('product_cost').select('id,brand,product_name,option_size,option_color,status,unit_cost_krw').order('brand', { ascending: true }),
+      client.from('codenit_products').select('id,product_name,price').ilike('product_name', '%비밀링크%'),
+      client.from('mall_product_prices').select('id,product_name,price,memo,brand').eq('mall', '쿠팡').not('price', 'is', null)
     ]);
     const { data, error } = res;
     if (error) {
@@ -10194,6 +10198,8 @@
     gpLogiById = new Map(gpLogiRows.map((r) => [Number(r.id), r]));
     gpCostRows = costRes.error ? [] : (costRes.data || []);
     gpCostById = new Map(gpCostRows.map((r) => [Number(r.id), r]));
+    gpSecretRows = secretRes.error ? [] : (secretRes.data || []);
+    gpCoupangRows = coupangRes.error ? [] : (coupangRes.data || []);
     gpRenderBrandOptions();
     gpRender();
     loadGbProposals();
@@ -10791,6 +10797,37 @@
     return gpParseSpec(spec).map((o) => { const n = seen[o.label] || 0; seen[o.label] = n + 1; return { ...o, key: `${o.label}#${n}` }; });
   }
 
+  // ---- 히든가·쿠팡가 자동 찾기: 같은 상품 + 같은 구성 개수인 것만 가져옵니다 ----
+  // 구성 개수: "1+1" → 2, "6세트" → 6, 나머지(1개, 2개입, 60매입 …) → 1.
+  function gpListingUnits(text) {
+    const t = String(text || '');
+    let m = t.match(/(\d+)\s*\+\s*(\d+)/);
+    if (m) return Number(m[1]) + Number(m[2]);
+    m = t.match(/(\d+)\s*세트/);
+    if (m) return Number(m[1]);
+    return 1;
+  }
+  // 비교용 이름: ★…★ 머리말, [브랜드], (괄호), 구성 표기를 떼어 냅니다.
+  function gpListingBase(text) {
+    return String(text || '').replace(/★[^★]*★/g, '').replace(/\[[^\]]*\]/g, '').replace(/\([^)]*\)/g, '')
+      .replace(/\d+\s*\+\s*\d+\s*개?/g, '').replace(/\d+\s*(세트|개입|개|매입|매|ea)/gi, '').replace(/※.*$/, '').trim();
+  }
+  function gpFindListing(rows, productName, units, unitsOf) {
+    let best = null;
+    rows.forEach((r) => {
+      if (unitsOf(r) !== units) return;
+      const score = gpNameScore(productName, gpListingBase(r.product_name));
+      if (score >= 0.6 && (!best || score > best.score)) best = { r, score };
+    });
+    return best ? best.r : null;
+  }
+  function gpFindHidden(productName, units) {
+    return gpFindListing(gpSecretRows, productName, units, (r) => gpListingUnits(r.product_name));
+  }
+  function gpFindCoupang(productName, units) {
+    return gpFindListing(gpCoupangRows, productName, units, (r) => gpListingUnits(r.memo));
+  }
+
   function gpBuildDraft() {
     const form = document.getElementById('gpDraftForm');
     const product = form.product.value.trim();
@@ -10819,6 +10856,13 @@
       const mall = mallManual != null ? mallManual : mallAuto;
       const usual = mall ? gpRound900(mall * (1 - gpUsualDiscount(units))) : null;
       const manual = gpDraftPrices[o.key];
+      // 제품 하나로 된 옵션만 자동으로 찾습니다(섞은 세트는 비밀링크·쿠팡에 같은 구성이 없음).
+      const soleName = used.length === 1 ? gpDraftProductName(used[0].pr, prods.indexOf(used[0].pr)) : null;
+      const soleUnits = used.length === 1 ? used[0].q : null;
+      const hidRow = soleName ? gpFindHidden(soleName, soleUnits) : null;
+      const cpRow = soleName ? gpFindCoupang(soleName, soleUnits) : null;
+      const hidManual = gpDraftPrices['hid:' + o.key];
+      const cpManual = gpDraftPrices['cp:' + o.key];
       const autoName = multi
         ? used.map((x) => `${gpDraftProductName(x.pr, prods.indexOf(x.pr))} ${x.q}개`).join(' + ')
         : (product ? `${product} ${o.label}` : o.label);
@@ -10827,6 +10871,8 @@
         option_name: gpDraftPrices['name:' + o.key] || autoName,
         units: units || 1,
         mall_price: mall, mall_manual: mallManual != null,
+        hidden_price: hidManual != null ? hidManual : (hidRow ? gpNum(hidRow.price) : null), hidden_manual: hidManual != null, hidden_auto: hidRow ? gpNum(hidRow.price) : null, hidden_src: hidRow ? hidRow.product_name : '',
+        coupang_price: cpManual != null ? cpManual : (cpRow ? gpNum(cpRow.price) : null), coupang_manual: cpManual != null, coupang_auto: cpRow ? gpNum(cpRow.price) : null, coupang_src: cpRow ? `${cpRow.product_name} (${cpRow.memo || ''})` : '',
         pack_qty: packQty > 1 ? packQty : null,
         cost, cost_items: costItems,
         logistics, logistics_product_id: logisticsProductId, fee_rate: feeRate, expense_rate: expenseRate,
@@ -10962,7 +11008,7 @@
       + '공구판매가를 비워 두면 통상 공구가로 목표 손익률이 나올 때는 통상 공구가, 아니면 추천가로 저장합니다.';
     const tbody = document.getElementById('gpDraftTable');
     if (!gpDraftRows.length) {
-      tbody.innerHTML = '<tr><td colspan="12" class="gs-empty">아래 "구성 추가"나 옵션 구성 칸에 넣어 주세요 (예: 1, 1+1, 2+1, 3+2)</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="14" class="gs-empty">아래 "구성 추가"나 옵션 구성 칸에 넣어 주세요 (예: 1, 1+1, 2+1, 3+2)</td></tr>';
       return;
     }
     tbody.innerHTML = gpDraftRows.map((r, i) => {
@@ -10975,6 +11021,10 @@
           : r.units}</td>
         <td class="num"><input class="gp-in" inputmode="numeric" value="${r.mall_manual ? gpWon(r.mall_price) : ''}" placeholder="${r.mall_price ? gpWon(r.mall_price) : '자사몰가'}"
           title="비워 두면 제품별 단품 자사몰가 × 수량의 합" oninput="gpDraftMall(this, ${i})" onchange="gpBuildDraft()"></td>
+        <td class="num"><input class="gp-in" inputmode="numeric" value="${r.hidden_manual ? gpWon(r.hidden_price) : ''}" placeholder="${!r.hidden_manual && r.hidden_price ? gpWon(r.hidden_price) : '-'}"
+          title="${escapeAttr(r.hidden_src ? '자동: ' + r.hidden_src : '같은 구성의 비밀링크 상품이 없습니다. 직접 넣을 수 있어요.')}" oninput="gpDraftRef(this, ${i}, 'hid')"></td>
+        <td class="num"><input class="gp-in" inputmode="numeric" value="${r.coupang_manual ? gpWon(r.coupang_price) : ''}" placeholder="${!r.coupang_manual && r.coupang_price ? gpWon(r.coupang_price) : '-'}"
+          title="${escapeAttr(r.coupang_src ? '자동: ' + r.coupang_src : '같은 구성의 쿠팡 상품이 없습니다. 직접 넣을 수 있어요.')}" oninput="gpDraftRef(this, ${i}, 'cp')"></td>
         <td class="num">${gpWon(r.cost)}</td>
         <td class="num gp-muted">${r.suggested ? gpWon(r.suggested) : '-'}</td>
         <td class="num gp-muted" title="자사몰가 − ${gpPct(gpUsualDiscount(r.units))} (구성 ${r.units}개 공구의 보통 할인율)">${r.usual ? gpWon(r.usual) : '-'}</td>
@@ -10986,6 +11036,22 @@
         <td class="gp-actions"><button type="button" title="이 구성 빼기" onclick="gpRemoveSpec('${escapeAttr(r.key)}')">✕</button></td>
       </tr>`;
     }).join('');
+  }
+
+  function gpDraftRef(el, i, kind) {
+    gsFormatMoneyInput(el);
+    const r = gpDraftRows[i];
+    const v = gpMoney(el.value);
+    const field = kind === 'hid' ? 'hidden' : 'coupang';
+    if (v == null || v <= 0) {
+      delete gpDraftPrices[kind + ':' + r.key];
+      r[field + '_manual'] = false;
+      r[field + '_price'] = r[field + '_auto'];   // 비우면 자동으로 찾은 값으로 돌아갑니다
+    } else {
+      gpDraftPrices[kind + ':' + r.key] = v;
+      r[field + '_manual'] = true;
+      r[field + '_price'] = v;
+    }
   }
 
   function gpDraftName(el, i) {
@@ -11049,6 +11115,8 @@
       fee_rate: r.fee_rate,
       cost: r.cost,
       cost_items: r.cost_items,
+      hidden_price: r.hidden_price,
+      coupang_price: r.coupang_price,
       pack_qty: r.pack_qty,
       logistics: r.logistics,
       logistics_product_id: r.logistics_product_id,
