@@ -3091,10 +3091,17 @@
           <table class="table-center-head gp-table">
             <thead><tr>
               <th>옵션명</th><th class="num">구성</th><th class="num">자사몰가</th><th class="num">원가</th><th class="num">추천가</th><th class="num">통상 공구가</th>
-              <th class="num">공구판매가</th><th class="num">할인율</th><th class="num">손익</th><th class="num">손익률</th><th class="num">객단가</th>
+              <th class="num">공구판매가</th><th class="num">할인율</th><th class="num">손익</th><th class="num">손익률</th><th class="num">객단가</th><th></th>
             </tr></thead>
             <tbody id="gpDraftTable"></tbody>
           </table>
+        </div>
+        <div class="gp-presets" style="margin-top:10px;">
+          구성 추가:
+          <input type="text" id="gpSpecAdd" placeholder="예: 1, 4+4, 10개" style="width:160px; padding:5px 8px; border:1px solid rgba(15,23,42,.15); border-radius:6px; font:inherit; font-size:12.5px;"
+            onkeydown="if (event.key === 'Enter') { event.preventDefault(); gpAddSpec(); }">
+          <button type="button" class="filter-reset-btn" onclick="gpAddSpec()">+ 구성 추가</button>
+          <span class="panel-note">줄 끝의 ✕로 뺄 수 있습니다.</span>
         </div>
         <div class="panel-head" style="margin:12px 0 0;">
           <span class="panel-note" id="gpDraftPriceNote">추천가 = 목표 손익률이 나오는 가장 낮은 ○○,900원.</span>
@@ -10553,10 +10560,11 @@
   // "1+1" → 2개, "3+2" → 5개, "2" 나 "2개" → 2개. 원가·자사몰가는 단품 값 × 개수입니다.
   function gpParseSpec(spec) {
     const out = [];
+    // "S/M/L = 1개/2+1/ 3+2" 처럼 구성 앞에 다른 글자가 붙어 있어도 숫자 구성만 골라냅니다.
     String(spec || '').split(/[,\/·]+/).map((s) => s.trim()).filter(Boolean).forEach((tok) => {
-      let m = tok.match(/^(\d+)\s*\+\s*(\d+)$/);
+      let m = tok.match(/(\d+)\s*\+\s*(\d+)/);
       if (m) { out.push({ label: `${Number(m[1])}+${Number(m[2])}`, units: Number(m[1]) + Number(m[2]) }); return; }
-      m = tok.match(/^(\d+)\s*(개|ea|EA)?$/);
+      m = tok.match(/(?:^|[\s=:])(\d+)\s*(개|ea|EA)?$/);
       if (m && Number(m[1]) > 0) out.push({ label: `${Number(m[1])}개`, units: Number(m[1]) });
     });
     return out.filter((o, i, arr) => arr.findIndex((x) => x.label === o.label) === i);
@@ -10796,13 +10804,33 @@
   // 가장 가까운 ○○,900원
   function gpRound900(v) { return Math.max(900, Math.round((v + 100) / 1000) * 1000 - 100); }
 
+  // 구성 추가·빼기는 옵션 구성 칸(spec)을 고쳐서 표를 다시 그립니다. 손으로 넣은 가격·이름은 구성별로 남습니다.
+  function gpAddSpec() {
+    const form = document.getElementById('gpDraftForm');
+    const input = document.getElementById('gpSpecAdd');
+    const add = gpParseSpec(input.value);
+    if (!add.length) { alert('구성을 1, 2+1, 4+4, 10개 처럼 넣어 주세요.'); return; }
+    const labels = gpParseSpec(form.spec.value).map((o) => o.label);
+    add.forEach((o) => { if (!labels.includes(o.label)) labels.push(o.label); });
+    // 구성 개수 순으로 정렬해 둡니다.
+    const units = (l) => gpParseSpec(l)[0].units;
+    form.spec.value = labels.sort((a, b) => units(a) - units(b)).join(', ');
+    input.value = '';
+    gpBuildDraft();
+  }
+  function gpRemoveSpec(label) {
+    const form = document.getElementById('gpDraftForm');
+    form.spec.value = gpParseSpec(form.spec.value).map((o) => o.label).filter((l) => l !== label).join(', ');
+    gpBuildDraft();
+  }
+
   function gpRenderDraft() {
     const note = document.getElementById('gpDraftPriceNote');
     if (note) note.textContent = `추천가 = 목표 손익률이 나오는 가장 낮은 ○○,900원 · 통상 공구가 = 자사몰가에서 지금 가격표의 같은 구성 공구들이 보통 깎는 만큼(1개 ${gpPct(gpUsualDiscount(1))} · 3개 ${gpPct(gpUsualDiscount(3))} · 5개 이상 ${gpPct(gpUsualDiscount(5))}) 뺀 ○○,900원. `
       + '공구판매가를 비워 두면 통상 공구가로 목표 손익률이 나올 때는 통상 공구가, 아니면 추천가로 저장합니다.';
     const tbody = document.getElementById('gpDraftTable');
     if (!gpDraftRows.length) {
-      tbody.innerHTML = '<tr><td colspan="11" class="gs-empty">옵션 구성을 넣어 주세요 (예: 1, 1+1, 2+1, 3+2)</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="12" class="gs-empty">아래 "구성 추가"나 옵션 구성 칸에 넣어 주세요 (예: 1, 1+1, 2+1, 3+2)</td></tr>';
       return;
     }
     tbody.innerHTML = gpDraftRows.map((r, i) => {
@@ -10820,6 +10848,7 @@
         <td class="num" data-c="profit">${cc.profit}</td>
         <td class="num" data-c="margin">${cc.margin}</td>
         <td class="num" data-c="perUnit">${cc.perUnit}</td>
+        <td class="gp-actions"><button type="button" title="이 구성 빼기" onclick="gpRemoveSpec('${escapeAttr(r.label)}')">✕</button></td>
       </tr>`;
     }).join('');
   }
