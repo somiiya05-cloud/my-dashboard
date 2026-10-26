@@ -8472,6 +8472,15 @@
   const MSP_AFTER = { '쿠팡': '스마트스토어' };
   let mspBrand = '코드니처';
   let mallSalePriceRows = [];
+  // 히든가 칸 — 코드니처 자사몰의 ★비밀링크 상품 가격을 상품마다 구성별로 붙여 보여줍니다.
+  // 공동구매처럼 구성이 달라 가격 비교(최고−최저)에는 넣지 않습니다.
+  const MSP_HIDDEN = '히든가';
+  let mspSecretRows = [];
+  // 이름이 몰 상품명과 많이 달라 자동으로 못 붙는 비밀링크 — 비밀링크 이름에 이 글자가 있으면 그 품번에 붙입니다.
+  const MSP_HIDDEN_ALIAS = [
+    ['자켓 보호 6중 에어쿠션 세탁망', '100814'],   // 홈드라이 자켓세탁망
+    ['건조기 전용 보호 세탁망', '100832'],         // 건조기용 2중 의류 보호망
+  ];
 
   function setMspBrand(b) {
     mspBrand = b;
@@ -8482,14 +8491,16 @@
   async function loadMallSalePrices() {
     const box = document.getElementById('mspResult');
     if (box) box.innerHTML = '<div class="mr-empty">불러오는 중…</div>';
-    const [snap, prices] = await Promise.all([
+    const [snap, prices, secret] = await Promise.all([
       client.from('mall_registrations')
         .select('synced_at,malls,products,registrations,product_count,registration_count')
         .order('synced_at', { ascending: false }).limit(1),
       client.from('mall_product_prices')
         .select('product_code,mall,price,list_price,url,memo,checked_at')
         .not('product_code', 'is', null),
+      client.from('codenit_products').select('id,product_name,price,product_url').ilike('product_name', '%비밀링크%'),
     ]);
+    mspSecretRows = secret.error ? [] : (secret.data || []);
     mallRegSnap = (snap.error || !snap.data || !snap.data.length) ? null : snap.data[0];
     buildMallRegIndex();
     mallSalePriceRows = prices.error ? [] : (prices.data || []);
@@ -8559,8 +8570,45 @@
       <button type="button" class="mr-brand-btn${b === mspBrand ? ' active' : ''}"
         onclick="setMspBrand('${escapeAttr(b)}')">${escapeAttr(b)}</button>`).join('');
 
-    const { malls, rows, latest } = mspBuild(mspBrand);
+    const built = mspBuild(mspBrand);
+    const { rows, latest } = built;
+    let malls = built.malls;
     if (note) note.textContent = mspLatestText(latest);
+    // 비밀링크 상품마다 이름이 가장 비슷한 상품 하나에 붙입니다(같은 비밀링크가 두 상품에 겹쳐 나오지 않게).
+    const hiddenByCode = new Map();
+    const hiddenUnplaced = [];   // 표에 맞는 상품이 없는 비밀링크(출시 전 상품·기획 세트 등)
+    if (mspBrand === '코드니처' && mspSecretRows.length) {
+      const base = (t) => gpListingBase(String(t || '').replace(/^\s*코드니처\s*/, ''));
+      mspSecretRows.forEach((sr) => {
+        let best = null;
+        const alias = MSP_HIDDEN_ALIAS.find(([word]) => String(sr.product_name).includes(word));
+        if (alias) {
+          const r = rows.find((x) => String(x.x.품번) === alias[1]);
+          if (r) best = { r, score: 1 };
+        }
+        if (!best) rows.forEach((r) => {
+          const score = gpNameScore(base(sr.product_name), base(r.x.상품명));
+          if (score >= 0.6 && (!best || score > best.score)) best = { r, score };
+        });
+        if (!best) { hiddenUnplaced.push(sr); return; }
+        const code = String(best.r.x.품번);
+        if (!hiddenByCode.has(code)) hiddenByCode.set(code, []);
+        const m = String(sr.product_name).match(/\d+\s*\+\s*\d+\s*개?|\d+\s*세트(?:\s*\d+\s*개입)?|\d+\s*개입|\d+\s*매/);
+        hiddenByCode.get(code).push({ label: m ? m[0].replace(/\s+/g, '') : '기본', price: sr.price, name: sr.product_name, url: sr.product_url });
+      });
+      hiddenByCode.forEach((list) => {
+        list.sort((a, b) => gpListingUnits(a.name) - gpListingUnits(b.name) || Number(a.price) - Number(b.price));
+        // 같은 구성 표기가 겹치면(기본·기본) 비밀링크 이름으로 구분합니다.
+        const dup = new Set(list.map((h) => h.label).filter((l, i, arr) => arr.indexOf(l) !== i));
+        list.forEach((h) => {
+          if (dup.has(h.label)) {
+            h.label = String(h.name).replace(/★[^★]*★/g, '').replace(/^\s*코드니처\s*/, '').trim().slice(0, 16);
+          }
+        });
+      });
+      const gi = malls.indexOf(MSP_GROUPBUY);
+      malls = malls.slice(0, gi + 1).concat([MSP_HIDDEN], malls.slice(gi + 1));
+    }
 
     const listed = rows.reduce((t, r) => t + Object.keys(r.cells).length, 0);
     const known = rows.reduce((t, r) => t + r.known, 0);
@@ -8592,6 +8640,13 @@
 
     const won = (n) => Number(n).toLocaleString('ko-KR') + '원';
     const cellHtml = (r, m) => {
+      if (m === MSP_HIDDEN) {
+        const list = hiddenByCode.get(String(r.x.품번));
+        if (!list) return '<td class="msp-cell msp-off">—</td>';
+        return `<td class="msp-cell msp-gb msp-hidden"><div class="msp-gb-grid">${list.map((h) => `
+          <span class="msp-gb-name" title="${escapeAttr(h.name)}">${escapeAttr(h.label)}</span><b>${h.url
+            ? `<a href="${escapeAttr(h.url)}" target="_blank" rel="noopener" title="${escapeAttr(h.name)}">${won(h.price)}</a>` : won(h.price)}</b>`).join('')}</div></td>`;
+      }
       if (!(m in r.cells)) return '<td class="msp-cell msp-off">—</td>';
       const c = r.cells[m];
       if (m === MSP_GROUPBUY && c) {
@@ -8639,7 +8694,9 @@
       <div class="msp-legend">몰마다 가격이 다르면 <span class="low">가장 싼 몰</span>과 <span class="high">가장 비싼 몰</span>을 색으로 표시합니다.
         가격을 누르면 그 몰의 상품 페이지가 열립니다. <b>—</b>는 그 몰에 등록되지 않은 상품, <b>미확인</b>은 등록은 됐지만 가격을 아직 읽지 못한 곳입니다.
         스마트스토어는 상품 페이지를 자동으로 읽을 수 없어, 스마트스토어센터에서 내려받은 상품 엑셀의 할인가로 채웁니다.
-        <b>공동구매</b>는 구성이 달라 구성별 공구가만 보여주고 가격 비교에는 넣지 않습니다.</div>
+        <b>공동구매</b>는 구성이 달라 구성별 공구가만 보여주고 가격 비교에는 넣지 않습니다.
+        <b>히든가</b>는 코드니처 자사몰의 ★비밀링크 상품 가격으로, 이름이 가장 비슷한 상품에 구성별로 붙였습니다(가격 비교에는 넣지 않음).
+        ${hiddenUnplaced.length ? `<br>표에 맞는 상품이 없는 비밀링크: ${hiddenUnplaced.map((h) => `${escapeAttr(String(h.product_name).replace(/★[^★]*★\s*/, ''))} <b>${won(h.price)}</b>`).join(' · ')}` : ''}</div>
       <table class="msp-table">
         <thead><tr><th style="text-align:left">상품</th>${malls.map((m) => `<th>${escapeAttr(m)}</th>`).join('')}<th>최고−최저</th></tr></thead>
         <tbody>${shown.map((r) => `
