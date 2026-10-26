@@ -22,7 +22,7 @@
 // 몰당 사이트맵 1번 + 번호 20여 번이라, 다 합쳐도 200번 남짓이면 끝납니다.
 //
 // ── 환경변수 ─────────────────────────────────────────────────────────────
-//   MALL_AUDIT_MODE  - 'audit'(기본) | 'debug'(저장 안 함) | 'discover'(히든링크 재탐색)
+//   MALL_AUDIT_MODE  - 'audit'(기본) | 'debug'(저장 안 함) | 'discover'(히든링크 재탐색) | 'prices'(히든링크 가격만)
 //   MALL_AUDIT_BRAND - 특정 몰만 볼 때 브랜드명 (비우면 전체)
 //   SUPABASE_KEY     - 비워두면 대시보드가 쓰는 공개 키를 그대로 씁니다.
 //                      mall_* 표는 공개 정책(RLS)이라 이 키로도 읽고 쓸 수 있습니다.
@@ -177,6 +177,40 @@ async function probeProduct(origin, productNo, notFound) {
   return { product_no: String(productNo), name: title };
 }
 
+// 카페24 상세페이지의 판매가. 할인가(sale_price)가 있으면 그 값, 없으면 정가(price)입니다.
+function parseProductPrice(html) {
+  const pick = (prop) => {
+    const m = html.match(new RegExp(`<meta[^>]+property=["']product:${prop}:amount["'][^>]+content=["']([0-9.]+)["']`, 'i'))
+      || html.match(new RegExp(`<meta[^>]+content=["']([0-9.]+)["'][^>]+property=["']product:${prop}:amount["']`, 'i'));
+    return m ? Math.round(Number(m[1])) : null;
+  };
+  const sale = pick('sale_price');
+  return sale || pick('price');
+}
+
+async function refreshHiddenLinkPrices() {
+  const links = await sbGet('mall_hidden_links?is_active=eq.true&select=id,brand,product_name,url&limit=2000');
+  const targets = links.filter((l) => l.url);
+  let updated = 0;
+  await mapWithConcurrency(targets, 5, async (link) => {
+    let price = null;
+    try {
+      price = parseProductPrice(await fetchText(link.url, 15000));
+    } catch (e) {
+      return;   // 못 읽은 건 이전 가격을 그대로 둡니다.
+    }
+    if (!price) return;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/mall_hidden_links?id=eq.${link.id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ price, price_checked_at: new Date().toISOString() })
+    });
+    if (!res.ok) throw new Error(`가격 저장 실패 (${res.status}): ${await res.text()}`);
+    updated++;
+  });
+  console.log(`\n히든링크 ${targets.length}건 중 ${updated}건의 가격을 읽어 저장했습니다.`);
+}
+
 async function mapWithConcurrency(items, limit, worker) {
   const results = [];
   let cursor = 0;
@@ -192,6 +226,12 @@ async function mapWithConcurrency(items, limit, worker) {
 
 async function main() {
   const checkDate = todayInSeoul();
+
+  // 'prices' 모드: 검수는 건너뛰고 히든링크 가격만 다시 읽습니다(검수 기록은 남기지 않음).
+  if (MODE === 'prices') {
+    await refreshHiddenLinkPrices();
+    return { newTotal: 0, exposedTotal: 0, errorCount: 0, results: [] };
+  }
 
   // ── 1. 검수 대상 몰 목록 ────────────────────────────────────────────────
   let sitePath = 'mall_sites?is_active=eq.true&select=*&order=sort_order.asc';
@@ -434,6 +474,18 @@ async function main() {
   } else if (rowsToInsert.length) {
     await sbInsert('mall_audits', rowsToInsert);
     console.log(`\n${rowsToInsert.length}건을 mall_audits 에 저장했습니다.`);
+  }
+
+  // ── 8-1. 히든링크 가격 갱신 ──────────────────────────────────────────────
+  // 대시보드의 '히든가'(외부몰 판매가 표·공구 가격표 손익 짜기)가 이 가격을 씁니다.
+  // 이번 검수에서 새로 등록한 히든링크까지 포함하려고 목록을 다시 읽습니다.
+  // 여기서 실패해도 검수 결과 저장에는 영향이 없게 따로 감쌉니다.
+  if (MODE !== 'debug') {
+    try {
+      await refreshHiddenLinkPrices();
+    } catch (e) {
+      console.log(`\n히든링크 가격 갱신을 건너뜁니다: ${e.message || e}`);
+    }
   }
 
   // ── 9. 히든링크 재탐색 (discover 모드일 때만) ───────────────────────────

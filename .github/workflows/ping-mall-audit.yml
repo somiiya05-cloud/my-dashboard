@@ -31,6 +31,7 @@ on:
           - '검수 (대시보드에 반영)'
           - '확인만 (저장 안 함)'
           - '히든링크 재탐색 (숨은 상품 목록 갱신)'
+          - '히든링크 가격만 갱신'
       brand:
         description: '특정 몰만 볼 때 브랜드명 (예: 멜루션). 평소에는 비워두세요.'
         required: false
@@ -57,6 +58,7 @@ jobs:
         run: |
           case "$MODE_LABEL" in
             확인만*)   export MALL_AUDIT_MODE=debug ;;
+            히든링크\ 가격*) export MALL_AUDIT_MODE=prices ;;
             히든링크*) export MALL_AUDIT_MODE=discover ;;
             *)         export MALL_AUDIT_MODE=audit ;;
           esac

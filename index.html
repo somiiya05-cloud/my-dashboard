@@ -8491,7 +8491,7 @@
   async function loadMallSalePrices() {
     const box = document.getElementById('mspResult');
     if (box) box.innerHTML = '<div class="mr-empty">불러오는 중…</div>';
-    const [snap, prices, secret] = await Promise.all([
+    const [snap, prices, secret, hidden] = await Promise.all([
       client.from('mall_registrations')
         .select('synced_at,malls,products,registrations,product_count,registration_count')
         .order('synced_at', { ascending: false }).limit(1),
@@ -8499,8 +8499,9 @@
         .select('product_code,mall,price,list_price,url,memo,checked_at')
         .not('product_code', 'is', null),
       client.from('codenit_products').select('id,product_name,price,product_url').ilike('product_name', '%비밀링크%'),
+      client.from('mall_hidden_links').select('id,product_name,url,price').eq('brand', '코드니처').eq('is_active', true),
     ]);
-    mspSecretRows = secret.error ? [] : (secret.data || []);
+    mspSecretRows = mergeSecretListings(secret.error ? [] : secret.data, hidden.error ? [] : hidden.data);
     mallRegSnap = (snap.error || !snap.data || !snap.data.length) ? null : snap.data[0];
     buildMallRegIndex();
     mallSalePriceRows = prices.error ? [] : (prices.data || []);
@@ -10236,12 +10237,13 @@
   async function loadGbPriceItems() {
     const tbody = document.getElementById('gpTable');
     if (!gpItems.length) tbody.innerHTML = '<tr><td colspan="15" class="gs-empty">불러오는 중...</td></tr>';
-    const [res, logiRes, costRes, secretRes, coupangRes] = await Promise.all([
+    const [res, logiRes, costRes, secretRes, coupangRes, hiddenRes] = await Promise.all([
       client.from('groupbuy_price_items').select('*').order('sort_order', { ascending: true }).order('id', { ascending: true }),
       client.from('product_logistics').select('id,brand,product_name,delivery_fee,combo_qty').order('brand', { ascending: true }),
       client.from('product_cost').select('id,brand,product_name,option_size,option_color,status,unit_cost_krw').order('brand', { ascending: true }),
-      client.from('codenit_products').select('id,product_name,price').ilike('product_name', '%비밀링크%'),
-      client.from('mall_product_prices').select('id,product_name,price,memo,brand').eq('mall', '쿠팡').not('price', 'is', null)
+      client.from('codenit_products').select('id,product_name,price,product_url').ilike('product_name', '%비밀링크%'),
+      client.from('mall_product_prices').select('id,product_name,price,memo,brand').eq('mall', '쿠팡').not('price', 'is', null),
+      client.from('mall_hidden_links').select('id,product_name,url,price').eq('brand', '코드니처').eq('is_active', true)
     ]);
     const { data, error } = res;
     if (error) {
@@ -10255,7 +10257,8 @@
     gpLogiById = new Map(gpLogiRows.map((r) => [Number(r.id), r]));
     gpCostRows = costRes.error ? [] : (costRes.data || []);
     gpCostById = new Map(gpCostRows.map((r) => [Number(r.id), r]));
-    gpSecretRows = secretRes.error ? [] : (secretRes.data || []);
+    // 검수 가격 칸(price)이 아직 없으면 hiddenRes 가 오류라 자사몰 상품 목록만 씁니다.
+    gpSecretRows = mergeSecretListings(secretRes.error ? [] : secretRes.data, hiddenRes.error ? [] : hiddenRes.data);
     gpCoupangRows = coupangRes.error ? [] : (coupangRes.data || []);
     gpRenderBrandOptions();
     gpRender();
@@ -10853,6 +10856,23 @@
     const seen = {};
     return gpParseSpec(spec).map((o) => { const n = seen[o.label] || 0; seen[o.label] = n + 1; return { ...o, key: `${o.label}#${n}` }; });
   }
+
+  // 비밀링크 목록 = 코드니처 자사몰 상품 목록(손으로 넣은 것) + 자사몰 검수가 찾아 가격까지 읽어 둔 히든링크.
+  // 같은 상품번호면 검수 쪽(더 최근에 읽은 가격)을 씁니다. 이름의 " - 코드니처" 꼬리는 뗍니다.
+  function mergeSecretListings(cpRows, hlRows) {
+    const no = (url) => { const m = String(url || '').match(/product_no=(\d+)|\/(\d+)\/?(?:[?#].*)?$/); return m ? (m[1] || m[2]) : null; };
+    // 검수가 가격을 읽은 히든링크(상품번호별 최신 이름·가격)
+    const live = new Map();
+    (hlRows || []).forEach((r) => {
+      if (r.price == null || !/비밀링크/.test(r.product_name || '')) return;
+      live.set(no(r.url) || 'hl:' + r.id, { product_name: String(r.product_name).replace(/\s*-\s*코드니처\s*$/, ''), price: Number(r.price), product_url: r.url || null });
+    });
+    // 손으로 넣은 목록은 그대로 두되, 검수가 읽은 상품번호와 같으면 검수 쪽(지금 이름·가격)으로 갈음합니다.
+    const manual = (cpRows || []).filter((r) => r.price != null && !live.has(no(r.product_url)))
+      .map((r) => ({ product_name: r.product_name, price: Number(r.price), product_url: r.product_url || null }));
+    return manual.concat([...live.values()]);
+  }
+  window.mergeSecretListings = mergeSecretListings;
 
   // ---- 히든가·쿠팡가 자동 찾기: 같은 상품 + 같은 구성 개수인 것만 가져옵니다 ----
   // 구성 개수: "1+1" → 2, "6세트" → 6, 나머지(1개, 2개입, 60매입 …) → 1.
