@@ -1,4 +1,4 @@
-// 자사몰 9곳을 매일 검수해서 결과를 Supabase의 mall_audits 표에 넣는 스크립트입니다.
+// 자사몰 11곳을 매일 검수해서 결과를 Supabase의 mall_audits 표에 넣는 스크립트입니다.
 // 대시보드의 "자사몰 검수" 화면과 메뉴 옆 빨간 배지가 이 값을 읽습니다.
 //
 // ⚠️ Vercel 서버리스 함수가 아니라 GitHub Actions 안에서 직접 돕니다.
@@ -8,7 +8,7 @@
 //    실행: .github/workflows/ping-mall-audit.yml
 //
 // ── 검수 원리 ────────────────────────────────────────────────────────────
-// 자사몰 9곳은 전부 카페24입니다. 카페24는 "진열함" 상태인 상품만 sitemap.xml 에 넣습니다.
+// 자사몰 11곳은 전부 카페24입니다. 카페24는 "진열함" 상태인 상품만 sitemap.xml 에 넣습니다.
 // 그래서 로그인 없이도 sitemap.xml 한 번만 읽으면 "지금 공개된 상품 전부"를 알 수 있습니다.
 //
 //   · 신규 상품    : 어제 사이트맵에 없던 상품번호가 오늘 생겼다 → 새로 진열된 것
@@ -23,6 +23,7 @@
 //
 // ── 환경변수 ─────────────────────────────────────────────────────────────
 //   MALL_AUDIT_MODE  - 'audit'(기본) | 'debug'(저장 안 함) | 'discover'(히든링크 재탐색) | 'prices'(히든링크 가격만)
+//                      | 'catalog'(자사몰 상품 목록만 — 대시보드 '자사몰 상품' 화면용)
 //   MALL_AUDIT_BRAND - 특정 몰만 볼 때 브랜드명 (비우면 전체)
 //   SUPABASE_KEY     - 비워두면 대시보드가 쓰는 공개 키를 그대로 씁니다.
 //                      mall_* 표는 공개 정책(RLS)이라 이 키로도 읽고 쓸 수 있습니다.
@@ -211,6 +212,131 @@ async function refreshHiddenLinkPrices() {
   console.log(`\n히든링크 ${targets.length}건 중 ${updated}건의 가격을 읽어 저장했습니다.`);
 }
 
+// 카페24 상세페이지의 배송비. delv_price 칸 바로 뒤의 "3,000원 (100,000원 이상 구매 시 무료)"에서 앞 금액을 씁니다.
+// 칸 뒤 첫 글귀만 봅니다(멀리 가면 쿠폰·옵션 금액을 잘못 집습니다). 못 찾으면 null(정보 없음)로 둡니다.
+function parseShippingFee(html) {
+  const at = html.indexOf('delv_price');
+  if (at >= 0) {
+    const text = ('<' + html.slice(at, at + 1500)).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+    const m = text.match(/^(?:배송비\s*)?([\d,]+)\s*원/);
+    if (m) return Number(m[1].replace(/,/g, ''));
+    if (/^(?:배송비\s*)?무료/.test(text)) return 0;
+  }
+  // delv_price 칸이 없거나 비어 있는 스킨(폴크·미니멀룸)은 본문의 "배송비 3,500원"을 찾습니다.
+  // "왕복 배송비 6,000원" 같은 반품 안내는 건너뜁니다.
+  const plain = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+  for (const m of plain.matchAll(/(\S*)\s*배송비\s*(?:\d+개\s*주문\s*시\s*)?([\d,]+)\s*원/g)) {
+    if (!/왕복|반품|교환|편도|추가/.test(m[1])) return Number(m[2].replace(/,/g, ''));
+  }
+  return null;
+}
+
+// 상품명. og:title 은 몰마다 "상품명 - 몰이름"이거나 몰이름뿐이라(빠이러스),
+// 카페24가 넣어 주는 구조화 데이터(ld+json)의 name 을 먼저 씁니다.
+function parseProductName(html, brand) {
+  const blocks = html.match(/<script[^>]+application\/ld\+json[^>]*>[\s\S]*?<\/script>/gi) || [];
+  for (const block of blocks) {
+    try {
+      const data = JSON.parse(block.replace(/^<script[^>]*>|<\/script>$/gi, ''));
+      if (data && /Product/.test(data['@type']) && data.name) return String(data.name).trim();
+    } catch (e) {
+      // 깨진 JSON 은 건너뛰고 og:title 로 갑니다.
+    }
+  }
+  const title = parseMeta(html, 'og:title').replace(/\s+-\s+[^-]+$/, '').trim();
+  return title && title !== brand ? title : '';
+}
+
+function parseMeta(html, prop) {
+  const m = html.match(new RegExp(`<meta[^>]+property=["']${prop}["'][^>]+content=["']([^"']*)["']`, 'i'))
+    || html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+property=["']${prop}["']`, 'i'));
+  return m ? m[1].trim() : '';
+}
+
+// ── 자사몰 상품 목록 (catalog 모드) ─────────────────────────────────────────
+// 대시보드 "자사몰 상품" 화면이 mall_products 표를 그대로 보여줍니다.
+// 공개 상품(사이트맵) + 숨어 있는 히든링크(mall_hidden_links)의 상세페이지를 열어
+// 이름·대표 이미지·판매가·배송비를 읽어 둡니다. 몰당 상품 수만큼 요청하므로 하루 한 번만 돕니다.
+// 이번에 못 본 상품(판매 종료·삭제)은 그 몰 줄에서 지웁니다. 단, 몰을 아예 못 읽었으면 지우지 않습니다.
+async function refreshMallProducts(sites) {
+  let hiddenLinks = [];
+  try {
+    hiddenLinks = await sbGet('mall_hidden_links?is_active=eq.true&select=brand,product_code,product_name,url&limit=2000');
+  } catch (e) {
+    console.log('히든링크 목록을 못 읽었습니다(공개 상품만 갱신합니다): ' + e.message);
+  }
+
+  for (const site of sites) {
+    const origin = String(site.url || '').replace(/\/+$/, '');
+    const runStart = new Date().toISOString();
+    try {
+      const publicMap = parseSitemapProducts(await fetchText(site.sitemap_url || `${origin}/sitemap.xml`));
+      const targets = Array.from(publicMap.values()).map((p) => ({ ...p, is_hidden: false }));
+      const seen = new Set(publicMap.keys());
+      for (const link of hiddenLinks) {
+        if (link.brand !== site.brand || !link.product_code || seen.has(String(link.product_code))) continue;
+        seen.add(String(link.product_code));
+        targets.push({ product_no: String(link.product_code), name: link.product_name || '', url: link.url, is_hidden: true });
+      }
+      // 코드니처는 예전에 손으로 모아 둔 상품 목록(codenit_products)에도 미진열 상품이 많아서 함께 봅니다.
+      // 이미 지운 상품은 아래 상세페이지 확인에서 빠집니다.
+      if (site.brand === '코드니처') {
+        const manual = await sbGet('codenit_products?select=product_url&limit=2000').catch(() => []);
+        for (const r of manual) {
+          const m = String(r.product_url || '').match(/product_no=(\d+)|\/product\/[^/]+\/(\d+)\//);
+          const no = m && (m[1] || m[2]);
+          if (!no || seen.has(no)) continue;
+          seen.add(no);
+          targets.push({ product_no: no, name: '', url: `${origin}/product/detail.html?product_no=${no}`, is_hidden: true });
+        }
+      }
+
+      const rows = (await mapWithConcurrency(targets, 6, async (p) => {
+        let html;
+        try {
+          html = await fetchText(`${origin}/product/detail.html?product_no=${p.product_no}`, 15000);
+        } catch (e) {
+          return null;
+        }
+        // 없는(지운) 상품번호도 카페24는 200으로 빈 페이지를 돌려줍니다. 판매가가 없으면 없는 상품으로 봅니다.
+        const price = parseProductPrice(html);
+        if (!price) return null;
+        return {
+          brand: site.brand,
+          product_no: p.product_no,
+          product_name: parseProductName(html, site.brand) || p.name,
+          price,
+          shipping_fee: parseShippingFee(html),
+          image_url: parseMeta(html, 'og:image') || null,
+          product_url: p.url || `${origin}/product/detail.html?product_no=${p.product_no}`,
+          is_hidden: p.is_hidden,
+          checked_at: new Date().toISOString()
+        };
+      })).filter(Boolean);
+
+      if (MODE === 'debug') {
+        console.log(`  ${site.brand.padEnd(9)} 상품 ${rows.length}개 읽음 (저장 안 함)`);
+        continue;
+      }
+      if (rows.length) {
+        await sbInsert('mall_products?on_conflict=brand,product_no', rows, {
+          Prefer: 'resolution=merge-duplicates,return=minimal'
+        });
+      }
+      if (rows.length) {
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/mall_products?brand=eq.${encodeURIComponent(site.brand)}&checked_at=lt.${encodeURIComponent(runStart)}`,
+          { method: 'DELETE', headers }
+        );
+        if (!res.ok) throw new Error(`지난 상품 정리 실패 (${res.status}): ${await res.text()}`);
+      }
+      console.log(`  ${site.brand.padEnd(9)} 상품 ${rows.length}개 저장 (히든 ${rows.filter((r) => r.is_hidden).length}개)`);
+    } catch (e) {
+      console.log(`  ${site.brand.padEnd(9)} 상품 목록 갱신 실패 — ${e.message}`);
+    }
+  }
+}
+
 async function mapWithConcurrency(items, limit, worker) {
   const results = [];
   let cursor = 0;
@@ -240,6 +366,12 @@ async function main() {
 
   if (!sites.length) {
     console.log('검수할 몰이 없습니다. mall_sites 표를 확인하세요.');
+    return { newTotal: 0, exposedTotal: 0, errorCount: 0, results: [] };
+  }
+
+  // 'catalog' 모드: 검수는 건너뛰고 자사몰 상품 목록(mall_products)만 다시 읽습니다.
+  if (MODE === 'catalog' || (MODE === 'debug' && process.env.MALL_AUDIT_CATALOG)) {
+    await refreshMallProducts(sites);
     return { newTotal: 0, exposedTotal: 0, errorCount: 0, results: [] };
   }
 
