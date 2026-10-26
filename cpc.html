@@ -183,6 +183,8 @@
       </div>
     </div>
 
+    <div class="card" id="prodStoreCard" style="display:none;margin-bottom:16px;"></div>
+
     <div class="card">
       <div class="tabs" id="tabs">
         <button class="tab active" data-tab="campaign">캠페인</button>
@@ -268,6 +270,7 @@
 
   let rows = [];
   let storeRows = []; // 스마트스토어 방문 분석 기준 광고 유입 결제 (ad_store_attribution)
+  let prodStoreRows = []; // 스마트스토어 방문 분석 기준 상품별 결제, 유입 경로 구분 없음 (store_product_sales)
   let statusMap = new Map(); // 몰 + 캠페인 → 광고 관리자 운영 상태 (ad_campaign_status)
   let activeOnly = true;
   let isSample = false; // 예시 데이터는 화면에만 띄우고 저장하지 않습니다.
@@ -293,6 +296,17 @@
         const { data, error } = await db.from('ad_store_attribution').select('date,channel,path,visits,pays,sales,store_pays,store_sales').order('date').limit(5000);
         storeRows = error ? [] : data.map((r) => ({ ...r, visits: +r.visits, pays: +r.pays, sales: +r.sales, store_pays: +r.store_pays, store_sales: +r.store_sales }));
       } catch { storeRows = []; }
+      try {
+        const since = new Date(); since.setMonth(since.getMonth() - 3);
+        const out = [];
+        for (let from = 0; ; from += 1000) {
+          const { data, error } = await db.from('store_product_sales').select('date,product_no,product,pays,sales').gte('date', ymd(since)).order('id').range(from, from + 999);
+          if (error) break;
+          for (const r of data) out.push({ ...r, pays: +r.pays, sales: +r.sales });
+          if (data.length < 1000) break;
+        }
+        prodStoreRows = out;
+      } catch { prodStoreRows = []; }
       try {
         const { data, error } = await db.from('ad_campaign_status').select('mall,campaign,active,status,updated_at').limit(5000);
         statusMap = new Map(error ? [] : data.map((r) => [r.mall + '' + r.campaign, r]));
@@ -615,6 +629,7 @@
     svPrev = sv ? storeView(ymd(pFrom), ymd(pTo)) : null;
     drawKpis(days);
     drawStore(from, to);
+    drawProdStore(from, to);
     drawTrend();
     drawStrategy();
     drawTable();
@@ -830,6 +845,42 @@
         ${item('스토어 매출 대비 광고비', s.storeSales ? pct(ad.cost / s.storeSales, 1) : '-', `스토어 전체 판매 ${won(s.storeSales)}원 · 실결제 대비 ${s.sales ? pct(ad.cost / s.sales, 1) : '-'}`)}
         ${item('광고 유입 구매전환율', s.visits ? pct(s.pays / s.visits, 1) : '-', `방문 ${won(s.visits)}명`)}
       </div>`;
+  }
+
+  // ---------- 상품별 스토어 매출 대비 광고비 ----------
+  // 스마트스토어는 "광고 경로 × 상품" 결제를 함께 주지 않아(10/26 확인), 상품별로는 유입 경로 구분 없는 스토어 매출과 광고비를 맞대 봅니다.
+  // 광고 상품명(앞의 "코드니처" 뺀 이름)과 스토어 채널상품명을 공백 없이 맞춰 연결합니다.
+  const prodKey = (s) => String(s || '').replace(/^코드니처\s*/, '').replace(/\s+/g, '');
+  function drawProdStore(from, to) {
+    const card = $('prodStoreCard');
+    const mall = $('fMall').value, camp = $('fCamp').value;
+    const ad = rows.filter((r) => r.mall === '네이버 ADVoost' && r.date >= from && r.date <= to && (!camp || r.campaign === camp));
+    const ps = prodStoreRows.filter((r) => r.date >= from && r.date <= to);
+    if (isSample || (mall && mall !== '네이버 ADVoost') || !ad.length || !ps.length) { card.style.display = 'none'; return; }
+    const m = new Map();
+    for (const r of ad) {
+      const k = prodKey(r.product);
+      if (!m.has(k)) m.set(k, { name: r.product, camps: new Set(), cost: 0, rev: 0, sales: 0, pays: 0 });
+      const a = m.get(k); a.cost += r.cost; a.rev += r.rev; if (r.cost) a.camps.add(r.campaign);
+    }
+    const storeBy = new Map();
+    for (const r of ps) { const k = prodKey(r.product); const s = storeBy.get(k) || { sales: 0, pays: 0 }; s.sales += r.sales; s.pays += r.pays; storeBy.set(k, s); }
+    const list = [...m.entries()].map(([k, a]) => ({ ...a, ...(storeBy.get(k) || { sales: 0, pays: 0 }) }))
+      .filter((a) => a.cost || a.sales).sort((x, y) => y.cost - x.cost);
+    const tot = list.reduce((t, a) => ({ cost: t.cost + a.cost, rev: t.rev + a.rev, sales: t.sales + a.sales, pays: t.pays + a.pays }), { cost: 0, rev: 0, sales: 0, pays: 0 });
+    const shareCell = (cost, sales) => {
+      if (!sales) return cost ? '<span style="color:#dc2626;font-weight:700;">매출 없음</span>' : '-';
+      const s = cost / sales;
+      return `<span style="color:${s <= TARGET_SHARE ? '#16a34a' : s <= TARGET_SHARE * 2 ? '#b45309' : '#dc2626'};font-weight:700;">${pct(s, 1)}</span>`;
+    };
+    card.style.display = '';
+    card.innerHTML = `<h2>상품별 스토어 매출 대비 광고비 <span class="pill">네이버 ADVoost</span></h2>
+      <p class="hint">스토어 매출은 스마트스토어센터 방문 분석의 상품별 결제로, <b>광고가 아닌 유입(검색·직접 방문 등)도 포함</b>합니다. 광고비 비중이 낮을수록 그 상품 매출에 비해 광고비를 적게 쓴 것입니다(목표 ${pct(TARGET_SHARE)} 이내 초록, 2배까지 주황).</p>
+      <div class="tblwrap" style="max-height:420px;"><table>
+        <thead><tr><th class="l">상품</th><th class="l">캠페인</th><th>광고비 (VAT 포함)</th><th>광고 관리자 매출</th><th>스토어 결제</th><th>스토어 매출</th><th>광고비 비중</th></tr></thead>
+        <tbody>${list.map((a) => `<tr><td class="l" title="${esc(a.name)}">${esc(a.name)}</td><td class="l">${esc([...a.camps].join(', ') || '-')}</td><td>${won(a.cost)}</td><td>${won(a.rev)}</td><td>${won(a.pays)}건</td><td>${won(a.sales)}</td><td>${shareCell(a.cost, a.sales)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td class="l">합계</td><td class="l"></td><td>${won(tot.cost)}</td><td>${won(tot.rev)}</td><td>${won(tot.pays)}건</td><td>${won(tot.sales)}</td><td>${shareCell(tot.cost, tot.sales)}</td></tr></tfoot>
+      </table></div>`;
   }
 
   // ---------- 전략 코멘트 ----------
