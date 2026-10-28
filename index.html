@@ -3078,7 +3078,7 @@
           <datalist id="gpBrandList"></datalist>
           <input type="text" name="product" placeholder="상품명 (예: 건조기 세탁망)" required style="flex:2; min-width:200px;" oninput="gpAutoLinkSoon()">
           <label class="gp-field" style="min-width:260px;">원가 제품 (원가 연동)<select name="costProduct" onchange="gpDraftTouched.cost = true; gpPickCostProduct()" style="width:300px;"></select></label>
-          <label class="gp-field">단품 원가<input type="text" name="unitCost" inputmode="numeric" oninput="gsFormatMoneyInput(this)"></label>
+          <label class="gp-field" title="낱개 1개의 원가. 세트당 개입이 2 이상이면 그만큼 곱해 옵션 원가를 냅니다.">낱개 원가<input type="text" name="unitCost" inputmode="numeric" oninput="gsFormatMoneyInput(this)"></label>
           <label class="gp-field">단품 자사몰가<input type="text" name="unitMall" inputmode="numeric" oninput="gsFormatMoneyInput(this)"></label>
           <label class="gp-field" title="1세트에 든 낱개 수. 객단가 = 공구판매가 ÷ (세트 수 × 개입)">세트당 개입<input type="text" name="packQty" inputmode="numeric" value="1" style="width:70px;"></label>
           <label class="gp-field" style="min-width:240px;">물류 상품 (택배비 연동)<select name="logiProduct" onchange="gpDraftTouched.logi = true; gpPickLogiProduct()" style="width:260px;"></select></label>
@@ -10894,10 +10894,11 @@
       });
       const units = multi ? qtys.reduce((a, b) => a + b, 0) : o.units;
       const used = prods.map((pr, k) => ({ pr, q: qtys[k] })).filter((x) => x.q > 0);
-      const cost = used.length && used.every((x) => x.pr.cost != null) ? used.reduce((a, x) => a + x.pr.cost * x.q, 0) : null;
+      // 원가 대시보드 원가는 낱개 기준이라, 1세트에 여러 개 든 상품(세트당 개입)은 그만큼 곱합니다.
+      const cost = used.length && used.every((x) => x.pr.cost != null) ? used.reduce((a, x) => a + x.pr.cost * x.q * packQty, 0) : null;
       const mallAuto = used.length && used.every((x) => x.pr.mall != null) ? used.reduce((a, x) => a + x.pr.mall * x.q, 0) : null;
       // 원가 연동은 쓰인 제품이 모두 원가 대시보드 제품일 때만 겁니다(하나라도 직접 입력이면 합계 원가를 그대로 저장).
-      const costItems = used.length && used.every((x) => x.pr.id != null) ? used.map((x) => ({ id: x.pr.id, qty: x.q })) : null;
+      const costItems = used.length && used.every((x) => x.pr.id != null) ? used.map((x) => ({ id: x.pr.id, qty: x.q * packQty })) : null;
       const suggested = cost != null ? gpSuggestPrice(cost, logistics, feeRate, expenseRate, target) : null;
       const mallManual = gpDraftPrices['mall:' + o.key];
       const mall = mallManual != null ? mallManual : mallAuto;
@@ -11034,7 +11035,7 @@
       return `<div class="gp-extra-row">
         <span class="gp-extra-no">제품 ${k + 1}</span>
         <select onchange="gpPickExtra(this, ${k})" style="width:320px;">${gpCostOptionsHtml(brand, ex.id, '원가 대시보드에서 고르기 (없으면 직접 입력)')}</select>
-        <label class="gp-field">단품 원가<input type="text" inputmode="numeric" value="${ex.cost != null ? gpWon(ex.cost) : ''}" ${linked ? 'readonly' : ''}
+        <label class="gp-field">낱개 원가<input type="text" inputmode="numeric" value="${ex.cost != null ? gpWon(ex.cost) : ''}" ${linked ? 'readonly' : ''}
           oninput="gpExtraInput(this, ${k}, 'cost')" onchange="gpBuildDraft()"></label>
         <label class="gp-field">단품 자사몰가<input type="text" inputmode="numeric" value="${ex.mall != null ? gpWon(ex.mall) : ''}"
           oninput="gpExtraInput(this, ${k}, 'mall')" onchange="gpBuildDraft()"></label>
