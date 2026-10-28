@@ -974,7 +974,8 @@
         x.g = grade(x, avg); x.auto = AUTO_BID.test(x.mall);
         const st = campStatus(x.mall, x.name);
         x.paused = !!st && !st.active;
-        x.st = !st ? '-' : st.active ? '운영 중' : '중단';
+        // 켜진 캠페인은 네이버 학습 상태가 붙어 온다(ENABLED/RUNNABLE_LEARNING, 10/28부터).
+        x.st = !st ? '-' : !st.active ? '중단' : /LEARNING/.test(st.status || '') ? '학습 중' : '운영 중';
       });
       const list = activeOnly && statusMap.size ? g.filter((x) => !x.paused) : g;
       return { rows: list, cols: ['name:캠페인', 'st:상태', 'mall:몰'], graded: true,
@@ -1044,7 +1045,7 @@
     const LIMIT = 500;
     const body = list.slice(0, LIMIT).map((r) =>
       '<tr' + (r.paused ? ' style="opacity:.55"' : '') + '>' + textCols.map(([k]) => k === 'st'
-        ? `<td class="l"><span class="grade ${r[k] === '운영 중' ? 'g-star' : r[k] === '중단' ? 'g-wait' : ''}">${esc(r[k])}</span></td>`
+        ? `<td class="l"><span class="grade ${r[k] === '운영 중' ? 'g-star' : r[k] === '학습 중' ? 'g-keep' : r[k] === '중단' ? 'g-wait' : ''}">${esc(r[k])}</span></td>`
         : `<td class="l" title="${esc(r[k])}">${esc(r[k])}</td>`).join('') +
       (d.graded ? `<td class="l"><span class="grade ${GRADES[r.g].cls}">${GRADES[r.g].label}</span></td><td class="l" style="color:#475569;">${actionFor(r)}</td>` : '') +
       extra.map(([k, , f]) => `<td>${f(r[k])}</td>`).join('') +
