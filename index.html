@@ -9,6 +9,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<!-- 프로모션 일정 엑셀에 색·테두리를 넣으려고 씁니다. xlsx 무료판은 셀 서식을 못 씁니다.
+     다른 엑셀 내려받기는 그대로 xlsx 를 쓰고, 이 라이브러리는 일정 달력에만 씁니다. -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   /* 폼 컨트롤은 기본값으로 되돌아가므로 전역 폰트를 명시적으로 물려받게 합니다. */
@@ -8947,20 +8950,48 @@
   // 화면에 보이는 달력을 엑셀 격자로 옮깁니다. 셀마다 일정 한 건씩 들어가서
   // 엑셀에서 바로 고쳐 쓸 수 있습니다(줄바꿈·자동 줄맞춤을 안 써야 글자가 안 잘립니다).
   // 한 주마다 날짜 줄 하나 + 그 주에 걸친 일정 수만큼의 줄이 붙습니다.
-  function gsCalendarAoa(y, m, records) {
-    const weeks = gsCalendarWeeks(y, m);
+  // 화면 달력의 색(.gs-accent-*)을 엑셀 색으로 옮긴 표입니다.
+  // 배경은 CSS 의 반투명 값을 흰 바탕에 겹친 결과, 글자는 제목 색을 그대로 씁니다.
+  const GS_XL_ACCENTS = {
+    pink: { fill: 'F9E8EF', text: '9D174D' },
+    blue: { fill: 'E9EFFD', text: '1D4ED8' },
+    green: { fill: 'E5F8EC', text: '15803D' },
+    sky: { fill: 'E2F4FC', text: '0369A1' },
+    yellow: { fill: 'FAEFE1', text: '92400E' },
+    purple: { fill: 'F4EBFD', text: '7E22CE' },
+    lightblue: { fill: 'E8F0FE', text: '1D4ED8' },
+    lavender: { fill: 'F2EEFE', text: '6D28D9' },
+    orange: { fill: 'FEEDE1', text: '9A3412' },
+  };
+
+  // hsl 을 흰 바탕에 겹쳐 6자리 hex 로. 화면의 gsAutoMallColorVars 와 같은 식입니다.
+  function gsHslHex(h, s, l, alpha) {
+    const S = s / 100, L = l / 100;
+    const a = S * Math.min(L, 1 - L);
+    const k = (n) => (n + h / 30) % 12;
+    const f = (n) => L - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    const mix = (v) => Math.round(255 + (v * 255 - 255) * alpha);
+    return [mix(f(0)), mix(f(8)), mix(f(4))]
+      .map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0').toUpperCase()).join('');
+  }
+
+  // 이름이 색 표에 없는 몰은 화면과 같은 방식(이름 해시 → hue)으로 색을 만듭니다.
+  function gsXlAccent(record) {
+    const named = GS_XL_ACCENTS[record.accent];
+    if (named) return named;
+    const name = record.catLabel || record.title || '';
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+    const hue = hash % 360;
+    return { fill: gsHslHex(hue, 72, 60, 0.16), text: gsHslHex(hue, 55, 30, 1) };
+  }
+
+  // 달력을 줄·칸 좌표로 펼칩니다. 색칠은 엑셀을 쓰는 쪽에서 합니다.
+  function gsCalendarLayout(y, m, records) {
     const label = (r) => (r.catLabel ? `${r.catLabel} · ${r.title}` : r.title);
-    // 이번 달 날짜는 숫자만, 앞뒤 달에서 걸쳐 온 칸은 "10월 31일" 처럼 달까지 적습니다.
-    const dayCell = (d) => (d.inMonth ? d.day : d.monthLabel);
-
-    const aoa = [[`${y}년 ${m}월 프로모션 일정`], [], ['일', '월', '화', '수', '목', '금', '토']];
-    const merges = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }];
-
-    for (const days of weeks) {
-      const dateRow = aoa.length;
-      aoa.push(days.map(dayCell));
-
-      // 그 주에 걸친 일정을 막대로 만듭니다. 주 밖으로 넘어가는 건 주 끝에서 자릅니다.
+    const out = [];
+    let row = 4; // 1=제목, 2=빈 줄, 3=요일 → 첫 주 날짜 줄은 4
+    for (const days of gsCalendarWeeks(y, m)) {
       const first = days[0].key, last = days[6].key;
       const colOf = (key) => days.findIndex((d) => d.key === key);
       const bars = records
@@ -8968,7 +8999,8 @@
         .map((r) => ({
           s: r.start < first ? 0 : colOf(r.start),
           e: r.end > last ? 6 : colOf(r.end),
-          text: label(r)
+          text: label(r),
+          accent: gsXlAccent(r)
         }))
         // 시작이 빠른 것 먼저, 같으면 긴 것 먼저 — 화면 달력과 같은 순서입니다.
         .sort((a, b) => a.s - b.s || (b.e - b.s) - (a.e - a.s) || String(a.text).localeCompare(String(b.text)));
@@ -8981,17 +9013,10 @@
         lanes[lane].push([bar.s, bar.e]);
         bar.lane = lane;
       }
-
-      for (let i = 0; i < lanes.length; i++) aoa.push(new Array(7).fill(''));
-      for (const bar of bars) {
-        const r = dateRow + 1 + bar.lane;
-        aoa[r][bar.s] = bar.text;
-        // 이틀 이상이면 그 기간만큼 칸을 합쳐 화면의 막대처럼 보이게 합니다.
-        if (bar.e > bar.s) merges.push({ s: { r, c: bar.s }, e: { r, c: bar.e } });
-      }
-      aoa.push([]); // 주 사이 빈 줄
+      out.push({ dateRow: row, days, laneCount: lanes.length, bars });
+      row += 1 + lanes.length + 1; // 날짜 줄 + 막대 줄들 + 주 사이 빈 줄
     }
-    return { aoa, merges };
+    return { weeks: out, lastRow: row - 1 };
   }
 
   function gsExportExcel() {
@@ -9043,26 +9068,112 @@
       '상태': r.status,
     }));
 
-    const wb = XLSX.utils.book_new();
-
     // 보고 있는 달의 달력을 첫 시트로 넣습니다(화면과 같은 체크박스·검색 기준).
     const calRecords = (() => {
       const all = gsBuildFilteredRecords();
       const q = gsSearchQuery.toLowerCase();
       return q ? all.filter((r) => gsMatchesQuery(r, q)) : all;
     })();
-    const cal = gsCalendarAoa(gsCursor.y, gsCursor.m, calRecords);
-    const calSheet = XLSX.utils.aoa_to_sheet(cal.aoa);
-    calSheet['!cols'] = Array.from({ length: 7 }, () => ({ wch: 26 }));
-    calSheet['!merges'] = cal.merges;
-    XLSX.utils.book_append_sheet(wb, calSheet, `캘린더 ${gsCursor.y}-${String(gsCursor.m).padStart(2, '0')}`);
-
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(groupbuyData), '공구 일정');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(seedingData), '시딩 일정');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mallData), '외부몰 행사');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(settlementData), '정산');
     const stamp = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `프로모션_일정_${stamp}.xlsx`);
+    gsWriteScheduleXlsx({
+      fileName: `프로모션_일정_${stamp}.xlsx`,
+      calRecords,
+      lists: [
+        ['공구 일정', groupbuyData], ['시딩 일정', seedingData],
+        ['외부몰 행사', mallData], ['정산', settlementData],
+      ],
+    });
+  }
+
+  // 색·테두리를 넣으려면 ExcelJS 가 필요합니다(xlsx 무료판은 셀 서식을 못 씁니다).
+  async function gsWriteScheduleXlsx({ fileName, calRecords, lists }) {
+    const btn = document.getElementById('gsExportBtn');
+    const label = btn ? btn.textContent : '';
+    if (typeof ExcelJS === 'undefined') { alert('엑셀 모듈을 아직 불러오지 못했습니다. 잠시 뒤 다시 눌러주세요.'); return; }
+    if (btn) { btn.textContent = '엑셀 만드는 중...'; btn.disabled = true; }
+    try {
+      const wb = new ExcelJS.Workbook();
+      const thin = (color) => ({ style: 'thin', color: { argb: 'FF' + color } });
+      const fillWith = (hex) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + hex } });
+
+      // ---- 달력 시트 ----
+      const ws = wb.addWorksheet(`캘린더 ${gsCursor.y}-${String(gsCursor.m).padStart(2, '0')}`);
+      ws.columns = Array.from({ length: 7 }, () => ({ width: 26 }));
+
+      ws.mergeCells(1, 1, 1, 7);
+      const title = ws.getCell(1, 1);
+      title.value = `${gsCursor.y}년 ${gsCursor.m}월 프로모션 일정`;
+      title.font = { bold: true, size: 14, color: { argb: 'FF0F172A' } };
+      title.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 26;
+
+      ['일', '월', '화', '수', '목', '금', '토'].forEach((d, i) => {
+        const c = ws.getCell(3, i + 1);
+        c.value = d;
+        c.font = { bold: true, size: 11, color: { argb: i === 0 ? 'FFDC2626' : i === 6 ? 'FF2563EB' : 'FF475569' } };
+        c.alignment = { horizontal: 'center' };
+        c.fill = fillWith('F8FAFC');
+        c.border = { top: thin('E2E8F0'), bottom: thin('CBD5E1'), left: thin('E2E8F0'), right: thin('E2E8F0') };
+      });
+
+      const layout = gsCalendarLayout(gsCursor.y, gsCursor.m, calRecords);
+      for (const wk of layout.weeks) {
+        wk.days.forEach((d, i) => {
+          const c = ws.getCell(wk.dateRow, i + 1);
+          c.value = d.inMonth ? d.day : d.monthLabel;
+          c.font = { bold: d.inMonth, size: 10,
+            color: { argb: !d.inMonth ? 'FFB6BDC9' : i === 0 ? 'FFDC2626' : i === 6 ? 'FF2563EB' : 'FF334155' } };
+          c.alignment = { horizontal: 'left', vertical: 'middle' };
+          c.border = { top: thin('CBD5E1') };
+        });
+        ws.getRow(wk.dateRow).height = 20;
+
+        for (const bar of wk.bars) {
+          const r = wk.dateRow + 1 + bar.lane;
+          if (bar.e > bar.s) ws.mergeCells(r, bar.s + 1, r, bar.e + 1);
+          const cell = ws.getCell(r, bar.s + 1);
+          cell.value = bar.text;
+          // 병합해도 테두리는 칸마다 넣어야 양쪽 끝이 다 그려집니다.
+          for (let c = bar.s; c <= bar.e; c++) {
+            const cc = ws.getCell(r, c + 1);
+            cc.fill = fillWith(bar.accent.fill);
+            cc.font = { size: 9.5, color: { argb: 'FF' + bar.accent.text } };
+            cc.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+            cc.border = { top: thin(bar.accent.text), bottom: thin(bar.accent.text),
+              left: c === bar.s ? thin(bar.accent.text) : undefined,
+              right: c === bar.e ? thin(bar.accent.text) : undefined };
+          }
+        }
+        for (let i = 0; i < wk.laneCount; i++) ws.getRow(wk.dateRow + 1 + i).height = 18;
+      }
+
+      // ---- 목록 시트들 ----
+      for (const [name, rows] of lists) {
+        const sheet = wb.addWorksheet(name);
+        const keys = rows.length ? Object.keys(rows[0]) : [];
+        if (keys.length) {
+          sheet.columns = keys.map((k) => ({ header: k, key: k, width: Math.max(12, Math.min(34, k.length * 3 + 8)) }));
+          rows.forEach((row) => sheet.addRow(row));
+          sheet.getRow(1).font = { bold: true, color: { argb: 'FF0F172A' } };
+          sheet.getRow(1).fill = fillWith('F1F5F9');
+          sheet.views = [{ state: 'frozen', ySplit: 1 }];
+        }
+      }
+
+      const buf = await wb.xlsx.writeBuffer();
+      const url = URL.createObjectURL(new Blob([buf],
+        { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error('프로모션 일정 엑셀 생성 실패:', err);
+      alert('엑셀을 만들지 못했습니다: ' + (err && err.message ? err.message : err));
+    } finally {
+      if (btn) { btn.textContent = label; btn.disabled = false; }
+    }
   }
 
   function gsExportImage() {
