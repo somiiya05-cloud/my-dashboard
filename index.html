@@ -8944,6 +8944,30 @@
     renderTeamSchedule();
   }
 
+  // 화면에 보이는 달력을 엑셀 격자로 옮깁니다. 셀마다 일정 한 건씩 들어가서
+  // 엑셀에서 바로 고쳐 쓸 수 있습니다(줄바꿈·자동 줄맞춤을 안 써야 글자가 안 잘립니다).
+  // 한 주마다 날짜 줄 하나 + 그 주에 걸친 일정 수만큼의 줄이 붙습니다.
+  function gsCalendarAoa(y, m, records) {
+    const weeks = gsCalendarWeeks(y, m);
+    const label = (r) => (r.catLabel ? `${r.catLabel} · ${r.title}` : r.title);
+    // 이번 달 날짜는 숫자만, 앞뒤 달에서 걸쳐 온 칸은 "10월 31일" 처럼 달까지 적습니다.
+    const dayCell = (d) => (d.inMonth ? d.day : d.monthLabel);
+
+    const aoa = [[`${y}년 ${m}월 프로모션 일정`], [], ['일', '월', '화', '수', '목', '금', '토']];
+    for (const days of weeks) {
+      aoa.push(days.map(dayCell));
+      // 그 주의 각 날짜에 걸친 일정을 모아 가장 많은 날 기준으로 줄 수를 맞춥니다.
+      const perDay = days.map((d) => records
+        .filter((r) => r.start <= d.key && r.end >= d.key)
+        .sort((a, b) => a.start.localeCompare(b.start) || String(a.title).localeCompare(String(b.title)))
+        .map(label));
+      const depth = Math.max(0, ...perDay.map((list) => list.length));
+      for (let i = 0; i < depth; i++) aoa.push(perDay.map((list) => list[i] || ''));
+      aoa.push([]); // 주 사이 빈 줄
+    }
+    return aoa;
+  }
+
   function gsExportExcel() {
     const pct = (v) => (v == null ? '' : `${Math.round(v * 100)}%`);
 
@@ -8994,6 +9018,17 @@
     }));
 
     const wb = XLSX.utils.book_new();
+
+    // 보고 있는 달의 달력을 첫 시트로 넣습니다(화면과 같은 체크박스·검색 기준).
+    const calRecords = (() => {
+      const all = gsBuildFilteredRecords();
+      const q = gsSearchQuery.toLowerCase();
+      return q ? all.filter((r) => gsMatchesQuery(r, q)) : all;
+    })();
+    const calSheet = XLSX.utils.aoa_to_sheet(gsCalendarAoa(gsCursor.y, gsCursor.m, calRecords));
+    calSheet['!cols'] = Array.from({ length: 7 }, () => ({ wch: 26 }));
+    XLSX.utils.book_append_sheet(wb, calSheet, `캘린더 ${gsCursor.y}-${String(gsCursor.m).padStart(2, '0')}`);
+
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(groupbuyData), '공구 일정');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(seedingData), '시딩 일정');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mallData), '외부몰 행사');
