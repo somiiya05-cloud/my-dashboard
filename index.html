@@ -8954,18 +8954,44 @@
     const dayCell = (d) => (d.inMonth ? d.day : d.monthLabel);
 
     const aoa = [[`${y}년 ${m}월 프로모션 일정`], [], ['일', '월', '화', '수', '목', '금', '토']];
+    const merges = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }];
+
     for (const days of weeks) {
+      const dateRow = aoa.length;
       aoa.push(days.map(dayCell));
-      // 그 주의 각 날짜에 걸친 일정을 모아 가장 많은 날 기준으로 줄 수를 맞춥니다.
-      const perDay = days.map((d) => records
-        .filter((r) => r.start <= d.key && r.end >= d.key)
-        .sort((a, b) => a.start.localeCompare(b.start) || String(a.title).localeCompare(String(b.title)))
-        .map(label));
-      const depth = Math.max(0, ...perDay.map((list) => list.length));
-      for (let i = 0; i < depth; i++) aoa.push(perDay.map((list) => list[i] || ''));
+
+      // 그 주에 걸친 일정을 막대로 만듭니다. 주 밖으로 넘어가는 건 주 끝에서 자릅니다.
+      const first = days[0].key, last = days[6].key;
+      const colOf = (key) => days.findIndex((d) => d.key === key);
+      const bars = records
+        .filter((r) => r.start <= last && r.end >= first)
+        .map((r) => ({
+          s: r.start < first ? 0 : colOf(r.start),
+          e: r.end > last ? 6 : colOf(r.end),
+          text: label(r)
+        }))
+        // 시작이 빠른 것 먼저, 같으면 긴 것 먼저 — 화면 달력과 같은 순서입니다.
+        .sort((a, b) => a.s - b.s || (b.e - b.s) - (a.e - a.s) || String(a.text).localeCompare(String(b.text)));
+
+      // 겹치지 않는 막대끼리 같은 줄에 눕힙니다(줄 = 화면의 막대 단).
+      const lanes = [];
+      for (const bar of bars) {
+        let lane = lanes.findIndex((used) => used.every(([s, e]) => bar.e < s || bar.s > e));
+        if (lane < 0) { lanes.push([]); lane = lanes.length - 1; }
+        lanes[lane].push([bar.s, bar.e]);
+        bar.lane = lane;
+      }
+
+      for (let i = 0; i < lanes.length; i++) aoa.push(new Array(7).fill(''));
+      for (const bar of bars) {
+        const r = dateRow + 1 + bar.lane;
+        aoa[r][bar.s] = bar.text;
+        // 이틀 이상이면 그 기간만큼 칸을 합쳐 화면의 막대처럼 보이게 합니다.
+        if (bar.e > bar.s) merges.push({ s: { r, c: bar.s }, e: { r, c: bar.e } });
+      }
       aoa.push([]); // 주 사이 빈 줄
     }
-    return aoa;
+    return { aoa, merges };
   }
 
   function gsExportExcel() {
@@ -9025,8 +9051,10 @@
       const q = gsSearchQuery.toLowerCase();
       return q ? all.filter((r) => gsMatchesQuery(r, q)) : all;
     })();
-    const calSheet = XLSX.utils.aoa_to_sheet(gsCalendarAoa(gsCursor.y, gsCursor.m, calRecords));
+    const cal = gsCalendarAoa(gsCursor.y, gsCursor.m, calRecords);
+    const calSheet = XLSX.utils.aoa_to_sheet(cal.aoa);
     calSheet['!cols'] = Array.from({ length: 7 }, () => ({ wch: 26 }));
+    calSheet['!merges'] = cal.merges;
     XLSX.utils.book_append_sheet(wb, calSheet, `캘린더 ${gsCursor.y}-${String(gsCursor.m).padStart(2, '0')}`);
 
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(groupbuyData), '공구 일정');
