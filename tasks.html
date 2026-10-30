@@ -4136,8 +4136,15 @@
   // 특정 요일에만 생기는 업무(올리브영·광고비 충전)는 api/refresh-daily-tasks.js가 그 요일에만
   // 등록하므로, 화면에서는 요일 조건을 따로 보지 않고 "있으면 그린다"로 처리합니다.
 
+  let jwTodayCache = '';
+  let jwTodayCacheAt = 0;
   function jwTodayKST() {
-    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    const now = Date.now();
+    if (!jwTodayCache || now - jwTodayCacheAt > 60000) {
+      jwTodayCache = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+      jwTodayCacheAt = now;
+    }
+    return jwTodayCache;
   }
 
   // 펼쳐 놓은 업무 목적 칸은 적힌 내용만큼 높이를 늘려 전부 보이게 합니다.
