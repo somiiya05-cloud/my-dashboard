@@ -4247,6 +4247,9 @@
     renderJwBoard();
     renderJwMyTasks();
     renderJwMissChecks();
+    // 체크리스트는 루틴이 있는 화면(전휘원)에서만 씁니다.
+    // 윤효선 화면에서는 감춰 두는데도 그리느라 전환이 20초 가까이 걸렸습니다.
+    if (!jwHasRoutine()) return;
     renderJwSections();
     jwGrowOpenPurposes();
     // 공구 일정·런칭 건수는 별도 테이블이라 비동기로 받아온 뒤 목록을 다시 그립니다.
@@ -7504,9 +7507,15 @@
     }
     // 프로젝트(구분)는 오래 멈춘 것부터 위로 올립니다. 팔로우업을 놓치지 않게요.
     // 다 끝난 프로젝트는 아래로 내리고, 그 안에서는 이름순입니다.
+    // 분류마다 한 번만 세어 두고 비교에 씁니다 (전에는 비교할 때마다 다시 셌습니다).
+    const statCache = new Map();
+    const statOf = (c) => {
+      if (!statCache.has(c)) statCache.set(c, jwProjectStat(c));
+      return statCache.get(c);
+    };
     cats.sort((a, b) => {
-      const sa = jwProjectStat(a);
-      const sb = jwProjectStat(b);
+      const sa = statOf(a);
+      const sb = statOf(b);
       const liveA = sa.done < sa.total ? 1 : 0;
       const liveB = sb.done < sb.total ? 1 : 0;
       if (liveA !== liveB) return liveB - liveA;
