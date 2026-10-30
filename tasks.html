@@ -3426,18 +3426,18 @@
       // 받아오는 데 1~2초가 걸립니다. 그동안 이전 화면(영업팀 업무 현황)이 남아 있어서
       // 잠깐 다른 사람 화면이 비치는 것처럼 보였습니다. 먼저 이미 받아둔 자료로
       // 이 사람 화면을 그려놓고, 새로 받아온 뒤 다시 그립니다.
-      jwLoading = true;          // 먼저 그릴 때 "없습니다" 대신 "불러오는 중"이 뜨게
+      jwLoading = !currentTasks.length;   // 받아둔 게 없을 때만 "불러오는 중"
       updateTaskViewHeader();
       renderTaskView();
-      loadTeamTasks();
+      showTeamView(true);                 // 배지·배너용 조회가 필요한 화면입니다
     }
     if (view === 'team-dashboard') {
-      loadTeamTasks();     // 받아온 뒤 renderTeamDash 가 그립니다
+      showTeamView(false);
       tnOnDashboardShown();
     }
-    if (view === 'team-calendar') { renderTeamCal(); loadTeamEvents().then(renderTeamCal); loadTeamTasks(); }
+    if (view === 'team-calendar') { renderTeamCal(); loadTeamEvents().then(renderTeamCal); showTeamView(false); }
     if (view === 'team-duty') renderJwDuty();
-    if (view === 'team-weekly') loadTeamTasks();
+    if (view === 'team-weekly') showTeamView(false);
     if (view === 'weekly-report') loadWeeklyReports();
     if (view === 'team-schedule') loadTeamSchedule();
     if (view === 'team-accounting') loadTeamAccounting();
@@ -3970,7 +3970,19 @@
   let jwLoading = false;
 
   const TEAM_TASK_PAGE = 1000;        // 서버가 한 번에 주는 최대 건수
-  const JW_ROUTINE_CATS = ['오전 필수업무', '오후 필수업무'];
+  const TEAM_TASKS_FRESH_MS = 90 * 1000;   // 이 시간 안이면 받아둔 걸 그대로 씁니다
+  let teamTasksAt = 0;                // 마지막으로 업무를 받아온 시각
+  let jwExtrasAt = 0;                 // 할일 관리 배지용 조회를 받아온 시각
+
+  // 화면을 바꿀 때 부릅니다. 싱싱하면 바로 그리고, 아니면 다시 받습니다.
+  // (예전에는 화면을 바꿀 때마다 1,000건을 통째로 다시 받아 전환이 굼떴습니다)
+  function showTeamView(needExtras) {
+    const fresh = currentTasks.length
+      && (Date.now() - teamTasksAt) < TEAM_TASKS_FRESH_MS
+      && (!needExtras || jwExtrasAt);
+    if (fresh) { jwLoading = false; tcRenderIfShown(); return; }
+    loadTeamTasks();
+  }
   const TEAM_TASK_ROUTINE_DAYS = 14;  // 데일리 루틴은 최근 이만큼만 미리 받습니다
   let jwRoutineFrom = '';             // 받아 둔 루틴의 가장 이른 날짜
   const jwLoadedDays = new Set();     // 그보다 전이라 따로 더 받아 둔 날짜
@@ -3980,7 +3992,7 @@
     if (!date || !jwRoutineFrom || date >= jwRoutineFrom || jwLoadedDays.has(date)) return;
     jwLoadedDays.add(date);
     const { data, error } = await client.from('team_tasks')
-      .select('*').in('category', JW_ROUTINE_CATS).eq('due_date', date);
+      .select('*').eq('due_date', date);
     if (error || !data || !data.length) return;
     const have = new Set(currentTasks.map((t) => t.id));
     data.forEach((t) => {
@@ -3994,12 +4006,11 @@
     const note = document.getElementById('taskListNote');
 
     // 업무 목록 — 서버가 한 번에 1000건까지만 주므로 나눠 받되, 두 쪽씩 같이 받습니다.
-    // 루틴은 최근 2주치만. 분류가 없는 줄은 not.in 으로 같이 떨어져 나가므로 따로 챙깁니다.
+    // 아직 열려 있는 업무는 날짜와 상관없이 다 받고(대기 업무·보드에 필요),
+    // 끝나서 치운 옛 업무는 최근 2주치만 받습니다(달력의 지난 날짜용).
     jwRoutineFrom = jwAddDays(jwTodayKST(), -TEAM_TASK_ROUTINE_DAYS);
     jwLoadedDays.clear();
-    const routineWindow = 'category.is.null'
-      + ',category.not.in.("' + JW_ROUTINE_CATS.join('","') + '")'
-      + ',due_date.gte.' + jwRoutineFrom;
+    const routineWindow = 'archived_at.is.null,due_date.gte.' + jwRoutineFrom;
 
     const page = (from) => client
       .from('team_tasks')
@@ -4047,6 +4058,8 @@
     ]);
 
     jwLoading = false;
+    teamTasksAt = Date.now();
+    if (onTasks) jwExtrasAt = Date.now();
     tcRenderIfShown();
   }
 
