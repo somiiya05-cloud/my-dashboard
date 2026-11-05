@@ -974,7 +974,14 @@
   .mt-check.on { background: #16a34a; border-color: #16a34a; }
   .mt-day-title { flex: 1; font-size: 13px; font-weight: 700; color: #0f172a; cursor: pointer; }
   .mt-day-title:hover { color: #2f5ce4; }
-  .mt-day-cat { font-size: 10.5px; font-weight: 700; color: #94a3b8; }
+  .mt-day-cat {
+    flex: none; width: 86px; border: 1px solid transparent; border-radius: 6px;
+    background: transparent; color: #94a3b8;
+    font-family: inherit; font-size: 10.5px; font-weight: 700; padding: 3px 5px;
+    text-align: right; cursor: pointer;
+  }
+  .mt-day-cat:hover { border-color: #e2e8f0; background: #fff; color: #475569; }
+  .mt-day-cat:focus { outline: none; border-color: #4d7cfe; background: #fff; color: #1d4ed8; }
   /* 다른 날로 옮기기 */
   .mt-mini {
     flex: none; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; color: #64748b;
@@ -5232,6 +5239,24 @@
       });
   }
 
+  // 줄에서 고른 대분류를 그대로 저장합니다. 실패하면 되돌립니다.
+  async function mtSetCategory(id, group) {
+    const t = (currentTasks || []).find((x) => x.id === id);
+    if (!t || !group) return;
+    const before = t.category;
+    t.category = group;
+    renderMyTracker();
+    const { error } = await client.from('team_tasks').update({ category: group }).eq('id', id);
+    if (error) {
+      t.category = before;
+      renderMyTracker();
+      mtToast('바꾸지 못했습니다: ' + error.message);
+      return;
+    }
+    mtToast(t.title + ' → ' + group);
+  }
+  window.mtSetCategory = mtSetCategory;
+
   async function mtSetPart(id, part) {
     const t = (currentTasks || []).find((x) => x.id === id);
     const before = t ? t.day_part : null;
@@ -5270,7 +5295,9 @@
         <span class="ct-dot ${MT_GROUP_CLS[g] || 'c7'}" title="${escapeAttr(g)}"></span>
         ${(() => { const c = mtChannelOf(t.title); return c ? `<span class="mt-ch ${c.cls}">${escapeAttr(c.key)}</span>` : ''; })()}
         <span class="mt-day-title" onclick="openTaskPanel(${t.id})" title="누르면 상세가 열립니다">${escapeAttr(t.title || '(제목 없음)')}</span>
-        <span class="mt-day-cat">${escapeAttr(g)}</span>
+        <select class="mt-day-cat" title="대분류를 바꿉니다" onchange="mtSetCategory(${t.id}, this.value)">
+          ${MT_GROUPS.map((x) => `<option value="${escapeAttr(x)}" ${x === g ? 'selected' : ''}>${escapeAttr(x)}</option>`).join('')}
+        </select>
         ${done ? '' : `
         <button type="button" class="mt-mini" onclick="mtMoveNextDay(${t.id})"
           title="내일로 미룹니다">내일로</button>`}
