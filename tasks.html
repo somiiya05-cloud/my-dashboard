@@ -990,6 +990,7 @@
   .mt-mini:hover { border-color: #4d7cfe; color: #2f5ce4; }
 
   /* 다른 날로 옮기는 칸 — 평소엔 흐리게, 올리면 테두리가 보입니다 */
+  .mt-until { flex: none; font-size: 11px; font-weight: 800; color: #cbd5e1; }
   .mt-move {
     flex: none; width: 112px; border: 1px solid transparent; border-radius: 6px;
     background: transparent; color: #94a3b8;
@@ -5239,10 +5240,17 @@
   }
 
   // 그날 할 일 — 마감일이 그 날짜인 내 업무. 끝난 것도 같이 보여 체크를 되돌릴 수 있게 합니다.
+  // 마감일 하루가 아니라 "시작일 ~ 마감일" 사이면 그 날 목록에 올립니다.
   function mtDayTasks(day) {
     return (currentTasks || [])
-      .filter((t) => t.assignee === MT_OWNER && !t.archived_at
-        && String(t.due_date || '').slice(0, 10) === day)
+      .filter((t) => {
+        if (t.assignee !== MT_OWNER || t.archived_at) return false;
+        const due = String(t.due_date || '').slice(0, 10);
+        if (!due) return false;
+        const from = String(t.start_date || '').slice(0, 10);
+        const a = (from && from < due) ? from : due;
+        return a <= day && day <= due;
+      })
       .sort((a, b) => {
         const av = a.seq_no == null ? Infinity : a.seq_no;
         const bv = b.seq_no == null ? Infinity : b.seq_no;
@@ -5311,9 +5319,10 @@
         </select>
         ${done ? '' : `
         <button type="button" class="mt-mini" onclick="mtMoveNextDay(${t.id})"
-          title="내일로 미룹니다">내일로</button>
+          title="마감일을 하루 뒤로 늘립니다">하루 더</button>
+        <span class="mt-until">~</span>
         <input class="mt-move" type="date" value="${escapeAttr(String(t.due_date || '').slice(0, 10))}"
-          onchange="mtMoveDay(${t.id}, this.value)" title="다른 날로 옮깁니다">`}
+          onchange="mtMoveDay(${t.id}, this.value)" title="언제까지 할 일인지 고릅니다">`}
         <span class="mt-part-sw">
           ${MT_PARTS.map((x) => `<button type="button" class="${t.day_part === x ? 'on' : ''}"
             onclick="mtSetPart(${t.id}, '${x}')">${x}</button>`).join('')}
@@ -5324,23 +5333,25 @@
   // ---- 하루 보기에서 순서 바꾸기 ----
   // 끌어 옮기는 건 느려서, 번호 칸에 자리를 적어 넣는 방식으로 합니다.
   // 3번 줄에 1을 적으면 그 줄이 맨 위로 가고 나머지가 한 칸씩 밀립니다.
-  // 못 끝낸 업무를 다른 날로 보냅니다.
-  // 시작일이 마감일과 같은(하루짜리) 업무는 시작일도 같이 옮깁니다 —
-  // 그러지 않으면 어제 시작해서 오늘 끝나는 기간 업무처럼 보입니다.
+  // "그 날까지" 로 잡습니다. 마감일만 바꾸고 시작일은 지키므로,
+  // 시작일부터 그 날까지 하루 보기에 매일 올라옵니다.
   async function mtMoveDay(id, date) {
     const t = (currentTasks || []).find((x) => x.id === id);
     if (!t || !date) { renderMyTracker(); return; }
     const due = String(t.due_date || '').slice(0, 10);
     if (date === due) { renderMyTracker(); return; }
-    const sameStart = String(t.start_date || '').slice(0, 10) === due;
+
+    // 시작일이 없으면 지금 걸려 있는 날을 시작으로 잡습니다.
+    // 새 마감일보다 시작일이 뒤에 있으면(앞당긴 경우) 시작일도 그 날로 당깁니다.
+    let start = String(t.start_date || '').slice(0, 10);
+    if (!start || start > date) start = (due && due <= date) ? due : date;
 
     const before = { due: t.due_date, start: t.start_date };
     t.due_date = date;
-    if (sameStart) t.start_date = date;
+    t.start_date = start;
     renderMyTracker();
 
-    const patch = { due_date: date };
-    if (sameStart) patch.start_date = date;
+    const patch = { due_date: date, start_date: start };
     const { error } = await client.from('team_tasks').update(patch).eq('id', id);
     if (error) {
       t.due_date = before.due; t.start_date = before.start;
@@ -5348,10 +5359,11 @@
       mtToast('옮기지 못했습니다: ' + error.message);
       return;
     }
-    mtToast(t.title + ' → ' + date);
+    mtToast(t.title + ' → ' + date + ' 까지');
   }
   window.mtMoveDay = mtMoveDay;
 
+  // 하루 더 — 마감일을 하루 뒤로 늘립니다.
   function mtMoveNextDay(id) {
     const t = (currentTasks || []).find((x) => x.id === id);
     if (!t) return;
