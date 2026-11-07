@@ -99,12 +99,9 @@
   <div class="kpis" id="kpis"></div>
 
   <div class="card" id="onlyCard" style="display:none">
-    <h2>쿠팡에만 판매 <span class="pill" id="onlyCpPill"></span></h2>
-    <p class="hint">쿠팡에서는 팔렸고 네이버에서는 안 팔린 상품입니다(오늘의집·G마켓 판매는 따지지 않음).</p>
+    <h2>쿠팡에서 팔리는데 네이버에선 안 팔리거나 덜 팔리는 상품 <span class="pill" id="onlyCpPill"></span></h2>
+    <p class="hint">쿠팡 매출이 네이버보다 큰 상품만, 네이버 비율이 낮은 순서로 보여 줍니다. 「네이버 ÷ 쿠팡」 — 쿠팡 100에 네이버 20이면 20%, 네이버에서 안 팔렸으면 0%.</p>
     <div class="tblwrap"><table id="onlyCpTbl"></table></div>
-    <h2 style="margin-top:22px">네이버에만 판매 <span class="pill" id="onlyNvPill"></span></h2>
-    <p class="hint">네이버에서는 팔렸고 쿠팡에서는 안 팔린 상품입니다.</p>
-    <div class="tblwrap"><table id="onlyNvTbl"></table></div>
   </div>
 
   <div class="card prod-card">
@@ -308,7 +305,7 @@ function brandTotals(d) {
 const ONLY = { '쿠팡만': ['쿠팡', '네이버'], '네이버만': ['네이버', '쿠팡'] };
 function rowMatch(k, r, sel = BRAND) {
   if (sel === '전체') return true;
-  if (sel === '단독') return rowMatch(k, r, '쿠팡만') || rowMatch(k, r, '네이버만');
+  if (sel === '단독') return !k.startsWith('그 외') && (r['쿠팡']?.sales || 0) > 0 && (r['네이버']?.sales || 0) < (r['쿠팡']?.sales || 0);
   if (ONLY[sel]) {
     if (k.startsWith('그 외')) return false;
     const [yes, no] = ONLY[sel];
@@ -339,7 +336,7 @@ function renderTabs(d) {
   const onlySum = sel => Object.entries(rows).reduce((t, [k, r]) => t + (rowMatch(k, r, sel) ? MALLS.reduce((u, m) => u + (r[m]?.sales || 0), 0) : 0), 0);
   $('brandTabs').innerHTML = list.map(b => tab(b, b, bt[b].sales)).join('')
     + tab('미분류', '미분류', bt['미분류']?.sales || 0) + tab('전체', '전체 통합', all)
-    + '<span class="brand-sep"></span>' + tab('단독', '쿠팡·네이버 단독 판매', onlySum('단독'));
+    + '<span class="brand-sep"></span>' + tab('단독', '쿠팡 대비 네이버 부진', Object.entries(rows).reduce((t, [k, r]) => t + (rowMatch(k, r, '단독') ? r['쿠팡'].sales : 0), 0));
   $('brandTabs').querySelectorAll('.brand').forEach(el => el.onclick = () => { BRAND = el.dataset.b; renderAll(); });
 }
 
@@ -367,7 +364,7 @@ function renderKpis(d) {
         <span>광고비</span><span>${won(x.ad)}</span><span>광고비중</span><span>${pctTxt(pct(x.ad, x.sales || 0))}</span></div>
       <div class="when">${x.at ? '받은 시각 ' + hm(x.at) : ''}${x.note ? ' · ' + esc(x.note) : ''}</div></div>`;
   });
-  const tabName = { '단독': '쿠팡·네이버 단독 판매' }[BRAND] || BRAND;
+  const tabName = { '단독': '쿠팡 대비 네이버 부진' }[BRAND] || BRAND;
   $('kpis').innerHTML = `<div class="kpi total"><div class="k">${BRAND === '전체' ? '4개 몰 합계' : esc(tabName) + ' · 4개 몰 합계'}</div><div class="v">${any ? won(ts) : '-'}</div>
     <div class="s"><span>광고비</span><span>${won(ta)}</span><span>광고비중</span><span>${pctTxt(pct(ta, ts))}</span></div>
     <div class="when">${d === kst() ? '오늘 실시간' : d} · 광고비 VAT 포함</div></div>` + cards.join('');
@@ -416,14 +413,28 @@ function renderItems(d) {
 
   const solo = BRAND === '단독';
   $('onlyCard').style.display = solo ? '' : 'none';
+  $('kpis').style.display = solo ? 'none' : '';
+  $('dayTbl').closest('.card').style.display = solo ? 'none' : '';
   document.querySelectorAll('.prod-card').forEach(el => el.style.display = solo ? 'none' : '');
   if (solo) {
-    const pick = sel => all.filter(k => rowMatch(k, rows[k], sel) && !isAdOnly(k)).sort((a, b) => total(b) - total(a));
-    const cp = pick('쿠팡만'), nv = pick('네이버만');
-    $('onlyCpTbl').innerHTML = table(cp, '쿠팡에서만 팔린 상품이 없습니다.');
-    $('onlyNvTbl').innerHTML = table(nv, '네이버에서만 팔린 상품이 없습니다.');
-    $('onlyCpPill').textContent = cp.length + '개';
-    $('onlyNvPill').textContent = nv.length + '개';
+    const v = (k, m, f) => rows[k][m]?.[f] || 0;
+    const nameOf = k => { const r = rows[k]; const top = Object.entries(r._n || {}).sort((x, y) => y[1] - x[1])[0];
+      const full = k.startsWith('◆ ') || k.startsWith('· ') ? k.slice(2) : top ? top[0] : k;
+      return [full, shortName(full, k.startsWith('◆ '))]; };
+    const keys = all.filter(k => !isAdOnly(k)).sort((a, b) =>
+      v(a, '네이버', 'sales') / v(a, '쿠팡', 'sales') - v(b, '네이버', 'sales') / v(b, '쿠팡', 'sales') || v(b, '쿠팡', 'sales') - v(a, '쿠팡', 'sales'));
+    let tc = 0, tn = 0;
+    const body = keys.map(k => {
+      const c = v(k, '쿠팡', 'sales'), n = v(k, '네이버', 'sales'); tc += c; tn += n;
+      const [full, name] = nameOf(k);
+      return `<tr><td class="l name" title="${esc(full)}"><b>${esc(name)}</b></td><td>${won(c)}</td>
+        <td>${n ? won(n) : '<span class="muted">0</span>'}</td><td><b>${(n / c * 100).toFixed(0)}%</b></td></tr>`;
+    }).join('');
+    $('onlyCpTbl').innerHTML = keys.length
+      ? `<thead><tr><th class="l">상품</th><th>쿠팡 매출</th><th>네이버 매출</th><th>네이버 ÷ 쿠팡</th></tr></thead><tbody>
+         <tr class="sum"><td class="l">합계</td><td>${won(tc)}</td><td>${won(tn)}</td><td>${tc ? (tn / tc * 100).toFixed(0) + '%' : ''}</td></tr>${body}</tbody>`
+      : '<tr><td class="l muted">쿠팡보다 네이버가 덜 팔린 상품이 없습니다.</td></tr>';
+    $('onlyCpPill').textContent = keys.length + '개';
   }
 
 }
