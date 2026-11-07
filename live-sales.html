@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>실시간 매출 · 광고비중</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  input, select, button { font-family: inherit; }
+  body { margin: 0; font-family: "Pretendard Variable", Pretendard, -apple-system, "Malgun Gothic", sans-serif; background: #f1f2f6; color: #0f172a; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 22px 16px 60px; }
+  .top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .top h1 { font-size: 22px; margin: 0; font-weight: 800; }
+  .top a.back { color: #475569; font-size: 13px; text-decoration: none; padding: 6px 10px; border-radius: 8px; background: #fff; border: 1px solid #e2e8f0; }
+  .spacer { flex: 1; }
+  .btn { border: 1px solid #d5d9e2; background: #fff; color: #0f172a; border-radius: 8px; padding: 8px 14px; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .btn:hover { background: #f8fafc; }
+  .btn.primary { background: #4d7cfe; border-color: #4d7cfe; color: #fff; }
+  .btn.primary:disabled { opacity: .6; cursor: default; }
+  .btn.sm { padding: 5px 10px; font-size: 12.5px; }
+  .datebar { display: flex; gap: 6px; align-items: center; }
+  .datebar input { border: 1px solid #d5d9e2; border-radius: 8px; padding: 7px 9px; font-size: 13.5px; }
+  .status { font-size: 12.5px; color: #64748b; }
+  .status.err { color: #dc2626; font-weight: 700; }
+  .card { background: #fff; border-radius: 14px; border: 1px solid #e5e7eb; padding: 18px 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 16px; margin: 0 0 4px; font-weight: 800; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .hint { font-size: 12.5px; color: #64748b; margin: 0 0 12px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; }
+  .kpi.total { background: #0f172a; color: #fff; border-color: #0f172a; }
+  .kpi .k { font-size: 13px; font-weight: 800; display: flex; justify-content: space-between; gap: 6px; }
+  .kpi .v { font-size: 24px; font-weight: 800; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .kpi .s { font-size: 12.5px; margin-top: 6px; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-variant-numeric: tabular-nums; }
+  .kpi .s span:nth-child(even) { text-align: right; font-weight: 700; }
+  .kpi .when { font-size: 11.5px; color: #94a3b8; margin-top: 8px; }
+  .kpi.total .when { color: #94a3b8; }
+  .pill { font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #eef2f7; color: #475569; }
+  .pill.live { background: #fee2e2; color: #b91c1c; }
+  .pill.final { background: #dcfce7; color: #166534; }
+  .pill.none { background: #f1f5f9; color: #94a3b8; }
+  .tblwrap { overflow-x: auto; border: 1px solid #eef0f4; border-radius: 10px; max-height: 640px; overflow-y: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 7px 9px; border-bottom: 1px solid #f1f3f7; white-space: nowrap; text-align: right; }
+  th { position: sticky; top: 0; background: #f8fafc; color: #475569; font-weight: 700; font-size: 12px; z-index: 1; }
+  thead tr:nth-child(2) th { top: 30px; }
+  th.grp { text-align: center; border-left: 1px solid #e5e7eb; }
+  td.l, th.l { text-align: left; }
+  td.name { white-space: nowrap; min-width: 180px; }
+  td.b { border-left: 1px solid #eef0f4; }
+  tr.sum td { font-weight: 800; background: #f8fafc; }
+  tr.sub td { color: #64748b; font-size: 12px; background: #fcfcfd; }
+  tr.opt td { color: #475569; font-size: 12.5px; background: #fbfcfe; }
+  tr.opt td.name { padding-left: 18px; }
+  tr.grp-row td { border-top: 1px solid #e5e7eb; }
+  /* 광고비중 신호등: 20% 이상 빨강, 15~19% 주황, 10% 초과~15% 미만 초록, 10% 이하 파랑 */
+  .r-hi { color: #dc2626; font-weight: 800; }
+  .r-warn { color: #ea580c; font-weight: 800; }
+  .r-mid { color: #16a34a; font-weight: 700; }
+  .r-lo { color: #2563eb; font-weight: 700; }
+  .r-hi::before, .r-warn::before, .r-mid::before, .r-lo::before { content: '●'; margin-right: 4px; font-size: 10px; vertical-align: 1px; }
+  .brands { display: flex; flex-wrap: wrap; gap: 4px 26px; border-bottom: 1px solid #e5e7eb; margin: 0 0 16px; padding: 0 4px; }
+  .brand { background: none; border: none; padding: 10px 2px; font-size: 16px; font-weight: 700; color: #475569; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+  .brand small { font-size: 13.5px; color: #94a3b8; font-weight: 600; margin-left: 6px; }
+  .brand.active { color: #0f172a; border-bottom-color: #0f172a; }
+  .brand.active small { color: #0f172a; }
+  .muted { color: #94a3b8; }
+  .rules { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .rule { display: inline-flex; gap: 6px; align-items: center; background: #f1f5f9; border-radius: 999px; padding: 3px 4px 3px 10px; font-size: 12.5px; }
+  .rule button { border: none; background: #e2e8f0; border-radius: 999px; width: 20px; height: 20px; cursor: pointer; color: #475569; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row input, .row select { border: 1px solid #d5d9e2; border-radius: 8px; padding: 6px 8px; font-size: 13px; }
+  details summary { cursor: pointer; font-weight: 800; font-size: 15px; }
+  .clickable { cursor: pointer; }
+  .clickable:hover td { background: #f8fafc; }
+  @media (max-width: 640px) { .kpi .v { font-size: 20px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" href="index.html">← 대시보드</a>
+    <h1>실시간 매출 · 광고비중</h1>
+    <div class="spacer"></div>
+    <div class="datebar">
+      <button class="btn sm" id="prevDay">◀</button>
+      <input type="date" id="day">
+      <button class="btn sm" id="nextDay">▶</button>
+      <button class="btn sm" id="todayBtn">오늘</button>
+    </div>
+    <button class="btn primary" id="pullBtn">지금 받기</button>
+  </div>
+  <div class="status" id="status" style="margin:-6px 0 12px"></div>
+
+  <div class="brands" id="brandTabs"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <h2>단품별 매출 · 광고비 · 광고비중 <span class="pill" id="itemPill"></span></h2>
+    <p class="hint">광고비는 VAT 포함(×1.1). 광고비중 = 광고비 ÷ 순매출. 단품은 상품별로 묶어 몰별 칸에 넣습니다.
+      몰 합계와 상품별 합계가 다르면(G마켓은 TOP 50만 줌) 차이가 「그 외」 줄로 남습니다.</p>
+    <div class="tblwrap"><table id="itemTbl"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>세트별 매출 · 광고비 · 광고비중 <span class="pill" id="setPill"></span></h2>
+    <p class="hint">세트 상품은 판매된 세트 이름 그대로 한 줄입니다(「10세트」「3켤레 세트」 같은 개수 표기는 단품으로 봄).</p>
+    <div class="tblwrap"><table id="setTbl"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>판매 없이 광고비만 나간 상품 <span class="pill" id="adOnlyPill"></span></h2>
+    <p class="hint">이 날짜에 팔린 게 없는데 광고비가 나간 광고(캠페인)입니다. 광고 이름 그대로 한 줄씩 보여 줍니다.</p>
+    <div class="tblwrap"><table id="adOnlyTbl"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>최근 <select id="nDays"><option>7</option><option selected>14</option><option>31</option></select>일 · 전일자 누적
+      <button class="btn sm" id="xlsBtn">엑셀 받기</button></h2>
+    <p class="hint">어제까지는 다음 날 아침 확정 수집값(✓), 오늘은 마지막으로 받은 실시간 값입니다.</p>
+    <div class="tblwrap"><table id="dayTbl"></table></div>
+  </div>
+
+</div>
+
+<script>
+const db = window.supabase.createClient('https://fwsszzjfjktliredmjcn.supabase.co', 'sb_publishable_uE-8s2DbZBUSs0z1uQ-nIA_za2Ah3uT');
+const MALLS = ['쿠팡', '네이버', '오늘의집', 'G마켓'];   // 화면 칸 순서 (쿠팡 먼저 — 사용자 요청)
+const VAT = 1.1;
+// 외부 광고 리포트(cpc_ad_rows)의 몰 이름 → 매출이 잡히는 몰
+const AD_MALL = { '네이버 ADVoost': '네이버', '네이버 SA': '네이버', '쿠팡': '쿠팡', 'G마켓': 'G마켓', '오늘의집': '오늘의집' };
+
+const $ = id => document.getElementById(id);
+const won = n => (n == null || isNaN(n)) ? '-' : Math.round(n).toLocaleString('ko-KR');
+const pct = (a, s) => s > 0 ? a / s : (a > 0 ? Infinity : null);
+const pctTxt = r => r == null ? '<span class="muted">-</span>' : r === Infinity ? '<span class="r-hi">매출 0</span>'
+  : `<span class="${r >= .20 ? 'r-hi' : r >= .15 ? 'r-warn' : r <= .10 ? 'r-lo' : 'r-mid'}">${(r * 100).toFixed(1)}%</span>`;
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const kst = (d = new Date()) => new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 10);
+const addDays = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const hm = t => t ? new Date(t).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+
+let RULES = [];
+let cache = {};   // 날짜별 {totals, items, ads}
+
+// ---------- 데이터 받기 ----------
+async function all(q) {
+  const out = []; let from = 0;
+  for (;;) {
+    const { data, error } = await q().range(from, from + 999);
+    if (error) throw error;
+    out.push(...data);
+    if (data.length < 1000) return out;
+    from += 1000;
+  }
+}
+
+async function loadRange(start, end) {
+  const [totals, items, live, cpc] = await Promise.all([
+    all(() => db.from('live_sales_totals').select('*').gte('date', start).lte('date', end).order('date').order('mall')),
+    all(() => db.from('live_sales_items').select('*').gte('date', start).lte('date', end).order('date').order('mall').order('product_id').order('product')),
+    all(() => db.from('live_ad_spend').select('*').gte('date', start).lte('date', end).order('date').order('mall').order('channel').order('campaign').order('product')),
+    all(() => db.from('cpc_ad_rows').select('date,mall,campaign,product,cost').gte('date', start).lte('date', end).order('id')),
+  ]);
+  const byDay = {};
+  const day = d => byDay[d] || (byDay[d] = { totals: {}, items: [], ads: [] });
+  for (let d = start; d <= end; d = addDays(d, 1)) day(d);
+  totals.forEach(t => day(t.date).totals[t.mall] = t);
+  items.forEach(r => day(r.date).items.push(r));
+  // 광고비: 외부 광고 리포트(cpc_ad_rows, 하루치 완성본)가 있는 (날짜·채널)은 그것을,
+  // 없으면(오늘, 또는 리포트에 없는 쿠팡 광고) 수집기가 받은 실시간 값(live_ad_spend)을 쓴다
+  const cpcKey = new Set(cpc.filter(r => AD_MALL[r.mall]).map(r => r.date + '|' + r.mall));
+  cpc.forEach(r => {
+    const mall = AD_MALL[r.mall];
+    if (!mall) return;
+    const name = r.product && !r.product.startsWith('(') ? r.product : r.campaign;
+    day(r.date).ads.push({ mall, channel: r.mall, name, campaign: r.campaign, cost: +r.cost });
+  });
+  live.forEach(r => {
+    if (cpcKey.has(r.date + '|' + r.channel)) return;
+    day(r.date).ads.push({ mall: r.mall, channel: r.channel, name: r.product || r.campaign, campaign: r.campaign, cost: +r.cost });
+  });
+  Object.assign(cache, byDay);
+}
+
+async function loadRules() {
+  const { data, error } = await db.from('live_item_rules').select('*').order('sort').order('id');
+  if (error) throw error;
+  RULES = data;
+}
+
+// ---------- 상품 묶기 ----------
+const squash = s => String(s || '').replace(/^코드니처\s*/, '').replace(/\s+/g, '');
+const keyCache = new Map();
+// 규칙에 안 걸린 매출 상품은 이름 그대로 한 줄(옵션 뒤쪽은 뗀다), 광고는 「기타」로
+const plainName = s => String(s || '').split(' / ')[0].split(/,\s/)[0].trim() || '기타';   // 단품: 옵션 앞 상품명
+function itemKeys(name, isAd) {   // → [[대표 낱말, 몫], …]
+  const ck = (isAd ? 'A|' : 'S|') + name;
+  if (keyCache.has(ck)) return keyCache.get(ck);
+  const n = squash(name);
+  let res = null;
+  for (const r of RULES) if (r.kind === 'alias' && r.pattern && n.includes(squash(r.pattern))) {
+    const ts = r.target.split(',').map(s => s.trim()).filter(Boolean);
+    if (ts.length) { res = ts.map(t => [t, 1 / ts.length]); break; }
+  }
+  if (!res) {
+    const kw = RULES.find(r => r.kind === 'keyword' && r.pattern && n.includes(squash(r.pattern)));
+    res = [[kw ? kw.pattern : isAd ? '기타' : '· ' + plainName(name), 1]];
+  }
+  keyCache.set(ck, res);
+  return res;
+}
+
+// 세트 상품은 판매된 세트 이름 그대로 한 줄, 단품은 규칙으로 상품별로 묶어 몰별 칸에 넣는다.
+// 세트 판단: 옵션 앞 상품명에 「세트」「N종」 또는 구성품을 잇는 「+」가 있으면 (1+1·2+1 같은 수량 표기는 빼고)
+const baseName = s => String(s || '').split(' / ')[0].split(/,\s/)[0].trim();
+// 「10세트」「3켤레 세트」처럼 개수가 붙은 세트는 묶음 수량이라 세트 상품으로 보지 않는다
+const isSet = s => { const b = baseName(s).replace(/\d+\s*\+\s*\d+/g, '').replace(/\d+\s*[가-힣a-zA-Z]{0,2}\s*세트/g, ''); return /세트|\d+종|\+/.test(b); };
+function groupOf(name) { return isSet(name) ? [['◆ ' + baseName(name), 1]] : itemKeys(name); }
+
+// 브랜드: 상품명(광고는 광고명·캠페인명)에 들어 있는 브랜드 이름으로. 없으면 미분류.
+const BRANDS = ['코드니처', '슬로우케어', '명퉤', '라이프스타일마트', '글로리핏', '멜루션', '빠이러스', '그로우뮤즈', '미니멀룸', '잠비에'];
+// 상품명에 브랜드 이름이 없는 상품 → 브랜드 (사용자 지정)
+const BRAND_HINTS = { '풋쿠션': '그로우뮤즈', '스트롱제습서버': '라이프스타일마트', '리모드': '잠비에', 'Zamvie': '잠비에' };   // 리모드 토퍼 = 잠비에(오늘의집 계정1 스토어명 Zamvie)
+const brandOf = s => { const n = String(s || '').replace(/\s+/g, '');
+  return BRANDS.find(b => n.includes(b)) || Object.entries(BRAND_HINTS).find(([k]) => n.includes(k))?.[1] || null; };
+let BRAND = '전체';
+
+// 표에 보일 짧은 이름: 브랜드명·옵션(쉼표·「/」 뒤)을 떼고 앞 세 낱말만. 세트는 괄호 앞까지 네 낱말.
+// 예) 코드니처 하수구 악취 세정서버 배수구 클리너, 10개, 45g → 하수구 악취 세정서버
+const NOUN_END = /(망|서버|클리너|티슈|세정제|제거제|탈취제|제습제|브러쉬|세척솔|솔|패드|삭스|양말|세제|텐트|돔|수세미|행주|토퍼|베개|스프레이|캔디|치약|청결제|매트리스|커버|백|파우치|미스트|페인트)$/;
+function shortName(s, isSetRow) {
+  let n = String(s || '').split(' / ')[0].split(/,\s/)[0];
+  BRANDS.forEach(b => { n = n.replace(new RegExp('^\\s*' + b + '\\s*'), ''); });
+  if (isSetRow) n = n.split('(')[0];
+  const w = n.trim().split(/\s+/).filter(Boolean);
+  if (isSetRow) return w.slice(0, 4).join(' ') || String(s || '');
+  // 단품은 「무슨 물건인지」 나오는 낱말(세탁망·서버·클리너…)까지 — 예) 패딩 2중 압축 세탁망. 못 찾으면 세 낱말.
+  const i = w.findIndex((x, j) => j >= 1 && j <= 5 && NOUN_END.test(x));
+  return (i >= 0 ? w.slice(0, i + 1) : w.slice(0, 3)).join(' ') || String(s || '');
+}
+
+function buildItems(days) {
+  const rows = {};   // 줄 이름 → {mall: {sales, ad, prod:{판매 상품명: 매출}, adNames:Set}}
+  const cell = (k, m) => ((rows[k] ||= {})[m] ||= { sales: 0, ad: 0, prod: {}, adNames: new Set() });
+  const unmatched = {};
+  for (const d of days) {
+    const c = cache[d]; if (!c) continue;
+    const itemSum = {}, sets = [];
+    c.items.forEach(r => {
+      itemSum[r.mall] = (itemSum[r.mall] || 0) + +r.amount;
+      groupOf(r.product).forEach(([k, w]) => {
+        const x = cell(k, r.mall); x.sales += r.amount * w; x.prod[r.product] = (x.prod[r.product] || 0) + r.amount * w;
+        const n = (rows[k]._n ||= {}); n[r.product] = (n[r.product] || 0) + r.amount * w;
+        const bb = (rows[k]._b ||= {}), br = brandOf(r.product); if (br) bb[br] = (bb[br] || 0) + Math.abs(r.amount * w) + 1;
+        if (k.startsWith('◆ ')) sets.push({ k, mall: r.mall, sq: squash(baseName(r.product)) });
+      });
+    });
+    MALLS.forEach(m => {
+      const t = c.totals[m]; if (!t) return;
+      const gap = +t.amount - (itemSum[m] || 0);
+      if (Math.abs(gap) >= 1) cell('그 외 (상품별 미수집)', m).sales += gap;
+    });
+    c.ads.forEach(a => {
+      const cost = a.cost * VAT, label = a.channel + ' · ' + a.name, sq = squash(baseName(a.name));
+      // 세트 광고(애드부스트 상품명 = 세트 판매명)는 그 세트 줄로
+      const st = sets.find(s => s.mall === a.mall && sq.length >= 6 && (s.sq === sq || s.sq.startsWith(sq) || sq.startsWith(s.sq)));
+      const ks = st ? [[st.k, 1]] : isSet(a.name) ? [['◆ ' + baseName(a.name), 1]] : itemKeys(a.name, true);
+      ks.forEach(([k, w]) => { const x = cell(k, a.mall); x.ad += cost * w; x.adNames.add(label); rows[k]._ab ||= brandOf(a.name) || brandOf(a.campaign); });
+      if (ks[0][0] === '기타') {
+        const u = unmatched[a.channel + '|' + a.name] ||= { channel: a.channel, name: a.name, campaign: a.campaign, cost: 0 };
+        u.cost += cost;
+      }
+    });
+  }
+  Object.entries(rows).forEach(([k, r]) => {
+    const top = Object.entries(r._b || {}).sort((x, y) => y[1] - x[1])[0];
+    r.brand = k.startsWith('그 외') ? '미분류' : top ? top[0] : (r._ab || '미분류');
+  });
+  return { rows, unmatched: Object.values(unmatched).sort((a, b) => b.cost - a.cost) };
+}
+
+// 그 날짜의 브랜드별 · 몰별 합계
+function brandTotals(d) {
+  const { rows } = buildItems([d]);
+  const out = {};
+  Object.values(rows).forEach(r => {
+    const o = out[r.brand] ||= { sales: 0, ad: 0, mall: {} };
+    MALLS.forEach(m => { const x = r[m]; if (!x) return; const mm = o.mall[m] ||= { sales: 0, ad: 0 };
+      mm.sales += x.sales; mm.ad += x.ad; o.sales += x.sales; o.ad += x.ad; });
+  });
+  return out;
+}
+
+// 화면에서 쓰는 몰별 합계 — 전체면 몰 합계 그대로, 브랜드를 고르면 그 브랜드 줄만 더한 값
+function viewTotals(d) {
+  const T = dayTotals(d);
+  if (BRAND === '전체') return T;
+  const b = brandTotals(d)[BRAND] || { mall: {} };
+  MALLS.forEach(m => { const x = b.mall[m] || { sales: 0, ad: 0 };
+    T[m] = { ...T[m], sales: T[m].sales == null ? null : x.sales, ad: x.ad, orders: null }; });
+  return T;
+}
+
+function renderTabs(d) {
+  const bt = brandTotals(d);
+  const all = Object.values(bt).reduce((s, x) => s + x.sales, 0);
+  const list = BRANDS.filter(b => bt[b] && (bt[b].sales || bt[b].ad)).sort((a, b) => bt[b].sales - bt[a].sales);
+  const tab = (key, label, v) => `<button class="brand${BRAND === key ? ' active' : ''}" data-b="${esc(key)}">${esc(label)}<small>₩${won(v)}</small></button>`;
+  $('brandTabs').innerHTML = list.map(b => tab(b, b, bt[b].sales)).join('')
+    + tab('미분류', '미분류', bt['미분류']?.sales || 0) + tab('전체', '전체 통합', all);
+  $('brandTabs').querySelectorAll('.brand').forEach(el => el.onclick = () => { BRAND = el.dataset.b; renderAll(); });
+}
+
+function dayTotals(d) {
+  const c = cache[d] || { totals: {}, ads: [], items: [] };
+  const out = {};
+  MALLS.forEach(m => {
+    const t = c.totals[m];
+    out[m] = { sales: t ? +t.amount : null, orders: t ? t.orders : null, final: t?.is_final, at: t?.collected_at, note: t?.note,
+               ad: c.ads.filter(a => a.mall === m).reduce((s, a) => s + a.cost * VAT, 0) };
+  });
+  return out;
+}
+
+// ---------- 그리기 ----------
+function renderKpis(d) {
+  const T = viewTotals(d);
+  let ts = 0, ta = 0, any = false;
+  const cards = MALLS.map(m => {
+    const x = T[m]; ts += x.sales || 0; ta += x.ad; if (x.sales != null) any = true;
+    const pill = x.sales == null ? '<span class="pill none">미수집</span>' : x.final ? '<span class="pill final">확정</span>' : '<span class="pill live">실시간</span>';
+    return `<div class="kpi"><div class="k">${m}${pill}</div>
+      <div class="v">${x.sales == null ? '-' : won(x.sales)}</div>
+      <div class="s"><span>주문</span><span>${x.orders == null ? '-' : won(x.orders) + '건'}</span>
+        <span>광고비</span><span>${won(x.ad)}</span><span>광고비중</span><span>${pctTxt(pct(x.ad, x.sales || 0))}</span></div>
+      <div class="when">${x.at ? '받은 시각 ' + hm(x.at) : ''}${x.note ? ' · ' + esc(x.note) : ''}</div></div>`;
+  });
+  $('kpis').innerHTML = `<div class="kpi total"><div class="k">${BRAND === '전체' ? '4개 몰 합계' : esc(BRAND) + ' · 4개 몰 합계'}</div><div class="v">${any ? won(ts) : '-'}</div>
+    <div class="s"><span>광고비</span><span>${won(ta)}</span><span>광고비중</span><span>${pctTxt(pct(ta, ts))}</span></div>
+    <div class="when">${d === kst() ? '오늘 실시간' : d} · 광고비 VAT 포함</div></div>` + cards.join('');
+}
+
+function renderItems(d) {
+  const { rows } = buildItems([d]);
+  const total = k => MALLS.reduce((t, m) => t + (rows[k][m]?.sales || 0), 0);
+  const all = Object.keys(rows).filter(k => BRAND === '전체' || rows[k].brand === BRAND);
+  // 판매 줄이 하나도 없고 광고비만 있는 줄 → 따로 「광고만」 표
+  const isAdOnly = k => !rows[k]._n && !k.startsWith('그 외') && MALLS.some(m => rows[k][m]?.ad);
+  const adKeys = all.filter(isAdOnly).sort((a, b) => MALLS.reduce((t, m) => t + (rows[b][m]?.ad || 0) - (rows[a][m]?.ad || 0), 0));
+  const setKeys = all.filter(k => k.startsWith('◆ ') && !isAdOnly(k)).sort((a, b) => total(b) - total(a));
+  const oneKeys = all.filter(k => !k.startsWith('◆ ') && !isAdOnly(k)).sort((a, b) =>
+    (a.startsWith('그 외') - b.startsWith('그 외')) || (a === '기타') - (b === '기타') || a.startsWith('· ') - b.startsWith('· ') || total(b) - total(a));
+
+  const table = (keys, empty) => {
+    if (!keys.length) return `<tr><td class="l muted">${empty}</td></tr>`;
+    const tot = { _: { sales: 0, ad: 0 } };
+    const body = keys.map(k => {
+      const r = rows[k]; let s = 0, a = 0;
+      const cells = MALLS.map(m => {
+        const x = r[m] || { sales: 0, ad: 0 }; s += x.sales; a += x.ad;
+        (tot[m] ||= { sales: 0, ad: 0 }); tot[m].sales += x.sales; tot[m].ad += x.ad;
+        return `<td class="b">${x.sales ? won(x.sales) : '<span class="muted">-</span>'}</td><td>${x.ad ? won(x.ad) : '<span class="muted">-</span>'}</td><td>${x.sales || x.ad ? pctTxt(pct(x.ad, x.sales)) : ''}</td>`;
+      });
+      tot._.sales += s; tot._.ad += a;
+      const top = Object.entries(r._n || {}).sort((x, y) => y[1] - x[1])[0];
+      // 오늘 팔린 게 없고 광고비만 있는 줄은 낱말 대신 광고(캠페인) 이름을 보여 준다
+      const adOnly = !top && !k.startsWith('그 외') ? [...new Set(MALLS.flatMap(m => [...(r[m]?.adNames || [])].map(n => n.replace(/^[^·]+·\s*/, ''))))] : [];
+      const full = k.startsWith('◆ ') || k.startsWith('· ') ? k.slice(2) : top && !k.startsWith('그 외') ? top[0] : adOnly.length ? adOnly.join(', ') : k;
+      const name = adOnly.length || k.startsWith('그 외') ? full : shortName(full, k.startsWith('◆ '));
+      return `<tr><td class="l name" title="${esc(full)}"><b>${esc(name)}</b></td><td class="b"><b>${won(s)}</b></td><td>${won(a)}</td><td>${pctTxt(pct(a, s))}</td>${cells.join('')}</tr>`;
+    }).join('');
+    return `<thead><tr><th class="l" rowspan="2">상품</th><th class="grp" colspan="3">합계</th>${MALLS.map(m => `<th class="grp" colspan="3">${m}</th>`).join('')}</tr>
+      <tr>${['합계', ...MALLS].map(() => '<th class="b">매출</th><th>광고비</th><th>비중</th>').join('')}</tr></thead><tbody>
+      <tr class="sum"><td class="l">합계</td><td class="b">${won(tot._.sales)}</td><td>${won(tot._.ad)}</td><td>${pctTxt(pct(tot._.ad, tot._.sales))}</td>
+      ${MALLS.map(m => { const x = tot[m] || { sales: 0, ad: 0 }; return `<td class="b">${won(x.sales)}</td><td>${won(x.ad)}</td><td>${pctTxt(pct(x.ad, x.sales))}</td>`; }).join('')}</tr>${body}</tbody>`;
+  };
+  $('itemTbl').innerHTML = table(oneKeys, '이 날짜에 받은 단품 매출·광고비가 없습니다.');
+  $('setTbl').innerHTML = table(setKeys, '이 날짜에 팔린 세트 상품이 없습니다.');
+  $('itemPill').textContent = oneKeys.length + '개';
+  $('setPill').textContent = setKeys.length + '개';
+  $('adOnlyTbl').innerHTML = table(adKeys, '이 날짜에 판매 없이 광고비만 나간 상품이 없습니다.');
+  $('adOnlyPill').textContent = adKeys.length + '개';
+
+}
+
+function dayRowsFor(end, n) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const d = addDays(end, -i), T = viewTotals(d);
+    let s = 0, a = 0; MALLS.forEach(m => { s += T[m].sales || 0; a += T[m].ad; });
+    out.push({ d, T, s, a });
+  }
+  return out;
+}
+
+function renderDays(end) {
+  const n = +$('nDays').value;
+  const rows = dayRowsFor(end, n);
+  const wd = d => '일월화수목금토'[new Date(d + 'T00:00:00Z').getUTCDay()];
+  let h = `<thead><tr><th class="l" rowspan="2">날짜</th><th class="grp" colspan="3">합계</th>${MALLS.map(m => `<th class="grp" colspan="3">${m}</th>`).join('')}</tr>
+    <tr>${['합계', ...MALLS].map(() => '<th class="b">매출</th><th>광고비</th><th>비중</th>').join('')}</tr></thead><tbody>`;
+  rows.forEach(({ d, T, s, a }) => {
+    h += `<tr><td class="l">${d.slice(5)} (${wd(d)})</td><td class="b"><b>${won(s)}</b></td><td>${won(a)}</td><td>${pctTxt(pct(a, s))}</td>`
+      + MALLS.map(m => { const x = T[m]; return `<td class="b">${x.sales == null ? '<span class="muted">-</span>' : won(x.sales) + (x.final ? ' <span class="muted">✓</span>' : '')}</td><td>${x.ad ? won(x.ad) : '<span class="muted">-</span>'}</td><td>${x.sales != null || x.ad ? pctTxt(pct(x.ad, x.sales || 0)) : ''}</td>`; }).join('') + '</tr>';
+  });
+  $('dayTbl').innerHTML = h + '</tbody>';
+}
+
+function downloadXlsx() {
+  const end = $('day').value, n = +$('nDays').value;
+  const aoa = [['날짜', '합계 매출', '합계 광고비(VAT포함)', '합계 광고비중', ...MALLS.flatMap(m => [m + ' 매출', m + ' 광고비', m + ' 광고비중', m + ' 확정'])]];
+  dayRowsFor(end, n).forEach(({ d, T, s, a }) => aoa.push([d, s, Math.round(a), s ? a / s : null,
+    ...MALLS.flatMap(m => [T[m].sales, Math.round(T[m].ad), T[m].sales ? T[m].ad / T[m].sales : null, T[m].sales == null ? '' : T[m].final ? '확정' : '실시간'])]));
+  // 상품 시트: 화면에서 보고 있는 날짜
+  const { rows } = buildItems([end]);
+  const head = [['상품', ...MALLS.flatMap(m => [m + ' 매출', m + ' 광고비', m + ' 광고비중'])]];
+  const lineOf = k => [k.replace(/^[◆·] /, ''), ...MALLS.flatMap(m => { const x = rows[k][m] || { sales: 0, ad: 0 }; return [Math.round(x.sales), Math.round(x.ad), x.sales ? x.ad / x.sales : null]; })];
+  const mine = Object.keys(rows).filter(k => BRAND === '전체' || rows[k].brand === BRAND);
+  const aoa2 = head.concat(mine.filter(k => !k.startsWith('◆ ')).map(lineOf));
+  const aoa3 = head.concat(mine.filter(k => k.startsWith('◆ ')).map(lineOf));
+  const wb = XLSX.utils.book_new();
+  const fmt = (ws, pctCols) => {
+    const r = XLSX.utils.decode_range(ws['!ref']);
+    for (let R = 1; R <= r.e.r; R++) for (let C = 1; C <= r.e.c; C++) {
+      const c = ws[XLSX.utils.encode_cell({ r: R, c: C })]; if (!c || c.t !== 'n') continue;
+      c.z = pctCols(C) ? '0.0%' : '#,##0';
+    }
+    return ws;
+  };
+  XLSX.utils.book_append_sheet(wb, fmt(XLSX.utils.aoa_to_sheet(aoa), C => C === 3 || (C >= 4 && (C - 4) % 4 === 2)), '날짜별');
+  XLSX.utils.book_append_sheet(wb, fmt(XLSX.utils.aoa_to_sheet(aoa2), C => C >= 1 && (C - 1) % 3 === 2), '단품별 ' + end);
+  XLSX.utils.book_append_sheet(wb, fmt(XLSX.utils.aoa_to_sheet(aoa3), C => C >= 1 && (C - 1) % 3 === 2), '세트별 ' + end);
+  XLSX.writeFile(wb, `실시간매출_광고비중_${BRAND === '전체' ? '전체' : BRAND}_${end}.xlsx`);
+}
+
+async function refreshRules() { await loadRules(); keyCache.clear(); renderAll(); }
+
+function renderAll() {
+  const d = $('day').value;
+  renderTabs(d); renderKpis(d); renderItems(d); renderDays(d);
+}
+
+async function show(d, force) {
+  $('day').value = d;
+  const n = +$('nDays').value;
+  const start = addDays(d, -(n - 1));
+  try {
+    setStatus('불러오는 중…');
+    let need = false;
+    for (let x = start; x <= d; x = addDays(x, 1)) if (!cache[x]) need = true;
+    if (need || force) await loadRange(start, d);
+    renderAll();
+    setStatus('');
+  } catch (e) {
+    setStatus('불러오기 실패: ' + (e.message || e) + (String(e.message || e).includes('live_') ? ' — Supabase 에 live_sales.sql 을 실행했는지 확인하세요' : ''), true);
+  }
+}
+
+function setStatus(t, err) { $('status').textContent = t; $('status').className = 'status' + (err ? ' err' : ''); }
+
+// ---------- 지금 받기: 사무실 PC 수집기에 요청 ----------
+async function pull() {
+  const d = $('day').value;
+  $('pullBtn').disabled = true;
+  try {
+    const { data, error } = await db.from('live_sales_requests').insert({ target_date: d }).select().single();
+    if (error) throw error;
+    setStatus('사무실 PC 수집기에 요청했습니다… (네 몰을 차례로 받아 1~3분 걸립니다)');
+    const t0 = Date.now();
+    for (;;) {
+      await new Promise(r => setTimeout(r, 4000));
+      const { data: r } = await db.from('live_sales_requests').select('*').eq('id', data.id).single();
+      // 수집기는 다른 수집이 끝날 때까지 최대 5분 기다린다
+      if (r.status === 'pending' && Date.now() - t0 > 4 * 60e3) { setStatus('사무실 PC 수집기가 요청을 가져가지 않습니다 — PC가 꺼져 있거나 감시 프로그램(실시간매출감시.bat)이 꺼져 있을 수 있습니다.', true); break; }
+      if (r.status === 'running') setStatus('받는 중… ' + (r.message || ''));
+      if (r.status === 'done' || r.status === 'failed') {
+        Object.keys(cache).forEach(k => { if (k >= addDays(d, -1)) delete cache[k]; });
+        await show(d, true);
+        setStatus((r.status === 'done' ? '받았습니다. ' : '일부 실패: ') + (r.message || ''), r.status === 'failed');
+        break;
+      }
+      if (Date.now() - t0 > 6 * 60e3) { setStatus('6분이 지나도 끝나지 않았습니다. 잠시 뒤 새로고침해 보세요.', true); break; }
+    }
+  } catch (e) { setStatus('요청 실패: ' + (e.message || e), true); }
+  $('pullBtn').disabled = false;
+}
+
+// ---------- 시작 ----------
+$('prevDay').onclick = () => show(addDays($('day').value, -1));
+$('nextDay').onclick = () => show(addDays($('day').value, 1));
+$('todayBtn').onclick = () => show(kst());
+$('day').onchange = () => show($('day').value);
+$('nDays').onchange = () => show($('day').value);
+$('pullBtn').onclick = pull;
+$('xlsBtn').onclick = downloadXlsx;
+
+(async () => {
+  try { await loadRules(); } catch (e) { setStatus('규칙 불러오기 실패: ' + e.message + ' — Supabase 에 live_sales.sql 을 실행했는지 확인하세요', true); }
+  await show(new URLSearchParams(location.search).get('date') || kst());
+})();
+</script>
+</body>
+</html>
