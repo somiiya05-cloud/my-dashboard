@@ -36,6 +36,12 @@
   .kpi .s { font-size: 12.5px; margin-top: 6px; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-variant-numeric: tabular-nums; }
   .kpi .s span:nth-child(even) { text-align: right; font-weight: 700; }
   .kpi .when { font-size: 11.5px; color: #94a3b8; margin-top: 8px; }
+  .kpi .best { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e5e7eb; }
+  .kpi .best .bt { font-size: 11.5px; font-weight: 800; color: #64748b; margin-bottom: 4px; }
+  .kpi .best ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+  .kpi .best li { display: grid; grid-template-columns: 16px 1fr auto; gap: 6px; align-items: center; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .kpi .best .rk { width: 16px; height: 16px; border-radius: 4px; background: #eef2ff; color: #3730a3; font-size: 10.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .kpi .best .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kpi.total .when { color: #94a3b8; }
   .pill { font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #eef2f7; color: #475569; }
   .pill.live { background: #fee2e2; color: #b91c1c; }
@@ -240,6 +246,7 @@ let BRAND = '전체';
 const NOUN_END = /(망|서버|클리너|티슈|세정제|제거제|탈취제|제습제|브러쉬|세척솔|솔|패드|삭스|양말|세제|텐트|돔|수세미|행주|토퍼|베개|스프레이|캔디|치약|청결제|매트리스|커버|백|파우치|미스트|페인트)$/;
 function shortName(s, isSetRow) {
   let n = String(s || '').split(' / ')[0].split(/,\s/)[0];
+  n = n.replace(/^\s*\[[^\]]*\]\s*/, '');   // [잠비에] 같은 앞머리 표기
   BRANDS.forEach(b => { n = n.replace(new RegExp('^\\s*' + b + '\\s*'), ''); });
   if (isSetRow) n = n.split('(')[0];
   const w = n.trim().split(/\s+/).filter(Boolean);
@@ -354,14 +361,26 @@ function dayTotals(d) {
 // ---------- 그리기 ----------
 function renderKpis(d) {
   const T = viewTotals(d);
+  // 몰별 매출 Best 3 — 지금 고른 탭(브랜드 등) 안에서, 「그 외」 줄은 빼고
+  const { rows } = buildItems([d]);
+  const best = m => Object.entries(rows)
+    .filter(([k, r]) => !k.startsWith('그 외') && rowMatch(k, r) && (r[m]?.sales || 0) > 0)
+    .sort((a, b) => b[1][m].sales - a[1][m].sales).slice(0, 3)
+    .map(([k, r], i) => {
+      const top = Object.entries(r[m].prod || {}).sort((x, y) => y[1] - x[1])[0];
+      const full = k.startsWith('◆ ') || k.startsWith('· ') ? k.slice(2) : top ? top[0] : k;
+      return `<li title="${esc(full)}"><span class="rk">${i + 1}</span><span class="nm">${esc(shortName(full, k.startsWith('◆ ')))}</span><b>${won(r[m].sales)}</b></li>`;
+    }).join('');
   let ts = 0, ta = 0, any = false;
   const cards = MALLS.map(m => {
+    const b3 = best(m);
     const x = T[m]; ts += x.sales || 0; ta += x.ad; if (x.sales != null) any = true;
     const pill = x.sales == null ? '<span class="pill none">미수집</span>' : x.final ? '<span class="pill final">확정</span>' : '<span class="pill live">실시간</span>';
     return `<div class="kpi"><div class="k">${m}${pill}</div>
       <div class="v">${x.sales == null ? '-' : won(x.sales)}</div>
       <div class="s"><span>주문</span><span>${x.orders == null ? '-' : won(x.orders) + '건'}</span>
         <span>광고비</span><span>${won(x.ad)}</span><span>광고비중</span><span>${pctTxt(pct(x.ad, x.sales || 0))}</span></div>
+      ${b3 ? `<div class="best"><div class="bt">매출 Best 3</div><ol>${b3}</ol></div>` : ''}
       <div class="when">${x.at ? '받은 시각 ' + hm(x.at) : ''}${x.note ? ' · ' + esc(x.note) : ''}</div></div>`;
   });
   const tabName = { '단독': '쿠팡 대비 네이버 부진' }[BRAND] || BRAND;
