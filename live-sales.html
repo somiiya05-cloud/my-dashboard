@@ -72,6 +72,14 @@
   .brand small { font-size: 13.5px; color: #94a3b8; font-weight: 600; margin-left: 6px; }
   .brand.active { color: #0f172a; border-bottom-color: #0f172a; }
   .brand.active small { color: #0f172a; }
+  .wk-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .wk-box { background: #f8fafc; border: 1px solid #eef0f4; border-radius: 10px; padding: 10px 12px; font-size: 12.5px; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-variant-numeric: tabular-nums; }
+  .wk-box .h { grid-column: 1 / -1; font-weight: 800; font-size: 13px; margin-bottom: 2px; }
+  .wk-box span:nth-child(odd):not(.h) { color: #64748b; }
+  .wk-box b { text-align: right; }
+  .bar { position: relative; height: 6px; background: #e5e7eb; border-radius: 99px; overflow: hidden; min-width: 70px; }
+  .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; }
+  tr.cur td { background: #f5f8ff; }
   .brand-sep { width: 1px; background: #e5e7eb; margin: 10px 4px; align-self: stretch; }
   .muted { color: #94a3b8; }
   .rules { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
@@ -103,6 +111,14 @@
 
   <div class="brands" id="brandTabs"></div>
   <div class="kpis" id="kpis"></div>
+
+  <div class="card" id="weekCard">
+    <h2>주간 매출 점검 <span class="pill" id="weekPill"></span></h2>
+    <p class="hint">영업팀 월 목표 <b id="weekTarget"></b> 기준. 주 목표 = 월 목표 ÷ 그 달 일수 × 그 주 일수(월~일).
+      <b>4개 몰</b>은 이 화면의 쿠팡·네이버·오늘의집·G마켓 실시간 합계, <b>영업팀 전체</b>는 영업 대시보드와 같은 매출DB 기준(자사몰·카카오선물하기·오프라인·컨텐츠팀 제외)이라 하루 늦게 들어옵니다.</p>
+    <div class="wk-sum" id="weekSum"></div>
+    <div class="tblwrap"><table id="weekTbl"></table></div>
+  </div>
 
   <div class="card" id="onlyCard" style="display:none">
     <h2>쿠팡에서 팔리는데 네이버에선 안 팔리거나 덜 팔리는 상품 <span class="pill" id="onlyCpPill"></span></h2>
@@ -358,6 +374,86 @@ function dayTotals(d) {
   return out;
 }
 
+// ---------- 주간 매출 점검 ----------
+// 영업팀 월 목표 — 영업 대시보드(index.html)의 TEAM_MONTHLY_TARGET 과 같은 값으로 둔다
+const TEAM_MONTHLY_TARGET = 1000000000;
+// 영업팀 매출 = 매출DB 중 아래 판매처를 뺀 것. index.html 의 CHANNEL_TEMPLATE team:false 표(자사몰 본사몰·카카오·오프라인·컨텐츠팀)와 같다.
+// (카카오톡스토어·카카오톡스토어(법인)은 영업팀 실적이라 넣지 않음) — 한쪽을 바꾸면 다른 쪽도 같이 바꿀 것
+const EXCLUDED_FROM_TEAM = ['미니멀룸', '글로리핏', '라이프스타일마트', '빠이러스', '그로우뮤즈', 'PORKE.', '명퉤', '명퉤(해외)',
+  '잠비에', '멜루션', '코드니처', '슬로우케어', '카카오선물하기(개인)', '카카오선물하기(개인)_폴크', '명퉤 경주 황리단길 본점',
+  '공동구매(컨텐츠팀)', 'CONTENTS_DEAL'];
+const teamExcluded = v => EXCLUDED_FROM_TEAM.includes(v) || String(v || '').includes('공동구매(컨텐츠');
+const weekCache = {};
+const eok = n => (n / 1e8).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + '억';
+const man = n => Math.round(n / 1e4).toLocaleString('ko-KR') + '만';
+
+async function loadWeek(month) {
+  if (weekCache[month]) return weekCache[month];
+  const [y, m] = month.split('-').map(Number);
+  const start = `${month}-01`, end = `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+  const [live, team] = await Promise.all([
+    all(() => db.from('live_sales_totals').select('date,mall,amount').gte('date', start).lte('date', end).order('date').order('mall')),
+    // 페이지 나눠 받을 땐 정렬을 한 줄로 정해야 합계가 안 틀린다(sales-loading-structure)
+    all(() => db.from('sales_daily_rollup').select('sale_date,vendor,amount').gte('sale_date', start).lte('sale_date', end)
+      .order('sale_date').order('vendor').order('brand').order('product_name')),
+  ]);
+  const liveBy = {}, teamBy = {};
+  live.forEach(r => liveBy[r.date] = (liveBy[r.date] || 0) + +r.amount);
+  team.forEach(r => { if (!teamExcluded(r.vendor)) teamBy[r.sale_date] = (teamBy[r.sale_date] || 0) + +r.amount; });
+  return weekCache[month] = { liveBy, teamBy, teamLast: Object.keys(teamBy).sort().pop() || null, days: new Date(y, m, 0).getDate() };
+}
+
+async function renderWeek(d) {
+  const month = d.slice(0, 7);
+  let W;
+  try { W = await loadWeek(month); } catch (e) { $('weekTbl').innerHTML = `<tr><td class="l muted">불러오기 실패: ${esc(e.message || e)}</td></tr>`; return; }
+  const daily = TEAM_MONTHLY_TARGET / W.days, today = kst();
+  $('weekTarget').textContent = eok(TEAM_MONTHLY_TARGET);
+  // 주 나누기: 월요일 시작, 그 달 안의 날짜만
+  const weeks = [];
+  for (let i = 1; i <= W.days; i++) {
+    const ds = `${month}-${String(i).padStart(2, '0')}`;
+    const dow = new Date(ds + 'T00:00:00Z').getUTCDay();
+    if (i === 1 || dow === 1) weeks.push([]);
+    weeks[weeks.length - 1].push(ds);
+  }
+  const lastDay = d < today ? d : today;          // 화면 날짜(보통 오늘)까지를 「지난 날」로 본다
+  const elapsed = Math.min(W.days, Math.max(0, +lastDay.slice(8)));
+  const sum = (by, days) => days.reduce((t, x) => t + (by[x] || 0), 0);
+  const mtdLive = sum(W.liveBy, Object.keys(W.liveBy).filter(x => x <= lastDay));
+  const teamTo = W.teamLast && W.teamLast < lastDay ? W.teamLast : lastDay;
+  const mtdTeam = sum(W.teamBy, Object.keys(W.teamBy).filter(x => x <= teamTo));
+  const teamDays = W.teamLast ? Math.min(+teamTo.slice(8), W.days) : 0;
+  const bar = r => `<div class="bar"><i style="width:${Math.min(100, r * 100).toFixed(1)}%;background:${r >= 1 ? '#16a34a' : r >= .8 ? '#eab308' : '#dc2626'}"></i></div>`;
+  const rate = (a, t) => t ? `${(a / t * 100).toFixed(1)}%` : '-';
+  const box = (title, mtd, n, upto) => {
+    const pace = daily * n, avg = n ? mtd / n : 0, proj = avg * W.days, left = W.days - n, need = left > 0 ? (TEAM_MONTHLY_TARGET - mtd) / left : 0;
+    return `<div class="wk-box"><span class="h">${title}${upto ? ` <span class="muted" style="font-weight:600">(${upto.slice(5)}까지)</span>` : ''}</span>
+      <span>누적</span><b>${won(mtd)}</b>
+      <span>월 목표 대비</span><b>${rate(mtd, TEAM_MONTHLY_TARGET)}</b>
+      <span>경과일 목표(${n}일) 대비</span><b>${rate(mtd, pace)}</b>
+      <span>이대로면 월말</span><b>${eok(proj)} (${rate(proj, TEAM_MONTHLY_TARGET)})</b>
+      <span>남은 ${left}일 하루 필요</span><b>${left > 0 ? man(Math.max(0, need)) + '원' : '-'}</b></div>`;
+  };
+  $('weekSum').innerHTML = box('4개 몰 (실시간)', mtdLive, elapsed, lastDay) + box('영업팀 전체 (매출DB)', mtdTeam, teamDays, W.teamLast ? teamTo : null);
+  $('weekPill').textContent = `${+month.slice(5)}월 · 목표 ${eok(TEAM_MONTHLY_TARGET)}`;
+  let h = `<thead><tr><th class="l">주차</th><th class="l">기간</th><th>주 목표</th><th class="b">4개 몰</th><th>달성률</th><th></th><th class="b">영업팀 전체</th><th>달성률</th><th></th></tr></thead><tbody>`;
+  weeks.forEach((w, i) => {
+    const tgt = daily * w.length, a = sum(W.liveBy, w), t = sum(W.teamBy, w);
+    const started = w[0] <= lastDay, cur = w[0] <= lastDay && lastDay <= w[w.length - 1];
+    const teamPart = W.teamLast && W.teamLast < w[w.length - 1] && W.teamLast >= w[0] ? ` <span class="muted">(${W.teamLast.slice(5)}까지)</span>` : '';
+    h += `<tr class="${cur ? 'cur' : ''}"><td class="l"><b>${i + 1}주차</b>${cur ? ' <span class="pill live">이번 주</span>' : ''}</td>
+      <td class="l">${w[0].slice(5)} ~ ${w[w.length - 1].slice(5)} <span class="muted">(${w.length}일)</span></td>
+      <td>${won(tgt)}</td>
+      <td class="b">${started ? won(a) : '<span class="muted">-</span>'}</td><td>${started ? rate(a, tgt) : ''}</td><td>${started ? bar(a / tgt) : ''}</td>
+      <td class="b">${started && (t || W.teamLast >= w[0]) ? won(t) + teamPart : '<span class="muted">-</span>'}</td><td>${started && t ? rate(t, tgt) : ''}</td><td>${started && t ? bar(t / tgt) : ''}</td></tr>`;
+  });
+  const tm = sum(W.liveBy, Object.keys(W.liveBy)), tt = sum(W.teamBy, Object.keys(W.teamBy));
+  h += `<tr class="sum"><td class="l">월 합계</td><td></td><td>${won(TEAM_MONTHLY_TARGET)}</td><td class="b">${won(tm)}</td><td>${rate(tm, TEAM_MONTHLY_TARGET)}</td><td>${bar(tm / TEAM_MONTHLY_TARGET)}</td>
+    <td class="b">${won(tt)}</td><td>${rate(tt, TEAM_MONTHLY_TARGET)}</td><td>${bar(tt / TEAM_MONTHLY_TARGET)}</td></tr></tbody>`;
+  $('weekTbl').innerHTML = h;
+}
+
 // ---------- 그리기 ----------
 function renderKpis(d) {
   const T = viewTotals(d);
@@ -513,6 +609,8 @@ async function refreshRules() { await loadRules(); keyCache.clear(); renderAll()
 function renderAll() {
   const d = $('day').value;
   renderTabs(d); renderKpis(d); renderItems(d); renderDays(d);
+  $('weekCard').style.display = BRAND === '단독' ? 'none' : '';
+  renderWeek(d);
 }
 
 async function show(d, force) {
