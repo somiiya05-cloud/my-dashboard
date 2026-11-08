@@ -72,11 +72,15 @@
   .brand small { font-size: 13.5px; color: #94a3b8; font-weight: 600; margin-left: 6px; }
   .brand.active { color: #0f172a; border-bottom-color: #0f172a; }
   .brand.active small { color: #0f172a; }
-  .wk-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px; }
-  .wk-box { background: #f8fafc; border: 1px solid #eef0f4; border-radius: 10px; padding: 10px 12px; font-size: 12.5px; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-variant-numeric: tabular-nums; }
-  .wk-box .h { grid-column: 1 / -1; font-weight: 800; font-size: 13px; margin-bottom: 2px; }
-  .wk-box span:nth-child(odd):not(.h) { color: #64748b; }
-  .wk-box b { text-align: right; }
+  .goal3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .goal { background: #f8fafc; border: 1px solid #eef0f4; border-radius: 12px; padding: 14px 16px; font-variant-numeric: tabular-nums; }
+  .goal .t { font-size: 13px; font-weight: 800; color: #475569; display: flex; justify-content: space-between; gap: 8px; }
+  .goal .t small { font-weight: 600; color: #94a3b8; }
+  .goal .v { font-size: 22px; font-weight: 800; margin: 6px 0 2px; display: flex; align-items: baseline; gap: 8px; }
+  .goal .v span { font-size: 15px; }
+  .goal .g { font-size: 12.5px; color: #64748b; margin-bottom: 8px; }
+  .goal .team { font-size: 12px; color: #94a3b8; margin-top: 8px; }
+  .goal .bar { height: 8px; }
   .bar { position: relative; height: 6px; background: #e5e7eb; border-radius: 99px; overflow: hidden; min-width: 70px; }
   .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; }
   tr.cur td { background: #f5f8ff; }
@@ -113,11 +117,9 @@
   <div class="kpis" id="kpis"></div>
 
   <div class="card" id="weekCard">
-    <h2>주간 매출 점검 <span class="pill" id="weekPill"></span></h2>
-    <p class="hint">영업팀 월 목표 <b id="weekTarget"></b> 기준. 주 목표 = 월 목표 ÷ 그 달 일수 × 그 주 일수(월~일).
-      <b>4개 몰</b>은 이 화면의 쿠팡·네이버·오늘의집·G마켓 실시간 합계, <b>영업팀 전체</b>는 영업 대시보드와 같은 매출DB 기준(자사몰·카카오선물하기·오프라인·컨텐츠팀 제외)이라 하루 늦게 들어옵니다.</p>
-    <div class="wk-sum" id="weekSum"></div>
-    <div class="tblwrap"><table id="weekTbl"></table></div>
+    <h2>매출 목표 점검 <span class="pill" id="weekPill"></span></h2>
+    <p class="hint">큰 숫자는 4개 몰 실시간 합계, 회색 줄은 영업 대시보드와 같은 영업팀 전체(매출DB·하루 늦게 들어옴).</p>
+    <div class="goal3" id="weekSum"></div>
   </div>
 
   <div class="card" id="onlyCard" style="display:none">
@@ -406,52 +408,32 @@ async function loadWeek(month) {
 async function renderWeek(d) {
   const month = d.slice(0, 7);
   let W;
-  try { W = await loadWeek(month); } catch (e) { $('weekTbl').innerHTML = `<tr><td class="l muted">불러오기 실패: ${esc(e.message || e)}</td></tr>`; return; }
+  try { W = await loadWeek(month); } catch (e) { $('weekSum').innerHTML = `<span class="muted">불러오기 실패: ${esc(e.message || e)}</span>`; return; }
   const daily = TEAM_MONTHLY_TARGET / W.days, today = kst();
-  $('weekTarget').textContent = eok(TEAM_MONTHLY_TARGET);
-  // 주 나누기: 월요일 시작, 그 달 안의 날짜만
-  const weeks = [];
-  for (let i = 1; i <= W.days; i++) {
-    const ds = `${month}-${String(i).padStart(2, '0')}`;
-    const dow = new Date(ds + 'T00:00:00Z').getUTCDay();
-    if (i === 1 || dow === 1) weeks.push([]);
-    weeks[weeks.length - 1].push(ds);
-  }
-  const lastDay = d < today ? d : today;          // 화면 날짜(보통 오늘)까지를 「지난 날」로 본다
-  const elapsed = Math.min(W.days, Math.max(0, +lastDay.slice(8)));
-  const sum = (by, days) => days.reduce((t, x) => t + (by[x] || 0), 0);
-  const mtdLive = sum(W.liveBy, Object.keys(W.liveBy).filter(x => x <= lastDay));
-  const teamTo = W.teamLast && W.teamLast < lastDay ? W.teamLast : lastDay;
-  const mtdTeam = sum(W.teamBy, Object.keys(W.teamBy).filter(x => x <= teamTo));
-  const teamDays = W.teamLast ? Math.min(+teamTo.slice(8), W.days) : 0;
-  const bar = r => `<div class="bar"><i style="width:${Math.min(100, r * 100).toFixed(1)}%;background:${r >= 1 ? '#16a34a' : r >= .8 ? '#eab308' : '#dc2626'}"></i></div>`;
-  const rate = (a, t) => t ? `${(a / t * 100).toFixed(1)}%` : '-';
-  const box = (title, mtd, n, upto) => {
-    const pace = daily * n, avg = n ? mtd / n : 0, proj = avg * W.days, left = W.days - n, need = left > 0 ? (TEAM_MONTHLY_TARGET - mtd) / left : 0;
-    return `<div class="wk-box"><span class="h">${title}${upto ? ` <span class="muted" style="font-weight:600">(${upto.slice(5)}까지)</span>` : ''}</span>
-      <span>누적</span><b>${won(mtd)}</b>
-      <span>월 목표 대비</span><b>${rate(mtd, TEAM_MONTHLY_TARGET)}</b>
-      <span>경과일 목표(${n}일) 대비</span><b>${rate(mtd, pace)}</b>
-      <span>이대로면 월말</span><b>${eok(proj)} (${rate(proj, TEAM_MONTHLY_TARGET)})</b>
-      <span>남은 ${left}일 하루 필요</span><b>${left > 0 ? man(Math.max(0, need)) + '원' : '-'}</b></div>`;
-  };
-  $('weekSum').innerHTML = box('4개 몰 (실시간)', mtdLive, elapsed, lastDay) + box('영업팀 전체 (매출DB)', mtdTeam, teamDays, W.teamLast ? teamTo : null);
-  $('weekPill').textContent = `${+month.slice(5)}월 · 목표 ${eok(TEAM_MONTHLY_TARGET)}`;
-  let h = `<thead><tr><th class="l">주차</th><th class="l">기간</th><th>주 목표</th><th class="b">4개 몰</th><th>달성률</th><th></th><th class="b">영업팀 전체</th><th>달성률</th><th></th></tr></thead><tbody>`;
-  weeks.forEach((w, i) => {
-    const tgt = daily * w.length, a = sum(W.liveBy, w), t = sum(W.teamBy, w);
-    const started = w[0] <= lastDay, cur = w[0] <= lastDay && lastDay <= w[w.length - 1];
-    const teamPart = W.teamLast && W.teamLast < w[w.length - 1] && W.teamLast >= w[0] ? ` <span class="muted">(${W.teamLast.slice(5)}까지)</span>` : '';
-    h += `<tr class="${cur ? 'cur' : ''}"><td class="l"><b>${i + 1}주차</b>${cur ? ' <span class="pill live">이번 주</span>' : ''}</td>
-      <td class="l">${w[0].slice(5)} ~ ${w[w.length - 1].slice(5)} <span class="muted">(${w.length}일)</span></td>
-      <td>${won(tgt)}</td>
-      <td class="b">${started ? won(a) : '<span class="muted">-</span>'}</td><td>${started ? rate(a, tgt) : ''}</td><td>${started ? bar(a / tgt) : ''}</td>
-      <td class="b">${started && (t || W.teamLast >= w[0]) ? won(t) + teamPart : '<span class="muted">-</span>'}</td><td>${started && t ? rate(t, tgt) : ''}</td><td>${started && t ? bar(t / tgt) : ''}</td></tr>`;
-  });
-  const tm = sum(W.liveBy, Object.keys(W.liveBy)), tt = sum(W.teamBy, Object.keys(W.teamBy));
-  h += `<tr class="sum"><td class="l">월 합계</td><td></td><td>${won(TEAM_MONTHLY_TARGET)}</td><td class="b">${won(tm)}</td><td>${rate(tm, TEAM_MONTHLY_TARGET)}</td><td>${bar(tm / TEAM_MONTHLY_TARGET)}</td>
-    <td class="b">${won(tt)}</td><td>${rate(tt, TEAM_MONTHLY_TARGET)}</td><td>${bar(tt / TEAM_MONTHLY_TARGET)}</td></tr></tbody>`;
-  $('weekTbl').innerHTML = h;
+  const day = d < today ? d : today;
+  // 이번 주(월~일, 그 달 안)
+  const dow = new Date(day + 'T00:00:00Z').getUTCDay();
+  const mon = addDays(day, -((dow + 6) % 7));
+  const week = []; for (let i = 0; i < 7; i++) { const x = addDays(mon, i); if (x.slice(0, 7) === month) week.push(x); }
+  const sum = (by, keys) => keys.reduce((t, x) => t + (by[x] || 0), 0);
+  const monthDays = Object.keys(W.liveBy).filter(x => x <= day);
+  const rows = [
+    ['월', `${+month.slice(5)}월`, TEAM_MONTHLY_TARGET, sum(W.liveBy, monthDays), Object.keys(W.teamBy)],
+    ['일', `${day.slice(5)} (${'일월화수목금토'[dow]})`, daily, W.liveBy[day] || 0, [day]],
+    ['주간', `${week[0].slice(5)} ~ ${week[week.length - 1].slice(5)}`, daily * week.length, sum(W.liveBy, week.filter(x => x <= day)), week],
+  ];
+  const color = r => r >= 1 ? '#16a34a' : r >= .8 ? '#eab308' : '#dc2626';
+  $('weekSum').innerHTML = rows.map(([name, when, tgt, act, teamKeys]) => {
+    const r = tgt ? act / tgt : 0;
+    const tk = teamKeys.filter(x => W.teamBy[x] != null && x <= day), tAct = sum(W.teamBy, tk);
+    const teamLine = tk.length ? `영업팀 전체 ${won(tAct)} · ${(tAct / tgt * 100).toFixed(1)}%${W.teamLast && W.teamLast < day ? ` <span>(${W.teamLast.slice(5)}까지)</span>` : ''}` : '영업팀 전체 — 매출DB 아직 없음';
+    return `<div class="goal"><div class="t">${name}<small>${when}</small></div>
+      <div class="v">${won(act)}<span style="color:${color(r)}">${(r * 100).toFixed(1)}%</span></div>
+      <div class="g">목표 ${won(tgt)}</div>
+      <div class="bar"><i style="width:${Math.min(100, r * 100).toFixed(1)}%;background:${color(r)}"></i></div>
+      <div class="team">${teamLine}</div></div>`;
+  }).join('');
+  $('weekPill').textContent = `월 목표 ${eok(TEAM_MONTHLY_TARGET)}`;
 }
 
 // ---------- 그리기 ----------
