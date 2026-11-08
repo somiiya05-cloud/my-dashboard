@@ -131,7 +131,8 @@
 
   <div class="card" id="onlyCard" style="display:none">
     <h2>쿠팡에서 팔리는데 네이버에선 안 팔리거나 덜 팔리는 상품 <span class="pill" id="onlyCpPill"></span></h2>
-    <p class="hint">쿠팡 매출이 네이버보다 큰 상품만, 네이버 비율이 낮은 순서로 보여 줍니다. 「네이버 ÷ 쿠팡」 — 쿠팡 100에 네이버 20이면 20%, 네이버에서 안 팔렸으면 0%.</p>
+    <p class="hint">쿠팡 매출이 네이버보다 큰 상품만, 네이버 비율이 낮은 순서로 보여 줍니다. 「네이버 ÷ 쿠팡」 — 쿠팡 100에 네이버 20이면 20%, 네이버에서 안 팔렸으면 0%.<br>
+      네이버쇼핑 노출 = 브랜드를 뺀 상품명으로 네이버쇼핑을 검색했을 때 우리 스토어가 광고 아닌 결과 중 몇 번째인지(초록 1~3위 · 노랑 4~10위 · 빨강 그 아래/미노출). 가격비교 최저가 = 같은 브랜드 상품을 파는 곳 중 가장 낮은 노출가. 하루 한 번(아침) 확인하고, 상품명에 마우스를 올리면 검색어가 보입니다.</p>
     <div class="tblwrap"><table id="onlyCpTbl"></table></div>
   </div>
 
@@ -215,6 +216,17 @@ async function loadRange(start, end) {
     day(r.date).ads.push({ mall: r.mall, channel: r.channel, name: r.product || r.campaign, campaign: r.campaign, cost: +r.cost });
   });
   Object.assign(cache, byDay);
+}
+
+// 상품 정보(쿠팡 후기·네이버쇼핑 노출·최저가) — 수집기가 live_product_meta 에 넣는다. 표가 없으면 빈 채로 둔다.
+let META = {}, META_AT = null;
+async function loadMeta() {
+  try {
+    const { data, error } = await db.from('live_product_meta').select('*');
+    if (error) throw error;
+    META = {}; META_AT = null;
+    data.forEach(r => { META[r.mall + '|' + r.product] = r; if (!META_AT || r.checked_at > META_AT) META_AT = r.checked_at; });
+  } catch (e) { META = {}; }
 }
 
 async function loadRules() {
@@ -521,15 +533,33 @@ function renderItems(d) {
     const keys = all.filter(k => !isAdOnly(k)).sort((a, b) =>
       v(a, '네이버', 'sales') / v(a, '쿠팡', 'sales') - v(b, '네이버', 'sales') / v(b, '쿠팡', 'sales') || v(b, '쿠팡', 'sales') - v(a, '쿠팡', 'sales'));
     let tc = 0, tn = 0;
+    // 그 줄에서 쿠팡에 가장 많이 팔린 상품명(옵션 앞) → 상품 정보
+    const metaOf = k => {
+      const prod = rows[k]['쿠팡']?.prod || {};
+      const by = {}; Object.entries(prod).forEach(([n, x]) => { const b = n.split(', ')[0].trim(); by[b] = (by[b] || 0) + x; });
+      const base = Object.keys(by).sort((a, b) => by[b] - by[a])[0];
+      return { cp: META['쿠팡|' + base], nv: META['네이버쇼핑|' + base] };
+    };
+    const rev = m => m && m.review_count != null ? `${won(m.review_count)}${m.rating ? ` <span class="muted">★${(+m.rating).toFixed(1)}</span>` : ''}` : '<span class="muted">-</span>';
+    const expo = nv => !nv ? '<span class="muted">미확인</span>'
+      : nv.rank ? `<b style="color:${nv.rank <= 3 ? '#16a34a' : nv.rank <= 10 ? '#ca8a04' : '#dc2626'}">${nv.rank}위</b>`
+      : nv.ad_only ? '<b style="color:#ca8a04">광고만</b>'
+      : nv.low_store === '스마트스토어 없음' ? '<span class="muted">스토어 없음</span>'
+      : '<b style="color:#dc2626">미노출</b>';
     const body = keys.map(k => {
       const c = v(k, '쿠팡', 'sales'), n = v(k, '네이버', 'sales'); tc += c; tn += n;
       const [full, name] = nameOf(k);
-      return `<tr><td class="l name" title="${esc(full)}"><b>${esc(name)}</b></td><td>${won(c)}</td>
-        <td>${n ? won(n) : '<span class="muted">0</span>'}</td><td><b>${(n / c * 100).toFixed(0)}%</b></td></tr>`;
+      const { cp, nv } = metaOf(k);
+      const low = nv && nv.low_price ? `${won(nv.low_price)}${nv.low_store ? ` <span class="muted">${esc(nv.low_store)}</span>` : ''}` : '<span class="muted">-</span>';
+      return `<tr><td class="l name" title="${esc(full)}${nv ? ' · 네이버 검색어: ' + esc(nv.query) : ''}"><b>${esc(name)}</b></td><td>${won(c)}</td>
+        <td>${n ? won(n) : '<span class="muted">0</span>'}</td><td><b>${(n / c * 100).toFixed(0)}%</b></td>
+        <td class="b">${expo(nv)}</td><td>${nv && nv.price ? won(nv.price) : '<span class="muted">-</span>'}</td><td>${low}</td>
+        <td class="b">${rev(cp)}</td><td>${rev(nv)}</td></tr>`;
     }).join('');
     $('onlyCpTbl').innerHTML = keys.length
-      ? `<thead><tr><th class="l">상품</th><th>쿠팡 매출</th><th>네이버 매출</th><th>네이버 ÷ 쿠팡</th></tr></thead><tbody>
-         <tr class="sum"><td class="l">합계</td><td>${won(tc)}</td><td>${won(tn)}</td><td>${tc ? (tn / tc * 100).toFixed(0) + '%' : ''}</td></tr>${body}</tbody>`
+      ? `<thead><tr><th class="l">상품</th><th>쿠팡 매출</th><th>네이버 매출</th><th>네이버 ÷ 쿠팡</th>
+           <th class="b">네이버쇼핑 노출</th><th>네이버 노출가</th><th>가격비교 최저가</th><th class="b">쿠팡 후기</th><th>네이버 후기</th></tr></thead><tbody>
+         <tr class="sum"><td class="l">합계</td><td>${won(tc)}</td><td>${won(tn)}</td><td>${tc ? (tn / tc * 100).toFixed(0) + '%' : ''}</td><td class="b" colspan="5" style="text-align:left;font-weight:600;color:#94a3b8">${META_AT ? '네이버쇼핑·후기 확인 ' + hm(META_AT) : '네이버쇼핑·후기 아직 없음'}</td></tr>${body}</tbody>`
       : '<tr><td class="l muted">쿠팡보다 네이버가 덜 팔린 상품이 없습니다.</td></tr>';
     $('onlyCpPill').textContent = keys.length + '개';
   }
@@ -650,6 +680,7 @@ $('pullBtn').onclick = pull;
 $('xlsBtn').onclick = downloadXlsx;
 
 (async () => {
+  loadMeta().then(() => { if (BRAND === '단독') renderAll(); });
   try { await loadRules(); } catch (e) { setStatus('규칙 불러오기 실패: ' + e.message + ' — Supabase 에 live_sales.sql 을 실행했는지 확인하세요', true); }
   await show(new URLSearchParams(location.search).get('date') || kst());
 })();
