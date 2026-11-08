@@ -122,6 +122,13 @@
     <div class="goal3" id="weekSum"></div>
   </div>
 
+  <div class="card">
+    <h2>최근 <select id="nDays"><option>7</option><option selected>14</option><option>31</option></select>일 · 전일자 누적
+      <button class="btn sm" id="xlsBtn">엑셀 받기</button></h2>
+    <p class="hint">어제까지는 다음 날 아침 확정 수집값(✓), 오늘은 마지막으로 받은 실시간 값입니다.</p>
+    <div class="tblwrap"><table id="dayTbl"></table></div>
+  </div>
+
   <div class="card" id="onlyCard" style="display:none">
     <h2>쿠팡에서 팔리는데 네이버에선 안 팔리거나 덜 팔리는 상품 <span class="pill" id="onlyCpPill"></span></h2>
     <p class="hint">쿠팡 매출이 네이버보다 큰 상품만, 네이버 비율이 낮은 순서로 보여 줍니다. 「네이버 ÷ 쿠팡」 — 쿠팡 100에 네이버 20이면 20%, 네이버에서 안 팔렸으면 0%.</p>
@@ -147,12 +154,6 @@
     <div class="tblwrap"><table id="adOnlyTbl"></table></div>
   </div>
 
-  <div class="card">
-    <h2>최근 <select id="nDays"><option>7</option><option selected>14</option><option>31</option></select>일 · 전일자 누적
-      <button class="btn sm" id="xlsBtn">엑셀 받기</button></h2>
-    <p class="hint">어제까지는 다음 날 아침 확정 수집값(✓), 오늘은 마지막으로 받은 실시간 값입니다.</p>
-    <div class="tblwrap"><table id="dayTbl"></table></div>
-  </div>
 
 </div>
 
