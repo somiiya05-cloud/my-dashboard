@@ -456,8 +456,7 @@ function renderKpis(d) {
     const pill = x.sales == null ? '<span class="pill none">미수집</span>' : x.final ? '<span class="pill final">확정</span>' : '<span class="pill live">실시간</span>';
     return `<div class="kpi"><div class="k">${m}${pill}</div>
       <div class="v">${x.sales == null ? '-' : won(x.sales)}</div>
-      <div class="s"><span>주문</span><span>${x.orders == null ? '-' : won(x.orders) + '건'}</span>
-        <span>광고비</span><span>${won(x.ad)}</span><span>광고비중</span><span>${pctTxt(pct(x.ad, x.sales || 0))}</span></div>
+      <div class="s"><span>광고비중</span><span>${pctTxt(pct(x.ad, x.sales || 0))}</span></div>
       ${b3 ? `<div class="best"><div class="bt">매출 Best 3</div><ol>${b3}</ol></div>` : ''}
       <div class="when">${x.at ? '받은 시각 ' + hm(x.at) : ''}${x.note ? ' · ' + esc(x.note) : ''}</div></div>`;
   });
