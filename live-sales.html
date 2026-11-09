@@ -131,7 +131,7 @@
 
   <div class="card" id="onlyCard" style="display:none">
     <h2>쿠팡에서 팔리는데 네이버에선 안 팔리거나 덜 팔리는 상품 <span class="pill" id="onlyCpPill"></span></h2>
-    <p class="hint">쿠팡 매출이 네이버보다 큰 상품만, 네이버 비율이 낮은 순서로 보여 줍니다. 「네이버 ÷ 쿠팡」 — 쿠팡 100에 네이버 20이면 20%, 네이버에서 안 팔렸으면 0%.<br>
+    <p class="hint">쿠팡 매출이 네이버보다 큰 상품만, 쿠팡 매출이 높은 순서로 보여 줍니다. 「네이버 ÷ 쿠팡」 — 쿠팡 100에 네이버 20이면 20%, 네이버에서 안 팔렸으면 0%.<br>
       네이버쇼핑 노출 = 브랜드를 뺀 상품명으로 네이버쇼핑을 검색했을 때 우리 스토어가 광고 아닌 결과 중 몇 번째인지(초록 1~3위 · 노랑 4~10위 · 빨강 그 아래/미노출). 가격비교 최저가 = 같은 브랜드 상품을 파는 곳 중 가장 낮은 노출가. 하루 한 번(아침) 확인하고, 상품명에 마우스를 올리면 검색어가 보입니다.</p>
     <div class="tblwrap"><table id="onlyCpTbl"></table></div>
   </div>
@@ -530,8 +530,8 @@ function renderItems(d) {
     const nameOf = k => { const r = rows[k]; const top = Object.entries(r._n || {}).sort((x, y) => y[1] - x[1])[0];
       const full = k.startsWith('◆ ') || k.startsWith('· ') ? k.slice(2) : top ? top[0] : k;
       return [full, shortName(full, k.startsWith('◆ '))]; };
-    const keys = all.filter(k => !isAdOnly(k)).sort((a, b) =>
-      v(a, '네이버', 'sales') / v(a, '쿠팡', 'sales') - v(b, '네이버', 'sales') / v(b, '쿠팡', 'sales') || v(b, '쿠팡', 'sales') - v(a, '쿠팡', 'sales'));
+    // 쿠팡 매출 높은 순 (11/09 사용자 요청 — 전엔 네이버 비율 낮은 순)
+    const keys = all.filter(k => !isAdOnly(k)).sort((a, b) => v(b, '쿠팡', 'sales') - v(a, '쿠팡', 'sales'));
     let tc = 0, tn = 0;
     // 그 줄에서 쿠팡에 가장 많이 팔린 상품명(옵션 앞) → 상품 정보
     const metaOf = k => {
