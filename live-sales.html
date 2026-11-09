@@ -72,6 +72,8 @@
   .brand small { font-size: 13.5px; color: #94a3b8; font-weight: 600; margin-left: 6px; }
   .brand.active { color: #0f172a; border-bottom-color: #0f172a; }
   .brand.active small { color: #0f172a; }
+  a.brand.link { text-decoration: none; color: #2563eb; }
+  a.brand.link small { color: #2563eb; }
   .goal3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
   .goal { background: #f8fafc; border: 1px solid #eef0f4; border-radius: 12px; padding: 14px 16px; font-variant-numeric: tabular-nums; }
   .goal .t { font-size: 13px; font-weight: 800; color: #475569; display: flex; justify-content: space-between; gap: 8px; }
@@ -374,7 +376,8 @@ function renderTabs(d) {
   const onlySum = sel => Object.entries(rows).reduce((t, [k, r]) => t + (rowMatch(k, r, sel) ? MALLS.reduce((u, m) => u + (r[m]?.sales || 0), 0) : 0), 0);
   $('brandTabs').innerHTML = list.map(b => tab(b, b, bt[b].sales)).join('')
     + tab('미분류', '미분류', bt['미분류']?.sales || 0) + tab('전체', '전체 통합', all)
-    + '<span class="brand-sep"></span>' + tab('단독', '쿠팡 대비 네이버 부진', Object.entries(rows).reduce((t, [k, r]) => t + (rowMatch(k, r, '단독') ? r['쿠팡'].sales : 0), 0));
+    + '<span class="brand-sep"></span>' + tab('단독', '쿠팡 대비 네이버 부진', Object.entries(rows).reduce((t, [k, r]) => t + (rowMatch(k, r, '단독') ? r['쿠팡'].sales : 0), 0))
+    + '<span class="brand-sep"></span><a class="brand link" href="cpc.html">외부 광고 리포트<small>→</small></a>';
   $('brandTabs').querySelectorAll('.brand').forEach(el => el.onclick = () => { BRAND = el.dataset.b; renderAll(); });
 }
 
