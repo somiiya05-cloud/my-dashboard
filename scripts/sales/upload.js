@@ -4,7 +4,9 @@ const EXPECT=Number(process.argv[3]);
 const DATES=process.argv.slice(4);
 const U='https://fwsszzjfjktliredmjcn.supabase.co', K='sb_publishable_uE-8s2DbZBUSs0z1uQ-nIA_za2Ah3uT';
 const H={apikey:K,Authorization:'Bearer '+K};
-const EX=new Set(['미니멀룸','글로리핏','라이프스타일마트','빠이러스','그로우뮤즈','PORKE.','명퉤','명퉤(해외)','잠비에','멜루션','코드니처','카카오선물하기(개인)','카카오톡스토어(법인)','카카오선물하기(개인)_폴크','명퉤 경주 황리단길 본점','공동구매(컨텐츠팀)','CONTENTS_DEAL']);
+// index.html 의 CHANNEL_TEMPLATE(team:false) + TEAM_INCLUDED_EXCEPTIONS 와 같은 기준입니다.
+// 슬로우케어는 자사몰이라 제외, 카카오톡스토어(법인)은 영업팀이라 제외하지 않습니다.
+const EX=new Set(['미니멀룸','글로리핏','라이프스타일마트','빠이러스','그로우뮤즈','PORKE.','명퉤','명퉤(해외)','잠비에','멜루션','코드니처','슬로우케어','카카오선물하기(개인)','카카오선물하기(개인)_폴크','명퉤 경주 황리단길 본점','공동구매(컨텐츠팀)','CONTENTS_DEAL']);
 async function pull(q){const a=[];for(let o=0;;o+=1000){const r=await fetch(U+'/rest/v1/sales_transactions?'+q+'&order=id.asc',{headers:{...H,Range:o+'-'+(o+999)}});const j=await r.json();a.push(...j);if(j.length<1000)break;}return a;}
 (async()=>{
   const all=await pull('select=vendor,product_name');
