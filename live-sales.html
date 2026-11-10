@@ -727,6 +727,9 @@ async function pull() {
       await new Promise(r => setTimeout(r, 4000));
       const { data: r } = await db.from('live_sales_requests').select('*').eq('id', data.id).single();
       // 수집기는 다른 수집이 끝날 때까지 최대 5분 기다린다
+      // 감시는 20초마다 확인하니 1분이 넘도록 안 가져가면 바로 알린다(꺼져 있어도 4분 동안 '요청했습니다'만 떠 있었다, 11/10)
+      if (r.status === 'pending' && Date.now() - t0 > 60e3 && Date.now() - t0 <= 4 * 60e3)
+        setStatus('1분이 지나도 수집기가 요청을 가져가지 않습니다 — 다른 수집을 하는 중이면 곧 시작하고, 계속 이러면 사무실 PC의 감시 프로그램(실시간매출감시.bat)이 꺼진 것입니다. 기다리는 중…', true);
       if (r.status === 'pending' && Date.now() - t0 > 4 * 60e3) { setStatus('사무실 PC 수집기가 요청을 가져가지 않습니다 — PC가 꺼져 있거나 감시 프로그램(실시간매출감시.bat)이 꺼져 있을 수 있습니다.', true); break; }
       if (r.status === 'running') setStatus('받는 중… ' + (r.message || ''));
       if (r.status === 'done' || r.status === 'failed') {
