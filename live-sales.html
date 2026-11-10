@@ -637,20 +637,30 @@ function renderDays(end) {
   const n = +$('nDays').value;
   const rows = dayRowsFor(end, n);
   const wd = d => '일월화수목금토'[new Date(d + 'T00:00:00Z').getUTCDay()];
-  let h = `<thead><tr><th class="l" rowspan="2">날짜</th><th class="grp" colspan="3">합계</th>${MALLS.map(m => `<th class="grp" colspan="3">${m}</th>`).join('')}</tr>
-    <tr>${['합계', ...MALLS].map(() => '<th class="b">매출</th><th>광고비</th><th>비중</th>').join('')}</tr></thead><tbody>`;
+  // 공동구매는 4개 몰 수집이 아니라 매출DB(하루 늦게 들어옴)에서 옵니다 — 「전체」 탭에서만, 합계에는 안 더합니다.
+  const gb = BRAND === '전체';
+  let h = `<thead><tr><th class="l" rowspan="2">날짜</th><th class="grp" colspan="3">합계</th>${MALLS.map(m => `<th class="grp" colspan="3">${m}</th>`).join('')}${gb ? '<th class="grp" title="매출DB 기준 · 하루 늦게 들어옴 · 합계에 안 더함">공동구매</th>' : ''}</tr>
+    <tr>${['합계', ...MALLS].map(() => '<th class="b">매출</th><th>광고비</th><th>비중</th>').join('')}${gb ? '<th class="b">매출DB</th>' : ''}</tr></thead><tbody>`;
   rows.forEach(({ d, T, s, a }) => {
     h += `<tr><td class="l">${d.slice(5)} (${wd(d)})</td><td class="b"><b>${won(s)}</b></td><td>${won(a)}</td><td>${pctTxt(pct(a, s))}</td>`
-      + MALLS.map(m => { const x = T[m]; return `<td class="b">${x.sales == null ? '<span class="muted">-</span>' : won(x.sales) + (x.final ? ' <span class="muted">✓</span>' : '')}</td><td>${x.ad ? won(x.ad) : '<span class="muted">-</span>'}</td><td>${x.sales != null || x.ad ? pctTxt(pct(x.ad, x.sales || 0)) : ''}</td>`; }).join('') + '</tr>';
+      + MALLS.map(m => { const x = T[m]; return `<td class="b">${x.sales == null ? '<span class="muted">-</span>' : won(x.sales) + (x.final ? ' <span class="muted">✓</span>' : '')}</td><td>${x.ad ? won(x.ad) : '<span class="muted">-</span>'}</td><td>${x.sales != null || x.ad ? pctTxt(pct(x.ad, x.sales || 0)) : ''}</td>`; }).join('')
+      + (gb ? `<td class="b">${(v => v == null ? '<span class="muted">-</span>' : won(v))(groupbuyOf(d))}</td>` : '') + '</tr>';
   });
   $('dayTbl').innerHTML = h + '</tbody>';
 }
 
+// 그 날짜 공동구매 매출(매출DB). 그 달 매출DB가 아직 없거나 그 날짜가 아직 안 들어왔으면 null.
+function groupbuyOf(d) {
+  const W = weekCache[d.slice(0, 7)];
+  if (!W || W.teamBy[d] == null) return null;
+  return W.dbOnly['공동구매']?.by[d] || 0;
+}
+
 function downloadXlsx() {
   const end = $('day').value, n = +$('nDays').value;
-  const aoa = [['날짜', '합계 매출', '합계 광고비(VAT포함)', '합계 광고비중', ...MALLS.flatMap(m => [m + ' 매출', m + ' 광고비', m + ' 광고비중', m + ' 확정'])]];
+  const aoa = [['날짜', '합계 매출', '합계 광고비(VAT포함)', '합계 광고비중', ...MALLS.flatMap(m => [m + ' 매출', m + ' 광고비', m + ' 광고비중', m + ' 확정']), '공동구매 매출(매출DB)']];
   dayRowsFor(end, n).forEach(({ d, T, s, a }) => aoa.push([d, s, Math.round(a), s ? a / s : null,
-    ...MALLS.flatMap(m => [T[m].sales, Math.round(T[m].ad), T[m].sales ? T[m].ad / T[m].sales : null, T[m].sales == null ? '' : T[m].final ? '확정' : '실시간'])]));
+    ...MALLS.flatMap(m => [T[m].sales, Math.round(T[m].ad), T[m].sales ? T[m].ad / T[m].sales : null, T[m].sales == null ? '' : T[m].final ? '확정' : '실시간']), groupbuyOf(d)]));
   // 상품 시트: 화면에서 보고 있는 날짜
   const { rows } = buildItems([end]);
   const head = [['상품', ...MALLS.flatMap(m => [m + ' 매출', m + ' 광고비', m + ' 광고비중'])]];
@@ -680,7 +690,10 @@ function renderAll() {
   renderTabs(d); renderKpis(d); renderItems(d); renderDays(d);
   $('weekCard').style.display = BRAND === '단독' ? 'none' : '';
   // 공동구매·직납 카드는 renderWeek 가 받아 오는 월 데이터를 쓰므로 받은 뒤 한 번 더 그립니다.
-  Promise.resolve(renderWeek(d)).then(() => renderKpis(d), () => renderKpis(d));
+  // 최근 N일 표의 공동구매 칸도 같은 월 데이터를 씁니다(범위가 지난달에 걸치면 그 달도 받습니다).
+  const months = [...new Set([addDays(d, -(+$('nDays').value - 1)).slice(0, 7), d.slice(0, 7)])];
+  Promise.resolve(renderWeek(d)).then(() => renderKpis(d), () => renderKpis(d))
+    .then(() => Promise.all(months.map(m => loadWeek(m).catch(() => null)))).then(() => renderDays(d));
 }
 
 async function show(d, force) {
