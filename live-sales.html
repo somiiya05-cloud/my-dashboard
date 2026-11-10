@@ -50,6 +50,10 @@
   .tblwrap { overflow-x: auto; border: 1px solid #eef0f4; border-radius: 10px; max-height: 640px; overflow-y: auto; }
   table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
   th, td { padding: 10px 9px; border-bottom: 1px solid #f1f3f7; white-space: nowrap; text-align: right; }
+  /* 최근 N일 표는 칸이 19개라 좁혀서 공동구매 칸까지 한 화면에 들어오게 한다 */
+  #dayTbl { font-size: 12px; }
+  #dayTbl th, #dayTbl td { padding: 9px 6px; }
+  #dayTbl th { font-size: 11.5px; }
   th { position: sticky; top: 0; background: #f8fafc; color: #475569; font-weight: 700; font-size: 12px; z-index: 1; }
   thead tr:nth-child(2) th { top: 34px; }
   th.grp { text-align: center; border-left: 1px solid #e5e7eb; }
