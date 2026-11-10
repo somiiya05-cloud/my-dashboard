@@ -121,7 +121,7 @@
   <div class="card" id="weekCard">
     <h2>매출 목표 점검 <span class="pill" id="weekPill"></span></h2>
     <p class="hint">큰 숫자는 4개 몰 실시간 합계, 회색 줄은 영업 대시보드와 같은 영업팀 전체(매출DB·하루 늦게 들어옴).<br>
-      공동구매·직납은 4개 몰 수집에 안 잡혀 위쪽에 따로 칸으로 두었습니다 — 회색 줄(영업팀 전체)에는 이미 들어 있습니다.</p>
+      공동구매는 4개 몰 수집에 안 잡혀 위쪽에 따로 칸으로 두었습니다 — 회색 줄(영업팀 전체)에는 이미 들어 있습니다.</p>
     <div class="goal3" id="weekSum"></div>
   </div>
 
@@ -409,11 +409,7 @@ const DB_ONLY_GROUPS = [
   { key: '공동구매', label: '공동구매',
     // 이름에 "공동구매"가 들어가면 전부(컨텐츠팀은 영업팀이 아니라 위에서 이미 빠짐) + 요고몰
     test: v => /공동구매/.test(v) || v === '요고몰' },
-  { key: '직납', label: '직납 · 수출',
-    vendors: ['그린종합상사', '옵티젠_제습서버', '제이허브', '엠알엔컴퍼니(개인사업자)', '까르멘 기프트',
-      '브이벨', '두진에이앤씨(가글캔디)', '올리브영(직매입)',
-      '대만 VAULT VISION', '수출(대만)', '노마드웍스'],
-    test(v) { return this.vendors.includes(v); } },
+  // 직납·수출 카드는 사용자 요청으로 뺐다(11/10). 영업팀 전체(회색 줄)에는 그대로 들어간다.
 ];
 const weekCache = {};
 const eok = n => (n / 1e8).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + '억';
