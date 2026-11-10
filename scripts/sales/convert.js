@@ -39,7 +39,10 @@ const PRODUCT_ALIAS={
   '전신건강 지압토퍼':'전신건강 지압 토퍼',
   '자니톡베개':'자니 톡 베개',
 };
-const EX=new Set(['미니멀룸','글로리핏','라이프스타일마트','빠이러스','그로우뮤즈','PORKE.','명퉤','명퉤(해외)','잠비에','멜루션','코드니처','카카오선물하기(개인)','카카오톡스토어(법인)','카카오선물하기(개인)_폴크','명퉤 경주 황리단길 본점','공동구매(컨텐츠팀)','CONTENTS_DEAL']);
+// index.html 의 CHANNEL_TEMPLATE(team:false) + TEAM_INCLUDED_EXCEPTIONS 와 같은 기준입니다.
+// 슬로우케어는 자사몰이라 제외, 카카오톡스토어(법인)은 영업팀이라 제외하지 않습니다.
+// upload.js 의 EX 와도 같은 목록이어야 합니다 — 한쪽을 바꾸면 같이 바꿀 것.
+const EX=new Set(['미니멀룸','글로리핏','라이프스타일마트','빠이러스','그로우뮤즈','PORKE.','명퉤','명퉤(해외)','잠비에','멜루션','코드니처','슬로우케어','카카오선물하기(개인)','카카오선물하기(개인)_폴크','명퉤 경주 황리단길 본점','공동구매(컨텐츠팀)','CONTENTS_DEAL']);
 const norm=s=>String(s??'').trim().replace(/\bporke\b/gi,'PORKE');
 const serial=n=>new Date(Date.UTC(1899,11,30)+n*86400000).toISOString().slice(0,10);
 
