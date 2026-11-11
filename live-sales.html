@@ -78,7 +78,7 @@
   .brand.active small { color: #0f172a; }
   a.brand.link { text-decoration: none; color: #2563eb; }
   a.brand.link small { color: #2563eb; }
-  .goal3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 420px)); gap: 12px; }
+  .goal3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
   .goal { background: #f8fafc; border: 1px solid #eef0f4; border-radius: 12px; padding: 14px 16px; font-variant-numeric: tabular-nums; }
   .goal .t { font-size: 13px; font-weight: 800; color: #475569; display: flex; justify-content: space-between; gap: 8px; }
   .goal .t small { font-weight: 600; color: #94a3b8; }
@@ -492,8 +492,50 @@ async function renderWeek(d) {
       <div class="g">목표 ${won(tgt)}</div>
       <div class="bar"><i style="width:${Math.min(100, r * 100).toFixed(1)}%;background:${color(r)}"></i></div>
       <div class="team">${teamLine}</div></div>`;
-  }).join('');
+  }).join('') + await slotCards(day);
   $('weekPill').textContent = `월 목표 ${eok(TEAM_MONTHLY_TARGET)}`;
+}
+
+// ---------- 시각별 매출 (10·14·18시) ----------
+// 감시 프로그램이 10·14·18시에 4개 몰을 받아 그 순간 누적을 live_sales_snapshots 에 남긴다(11/11 사용자 요청).
+// 칸마다: 그날 그 시각 누적 · 지난 7일 같은 시각 평균 · 평소 그 시각이 하루 마감의 몇 %인지 → 이대로면 마감 예상
+const SLOTS = [10, 14, 18];
+async function slotCards(day) {
+  const from = addDays(day, -7);
+  let snaps, totals;
+  try {
+    const [a, b] = await Promise.all([
+      db.from('live_sales_snapshots').select('date,slot,mall,amount,ok').gte('date', from).lte('date', day),
+      db.from('live_sales_totals').select('date,mall,amount').gte('date', from).lt('date', day)]);
+    if (a.error) throw a.error; if (b.error) throw b.error;
+    snaps = a.data; totals = b.data;
+  } catch (e) {
+    return SLOTS.map(s => `<div class="goal"><div class="t">${s}시<small>시각별 누적</small></div>
+      <div class="v">-</div><div class="team">시각별 기록 표가 아직 없습니다 (live_sales_snapshots.sql)</div></div>`).join('');
+  }
+  const daySum = {}; totals.forEach(r => daySum[r.date] = (daySum[r.date] || 0) + +r.amount);
+  const at = {}; snaps.forEach(r => { const k = r.date + '|' + r.slot; (at[k] ||= { amt: 0, n: 0, bad: 0 }); at[k].amt += +r.amount; at[k].n++; if (!r.ok) at[k].bad++; });
+  const nowH = +new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false });
+  return SLOTS.map(s => {
+    const cur = at[day + '|' + s];
+    const past = Object.entries(at).filter(([k, v]) => k.endsWith('|' + s) && k.split('|')[0] < day && v.n >= MALLS.length && !v.bad && daySum[k.split('|')[0]]);
+    const avg = past.length ? past.reduce((t, [, v]) => t + v.amt, 0) / past.length : null;
+    const dayAvg = past.length ? past.reduce((t, [k]) => t + daySum[k.split('|')[0]], 0) / past.length : null;
+    const share = avg && dayAvg ? avg / dayAvg : null;
+    const r = cur && avg ? cur.amt / avg : null;
+    const color = r == null ? '#94a3b8' : r >= 1 ? '#16a34a' : r >= .8 ? '#eab308' : '#dc2626';
+    const v = cur ? won(cur.amt) + (r != null ? `<span style="color:${color}">${r >= 1 ? '+' : ''}${((r - 1) * 100).toFixed(0)}%</span>` : '')
+      : '-';
+    const sub = cur ? (cur.bad ? `<span style="color:#dc2626">몰 ${cur.bad}곳 실패 — 직전 값으로 적음</span>` : '')
+      : day === kst() && nowH < s ? `${s}시에 자동으로 받습니다` : '이 시각 기록 없음';
+    const avgLine = avg != null ? `지난 ${past.length}일 평균 ${won(avg)}${share ? ` · 하루의 ${(share * 100).toFixed(0)}%` : ''}` : '평균 — 아직 쌓인 날이 없음';
+    const proj = cur && share ? `이대로면 마감 약 ${won(Math.round(cur.amt / share / 1e4) * 1e4)}` : '';
+    return `<div class="goal"><div class="t">${s}시<small>${s}시까지 누적</small></div>
+      <div class="v">${v}</div>
+      <div class="g">${avgLine}</div>
+      ${proj ? `<div class="g" style="color:#334155;font-weight:700">${proj}</div>` : ''}
+      <div class="team">${sub}</div></div>`;
+  }).join('');
 }
 
 // ---------- 그리기 ----------
