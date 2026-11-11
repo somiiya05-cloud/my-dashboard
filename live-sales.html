@@ -136,6 +136,15 @@
     <div class="tblwrap"><table id="dayTbl"></table></div>
   </div>
 
+  <div class="card" id="cpCard" style="display:none">
+    <h2>쿠팡 매출 · 광고비 <span class="pill" id="cpPill"></span></h2>
+    <p class="hint">평균은 고른 날짜 바로 전 7일(받아 둔 날만) 기준입니다. 광고비는 VAT 포함. 쿠팡 일 매출 목표 2,500만원.</p>
+    <div class="goal3" id="cpSum"></div>
+    <h2 style="margin-top:22px">상품별 비중 <span class="pill" id="cpItemPill"></span></h2>
+    <p class="hint">그 날 쿠팡 전체 매출에서 각 상품이 차지하는 비중입니다. 세트는 판매된 세트 이름 그대로 한 줄, 「그 외」는 상품별로 못 받은 차이입니다.</p>
+    <div class="tblwrap"><table id="cpItemTbl"></table></div>
+  </div>
+
   <div class="card" id="onlyCard" style="display:none">
     <h2>쿠팡에서 팔리는데 네이버에선 안 팔리거나 덜 팔리는 상품 <span class="pill" id="onlyCpPill"></span></h2>
     <p class="hint">쿠팡 매출이 네이버보다 큰 상품만, 쿠팡 매출이 높은 순서로 보여 줍니다. 「네이버 ÷ 쿠팡」 — 쿠팡 100에 네이버 20이면 20%, 네이버에서 안 팔렸으면 0%.<br>
@@ -401,7 +410,7 @@ function renderTabs(d) {
   const { rows } = buildItems([d]);
   const onlySum = sel => Object.entries(rows).reduce((t, [k, r]) => t + (rowMatch(k, r, sel) ? MALLS.reduce((u, m) => u + (r[m]?.sales || 0), 0) : 0), 0);
   $('brandTabs').innerHTML = list.map(b => tab(b, b, bt[b].sales)).join('')
-    + tab('미분류', '미분류', bt['미분류']?.sales || 0) + tab('전체', '전체 통합', all)
+    + tab('미분류', '미분류', bt['미분류']?.sales || 0) + tab('전체', '전체 통합', all) + tab('쿠팡', '쿠팡', dayTotals(d)['쿠팡'].sales || 0)
     + '<span class="brand-sep"></span>' + tab('단독', '쿠팡 대비 네이버 부진', Object.entries(buildItems([d], true).rows).reduce((t, [k, r]) => t + (rowMatch(k, r, '단독') ? r['쿠팡'].sales : 0), 0))
     + '<span class="brand-sep"></span><a class="brand link" href="cpc.html">외부 광고 리포트<small>→</small></a>';
   $('brandTabs').querySelectorAll('.brand').forEach(el => el.onclick = () => { BRAND = el.dataset.b; renderAll(); });
@@ -625,11 +634,13 @@ function renderItems(d) {
   $('adOnlyTbl').innerHTML = table(adKeys, '이 날짜에 판매 없이 광고비만 나간 상품이 없습니다.');
   $('adOnlyPill').textContent = adKeys.length + '개';
 
-  const solo = BRAND === '단독';
+  const solo = BRAND === '단독', cpv = BRAND === '쿠팡', hide = solo || cpv;
   $('onlyCard').style.display = solo ? '' : 'none';
-  $('kpis').style.display = solo ? 'none' : '';
-  $('dayTbl').closest('.card').style.display = solo ? 'none' : '';
-  document.querySelectorAll('.prod-card').forEach(el => el.style.display = solo ? 'none' : '');
+  $('cpCard').style.display = cpv ? '' : 'none';
+  $('kpis').style.display = hide ? 'none' : '';
+  $('dayTbl').closest('.card').style.display = hide ? 'none' : '';
+  document.querySelectorAll('.prod-card').forEach(el => el.style.display = hide ? 'none' : '');
+  if (cpv) renderCoupang(d, rows);
   if (solo) {
     const v = (k, m, f) => rows[k][m]?.[f] || 0;
     const nameOf = k => { const r = rows[k]; const top = Object.entries(r._n || {}).sort((x, y) => y[1] - x[1])[0];
@@ -671,6 +682,51 @@ function renderItems(d) {
     $('onlyCpPill').textContent = keys.length + '개';
   }
 
+}
+
+// ---------- 쿠팡 탭 (11/11 사용자 요청) ----------
+// 맨 위: 평균 매출 · 평균 광고비 · 현재 매출 · 현재 광고비 · 일 목표(2,500만) / 아래: 쿠팡 전체 매출의 상품별 비중
+const COUPANG_DAILY_TARGET = 25000000;
+function renderCoupang(d, rows) {
+  const cur = dayTotals(d)['쿠팡'];
+  const past = []; for (let i = 1; i <= 7; i++) { const x = addDays(d, -i); const t = cache[x] && dayTotals(x)['쿠팡']; if (t && t.sales != null) past.push(t); }
+  const avgS = past.length ? past.reduce((s, t) => s + t.sales, 0) / past.length : null;
+  const avgA = past.length ? past.reduce((s, t) => s + t.ad, 0) / past.length : null;
+  const S = cur.sales || 0, A = cur.ad || 0;
+  const vs = (a, b) => b ? `<span style="color:${a >= b ? '#16a34a' : '#dc2626'}">${a >= b ? '+' : ''}${((a / b - 1) * 100).toFixed(0)}%</span>` : '';
+  const vsAd = (a, b) => b ? `<span style="color:${a <= b ? '#16a34a' : '#dc2626'}">${a >= b ? '+' : ''}${((a / b - 1) * 100).toFixed(0)}%</span>` : '';
+  const r = S / COUPANG_DAILY_TARGET, col = r >= 1 ? '#16a34a' : r >= .8 ? '#eab308' : '#dc2626';
+  const box = (t, small, v, g, team = '') => `<div class="goal"><div class="t">${t}<small>${small}</small></div><div class="v">${v}</div><div class="g">${g}</div>${team ? `<div class="team">${team}</div>` : ''}</div>`;
+  $('cpSum').innerHTML =
+      box('평균 매출', `지난 ${past.length}일`, avgS == null ? '-' : won(avgS), avgS == null ? '받아 둔 날이 없음' : `목표 대비 ${(avgS / COUPANG_DAILY_TARGET * 100).toFixed(0)}%`)
+    + box('평균 광고비', `지난 ${past.length}일 · VAT 포함`, avgA == null ? '-' : won(avgA), avgA == null ? '' : `광고비중 ${pctTxt(pct(avgA, avgS || 0))}`)
+    + box('현재 매출', d === kst() ? '오늘 실시간' : d, cur.sales == null ? '-' : won(S) + vs(S, avgS), avgS ? '평균 대비' : '', cur.at ? '받은 시각 ' + hm(cur.at) : '')
+    + box('현재 광고비', 'VAT 포함', won(A) + vsAd(A, avgA), `광고비중 ${pctTxt(pct(A, S))}`)
+    + `<div class="goal"><div class="t">일 목표<small>${won(COUPANG_DAILY_TARGET)}</small></div>
+        <div class="v">${(r * 100).toFixed(1)}%</div>
+        <div class="g">${r >= 1 ? '달성' : '남은 금액 ' + won(COUPANG_DAILY_TARGET - S)}</div>
+        <div class="bar"><i style="width:${Math.min(100, r * 100).toFixed(1)}%;background:${col}"></i></div></div>`;
+  $('cpPill').textContent = won(S) + '원';
+
+  // 상품별 비중 — 분모는 쿠팡 전체(몰 합계, 상품별 미수집 차이 포함)
+  const keys = Object.keys(rows).filter(k => (rows[k]['쿠팡']?.sales || 0) > 0 || (rows[k]['쿠팡']?.ad || 0) > 0)
+    .sort((a, b) => (a.startsWith('그 외') - b.startsWith('그 외')) || (rows[b]['쿠팡']?.sales || 0) - (rows[a]['쿠팡']?.sales || 0));
+  const nameOf = k => { const top = Object.entries(rows[k]['쿠팡']?.prod || rows[k]._n || {}).sort((x, y) => y[1] - x[1])[0];
+    const full = k.startsWith('◆ ') || k.startsWith('· ') ? k.slice(2) : top && !k.startsWith('그 외') ? top[0] : k;
+    return [full, k.startsWith('그 외') ? full : shortName(full, k.startsWith('◆ '))]; };
+  let ta = 0;
+  const body = keys.map(k => {
+    const x = rows[k]['쿠팡'] || { sales: 0, ad: 0 }; ta += x.ad;
+    const sh = S ? x.sales / S : 0, [full, name] = nameOf(k);
+    return `<tr><td class="l name" title="${esc(full)}"><b>${esc(name)}</b></td><td class="b">${x.sales ? won(x.sales) : '<span class="muted">-</span>'}</td>
+      <td style="min-width:150px"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end"><div class="bar" style="width:80px;height:6px"><i style="width:${Math.min(100, sh * 100).toFixed(1)}%;background:#2563eb"></i></div><b>${(sh * 100).toFixed(1)}%</b></div></td>
+      <td class="b">${x.ad ? won(x.ad) : '<span class="muted">-</span>'}</td><td>${x.sales || x.ad ? pctTxt(pct(x.ad, x.sales)) : ''}</td></tr>`;
+  }).join('');
+  $('cpItemTbl').innerHTML = keys.length
+    ? `<thead><tr><th class="l">상품</th><th class="b">매출</th><th>비중</th><th class="b">광고비</th><th>광고비중</th></tr></thead><tbody>
+       <tr class="sum"><td class="l">쿠팡 전체</td><td class="b">${won(S)}</td><td>100%</td><td class="b">${won(A)}</td><td>${pctTxt(pct(A, S))}</td></tr>${body}</tbody>`
+    : '<tr><td class="l muted">이 날짜에 받은 쿠팡 매출이 없습니다.</td></tr>';
+  $('cpItemPill').textContent = keys.filter(k => !k.startsWith('그 외')).length + '개';
 }
 
 function dayRowsFor(end, n) {
@@ -738,7 +794,7 @@ async function refreshRules() { await loadRules(); keyCache.clear(); renderAll()
 function renderAll() {
   const d = $('day').value;
   renderTabs(d); renderKpis(d); renderItems(d); renderDays(d);
-  $('weekCard').style.display = BRAND === '단독' ? 'none' : '';
+  $('weekCard').style.display = BRAND === '단독' || BRAND === '쿠팡' ? 'none' : '';
   // 공동구매·직납 카드는 renderWeek 가 받아 오는 월 데이터를 쓰므로 받은 뒤 한 번 더 그립니다.
   // 최근 N일 표의 공동구매 칸도 같은 월 데이터를 씁니다(범위가 지난달에 걸치면 그 달도 받습니다).
   const months = [...new Set([addDays(d, -(+$('nDays').value - 1)).slice(0, 7), d.slice(0, 7)])];
