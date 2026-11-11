@@ -139,6 +139,7 @@
   <div class="card" id="onlyCard" style="display:none">
     <h2>쿠팡에서 팔리는데 네이버에선 안 팔리거나 덜 팔리는 상품 <span class="pill" id="onlyCpPill"></span></h2>
     <p class="hint">쿠팡 매출이 네이버보다 큰 상품만, 쿠팡 매출이 높은 순서로 보여 줍니다. 「네이버 ÷ 쿠팡」 — 쿠팡 100에 네이버 20이면 20%, 네이버에서 안 팔렸으면 0%.<br>
+      네이버 매출에는 스마트스토어 세트 상품(예: 악취 제거 세정서버 세트 = 변기수조 + 하수구) 매출을 구성 단품 수로 똑같이 나눠 넣었습니다 — <sup style="color:#2563eb">세트</sup> 표시 칸에 마우스를 올리면 어느 세트에서 얼마가 왔는지 보입니다.<br>
       네이버쇼핑 노출 = 브랜드를 뺀 상품명으로 네이버쇼핑을 검색했을 때 우리 스토어가 광고 아닌 결과 중 몇 번째인지(초록 1~3위 · 노랑 4~10위 · 빨강 그 아래/미노출). 가격비교 최저가 = 같은 브랜드 상품을 파는 곳 중 가장 낮은 노출가. 하루 한 번(아침) 확인하고, 상품명에 마우스를 올리면 검색어가 보입니다.</p>
     <div class="tblwrap"><table id="onlyCpTbl"></table></div>
   </div>
@@ -270,6 +271,19 @@ const baseName = s => String(s || '').split(' / ')[0].split(/,\s/)[0].trim();
 // 「10세트」「3켤레 세트」처럼 개수가 붙은 세트는 묶음 수량이라 세트 상품으로 보지 않는다
 const isSet = s => { const b = baseName(s).replace(/\d+\s*\+\s*\d+/g, '').replace(/\d+\s*[가-힣a-zA-Z]{0,2}\s*세트/g, ''); return /세트|\d+종|\+/.test(b); };
 function groupOf(name) { return isSet(name) ? [['◆ ' + baseName(name), 1]] : itemKeys(name); }
+// 세트 → 구성 단품 줄. 「세트 (변기수조 1P + 하수구 1P)」처럼 괄호 안, 또는 「수세미(60매) + 행주(10매)」처럼 이름에
+// 「+」로 이어진 구성품을 단품 규칙으로 묶는다. 매출은 구성품 수로 똑같이 나눈다. 구성품이 하나도 규칙에 안 걸리면 null(세트 그대로).
+// 「쿠팡 대비 네이버 부진」 탭에서 스마트스토어 단독 세트 매출을 단품 매출로 보려고 씀(11/11 사용자 요청)
+function setParts(name) {
+  const b = baseName(name);
+  const inner = (b.match(/\(([^()]*\+[^()]*)\)/) || [])[1];
+  const src = (inner || b.replace(/\([^)]*\)/g, '')).replace(/\d+\s*\+\s*\d+/g, '');
+  if (!src.includes('+')) return null;
+  const parts = src.split('+').map(s => s.replace(/\d+\s*(P|개입|개|매입|매)(?![가-힣])/gi, '').trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const keys = parts.flatMap(p => itemKeys(p).map(([k, w]) => [k, w / parts.length]));
+  return keys.some(([k]) => !k.startsWith('· ')) ? keys : null;
+}
 
 // 브랜드: 상품명(광고는 광고명·캠페인명)에 들어 있는 브랜드 이름으로. 없으면 미분류.
 const BRANDS = ['코드니처', '슬로우케어', '명퉤', '라이프스타일마트', '글로리핏', '멜루션', '빠이러스', '그로우뮤즈', '미니멀룸', '잠비에'];
@@ -294,15 +308,22 @@ function shortName(s, isSetRow) {
   return (i >= 0 ? w.slice(0, i + 1) : w.slice(0, 3)).join(' ') || String(s || '');
 }
 
-function buildItems(days) {
+// splitSets: 네이버 세트 매출을 구성 단품 줄로 나눠 넣는다(「쿠팡 대비 네이버 부진」 탭)
+function buildItems(days, splitSets = BRAND === '단독') {
   const rows = {};   // 줄 이름 → {mall: {sales, ad, prod:{판매 상품명: 매출}, adNames:Set}}
-  const cell = (k, m) => ((rows[k] ||= {})[m] ||= { sales: 0, ad: 0, prod: {}, adNames: new Set() });
+  const cell = (k, m) => ((rows[k] ||= {})[m] ||= { sales: 0, ad: 0, prod: {}, adNames: new Set(), fromSets: {} });
   const unmatched = {};
   for (const d of days) {
     const c = cache[d]; if (!c) continue;
     const itemSum = {}, sets = [];
     c.items.forEach(r => {
       itemSum[r.mall] = (itemSum[r.mall] || 0) + +r.amount;
+      const parts = splitSets && r.mall === '네이버' && isSet(r.product) ? setParts(r.product) : null;
+      if (parts) {
+        parts.forEach(([k, w]) => { const x = cell(k, r.mall), b = baseName(r.product);
+          x.sales += r.amount * w; x.fromSets[b] = (x.fromSets[b] || 0) + r.amount * w; });
+        return;
+      }
       groupOf(r.product).forEach(([k, w]) => {
         const x = cell(k, r.mall); x.sales += r.amount * w; x.prod[r.product] = (x.prod[r.product] || 0) + r.amount * w;
         const n = (rows[k]._n ||= {}); n[r.product] = (n[r.product] || 0) + r.amount * w;
@@ -336,7 +357,7 @@ function buildItems(days) {
 
 // 그 날짜의 브랜드별 · 몰별 합계
 function brandTotals(d) {
-  const { rows } = buildItems([d]);
+  const { rows } = buildItems([d], false);
   const out = {};
   Object.values(rows).forEach(r => {
     const o = out[r.brand] ||= { sales: 0, ad: 0, mall: {} };
@@ -381,7 +402,7 @@ function renderTabs(d) {
   const onlySum = sel => Object.entries(rows).reduce((t, [k, r]) => t + (rowMatch(k, r, sel) ? MALLS.reduce((u, m) => u + (r[m]?.sales || 0), 0) : 0), 0);
   $('brandTabs').innerHTML = list.map(b => tab(b, b, bt[b].sales)).join('')
     + tab('미분류', '미분류', bt['미분류']?.sales || 0) + tab('전체', '전체 통합', all)
-    + '<span class="brand-sep"></span>' + tab('단독', '쿠팡 대비 네이버 부진', Object.entries(rows).reduce((t, [k, r]) => t + (rowMatch(k, r, '단독') ? r['쿠팡'].sales : 0), 0))
+    + '<span class="brand-sep"></span>' + tab('단독', '쿠팡 대비 네이버 부진', Object.entries(buildItems([d], true).rows).reduce((t, [k, r]) => t + (rowMatch(k, r, '단독') ? r['쿠팡'].sales : 0), 0))
     + '<span class="brand-sep"></span><a class="brand link" href="cpc.html">외부 광고 리포트<small>→</small></a>';
   $('brandTabs').querySelectorAll('.brand').forEach(el => el.onclick = () => { BRAND = el.dataset.b; renderAll(); });
 }
@@ -607,9 +628,11 @@ function renderItems(d) {
       const c = v(k, '쿠팡', 'sales'), n = v(k, '네이버', 'sales'); tc += c; tn += n;
       const [full, name] = nameOf(k);
       const { cp, nv } = metaOf(k);
+      const fs = Object.entries(rows[k]['네이버']?.fromSets || {}).sort((x, y) => y[1] - x[1]);
+      const nTip = fs.length ? '세트에서 나눠 넣은 매출 ' + won(fs.reduce((t, [, x]) => t + x, 0)) + '원 — ' + fs.map(([b, x]) => b + ' ' + won(x)).join(' · ') : '';
       const low = nv && nv.low_price ? `${won(nv.low_price)}${nv.low_store ? ` <span class="muted">${esc(nv.low_store)}</span>` : ''}` : '<span class="muted">-</span>';
       return `<tr><td class="l name" title="${esc(full)}${nv ? ' · 네이버 검색어: ' + esc(nv.query) : ''}"><b>${esc(name)}</b></td><td>${won(c)}</td>
-        <td>${n ? won(n) : '<span class="muted">0</span>'}</td><td><b>${(n / c * 100).toFixed(0)}%</b></td>
+        <td${nTip ? ` title="${esc(nTip)}"` : ''}>${n ? won(n) + (fs.length ? '<sup style="color:#2563eb">세트</sup>' : '') : '<span class="muted">0</span>'}</td><td><b>${(n / c * 100).toFixed(0)}%</b></td>
         <td class="b">${expo(nv)}</td><td>${nv && nv.price ? won(nv.price) : '<span class="muted">-</span>'}</td><td>${low}</td>
         <td class="b">${rev(cp)}</td><td>${rev(nv)}</td></tr>`;
     }).join('');
