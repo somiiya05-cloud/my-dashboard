@@ -61,6 +61,9 @@
   td.name { white-space: nowrap; min-width: 180px; }
   td.b { border-left: 1px solid #eef0f4; }
   tr.sum td { font-weight: 800; background: #f8fafc; }
+  /* 쿠팡 탭 「쿠팡 전체」 줄 — 연한 하이라이트(11/11 사용자 요청) */
+  tr.cp-total td { background: #eef4ff; border-top: 1px solid #c7d7fe; border-bottom: 1px solid #c7d7fe; }
+  tr.cp-total td:first-child { box-shadow: inset 3px 0 0 #3b82f6; }
   tr.sub td { color: #64748b; font-size: 12px; background: #fcfcfd; }
   tr.opt td { color: #475569; font-size: 12.5px; background: #fbfcfe; }
   tr.opt td.name { padding-left: 18px; }
@@ -732,7 +735,7 @@ function renderCoupang(d, rows) {
   }).join('');
   $('cpItemTbl').innerHTML = keys.length
     ? `<thead><tr><th class="l">상품</th><th class="b">매출</th><th title="어제 하루 매출 대비. 오늘은 실시간이라 하루가 끝나기 전엔 낮게 나옵니다">어제 대비 <span class="muted">(어제 매출)</span></th><th>비중</th><th class="b">광고비</th><th>광고비중</th></tr></thead><tbody>
-       <tr class="sum"><td class="l">쿠팡 전체</td><td class="b">${won(S)}</td><td style="white-space:nowrap">${grow(S, prevS)}</td><td>100%</td><td class="b">${won(A)}</td><td>${pctTxt(pct(A, S))}</td></tr>${body}</tbody>`
+       <tr class="sum cp-total"><td class="l">쿠팡 전체</td><td class="b">${won(S)}</td><td style="white-space:nowrap">${grow(S, prevS)}</td><td>100%</td><td class="b">${won(A)}</td><td>${pctTxt(pct(A, S))}</td></tr>${body}</tbody>`
     : '<tr><td class="l muted">이 날짜에 받은 쿠팡 매출이 없습니다.</td></tr>';
   $('cpItemPill').textContent = keys.filter(k => !k.startsWith('그 외')).length + '개';
 }
