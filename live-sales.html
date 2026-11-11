@@ -743,9 +743,14 @@ function renderCoupang(d, rows) {
     const badge = m.store === '로켓그로스' ? '<b style="color:#2563eb">✓ 로켓그로스 뱃지 붙음</b>'
       : m.store ? `<b style="color:#dc2626">✕ 로켓그로스 뱃지 없음</b> <span class="muted">(${esc(m.store)})</span>` : '<span class="muted">뱃지 확인 못 함(검색에 안 나옴)</span>';
     const url = 'https://www.coupang.com/np/search?q=' + encodeURIComponent(m.query);
+    // 저장 칸: rating=광고 자리 위치, low_price/low_store=리셀러 최저가·상호(11/11~). 그 전 기록은 low_store 에 「광고 n번째」
+    const adPos = m.rating ? `광고 ${m.rating}번째` : /^광고 /.test(m.low_store || '') ? m.low_store : '';
+    const resel = !m.low_store || /^광고 /.test(m.low_store) ? '<span class="muted">리셀러 확인 전</span>'
+      : m.low_store === '리셀러 없음' ? '<b style="color:#16a34a">리셀러 없음</b>'
+      : `<b style="color:#dc2626">리셀러 있음</b> · 최저가 <b>${won(m.low_price)}원</b> <span class="muted">(${esc(m.low_store)}${m.price ? ` · 우리 ${won(m.price)}원` : ''})</span>`;
     return `<div class="cp-detail"><span>쿠팡 검색 「<a href="${url}" target="_blank" rel="noopener">${esc(m.query)}</a>」</span>
-      <span>${rank}</span><span>${m.low_store ? '광고 자리: ' + esc(m.low_store) : '<span class="muted">광고 자리 없음</span>'}</span>
-      <span>${badge}</span>${m.price ? `<span>노출가 ${won(m.price)}원</span>` : ''}${m.review_count != null ? `<span>후기 ${won(m.review_count)}</span>` : ''}
+      <span>${rank}</span><span>${adPos ? '광고 자리: ' + esc(adPos) : '<span class="muted">광고 자리 없음</span>'}</span>
+      <span>${badge}</span><span>${resel}</span>${m.review_count != null ? `<span>후기 ${won(m.review_count)}</span>` : ''}
       <span class="muted">확인 ${hm(m.checked_at)}</span></div>`;
   };
   let ta = 0;
