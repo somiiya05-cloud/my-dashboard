@@ -897,10 +897,19 @@ async function pull() {
   const d = $('day').value;
   $('pullBtn').disabled = true;
   try {
-    const { data, error } = await db.from('live_sales_requests').insert({ target_date: d }).select().single();
-    if (error) throw error;
-    setStatus('사무실 PC 수집기에 요청했습니다… (네 몰을 차례로 받아 1~3분 걸립니다)');
-    const t0 = Date.now();
+    // 같은 날짜를 이미 받는 중이거나 기다리는 요청이 있으면 새로 넣지 않고 그것을 따라간다 — 두 번 누르면 뒤 요청이
+    // 앞 요청이 끝날 때까지 줄 서서 '감시가 꺼졌다'고 잘못 떴다(11/11 23:46)
+    const since = new Date(Date.now() - 12 * 60e3).toISOString();
+    const { data: open } = await db.from('live_sales_requests').select('*').eq('target_date', d)
+      .in('status', ['pending', 'running']).gte('requested_at', since).order('id', { ascending: false }).limit(1);
+    let data = open && open[0];
+    if (!data) {
+      const ins = await db.from('live_sales_requests').insert({ target_date: d }).select().single();
+      if (ins.error) throw ins.error;
+      data = ins.data;
+      setStatus('사무실 PC 수집기에 요청했습니다… (네 몰을 차례로 받아 1~3분 걸립니다)');
+    } else setStatus('이미 받는 중인 요청이 있어 그 결과를 기다립니다…');
+    const t0 = new Date(data.requested_at).getTime() || Date.now();
     const reqAt = hhmm(data.requested_at || t0, true);
     const tick = () => {
       const s = Math.round((Date.now() - t0) / 1000);
@@ -914,9 +923,14 @@ async function pull() {
       const { data: r } = await db.from('live_sales_requests').select('*').eq('id', data.id).single();
       // 수집기는 다른 수집이 끝날 때까지 최대 5분 기다린다
       // 감시는 20초마다 확인하니 1분이 넘도록 안 가져가면 바로 알린다(꺼져 있어도 4분 동안 '요청했습니다'만 떠 있었다, 11/10)
-      if (r.status === 'pending' && Date.now() - t0 > 60e3 && Date.now() - t0 <= 4 * 60e3)
-        setStatus('1분이 지나도 수집기가 요청을 가져가지 않습니다 — 다른 수집을 하는 중이면 곧 시작하고, 계속 이러면 사무실 PC의 감시 프로그램(실시간매출감시.bat)이 꺼진 것입니다. 기다리는 중…', true);
-      if (r.status === 'pending' && Date.now() - t0 > 4 * 60e3) { setStatus('사무실 PC 수집기가 요청을 가져가지 않습니다 — PC가 꺼져 있거나 감시 프로그램(실시간매출감시.bat)이 꺼져 있을 수 있습니다.', true); break; }
+      if (r.status === 'pending' && Date.now() - t0 > 40e3) {
+        // 앞에 받는 중인 요청(다른 날짜·다른 사람)이 있으면 줄 서 있는 것이지 감시가 꺼진 게 아니다
+        const { data: ahead } = await db.from('live_sales_requests').select('id,message,started_at').eq('status', 'running')
+          .lt('id', r.id).gte('started_at', since).order('id', { ascending: false }).limit(1);
+        if (ahead && ahead[0]) setStatus('앞 요청을 받는 중이라 끝나면 바로 이어서 받습니다 — 지금 단계: ' + (ahead[0].message || '시작'));
+        else if (Date.now() - t0 > 4 * 60e3) { setStatus('사무실 PC 수집기가 요청을 가져가지 않습니다 — PC가 꺼져 있거나 감시 프로그램(실시간매출감시.bat)이 꺼져 있을 수 있습니다.', true); break; }
+        else if (Date.now() - t0 > 60e3) setStatus('1분이 지나도 수집기가 요청을 가져가지 않습니다 — 원래 수집기(09:10·15:10)가 크롬을 쓰는 중이면 곧 시작합니다. 계속 이러면 사무실 PC의 감시 프로그램(실시간매출감시.bat)이 꺼진 것입니다.', true);
+      }
       if (r.status === 'running') setStatus('받는 중… ' + (r.message || ''));
       if (r.status === 'done' || r.status === 'failed') {
         Object.keys(cache).forEach(k => { if (k >= addDays(d, -1)) delete cache[k]; });
@@ -927,7 +941,8 @@ async function pull() {
         setPullTime(`받은 시각 <b>${hhmm(r.finished_at || Date.now())}</b><br>${Math.floor(took / 60)}분 ${String(took % 60).padStart(2, '0')}초 걸림`, r.status === 'failed' ? 'err' : '');
         break;
       }
-      if (Date.now() - t0 > 6 * 60e3) { setStatus('6분이 지나도 끝나지 않았습니다. 잠시 뒤 새로고침해 보세요.', true); break; }
+      // 수집기는 10분이 넘으면 스스로 끊고 실패로 닫는다(11/11) — 그보다 조금 더 기다린다
+      if (Date.now() - t0 > 11 * 60e3) { setStatus('11분이 지나도 끝나지 않았습니다. 잠시 뒤 새로고침해 보세요.', true); break; }
     }
     } finally { if (timer) clearInterval(timer); }
     if ($('pullTime').classList.contains('busy')) loadLastPull();
