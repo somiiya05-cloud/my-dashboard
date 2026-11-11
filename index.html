@@ -3447,9 +3447,9 @@
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   // ---- 목표 매출 (매월 동일 적용) ----
-  const COMPANY_MONTHLY_TARGET = 9000000000; // 전사 월 90억원
-  const COMPANY_DAILY_TARGET = 900000000;    // 전사 일 9억원 (현재 화면에는 표시하지 않음)
-  const TEAM_MONTHLY_TARGET = 1000000000;    // 영업팀 월 10억원 (2026-11 사용자 요청으로 8억 → 10억)
+  const COMPANY_MONTHLY_TARGET = 5400000000; // 전사 월 54억원 (2026-11-11 사용자 확인으로 90억 → 54억)
+  const COMPANY_DAILY_TARGET = 180000000;    // 전사 일 1.8억원 = 54억 ÷ 30 (현재 화면에는 표시하지 않음)
+  const TEAM_MONTHLY_TARGET = 1000000000;    // 영업팀 월 10억원 (일 목표 3,333만원 = 10억 ÷ 30)
 
   // 영업팀 일 목표는 월 목표를 그 달의 달력 일수로 나눠 씁니다.
   // 따로 숫자를 적어두면 월 목표를 바꿀 때 한쪽만 바뀌어, 일·주 목표를 다 더해도
