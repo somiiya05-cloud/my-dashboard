@@ -24,6 +24,10 @@
   .datebar { display: flex; gap: 6px; align-items: center; }
   .datebar input { border: 1px solid #d5d9e2; border-radius: 8px; padding: 7px 9px; font-size: 13.5px; }
   .status { font-size: 12.5px; color: #64748b; }
+  .pulltime { font-size: 12.5px; color: #64748b; text-align: right; line-height: 1.35; white-space: nowrap; }
+  .pulltime b { color: #0f172a; font-weight: 700; }
+  .pulltime.busy b { color: #2563eb; }
+  .pulltime.err b { color: #dc2626; }
   .status.err { color: #dc2626; font-weight: 700; }
   .card { background: #fff; border-radius: 14px; border: 1px solid #e5e7eb; padding: 18px 20px; margin-bottom: 16px; }
   .card h2 { font-size: 16px; margin: 0 0 4px; font-weight: 800; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -126,6 +130,7 @@
       <button class="btn sm" id="nextDay">▶</button>
       <button class="btn sm" id="todayBtn">오늘</button>
     </div>
+    <div class="pulltime" id="pullTime"></div>
     <button class="btn primary" id="pullBtn">지금 받기</button>
   </div>
   <div class="status" id="status" style="margin:-6px 0 12px"></div>
@@ -865,6 +870,28 @@ async function show(d, force) {
 
 function setStatus(t, err) { $('status').textContent = t; $('status').className = 'status' + (err ? ' err' : ''); }
 
+// ---------- 지금 받기 옆 시각 ----------
+function hhmm(ts, sec) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', ...(sec ? { second: '2-digit' } : {}), hour12: false });
+}
+function mmdd(ts) {
+  return new Date(ts).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit' }).replace(/\s/g, '').replace(/\.$/, '').replace('.', '-');
+}
+function setPullTime(html, cls) { const el = $('pullTime'); el.innerHTML = html; el.className = 'pulltime' + (cls ? ' ' + cls : ''); }
+function showLastPull(r) {
+  if (!r || !r.finished_at) { setPullTime(''); return; }
+  const day = mmdd(r.finished_at) === mmdd(Date.now()) ? '' : mmdd(r.finished_at) + ' ';
+  setPullTime(`마지막 받음 <b>${day}${hhmm(r.finished_at)}</b>` + (r.status === 'failed' ? ' · 일부 실패' : ''), r.status === 'failed' ? 'err' : '');
+}
+async function loadLastPull() {
+  try {
+    const { data } = await db.from('live_sales_requests').select('status,requested_at,finished_at')
+      .in('status', ['done', 'failed']).not('finished_at', 'is', null).order('finished_at', { ascending: false }).limit(1);
+    showLastPull(data && data[0]);
+  } catch (e) { /* 시각은 못 띄워도 화면은 그대로 */ }
+}
+
 // ---------- 지금 받기: 사무실 PC 수집기에 요청 ----------
 async function pull() {
   const d = $('day').value;
@@ -874,6 +901,14 @@ async function pull() {
     if (error) throw error;
     setStatus('사무실 PC 수집기에 요청했습니다… (네 몰을 차례로 받아 1~3분 걸립니다)');
     const t0 = Date.now();
+    const reqAt = hhmm(data.requested_at || t0, true);
+    const tick = () => {
+      const s = Math.round((Date.now() - t0) / 1000);
+      setPullTime(`요청 <b>${reqAt}</b><br>${Math.floor(s / 60)}분 ${String(s % 60).padStart(2, '0')}초 경과`, 'busy');
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    try {
     for (;;) {
       await new Promise(r => setTimeout(r, 4000));
       const { data: r } = await db.from('live_sales_requests').select('*').eq('id', data.id).single();
@@ -886,12 +921,17 @@ async function pull() {
       if (r.status === 'done' || r.status === 'failed') {
         Object.keys(cache).forEach(k => { if (k >= addDays(d, -1)) delete cache[k]; });
         await show(d, true);
-        setStatus((r.status === 'done' ? '받았습니다. ' : '일부 실패: ') + (r.message || ''), r.status === 'failed');
+        const took = Math.round((Date.now() - t0) / 1000);
+        setStatus(`${hhmm(r.finished_at || Date.now(), true)} ` + (r.status === 'done' ? '받았습니다. ' : '일부 실패: ') + (r.message || ''), r.status === 'failed');
+        clearInterval(timer);
+        setPullTime(`받은 시각 <b>${hhmm(r.finished_at || Date.now())}</b><br>${Math.floor(took / 60)}분 ${String(took % 60).padStart(2, '0')}초 걸림`, r.status === 'failed' ? 'err' : '');
         break;
       }
       if (Date.now() - t0 > 6 * 60e3) { setStatus('6분이 지나도 끝나지 않았습니다. 잠시 뒤 새로고침해 보세요.', true); break; }
     }
-  } catch (e) { setStatus('요청 실패: ' + (e.message || e), true); }
+    } finally { if (timer) clearInterval(timer); }
+    if ($('pullTime').classList.contains('busy')) loadLastPull();
+  } catch (e) { setStatus('요청 실패: ' + (e.message || e), true); loadLastPull(); }
   $('pullBtn').disabled = false;
 }
 
@@ -906,6 +946,7 @@ $('xlsBtn').onclick = downloadXlsx;
 
 (async () => {
   loadMeta().then(() => { if (BRAND === '단독' || BRAND === '쿠팡') renderAll(); });
+  loadLastPull();
   try { await loadRules(); } catch (e) { setStatus('규칙 불러오기 실패: ' + e.message + ' — Supabase 에 live_sales.sql 을 실행했는지 확인하세요', true); }
   await show(new URLSearchParams(location.search).get('date') || kst());
 })();
