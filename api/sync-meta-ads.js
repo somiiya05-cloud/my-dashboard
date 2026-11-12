@@ -141,7 +141,42 @@ module.exports = async function handler(req, res) {
         continue;
       }
 
-      results.push({ channel: brand.channel, ok: true, spend, impressions, clicks, conversions, revenue });
+      // 지금 켜진 광고 이름 — 실시간 매출 쿠팡 탭 「메타」 뱃지용(meta_active_ads.sql, 11/12).
+      // 실패해도 월 합계 동기화는 그대로 둔다.
+      let activeAds = null, activeAdsError;
+      try {
+        const ads = [];
+        let url = `https://graph.facebook.com/${META_API_VERSION}/${adAccountId}/ads` +
+          `?fields=name,campaign{name},adset{name},insights.date_preset(last_7d){spend}` +
+          `&effective_status=${encodeURIComponent('["ACTIVE"]')}&limit=200&access_token=${accessToken}`;
+        for (let i = 0; url && i < 5; i++) {
+          const j = await (await fetch(url)).json();
+          if (j.error) throw new Error(j.error.message || JSON.stringify(j.error));
+          (j.data || []).forEach((a) => ads.push(a));
+          url = j.paging && j.paging.next;
+        }
+        const H = { apikey: supabaseServiceKey, Authorization: `Bearer ${supabaseServiceKey}`, 'Content-Type': 'application/json' };
+        const del = await fetch(`${SUPABASE_URL}/rest/v1/meta_active_ads?channel=eq.${encodeURIComponent(brand.channel)}`, { method: 'DELETE', headers: H });
+        if (!del.ok) throw new Error('meta_active_ads 지우기 ' + del.status + ' ' + (await del.text()).slice(0, 120));
+        if (ads.length) {
+          const now = new Date().toISOString();
+          const ins = await fetch(`${SUPABASE_URL}/rest/v1/meta_active_ads?on_conflict=ad_id`, {
+            method: 'POST', headers: { ...H, Prefer: 'resolution=merge-duplicates' },
+            body: JSON.stringify(ads.map((a) => ({
+              ad_id: String(a.id), channel: brand.channel, ad_name: a.name || '',
+              adset_name: (a.adset && a.adset.name) || '', campaign_name: (a.campaign && a.campaign.name) || '',
+              spend_7d: Number((a.insights && a.insights.data && a.insights.data[0] && a.insights.data[0].spend) || 0),
+              synced_at: now
+            })))
+          });
+          if (!ins.ok) throw new Error('meta_active_ads 넣기 ' + ins.status + ' ' + (await ins.text()).slice(0, 120));
+        }
+        activeAds = ads.length;
+      } catch (e) {
+        activeAdsError = String(e.message || e);
+      }
+
+      results.push({ channel: brand.channel, ok: true, spend, impressions, clicks, conversions, revenue, activeAds, activeAdsError });
     } catch (err) {
       results.push({ channel: brand.channel, error: 'unexpected_error', detail: String(err) });
     }
