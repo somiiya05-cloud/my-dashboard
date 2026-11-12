@@ -184,6 +184,7 @@
     </div>
 
     <div class="card" id="prodStoreCard" style="display:none;margin-bottom:16px;"></div>
+    <div class="card" id="gfaCard" style="display:none;margin-bottom:16px;"></div>
 
     <div class="card">
       <div class="tabs" id="tabs">
@@ -272,6 +273,7 @@
   let storeRows = []; // 스마트스토어 방문 분석 기준 광고 유입 결제 (ad_store_attribution)
   let prodStoreRows = []; // 스마트스토어 방문 분석 기준 상품별 결제, 유입 경로 구분 없음 (store_product_sales)
   let statusMap = new Map(); // 몰 + 캠페인 → 광고 관리자 운영 상태 (ad_campaign_status)
+  let gfaMeta = new Map(); // GFA 캠페인 + 소재 이름 → 이미지·문구 (gfa_creatives)
   let activeOnly = true;
   let isSample = false; // 예시 데이터는 화면에만 띄우고 저장하지 않습니다.
   let state = { tab: 'campaign', sort: { key: 'cost', dir: -1 }, grade: 'all', q: '' };
@@ -311,6 +313,10 @@
         const { data, error } = await db.from('ad_campaign_status').select('mall,campaign,active,status,updated_at').limit(5000);
         statusMap = new Map(error ? [] : data.map((r) => [r.mall + '' + r.campaign, r]));
       } catch { statusMap = new Map(); }
+      try {
+        const { data, error } = await db.from('gfa_creatives').select('creative_no,name,campaign,ad_set,message,image_url,link_url,product_no,activated').limit(2000);
+        gfaMeta = new Map(error ? [] : data.map((r) => [r.campaign + '\u0001' + r.name, r]));
+      } catch { gfaMeta = new Map(); }
       $('emptyTitle').textContent = '아직 올린 보고서가 없습니다';
     } catch (err) {
       rows = [];
@@ -630,6 +636,7 @@
     drawKpis(days);
     drawStore(from, to);
     drawProdStore(from, to);
+    drawGfa(from, to);
     drawTrend();
     drawStrategy();
     drawTable();
@@ -880,6 +887,51 @@
         <thead><tr><th class="l">상품</th><th class="l">캠페인</th><th>광고비 (VAT 포함)</th><th>광고 관리자 매출</th><th>스토어 결제</th><th>스토어 매출</th><th>광고비 비중</th></tr></thead>
         <tbody>${list.map((a) => `<tr><td class="l" title="${esc(a.name)}">${esc(a.name)}</td><td class="l">${esc([...a.camps].join(', ') || '-')}</td><td>${won(a.cost)}</td><td>${won(a.rev)}</td><td>${won(a.pays)}건</td><td>${won(a.sales)}</td><td>${shareCell(a.cost, a.sales)}</td></tr>`).join('')}</tbody>
         <tfoot><tr><td class="l">합계</td><td class="l"></td><td>${won(tot.cost)}</td><td>${won(tot.rev)}</td><td>${won(tot.pays)}건</td><td>${won(tot.sales)}</td><td>${shareCell(tot.cost, tot.sales)}</td></tr></tfoot>
+      </table></div>`;
+  }
+
+  // ---------- GFA 소재별 성과 ----------
+  // GFA는 이미지 소재마다 광고그룹을 나눠 돌려서(11/11 대행사 구성) 소재끼리 클릭률·클릭당 비용을 비교합니다.
+  // 스마트스토어 방문 분석은 GFA 경로 합계만 주므로, 실결제는 위 지표(몰 = GFA)에서 캠페인 전체로 봅니다.
+  // 소재 이미지·문구는 외부광고수집기가 gfa_creatives 에 넣고, 지워진 소재는 '(지워진 소재)' 한 줄로 모입니다.
+  function drawGfa(from, to) {
+    const card = $('gfaCard');
+    const mall = $('fMall').value, camp = $('fCamp').value;
+    const list0 = rows.filter((r) => r.mall === 'GFA' && r.date >= from && r.date <= to && (!camp || r.campaign === camp));
+    if (isSample || (mall && mall !== 'GFA') || !list0.length) { card.style.display = 'none'; return; }
+    const m = new Map();
+    for (const r of list0) {
+      const k = r.campaign + '\u0001' + r.product;
+      if (!m.has(k)) m.set(k, { camp: r.campaign, set: r.adgroup, name: r.product, imp: 0, clk: 0, cost: 0, conv: 0, rev: 0 });
+      const a = m.get(k); a.imp += r.imp; a.clk += r.clk; a.cost += r.cost; a.conv += r.conv; a.rev += r.rev;
+    }
+    const gone = (a) => a.name === '(지워진 소재)';
+    const list = [...m.entries()].map(([k, a]) => ({ ...a, meta: gfaMeta.get(k) }))
+      .sort((x, y) => gone(x) - gone(y) || x.camp.localeCompare(y.camp) || x.set.localeCompare(y.set, 'ko', { numeric: true }));
+    const live = list.filter((a) => !gone(a) && a.imp >= 100);
+    const bestCtr = Math.max(0, ...live.map((a) => a.clk / a.imp));
+    const tot = list.reduce((t, a) => ({ imp: t.imp + a.imp, clk: t.clk + a.clk, cost: t.cost + a.cost, conv: t.conv + a.conv, rev: t.rev + a.rev }), { imp: 0, clk: 0, cost: 0, conv: 0, rev: 0 });
+    const ctr = (a) => a.imp ? a.clk / a.imp : NaN;
+    const thumb = (a) => a.meta?.image_url
+      ? `<a href="${esc(a.meta.link_url || a.meta.image_url)}" target="_blank" rel="noopener"><img src="${esc(a.meta.image_url)}" alt="" loading="lazy" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #eef0f4;display:block;"></a>`
+      : `<div style="width:56px;height:56px;border-radius:8px;background:#f1f5f9;"></div>`;
+    const row = (a) => {
+      const c = ctr(a), best = !gone(a) && a.imp >= 100 && bestCtr > 0 && c === bestCtr;
+      return `<tr${gone(a) ? ' style="color:#94a3b8;"' : ''}>
+        <td class="l"><div style="display:flex;gap:10px;align-items:center;">${thumb(a)}<div style="min-width:0;">
+          <b>${esc(a.name)}</b>${best ? ' <span class="pill" style="background:#dcfce7;color:#166534;">클릭률 1위</span>' : ''}
+          <div style="font-size:12px;color:#64748b;white-space:normal;max-width:320px;">${esc(a.meta?.message || (gone(a) ? '광고관리자에서 지운 소재·캠페인의 합계' : ''))}</div>
+          <div style="font-size:11.5px;color:#94a3b8;">${esc(a.camp)}${a.set ? ' · ' + esc(a.set) : ''}</div></div></div></td>
+        <td>${won(a.imp)}</td><td>${won(a.clk)}</td><td>${isFinite(c) ? pct(c, 2) : '-'}</td><td>${a.clk ? won(Math.round(a.cost / a.clk)) : '-'}</td>
+        <td>${won(a.cost)}</td><td>${a.conv ? won(a.conv) + '건 · ' + won(a.rev) : '-'}</td></tr>`;
+    };
+    card.style.display = '';
+    card.innerHTML = `<h2>GFA 소재별 성과 <span class="pill">GFA</span></h2>
+      <p class="hint">이미지 소재끼리 <b>클릭률</b>과 <b>클릭당 비용</b>을 비교하세요(노출 100회 이상 소재 중 클릭률이 가장 높은 소재에 표시). 구매는 광고 관리자 기준이며, 스마트스토어 실결제는 위에서 몰을 <b>GFA</b>로 고르면 캠페인 전체로 볼 수 있습니다. 이미지를 누르면 연결된 상품 페이지가 열립니다.</p>
+      <div class="tblwrap" style="max-height:620px;"><table>
+        <thead><tr><th class="l">소재</th><th>노출</th><th>클릭</th><th>클릭률</th><th>클릭당 비용 (VAT 포함)</th><th>광고비 (VAT 포함)</th><th>광고 관리자 구매</th></tr></thead>
+        <tbody>${list.map(row).join('')}</tbody>
+        <tfoot><tr><td class="l">합계</td><td>${won(tot.imp)}</td><td>${won(tot.clk)}</td><td>${isFinite(ctr(tot)) ? pct(ctr(tot), 2) : '-'}</td><td>${tot.clk ? won(Math.round(tot.cost / tot.clk)) : '-'}</td><td>${won(tot.cost)}</td><td>${tot.conv ? won(tot.conv) + '건 · ' + won(tot.rev) : '-'}</td></tr></tfoot>
       </table></div>`;
   }
 
