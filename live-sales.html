@@ -540,7 +540,7 @@ async function slotCards(day) {
       <div class="v">-</div><div class="team">시각별 기록 표가 아직 없습니다 (live_sales_snapshots.sql)</div></div>`).join('');
   }
   const daySum = {}; totals.forEach(r => daySum[r.date] = (daySum[r.date] || 0) + +r.amount);
-  const at = {}; snaps.forEach(r => { const k = r.date + '|' + r.slot; (at[k] ||= { amt: 0, n: 0, bad: 0 }); at[k].amt += +r.amount; at[k].n++; if (!r.ok) at[k].bad++; });
+  const at = {}; snaps.forEach(r => { const k = r.date + '|' + r.slot; (at[k] ||= { amt: 0, n: 0, bad: 0, badM: [] }); at[k].amt += +r.amount; at[k].n++; if (!r.ok) { at[k].bad++; at[k].badM.push(r.mall); } });
   const nowH = +new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false });
   return SLOTS.map(s => {
     const cur = at[day + '|' + s];
@@ -552,7 +552,7 @@ async function slotCards(day) {
     const color = r == null ? '#94a3b8' : r >= 1 ? '#16a34a' : r >= .8 ? '#eab308' : '#dc2626';
     const v = cur ? won(cur.amt) + (r != null ? `<span style="color:${color}">${r >= 1 ? '+' : ''}${((r - 1) * 100).toFixed(0)}%</span>` : '')
       : '-';
-    const sub = cur ? (cur.bad ? `<span style="color:#dc2626">몰 ${cur.bad}곳 실패 — 직전 값으로 적음</span>` : '')
+    const sub = cur ? (cur.bad ? `<span style="color:#dc2626">${cur.badM.join('·')} 실패(로그인 풀림 등) — 직전 값으로 적음 · 평균에선 뺌</span>` : '')
       : day === kst() && nowH < s ? `${s}시에 자동으로 받습니다` : '이 시각 기록 없음';
     const avgLine = avg != null ? `지난 ${past.length}일 평균 ${won(avg)}${share ? ` · 하루의 ${(share * 100).toFixed(0)}%` : ''}` : '평균 — 아직 쌓인 날이 없음';
     const proj = cur && share ? `이대로면 마감 약 ${won(Math.round(cur.amt / share / 1e4) * 1e4)}` : '';
