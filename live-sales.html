@@ -975,6 +975,7 @@ async function loadLastPull() {
     const { data } = await db.from('live_sales_requests').select('status,requested_at,finished_at')
       .in('status', ['done', 'failed']).not('finished_at', 'is', null).order('finished_at', { ascending: false }).limit(1);
     showLastPull(data && data[0]);
+    window.__lastSeenPull = data && data[0] ? data[0].finished_at : null;
   } catch (e) { /* 시각은 못 띄워도 화면은 그대로 */ }
 }
 
@@ -1044,6 +1045,23 @@ $('day').onchange = () => show($('day').value);
 $('nDays').onchange = () => show($('day').value);
 $('pullBtn').onclick = pull;
 $('xlsBtn').onclick = downloadXlsx;
+
+// 화면을 열어 두면 3분마다 오늘 값을 다시 읽는다 — 수집기가 30분마다 알아서 받으므로(11/12) 버튼을 안 눌러도 새 값이 보인다
+setInterval(async () => {
+  const d = $('day').value;
+  if (document.visibilityState !== 'visible' || $('pullBtn').disabled || d !== kst()) return;
+  try {
+    const { data } = await db.from('live_sales_requests').select('status,finished_at').in('status', ['done', 'failed'])
+      .not('finished_at', 'is', null).order('finished_at', { ascending: false }).limit(1);
+    const r = data && data[0];
+    if (r && window.__lastSeenPull !== undefined && r.finished_at !== window.__lastSeenPull) {
+      window.__lastSeenPull = r.finished_at;
+      showLastPull(r);
+      Object.keys(cache).forEach(k => { if (k >= addDays(d, -1)) delete cache[k]; });
+      await show(d, true);
+    }
+  } catch (e) { /* 다음 번에 다시 */ }
+}, 3 * 60e3);
 
 (async () => {
   loadMeta().then(() => { if (BRAND === '단독' || BRAND === '쿠팡') renderAll(); });
