@@ -8443,11 +8443,11 @@
   //   useReg : 사방넷 등록 현황의 몰도 칸으로 쓸지. 명퉤는 사방넷엔 스마트스토어로 잡혀 있지만
   //            실제로는 자사몰·선물하기에서만 팔고 있어서 쓰지 않습니다.
   //   fromPrices : 사방넷에 상품이 없는 브랜드. 상품 목록을 mall_product_prices 의 brand 로 만듭니다.
-  //            슬로우케어는 자사몰(slowcare.co.kr)에서만 팔고, 품번 대신 "SC-자사몰 상품번호"를 씁니다.
+  //            슬로우케어는 자사몰(slowcare.co.kr)과 쿠팡에서 팔고, 품번 대신 "SC-자사몰 상품번호"를 씁니다.
   const MSP_BRANDS = {
     '코드니처': { extra: ['공동구매', '코드니처 자사몰', '쿠팡'], useReg: true },
     '명퉤': { extra: ['명퉤 자사몰', '카카오 선물하기'], useReg: false },
-    '슬로우케어': { extra: ['슬로우케어 자사몰'], useReg: false, fromPrices: true },
+    '슬로우케어': { extra: ['슬로우케어 자사몰', '쿠팡'], useReg: false, fromPrices: true },
   };
   // 공동구매 칸 — 구성별 공구가를 memo 에 "공구옵션:[{구성,가격}…]" 으로 넣어 둡니다.
   const MSP_GROUPBUY = '공동구매';
