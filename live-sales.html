@@ -274,13 +274,14 @@ async function loadMeta() {
 let META_ADS = null;
 // 광고·광고세트·캠페인 이름을 상품 묶기 규칙으로 대표 상품에 맞춘다 → { 대표 상품: {ads:[…], spend} }
 // 메타 캠페인에만 쓰는 다른 이름 → 대표 상품 (상품 묶기 규칙에 없는 것)
-const META_ALIAS = [['패딩압축세탁망', '패딩 2중'], ['패딩빨아망', '패딩 2중']];
+// [낱말, 대표 상품, (그 광고 계정만)] — 라스마 「[제습] 파트너쉽 광고 시딩」 = 스트롱 제습서버(11/12 사용자 확인)
+const META_ALIAS = [['패딩압축세탁망', '패딩 2중'], ['패딩빨아망', '패딩 2중'], ['제습', '스트롱 제습서버', '메타 라스마']];
 // 캠페인 이름(앞의 [상품명] 우선)으로 정한다. 광고세트 「베개1」 같은 이름은 상품과 무관한 번호라(11/12 라스마) 캠페인으로 못 정할 때만 본다.
 function metaKeysOf(a) {
   const camp = a.campaign_name || '', br = (camp.match(/^\s*\[([^\]]+)\]/) || [])[1];
   for (const n of [br, camp, a.adset_name, a.ad_name]) {
     if (!n) continue;
-    const s = squash(n), al = META_ALIAS.find(([p]) => s.includes(p));
+    const s = squash(n), al = META_ALIAS.find(([p, , ch]) => s.includes(p) && (!ch || a.channel === ch));
     if (al) return [al[1]];
     const ks = itemKeys(n, true).map(([k]) => k).filter(k => k !== '기타');
     if (ks.length) return ks;
@@ -817,7 +818,7 @@ function renderCoupang(d, rows) {
     return `<span class="meta-badge" title="${esc(tip)}">메타</span>`; };
   const metaLine = k => { const m = MK[k];
     if (META_ADS == null) return '';
-    return m ? `<span><b style="color:#1d4ed8">메타 광고 ${m.ads.length}개 켜짐</b> <span class="muted">최근 7일 ${won(m.spend)}원 · ${esc(m.ads.slice(0, 3).map(a => a.ad_name).join(', '))}${m.ads.length > 3 ? ' 외' : ''}</span></span>`
+    return m ? `<span><b style="color:#1d4ed8">메타 광고 ${m.ads.length}개 켜짐</b> <span class="muted">최근 7일 ${won(m.spend)}원 · ${esc((cs => cs.slice(0, 3).join(', ') + (cs.length > 3 ? ' 외 ' + (cs.length - 3) : ''))([...new Set(m.ads.map(a => (a.campaign_name || a.ad_name).replace(/(\s*-\s*사본)+\s*$/, '')))]))}</span></span>`
       : '<span class="muted">메타 광고 없음</span>'; };
   let ta = 0;
   const body = keys.map(k => {
