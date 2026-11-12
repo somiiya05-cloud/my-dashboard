@@ -43,6 +43,7 @@ const PRODUCT_ALIAS={
 // 슬로우케어는 자사몰이라 제외, 카카오톡스토어(법인)은 영업팀이라 제외하지 않습니다.
 // upload.js 의 EX 와도 같은 목록이어야 합니다 — 한쪽을 바꾸면 같이 바꿀 것.
 const EX=new Set(['미니멀룸','글로리핏','라이프스타일마트','빠이러스','그로우뮤즈','PORKE.','명퉤','명퉤(해외)','잠비에','멜루션','코드니처','슬로우케어','카카오선물하기(개인)','카카오선물하기(개인)_폴크','명퉤 경주 황리단길 본점','공동구매(컨텐츠팀)','CONTENTS_DEAL']);
+const CANON=b=>BRAND_CANON[b]||b;
 const norm=s=>String(s??'').trim().replace(/\bporke\b/gi,'PORKE');
 const serial=n=>new Date(Date.UTC(1899,11,30)+n*86400000).toISOString().slice(0,10);
 
@@ -62,7 +63,14 @@ for(let i=0;i<R.length;i++){
   if(PRODUCT_ALIAS[name]){const k=name+' → '+PRODUCT_ALIAS[name];iss.alias[k]=(iss.alias[k]||0)+1;name=PRODUCT_ALIAS[name];}
   let brand=norm(r[12]);
   if(/^GRET002/i.test(sku)) brand='그로우뮤즈';
-  else if(brand&&bracket&&brand!==bracket&&!BRAND_CANON[brand]){const k=brand+' ↔ ['+bracket+']';iss.mismatch[k]=(iss.mismatch[k]||0)+1;}
+  else if(brand&&bracket&&CANON(brand)!==CANON(bracket)){
+    // 브랜드 칸과 대괄호가 어긋날 때, SKU 접두어가 대괄호 쪽을 가리키면 브랜드 칸이 오타다.
+    // 2026-11-12: '[명퉤] 평온 오행 수호부'(MYHO11-004)가 브랜드 칸에 '코드니처'로 들어왔다.
+    // 코드니처는 실재하는 브랜드라 아래 KNOWN_BRANDS 복구에 안 걸려서 여기서 잡는다.
+    const p0=SKU2BRAND.find(([k])=>sku.toUpperCase().startsWith(k));
+    if(p0&&p0[1]===CANON(bracket)){const k=brand+' → '+p0[1]+' (['+bracket+'] + SKU '+sku+')';iss.recovered[k]=(iss.recovered[k]||0)+1;brand=p0[1];}
+    else {const k=brand+' ↔ ['+bracket+']';iss.mismatch[k]=(iss.mismatch[k]||0)+1;}
+  }
   if(!brand) brand=bracket||'';
   if(!brand){const p=SKU2BRAND.find(([k])=>sku.toUpperCase().startsWith(k)); if(p)brand=p[1];}
   if(BRAND_CANON[brand]){const k=brand+' → '+BRAND_CANON[brand];iss.canon[k]=(iss.canon[k]||0)+1;brand=BRAND_CANON[brand];}
