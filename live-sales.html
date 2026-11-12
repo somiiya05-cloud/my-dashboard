@@ -70,6 +70,9 @@
   tr.cp-total td:first-child { box-shadow: inset 3px 0 0 #3b82f6; }
   #cpItemTbl th { text-align: center; }
   #cpItemTbl tr.cp-row { cursor: pointer; }
+  #cpItemTbl tr.cp-zero-head td { background: #f8fafc; color: #475569; font-size: 12.5px; padding-top: 12px; border-top: 2px solid #e2e8f0; }
+  #cpItemTbl tr.cp-zero td.name span:not(.meta-badge):not(.muted):not(.cp-tag) { color: #64748b; }
+  .cp-tag { font-size: 10.5px; color: #b45309; background: #fef3c7; border-radius: 4px; padding: 1px 5px; margin-left: 4px; }
   .meta-badge { display: inline-block; font-size: 10.5px; font-weight: 700; color: #fff; background: #1877f2; border-radius: 4px; padding: 1px 5px; margin-right: 6px; vertical-align: 1px; letter-spacing: -.2px; cursor: help; }
   #cpItemTbl tr.cp-row:hover td { background: #f8fafc; }
   #cpItemTbl tr.cp-row.open td { background: #f8fafc; }
@@ -828,11 +831,36 @@ function renderCoupang(d, rows) {
       <td class="b">${x.ad ? won(x.ad) : '<span class="muted">-</span>'}</td><td>${x.sales || x.ad ? pctTxt(pct(x.ad, x.sales)) : ''}</td></tr>`
       + (open ? `<tr class="cp-detail-row"><td colspan="6" class="l">${detail(k)}${metaLine(k) ? `<div class="cp-detail" style="margin-top:4px">${metaLine(k)}</div>` : ''}</td></tr>` : '');
   }).join('');
-  $('cpItemTbl').innerHTML = keys.length
+
+  // 판매 없는 판매중 상품(11/12 사용자 요청) — 수집기 cpcatalog 가 아침마다 WING 상품 목록을 live_product_meta mall='쿠팡상품' 에 넣는다.
+  // 상품 목록 이름(「[코드니처] 하수구 악취 세정 서버」)과 판매 이름(「코드니처 하수구 악취 세정서버 배수구 클리너」)이 달라서
+  // 규칙으로 묶고, 규칙에 없는 상품은 브랜드·괄호·띄어쓰기를 뺀 이름이 서로 들어 있으면 같은 상품으로 본다.
+  const normP = s => String(s || '').replace(/\[[^\]]*\]|\([^)]*\)/g, ' ').split(/[\s_]+/).filter(w => w && !BRAND_W.test(w)).join('');
+  const soldNorm = keys.map(k => [k, normP(k.startsWith('· ') ? k.slice(2) : ''), Object.keys(rows[k]['쿠팡']?.prod || {}).map(n => normP(plainName(n)))]);
+  const zero = {};
+  Object.values(META).filter(m => m.mall === '쿠팡상품' && /ON_SALE/.test(m.store || '') && m.product && m.product !== 'X').forEach(m => {
+    const k = groupOf(m.product)[0][0], n = normP(m.product);
+    if (keys.includes(k)) return;
+    // 상품 목록 이름의 낱말(2자 이상)이 판매 이름에 다 들어 있어도 같은 상품 (「통풍 케어 수면 양말」 ⊂ 「…통풍 케어 겨울 수면양말」)
+    const ws = String(m.product).replace(/\[[^\]]*\]|\([^)]*\)/g, ' ').split(/[\s_]+/).filter(w => w.length >= 2 && !BRAND_W.test(w) && !/^[\d+*]/.test(w));
+    const same = b => b && (b.includes(n) || n.includes(b) || (ws.length >= 2 && ws.every(w => b.includes(w))));
+    if (n.length >= 4 && soldNorm.some(([, a, bs]) => same(a) || bs.some(same))) return;
+    (zero[k] ||= { names: [], partial: false, sold: 0 }).names.push(m.product);
+    if (m.store === 'PARTIAL_ON_SALE') zero[k].partial = true;
+    zero[k].sold += +m.rank || 0;
+  });
+  const zKeys = Object.keys(zero).sort((a, b) => zero[b].sold - zero[a].sold);
+  const zName = k => zero[k].names[0].replace(/^\s*\[[^\]]*\]\s*/, '');
+  const zBody = zKeys.length ? `<tr class="cp-zero-head"><td colspan="6" class="l">오늘 판매 없는 판매중 상품 <b>${zKeys.length}개</b> <span class="muted">— WING 상품 목록 기준, 누적 판매 많은 순${META_AT ? '' : ''}</span></td></tr>`
+    + zKeys.map(k => { const pv = prevRows ? (prevRows[k]?.['쿠팡']?.sales || 0) : null;
+      return `<tr class="cp-zero"><td class="l name" title="${esc(zero[k].names.join('\n'))}">${metaBadge(k)}<span>${esc(zName(k))}</span>${zero[k].names.length > 1 ? ` <span class="muted">외 ${zero[k].names.length - 1}</span>` : ''}${zero[k].partial ? ' <span class="cp-tag">일부 품절</span>' : ''}</td>
+        <td class="b"><span class="muted">-</span></td><td style="white-space:nowrap">${pv ? grow(0, pv) : '<span class="muted">-</span>'}</td><td><span class="muted">0.0%</span></td><td class="b"><span class="muted">-</span></td><td></td></tr>`; }).join('') : '';
+  $('cpItemTbl').innerHTML = keys.length || zKeys.length
     ? `<thead><tr><th class="l">상품</th><th class="b">매출</th><th title="어제 하루 매출 대비. 오늘은 실시간이라 하루가 끝나기 전엔 낮게 나옵니다">어제 대비 <span class="muted">(어제 매출)</span></th><th>비중</th><th class="b">광고비</th><th>광고비중</th></tr></thead><tbody>
-       <tr class="sum cp-total"><td class="l">쿠팡 전체</td><td class="b">${won(S)}</td><td style="white-space:nowrap">${grow(S, prevS)}</td><td>100%</td><td class="b">${won(A)}</td><td>${pctTxt(pct(A, S))}</td></tr>${body}</tbody>`
+       <tr class="sum cp-total"><td class="l">쿠팡 전체</td><td class="b">${won(S)}</td><td style="white-space:nowrap">${grow(S, prevS)}</td><td>100%</td><td class="b">${won(A)}</td><td>${pctTxt(pct(A, S))}</td></tr>${body}${zBody}</tbody>`
     : '<tr><td class="l muted">이 날짜에 받은 쿠팡 매출이 없습니다.</td></tr>';
-  $('cpItemPill').textContent = keys.filter(k => !k.startsWith('그 외')).length + '개';
+  const nSold = keys.filter(k => !k.startsWith('그 외')).length;
+  $('cpItemPill').textContent = zKeys.length ? `판매 ${nSold}개 · 전체 ${nSold + zKeys.length}개` : nSold + '개';
   $('cpItemTbl').querySelectorAll('tr.cp-row').forEach(tr => tr.onclick = () => {
     const k = tr.dataset.k; CP_OPEN.has(k) ? CP_OPEN.delete(k) : CP_OPEN.add(k); renderCoupang(d, rows); });
 }
