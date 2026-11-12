@@ -270,13 +270,28 @@ async function loadMeta() {
 }
 let META_ADS = null;
 // 광고·광고세트·캠페인 이름을 상품 묶기 규칙으로 대표 상품에 맞춘다 → { 대표 상품: {ads:[…], spend} }
+// 메타 캠페인에만 쓰는 다른 이름 → 대표 상품 (상품 묶기 규칙에 없는 것)
+const META_ALIAS = [['패딩압축세탁망', '패딩 2중'], ['패딩빨아망', '패딩 2중']];
+// 캠페인 이름(앞의 [상품명] 우선)으로 정한다. 광고세트 「베개1」 같은 이름은 상품과 무관한 번호라(11/12 라스마) 캠페인으로 못 정할 때만 본다.
+function metaKeysOf(a) {
+  const camp = a.campaign_name || '', br = (camp.match(/^\s*\[([^\]]+)\]/) || [])[1];
+  for (const n of [br, camp, a.adset_name, a.ad_name]) {
+    if (!n) continue;
+    const s = squash(n), al = META_ALIAS.find(([p]) => s.includes(p));
+    if (al) return [al[1]];
+    const ks = itemKeys(n, true).map(([k]) => k).filter(k => k !== '기타');
+    if (ks.length) return ks;
+  }
+  return [];
+}
 function metaByKey() {
-  const out = {};
+  const out = {}; const rest = [];
   (META_ADS || []).forEach(a => {
-    const ks = new Set();
-    [a.ad_name, a.adset_name, a.campaign_name].forEach(n => { if (n) itemKeys(n, true).forEach(([k]) => { if (k !== '기타') ks.add(k); }); });
+    const ks = metaKeysOf(a);
+    if (!ks.length) rest.push(a);
     ks.forEach(k => { const o = (out[k] ||= { ads: [], spend: 0 }); o.ads.push(a); o.spend += +a.spend_7d || 0; });
   });
+  out._rest = rest;   // 못 맞춘 광고 — 쿠팡 탭에서 상품명으로 한 번 더 맞춰 본다
   return out;
 }
 
@@ -779,12 +794,20 @@ function renderCoupang(d, rows) {
   const MK = metaByKey();
   // 규칙에 안 걸린 상품(「· 이름」 줄)은 상품명에서 이어진 두 낱말(브랜드·숫자 빼고, 예: 「패딩볼륨」「볼륨복원」)이 광고 이름에 있으면 같은 상품으로 본다
   const BRAND_W = /^(\[.*\]|코드니처|슬로우케어|빠이러스|미니멀룸|그로우뮤즈|글로리핏|명퉤|잠비에|라스마|멜루션|폴크|원조)$/;
-  if (META_ADS) keys.filter(k => k.startsWith('· ') && !MK[k]).forEach(k => {
-    const w = plainName(k.slice(2)).split(/\s+/).filter(x => x && !BRAND_W.test(x) && !/[\d+]/.test(x));
-    const grams = []; for (let i = 0; i + 1 < w.length; i++) if ((w[i] + w[i + 1]).length >= 4) grams.push(w[i] + w[i + 1]);
-    if (!grams.length) return;
-    META_ADS.forEach(a => { const t = squash([a.ad_name, a.adset_name, a.campaign_name].join(' '));
-      if (grams.some(g => t.includes(g))) { const o = (MK[k] ||= { ads: [], spend: 0 }); o.ads.push(a); o.spend += +a.spend_7d || 0; } });
+  const addMeta = (k, a) => { const o = (MK[k] ||= { ads: [], spend: 0 }); if (!o.ads.includes(a)) { o.ads.push(a); o.spend += +a.spend_7d || 0; } };
+  const fullOf = k => Object.keys(rows[k]['쿠팡']?.prod || {}).join(' ') || k;
+  (MK._rest || []).forEach(a => {
+    const t = squash([a.campaign_name, a.adset_name, a.ad_name].join(' '));
+    const brand = (a.channel || '').replace(/^메타\s*/, ''), br = squash((a.campaign_name.match(/^\s*\[([^\]]+)\]/) || [])[1] || '');
+    keys.filter(k => !k.startsWith('그 외')).forEach(k => {
+      // ① 「[제습]」처럼 짧은 캠페인 낱말 + 브랜드(라스마)가 둘 다 상품명에 있으면 (squash 는 앞의 「코드니처」를 떼므로 여기선 공백만 뺀다)
+      const nos = x => String(x || '').replace(/\s+/g, ''), f = nos(fullOf(k)), b = nos(brand);
+      if (br && b && f.includes(b) && f.includes(br)) return addMeta(k, a);
+      // ② 규칙에 안 걸린 상품: 상품명의 이어진 두 낱말(브랜드·숫자 빼고, 예: 「통풍케어」)이 광고 이름에 있으면
+      if (!k.startsWith('· ')) return;
+      const w = plainName(k.slice(2)).split(/\s+/).filter(x => x && !BRAND_W.test(x) && !/[\d+]/.test(x));
+      for (let i = 0; i + 1 < w.length; i++) if ((w[i] + w[i + 1]).length >= 4 && t.includes(w[i] + w[i + 1])) return addMeta(k, a);
+    });
   });
   const metaBadge = k => { const m = MK[k]; if (!m) return '';
     const tip = `메타 광고 ${m.ads.length}개 켜짐 · 최근 7일 ${won(m.spend)}원(VAT 별도)\n` + m.ads.slice(0, 8).map(a => '· ' + (a.campaign_name ? a.campaign_name + ' › ' : '') + a.ad_name).join('\n');

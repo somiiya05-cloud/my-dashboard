@@ -16,3 +16,6 @@ create index if not exists meta_active_ads_channel_idx on meta_active_ads(channe
 alter table meta_active_ads enable row level security;
 drop policy if exists "public read" on meta_active_ads;
 create policy "public read" on meta_active_ads for select using (true);
+
+-- API 가 새 표를 바로 알아보게 표 목록을 다시 읽힌다(안 하면 'Could not find the table' 404 가 날 수 있음)
+notify pgrst, 'reload schema';
