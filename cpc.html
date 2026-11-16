@@ -177,26 +177,14 @@
       </div>
     </div>
 
+    <!-- 11/16 사용자 요청: 품목별 일별 표를 맨 위로, 「일별 광고비·ROAS」 차트와 「운영 전략 코멘트」는 뺌 -->
+    <div class="card" id="prodDayCard" style="display:none;margin-bottom:16px;"></div>
+
     <div class="kpis" id="kpis" style="margin-bottom:6px;"></div>
     <p class="hint" id="kpiNote" style="margin:0 0 16px;"></p>
     <div class="card" id="storeCard" style="display:none;"></div>
 
-    <div class="grid2" style="margin-bottom:16px;">
-      <div class="card">
-        <h2>일별 광고비 · ROAS</h2>
-        <p class="hint" id="trendHint"></p>
-        <div class="chart" id="trend"></div>
-        <div class="legend"><span><i style="background:#93b4ff"></i>광고비 (VAT 포함)</span><span><i style="background:#16a34a;height:3px;"></i>ROAS</span><span><i style="background:#f97316;height:2px;"></i>기준 ROAS</span></div>
-      </div>
-      <div class="card">
-        <h2>운영 전략 코멘트</h2>
-        <p class="hint">선택한 기간 데이터로 자동 작성됩니다</p>
-        <ul class="strategy" id="strategy"></ul>
-      </div>
-    </div>
-
     <div class="card" id="prodStoreCard" style="display:none;margin-bottom:16px;"></div>
-    <div class="card" id="prodDayCard" style="display:none;margin-bottom:16px;"></div>
     <div class="card" id="gfaCard" style="display:none;margin-bottom:16px;"></div>
 
     <div class="card">
@@ -651,8 +639,6 @@
     drawProdStore(from, to);
     drawProdDay(from, to);
     drawGfa(from, to);
-    drawTrend();
-    drawStrategy();
     drawTable();
   }
 
@@ -922,6 +908,9 @@
   const itemOf = (n) => (ITEMS.find((it) => it.match(String(n || ''))) || {}).name || String(n || '').replace(/^코드니처\s*/, '');
   function drawProdDay(from, to) {
     const card = $('prodDayCard');
+    // 기간을 하루만 골라도 흐름이 보이게, 종료일이 속한 달의 1일부터 보여 줍니다(11/16 사용자 요청: 전체 일자가 다 보이게).
+    const monthStart = to.slice(0, 8) + '01';
+    if (monthStart < from) from = monthStart;
     const mall = $('fMall').value, camp = $('fCamp').value;
     const ad = rows.filter((r) => r.mall === '네이버 ADVoost' && r.date >= from && r.date <= to && (!camp || r.campaign === camp));
     if (isSample || (mall && mall !== '네이버 ADVoost') || !ad.length || !prodStoreRows.length) { card.style.display = 'none'; return; }
@@ -980,7 +969,7 @@
     const mHead = cols.map((c) => `<th class="g">매출</th><th>광고비</th><th>광고비중</th>`).join('');
     card.style.display = '';
     card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 <span class="pill">네이버 ADVoost</span></h2>
-      <p class="hint">캠페인(애드부스트 A·B·C)별로 묶었습니다. 매출은 스마트스토어 상품별 실결제(<b>광고 외 유입 포함</b>), 광고비는 VAT 포함입니다. 광고비중 = 광고비 ÷ 매출 — <span style="background:#c6efce;padding:0 4px;">8% 이하</span> <span style="background:#ffeb9c;padding:0 4px;">8~15%</span> <span style="background:#ff9c9c;padding:0 4px;">15% 초과</span> <span style="background:#dc143c;color:#fff;padding:0 4px;">매출0</span> = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C).</p>
+      <p class="hint">캠페인(애드부스트 A·B·C)별로 묶었습니다. 매출은 스마트스토어 상품별 실결제(<b>광고 외 유입 포함</b>), 광고비는 VAT 포함입니다. 광고비중 = 광고비 ÷ 매출 — <span style="background:#c6efce;padding:0 4px;">8% 이하</span> <span style="background:#ffeb9c;padding:0 4px;">8~15%</span> <span style="background:#ff9c9c;padding:0 4px;">15% 초과</span> <span style="background:#dc143c;color:#fff;padding:0 4px;">매출0</span> = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C). 기간을 짧게 골라도 종료일이 속한 달의 1일부터 모두 보여 줍니다.</p>
       <div class="tblwrap" style="max-height:640px;"><table>
         <thead><tr><th rowspan="3" class="d">날짜</th>${gHead}</tr><tr>${iHead}</tr><tr>${mHead}</tr></thead>
         <tbody>${dates.map((d) => `<tr><td class="d">${d.slice(5).replace('-', '/')}</td>${cells(d)}</tr>`).join('')}</tbody>
