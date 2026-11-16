@@ -83,6 +83,18 @@
   tr:hover td { background: #fafbff; }
   tfoot td { font-weight: 800; background: #f8fafc; position: sticky; bottom: 0; }
   th .arr { color: #4d7cfe; }
+  #prodDayCard th { cursor: default; height: 30px; box-sizing: border-box; padding: 6px 8px; text-align: center; }
+  #prodDayCard thead tr:nth-child(1) th { top: 0; }
+  #prodDayCard thead tr:nth-child(2) th { top: 30px; }
+  #prodDayCard thead tr:nth-child(3) th { top: 60px; font-weight: 600; color: #64748b; }
+  #prodDayCard td, #prodDayCard th { padding: 6px 8px; }
+  #prodDayCard .d { position: sticky; left: 0; z-index: 2; background: #fff; text-align: center; }
+  #prodDayCard th.d { z-index: 3; background: #f8fafc; }
+  #prodDayCard .g { border-left: 2px solid #cbd5e1; }
+  #prodDayCard .sub { background: #f1f5f9; font-weight: 700; }
+  #prodDayCard .c { color: #94a3b8; }
+  #prodDayCard .s { text-align: center; font-weight: 700; }
+  #prodDayCard tfoot td.d { background: #f8fafc; }
   .bar { position: relative; }
   .bar span.fill { position: absolute; left: 0; top: 4px; bottom: 4px; border-radius: 3px; opacity: .18; }
   .bar span.txt { position: relative; }
@@ -184,6 +196,7 @@
     </div>
 
     <div class="card" id="prodStoreCard" style="display:none;margin-bottom:16px;"></div>
+    <div class="card" id="prodDayCard" style="display:none;margin-bottom:16px;"></div>
     <div class="card" id="gfaCard" style="display:none;margin-bottom:16px;"></div>
 
     <div class="card">
@@ -636,6 +649,7 @@
     drawKpis(days);
     drawStore(from, to);
     drawProdStore(from, to);
+    drawProdDay(from, to);
     drawGfa(from, to);
     drawTrend();
     drawStrategy();
@@ -887,6 +901,90 @@
         <thead><tr><th class="l">상품</th><th class="l">캠페인</th><th>광고비 (VAT 포함)</th><th>광고 관리자 매출</th><th>스토어 결제</th><th>스토어 매출</th><th>광고비 비중</th></tr></thead>
         <tbody>${list.map((a) => `<tr><td class="l" title="${esc(a.name)}">${esc(a.name)}</td><td class="l">${esc([...a.camps].join(', ') || '-')}</td><td>${won(a.cost)}</td><td>${won(a.rev)}</td><td>${won(a.pays)}건</td><td>${won(a.sales)}</td><td>${shareCell(a.cost, a.sales)}</td></tr>`).join('')}</tbody>
         <tfoot><tr><td class="l">합계</td><td class="l"></td><td>${won(tot.cost)}</td><td>${won(tot.rev)}</td><td>${won(tot.pays)}건</td><td>${won(tot.sales)}</td><td>${shareCell(tot.cost, tot.sales)}</td></tr></tfoot>
+      </table></div>`;
+  }
+
+  // ---------- 품목별 일별 매출 · 광고비 · 광고비중 (애드부스트 A·B·C로 묶음) ----------
+  // 같은 상품이 광고 소재 이름과 스토어 상품명이 달라(상품명 변경·세트/단품) 품목으로 묶어 맞춥니다.
+  // match: 광고 소재 이름에 들어가는 말, nos: 스마트스토어 상품번호(베개 이중 세탁망 단품은 C 「베개 세탁망 세트」로 돌고 있어 함께 셈, 11/16 사용자 확인).
+  const ITEMS = [
+    { name: '자켓세탁망', match: (n) => n.includes('홈드라이 자켓'), nos: ['13751252620'] },
+    { name: '하수구 클리너', match: (n) => n.includes('욕실 싱크대 하수구'), nos: ['12930967573'] },
+    { name: '패딩 2중압축 세탁망', match: (n) => n.includes('패딩') && n.includes('압축') && !n.includes('보호'), nos: ['12931266880'] },
+    { name: '세정서버 세트', match: (n) => n.includes('악취 제거 세정서버'), nos: ['13413042909'] },
+    { name: '메가스크럽', match: (n) => n.includes('메가스크럽'), nos: ['13263587158'] },
+    { name: '건조기 보호망', match: (n) => n.includes('건조기용'), nos: ['13762282834'] },
+    { name: '패딩 티슈', match: (n) => n.includes('패딩전용'), nos: ['13823553459'] },
+    { name: '베개 세탁망 세트', match: (n) => n.includes('2중 압축 보호 세탁망 세트'), nos: ['13646264309', '12936097250'] },
+    { name: '차량용 티슈', match: (n) => n.includes('차량용'), nos: ['13767072544'] },
+    { name: '결로 페인트', match: (n) => n.includes('결로'), nos: ['13823573926'] },
+  ];
+  const itemOf = (n) => (ITEMS.find((it) => it.match(String(n || ''))) || {}).name || String(n || '').replace(/^코드니처\s*/, '');
+  function drawProdDay(from, to) {
+    const card = $('prodDayCard');
+    const mall = $('fMall').value, camp = $('fCamp').value;
+    const ad = rows.filter((r) => r.mall === '네이버 ADVoost' && r.date >= from && r.date <= to && (!camp || r.campaign === camp));
+    if (isSample || (mall && mall !== '네이버 ADVoost') || !ad.length || !prodStoreRows.length) { card.style.display = 'none'; return; }
+    const dates = []; for (let d = new Date(from); ymd(d) <= to; d.setDate(d.getDate() + 1)) dates.push(ymd(d));
+    // 품목별 광고비·캠페인(가장 최근에 돈 쓴 캠페인으로 묶음, 예: 자켓세탁망 A→C)
+    const cost = new Map(), lastCamp = new Map(), camps = new Map();
+    for (const r of ad) {
+      const it = itemOf(r.product); if (!r.cost) continue;
+      cost.set(it + '|' + r.date, (cost.get(it + '|' + r.date) || 0) + r.cost);
+      const lc = lastCamp.get(it); if (!lc || r.date >= lc.date) lastCamp.set(it, { date: r.date, camp: r.campaign });
+      if (!camps.has(it)) camps.set(it, new Set()); camps.get(it).add(r.campaign.replace('애드부스트 ', ''));
+    }
+    const items = [...camps.keys()];
+    if (!items.length) { card.style.display = 'none'; return; }
+    const noToItem = new Map(); ITEMS.forEach((it) => it.nos.forEach((no) => noToItem.set(no, it.name)));
+    const keyToItem = new Map(items.map((it) => [prodKey(it), it]));
+    const sales = new Map();
+    for (const r of prodStoreRows) {
+      if (r.date < from || r.date > to) continue;
+      const it = noToItem.get(String(r.product_no)) || keyToItem.get(prodKey(r.product));
+      if (!it || !camps.has(it)) continue;
+      sales.set(it + '|' + r.date, (sales.get(it + '|' + r.date) || 0) + r.sales);
+    }
+    // 캠페인(A·B·C …)별로 묶고, 묶음 안은 광고비 큰 순
+    const totCost = (it) => dates.reduce((s, d) => s + (cost.get(it + '|' + d) || 0), 0);
+    const groupName = (it) => lastCamp.get(it).camp;
+    const gnames = [...new Set(items.map(groupName))].sort((a, b) => a.localeCompare(b, 'ko'));
+    const groups = gnames.map((g) => ({ g, items: items.filter((it) => groupName(it) === g).sort((a, b) => totCost(b) - totCost(a)) }));
+    const cols = [];
+    groups.forEach((gr, gi) => {
+      gr.items.forEach((it, k) => cols.push({ label: it.split(' (')[0].split(' ').slice(0, 3).join(' ') + ((it.match(/ (\d+개)$/) || [])[1] ? ' ' + it.match(/ (\d+개)$/)[1] : ''), sub: [...camps.get(it)].join('·'), members: [it], first: k === 0, kind: 'p' }));
+      if (gr.items.length > 1) cols.push({ label: gr.g.replace('애드부스트 ', '') + ' 소계', members: gr.items, kind: 's' });
+    });
+    cols.push({ label: '전체', members: items, kind: 't', first: true });
+    const val = (members, d) => members.reduce((t, it) => {
+      const ds = d ? [d] : dates;
+      for (const x of ds) { t.c += cost.get(it + '|' + x) || 0; t.s += sales.get(it + '|' + x) || 0; }
+      return t;
+    }, { c: 0, s: 0 });
+    const shareTd = (v, extra) => {
+      if (!v.c) return `<td class="s ${extra}" style="color:#cbd5e1;">-</td>`;
+      if (!v.s) return `<td class="s ${extra}" style="background:#dc143c;color:#fff;">매출0</td>`;
+      const x = v.c / v.s, [bg, fg] = x > 0.15 ? ['#ff9c9c', '#7f0000'] : x > 0.08 ? ['#ffeb9c', '#7a5b00'] : ['#c6efce', '#006100'];
+      return `<td class="s ${extra}" style="background:${bg};color:${fg};">${pct(x, 1)}</td>`;
+    };
+    const cells = (d) => cols.map((c) => {
+      const v = val(c.members, d), cls = (c.first || c.kind !== 'p' ? 'g ' : '') + (c.kind !== 'p' ? 'sub' : '');
+      return `<td class="${cls}">${v.s ? won(v.s) : '-'}</td><td class="c ${c.kind !== 'p' ? 'sub' : ''}">${v.c ? won(v.c) : '-'}</td>${shareTd(v, c.kind !== 'p' ? 'sub' : '')}`;
+    }).join('');
+    const GC = { A: '#ddebf7', B: '#fce4d6', C: '#e2efda' };
+    const gHead = groups.map((gr) => {
+      const span = (gr.items.length + (gr.items.length > 1 ? 1 : 0)) * 3, key = gr.g.replace('애드부스트 ', '');
+      return `<th colspan="${span}" class="g" style="background:${GC[key] || '#eef2f7'};color:#1f2a3f;">${esc(gr.g)}</th>`;
+    }).join('') + `<th colspan="3" class="g" style="background:#e5e7eb;color:#1f2a3f;">전체</th>`;
+    const iHead = cols.map((c) => `<th colspan="3" class="g ${c.kind !== 'p' ? 'sub' : ''}">${esc(c.label)}${c.sub && c.sub.includes('·') ? ` <span style="font-weight:600;color:#94a3b8;">(${esc(c.sub)})</span>` : ''}</th>`).join('');
+    const mHead = cols.map((c) => `<th class="g">매출</th><th>광고비</th><th>광고비중</th>`).join('');
+    card.style.display = '';
+    card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 <span class="pill">네이버 ADVoost</span></h2>
+      <p class="hint">캠페인(애드부스트 A·B·C)별로 묶었습니다. 매출은 스마트스토어 상품별 실결제(<b>광고 외 유입 포함</b>), 광고비는 VAT 포함입니다. 광고비중 = 광고비 ÷ 매출 — <span style="background:#c6efce;padding:0 4px;">8% 이하</span> <span style="background:#ffeb9c;padding:0 4px;">8~15%</span> <span style="background:#ff9c9c;padding:0 4px;">15% 초과</span> <span style="background:#dc143c;color:#fff;padding:0 4px;">매출0</span> = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C).</p>
+      <div class="tblwrap" style="max-height:640px;"><table>
+        <thead><tr><th rowspan="3" class="d">날짜</th>${gHead}</tr><tr>${iHead}</tr><tr>${mHead}</tr></thead>
+        <tbody>${dates.map((d) => `<tr><td class="d">${d.slice(5).replace('-', '/')}</td>${cells(d)}</tr>`).join('')}</tbody>
+        <tfoot><tr><td class="d">기간 합계</td>${cells(null)}</tr></tfoot>
       </table></div>`;
   }
 
