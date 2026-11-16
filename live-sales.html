@@ -29,6 +29,29 @@
   .pulltime.busy b { color: #2563eb; }
   .pulltime.err b { color: #dc2626; }
   .status.err { color: #dc2626; font-weight: 700; }
+  /* 지금 받기 진행표 (11/16) */
+  .steps { display: none; margin: -4px 0 14px; padding: 12px 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
+  .steps.on { display: block; }
+  .steps-head { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: #475569; margin-bottom: 10px; }
+  .steps-head b { color: #0f172a; }
+  .steps-bar { flex: 1; height: 6px; background: #f1f5f9; border-radius: 99px; overflow: hidden; max-width: 260px; }
+  .steps-bar i { display: block; height: 100%; background: #3b82f6; border-radius: 99px; transition: width .4s; }
+  .steps-x { margin-left: auto; border: 0; background: none; color: #94a3b8; cursor: pointer; font-size: 15px; }
+  .steps-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .step { border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 10px; font-size: 12px; background: #f8fafc; min-width: 0; }
+  .step .nm { display: flex; align-items: center; gap: 6px; font-weight: 700; color: #334155; }
+  .step .dt { margin-top: 3px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .step .ic { width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; flex: none; background: #e2e8f0; color: #64748b; }
+  .step.run { border-color: #93c5fd; background: #eff6ff; }
+  .step.run .ic { background: none; border: 2px solid #bfdbfe; border-top-color: #2563eb; animation: spin .8s linear infinite; }
+  .step.ok { border-color: #bbf7d0; background: #f0fdf4; }
+  .step.ok .ic { background: #16a34a; color: #fff; }
+  .step.ok .dt { color: #15803d; font-weight: 600; }
+  .step.fail { border-color: #fecaca; background: #fef2f2; }
+  .step.fail .ic { background: #dc2626; color: #fff; }
+  .step.fail .dt { color: #b91c1c; white-space: normal; }
+  .step.skip { opacity: .55; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .card { background: #fff; border-radius: 14px; border: 1px solid #e5e7eb; padding: 18px 20px; margin-bottom: 16px; }
   .card h2 { font-size: 16px; margin: 0 0 4px; font-weight: 800; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .hint { font-size: 12.5px; color: #64748b; margin: 0 0 12px; }
@@ -138,6 +161,7 @@
     <button class="btn primary" id="pullBtn">지금 받기</button>
   </div>
   <div class="status" id="status" style="margin:-6px 0 12px"></div>
+  <div class="steps" id="pullSteps"></div>
 
   <div class="brands" id="brandTabs"></div>
   <div class="kpis" id="kpis"></div>
@@ -980,6 +1004,36 @@ async function loadLastPull() {
   } catch (e) { /* 시각은 못 띄워도 화면은 그대로 */ }
 }
 
+// ---------- 지금 받기 진행표 (11/16) ----------
+// 수집기가 message 끝에 "\n§" + [{name,state,detail,sec}] 를 붙인다. 옛 수집기면 § 가 없어 글만 보인다.
+const STEP_DEFAULT = ['네이버', '쿠팡', '오늘의집', 'G마켓', '네이버 ADVoost 광고비', '네이버 GFA 광고비', '쿠팡 광고 광고비', '쿠팡 광고 셀디랩 광고비']
+  .map(name => ({ name, state: 'wait', detail: '' }));
+function splitMsg(m) {
+  const s = String(m || ''), k = s.indexOf('\n§');
+  if (k < 0) return { text: s, steps: null };
+  let steps = null;
+  try { steps = JSON.parse(s.slice(k + 2)); } catch (e) { /* 잘린 JSON 이면 표 없이 */ }
+  return { text: s.slice(0, k), steps };
+}
+function renderSteps(steps, phase) {
+  const box = $('pullSteps');
+  if (!steps) { box.classList.remove('on'); return; }
+  const n = steps.length, fin = steps.filter(s => ['ok', 'fail', 'skip'].includes(s.state)).length;
+  const okN = steps.filter(s => s.state === 'ok').length, failN = steps.filter(s => s.state === 'fail').length;
+  const cur = steps.find(s => s.state === 'run');
+  const head = phase === 'wait' ? '수집기가 요청을 가져가길 기다리는 중'
+    : phase === 'end' ? `끝 — 받음 <b>${okN}</b>` + (failN ? ` · 실패 <b style="color:#dc2626">${failN}</b>` : '') + (n - okN - failN ? ` · 건너뜀 ${n - okN - failN}` : '')
+    : `<b>${fin}/${n}</b> 단계` + (cur ? ` · 지금 <b>${esc(cur.name)}</b>` : '');
+  const icon = { wait: '', run: '', ok: '✓', fail: '✕', skip: '–' };
+  const label = s => s.state === 'wait' ? '대기' : s.state === 'run' ? '받는 중…' : (s.detail || (s.state === 'ok' ? '받음' : s.state === 'skip' ? '건너뜀' : '실패'));
+  box.innerHTML = `<div class="steps-head"><span>${head}</span><div class="steps-bar"><i style="width:${Math.round(fin / n * 100)}%"></i></div>`
+    + (phase === 'end' ? '<button class="steps-x" title="닫기" onclick="this.closest(\'.steps\').classList.remove(\'on\')">✕</button>' : '') + '</div>'
+    + '<div class="steps-list">' + steps.map(s => `<div class="step ${s.state}" title="${esc(s.name + ' — ' + label(s))}">`
+      + `<div class="nm"><span class="ic">${icon[s.state] || ''}</span>${esc(s.name.replace(/ 광고비$/, ''))}${/광고비$/.test(s.name) ? ' <span style="font-weight:500;color:#94a3b8">광고비</span>' : ''}</div>`
+      + `<div class="dt">${esc(label(s))}${s.sec != null && s.state !== 'wait' ? ` · ${s.sec}초` : ''}</div></div>`).join('') + '</div>';
+  box.classList.add('on');
+}
+
 // ---------- 지금 받기: 사무실 PC 수집기에 요청 ----------
 async function pull() {
   const d = $('day').value;
@@ -997,6 +1051,7 @@ async function pull() {
       data = ins.data;
       setStatus('사무실 PC 수집기에 요청했습니다… (네 몰을 차례로 받아 1~3분 걸립니다)');
     } else setStatus('이미 받는 중인 요청이 있어 그 결과를 기다립니다…');
+    renderSteps(splitMsg(data.message).steps || STEP_DEFAULT, data.status === 'running' ? 'run' : 'wait');
     const t0 = new Date(data.requested_at).getTime() || Date.now();
     const reqAt = hhmm(data.requested_at || t0, true);
     const tick = () => {
@@ -1015,16 +1070,18 @@ async function pull() {
         // 앞에 받는 중인 요청(다른 날짜·다른 사람)이 있으면 줄 서 있는 것이지 감시가 꺼진 게 아니다
         const { data: ahead } = await db.from('live_sales_requests').select('id,message,started_at').eq('status', 'running')
           .lt('id', r.id).gte('started_at', since).order('id', { ascending: false }).limit(1);
-        if (ahead && ahead[0]) setStatus('앞 요청을 받는 중이라 끝나면 바로 이어서 받습니다 — 지금 단계: ' + (ahead[0].message || '시작'));
+        if (ahead && ahead[0]) setStatus('앞 요청을 받는 중이라 끝나면 바로 이어서 받습니다 — 지금 단계: ' + (splitMsg(ahead[0].message).text || '시작'));
         else if (Date.now() - t0 > 4 * 60e3) { setStatus('사무실 PC 수집기가 요청을 가져가지 않습니다 — PC가 꺼져 있거나 감시 프로그램(실시간매출감시.bat)이 꺼져 있을 수 있습니다.', true); break; }
         else if (Date.now() - t0 > 60e3) setStatus('1분이 지나도 수집기가 요청을 가져가지 않습니다 — 원래 수집기(09:10·15:10)가 크롬을 쓰는 중이면 곧 시작합니다. 계속 이러면 사무실 PC의 감시 프로그램(실시간매출감시.bat)이 꺼진 것입니다.', true);
       }
-      if (r.status === 'running') setStatus('받는 중… ' + (r.message || ''));
+      const mm = splitMsg(r.message);
+      if (r.status === 'running') { setStatus('받는 중… ' + mm.text); renderSteps(mm.steps || STEP_DEFAULT, 'run'); }
       if (r.status === 'done' || r.status === 'failed') {
+        renderSteps(mm.steps, 'end');
         Object.keys(cache).forEach(k => { if (k >= addDays(d, -1)) delete cache[k]; });
         await show(d, true);
         const took = Math.round((Date.now() - t0) / 1000);
-        setStatus(`${hhmm(r.finished_at || Date.now(), true)} ` + (r.status === 'done' ? '받았습니다. ' : '일부 실패: ') + (r.message || ''), r.status === 'failed');
+        setStatus(`${hhmm(r.finished_at || Date.now(), true)} ` + (r.status === 'done' ? '받았습니다. ' : '일부 실패: ') + (mm.steps ? '' : mm.text), r.status === 'failed');
         clearInterval(timer);
         setPullTime(`받은 시각 <b>${hhmm(r.finished_at || Date.now())}</b><br>${Math.floor(took / 60)}분 ${String(took % 60).padStart(2, '0')}초 걸림`, r.status === 'failed' ? 'err' : '');
         break;
