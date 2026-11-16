@@ -602,21 +602,40 @@ async function slotCards(day) {
   const daySum = {}; totals.forEach(r => daySum[r.date] = (daySum[r.date] || 0) + +r.amount);
   const at = {}; snaps.forEach(r => { const k = r.date + '|' + r.slot; (at[k] ||= { amt: 0, n: 0, bad: 0, badM: [] }); at[k].amt += +r.amount; at[k].n++; if (!r.ok) { at[k].bad++; at[k].badM.push(r.mall); } });
   const nowH = +new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false });
-  return SLOTS.map(s => {
-    const cur = at[day + '|' + s];
-    const past = Object.entries(at).filter(([k, v]) => k.endsWith('|' + s) && k.split('|')[0] < day && v.n >= MALLS.length && !v.bad && daySum[k.split('|')[0]]);
+  const good = v => v && v.n >= MALLS.length && !v.bad;
+  // 칸은 구간 매출(11/16 사용자 요청): 10시 = 0~10시, 14시 = 10~14시, 18시 = 14~18시. 기록은 누적이라 앞 시각을 뺀다.
+  // 구간 = { amt, bad, badM, miss(앞 시각 기록 없음) }
+  const span = (date, s, i) => {
+    const c = at[date + '|' + s];
+    if (!c) return null;
+    if (i === 0) return { amt: c.amt, bad: c.bad, badM: c.badM, ok: good(c) };
+    const p = at[date + '|' + SLOTS[i - 1]];
+    if (!p) return { amt: null, cum: c.amt, bad: c.bad, badM: c.badM, ok: false, miss: true };
+    return { amt: c.amt - p.amt, bad: c.bad + p.bad, badM: [...new Set([...c.badM, ...p.badM])], ok: good(c) && good(p) };
+  };
+  return SLOTS.map((s, i) => {
+    const from = i ? SLOTS[i - 1] : 0;
+    const cur = span(day, s, i);
+    const pastDays = [...new Set(Object.keys(at).map(k => k.split('|')[0]))].filter(x => x < day && daySum[x]);
+    const past = pastDays.map(x => [x, span(x, s, i)]).filter(([, v]) => v && v.ok);
     const avg = past.length ? past.reduce((t, [, v]) => t + v.amt, 0) / past.length : null;
-    const dayAvg = past.length ? past.reduce((t, [k]) => t + daySum[k.split('|')[0]], 0) / past.length : null;
-    const share = avg && dayAvg ? avg / dayAvg : null;
-    const r = cur && avg ? cur.amt / avg : null;
+    const dayAvg = past.length ? past.reduce((t, [x]) => t + daySum[x], 0) / past.length : null;
+    const share = avg != null && dayAvg ? avg / dayAvg : null;
+    // 마감 예상은 누적으로: 평소 그 시각 누적이 하루의 몇 %인지
+    const cumPast = pastDays.filter(x => good(at[x + '|' + s]));
+    const cumShare = cumPast.length ? cumPast.reduce((t, x) => t + at[x + '|' + s].amt, 0) / cumPast.reduce((t, x) => t + daySum[x], 0) : null;
+    const cumNow = at[day + '|' + s];
+    const r = cur && cur.amt != null && avg ? cur.amt / avg : null;
     const color = r == null ? '#94a3b8' : r >= 1 ? '#16a34a' : r >= .8 ? '#eab308' : '#dc2626';
-    const v = cur ? won(cur.amt) + (r != null ? `<span style="color:${color}">${r >= 1 ? '+' : ''}${((r - 1) * 100).toFixed(0)}%</span>` : '')
+    const v = cur && cur.amt != null ? won(cur.amt) + (r != null ? `<span style="color:${color}">${r >= 1 ? '+' : ''}${((r - 1) * 100).toFixed(0)}%</span>` : '')
       : '-';
-    const sub = cur ? (cur.bad ? `<span style="color:#dc2626">${cur.badM.join('·')} 실패(로그인 풀림 등) — 직전 값으로 적음 · 평균에선 뺌</span>` : '')
+    const sub = cur ? (cur.miss ? `${from}시 기록이 없어 구간을 못 냄 — 0~${s}시 누적 ${won(cur.cum)}`
+        : cur.bad ? `<span style="color:#dc2626">${cur.badM.join('·')} 실패(로그인 풀림 등) — 직전 값으로 적음 · 평균에선 뺌</span>`
+        : i ? `0~${s}시 누적 ${won(cumNow.amt)}` : '')
       : day === kst() && nowH < s ? `${s}시에 자동으로 받습니다` : '이 시각 기록 없음';
     const avgLine = avg != null ? `지난 ${past.length}일 평균 ${won(avg)}${share ? ` · 하루의 ${(share * 100).toFixed(0)}%` : ''}` : '평균 — 아직 쌓인 날이 없음';
-    const proj = cur && share ? `이대로면 마감 약 ${won(Math.round(cur.amt / share / 1e4) * 1e4)}` : '';
-    return `<div class="goal"><div class="t">${s}시<small>${s}시까지 누적</small></div>
+    const proj = cumNow && good(cumNow) && cumShare ? `이대로면 마감 약 ${won(Math.round(cumNow.amt / cumShare / 1e4) * 1e4)}` : '';
+    return `<div class="goal"><div class="t">${s}시<small>${from}시~${s}시 매출</small></div>
       <div class="v">${v}</div>
       <div class="g">${avgLine}</div>
       ${proj ? `<div class="g" style="color:#334155;font-weight:700">${proj}</div>` : ''}
