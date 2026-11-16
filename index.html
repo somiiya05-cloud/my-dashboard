@@ -3858,28 +3858,42 @@
   // 묶음 뷰가 아직 없으면(= sales_rollup_view.sql 미실행) 원본 표에서 받습니다.
   let rollupTable = 'sales_daily_rollup';
 
-  async function ensureMonths(months) {
-    const want = (Array.isArray(months) ? months : [months]).filter(m => m && !loadedMonths.has(m));
-    if (!want.length) return true;
-    salesNote('불러오는 중… (' + want.join(', ') + ')');
-    try {
-      for (const m of want) {
-        const [a, b] = monthRange(m);
-        let rows;
-        try {
+  // ⚠️ 받는 중인 달을 기억해 둡니다. 기간의 시작일·종료일을 연달아 바꾸면 ensureMonths 가 동시에 두 번
+  // 불리는데, 그때 아직 loadedMonths 에 없는 달을 양쪽이 각각 받아 allRows 에 두 번 쌓아서
+  // 판매처별 상세 합계가 부풀었습니다(2026-11-16, 하수구 세정서버 29.9억 → 51.6억으로 보임).
+  const monthLoading = new Map();
+
+  function loadMonth(m) {
+    if (monthLoading.has(m)) return monthLoading.get(m);
+    const p = (async () => {
+      const [a, b] = monthRange(m);
+      let rows;
+      try {
+        rows = await fetchRowsBetween(a, b, rollupTable);
+      } catch (err) {
+        if (rollupTable === 'sales_daily_rollup') {
+          console.warn('묶음 뷰가 없어 원본에서 받습니다 — sales_rollup_view.sql 을 실행하면 빨라집니다.', err.message);
+          rollupTable = 'sales_transactions';
           rows = await fetchRowsBetween(a, b, rollupTable);
-        } catch (err) {
-          if (rollupTable === 'sales_daily_rollup') {
-            console.warn('묶음 뷰가 없어 원본에서 받습니다 — sales_rollup_view.sql 을 실행하면 빨라집니다.', err.message);
-            rollupTable = 'sales_transactions';
-            rows = await fetchRowsBetween(a, b, rollupTable);
-          } else {
-            throw err;
-          }
+        } else {
+          throw err;
         }
+      }
+      if (!loadedMonths.has(m)) {
         allRows = allRows.concat(rows);
         loadedMonths.add(m);
       }
+    })().finally(() => monthLoading.delete(m));
+    monthLoading.set(m, p);
+    return p;
+  }
+
+  async function ensureMonths(months) {
+    const want = [...new Set(Array.isArray(months) ? months : [months])].filter(m => m && !loadedMonths.has(m));
+    if (!want.length) return true;
+    salesNote('불러오는 중… (' + want.join(', ') + ')');
+    try {
+      for (const m of want) await loadMonth(m);
     } catch (e) {
       salesNote('<span class="error">데이터를 불러오지 못했습니다: ' + e.message + '</span>');
       return false;
