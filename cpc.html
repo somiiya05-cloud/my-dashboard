@@ -934,7 +934,6 @@
     const stBox = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px;">
       ${kpi('GFA 광고비 (VAT 포함)', won(gfaCost) + '원')}
       ${kpi('스마트스토어 유입', won(st.visits))}
-      ${kpi('결제건수', won(st.pays) + '건')}
       ${kpi('GFA를 통한 스마트스토어 매출', won(st.sales) + '원')}
       ${kpi('ROAS (스마트스토어 실결제)', gfaCost ? pct(st.sales / gfaCost) : '-', st.store ? '스토어 전체 매출 대비 광고비 ' + pct(gfaCost / st.store, 1) : '')}
     </div>`;
