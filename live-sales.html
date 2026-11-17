@@ -225,7 +225,7 @@ const db = window.supabase.createClient('https://fwsszzjfjktliredmjcn.supabase.c
 const MALLS = ['쿠팡', '네이버', '오늘의집', 'G마켓'];   // 화면 칸 순서 (쿠팡 먼저 — 사용자 요청)
 const VAT = 1.1;
 // 외부 광고 리포트(cpc_ad_rows)의 몰 이름 → 매출이 잡히는 몰
-const AD_MALL = { '네이버 ADVoost': '네이버', '네이버 SA': '네이버', '쿠팡': '쿠팡', 'G마켓': 'G마켓', '오늘의집': '오늘의집' };
+const AD_MALL = { '네이버 ADVoost': '네이버', '네이버 SA': '네이버', '빠이러스 SA': '네이버', '미니멀룸 SA': '네이버','쿠팡': '쿠팡', 'G마켓': 'G마켓', '오늘의집': '오늘의집' };
 
 const $ = id => document.getElementById(id);
 const won = n => (n == null || isNaN(n)) ? '-' : Math.round(n).toLocaleString('ko-KR');

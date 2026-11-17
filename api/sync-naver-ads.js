@@ -337,15 +337,24 @@ module.exports = async function handler(req, res) {
     // 캠페인 × 일 단위로 cpc_ad_rows 에 'mall = 네이버 SA' 로 넣어 애드부스트와 나란히 보이게 합니다.
     // 캠페인명에 "(스스)"가 붙은 것이 스마트스토어 랜딩입니다(자사몰 랜딩은 "(자사몰)"·"자사_" 로 구분, 2026-10-21).
     // 이 테이블엔 유일키가 없어서 이번 달 범위를 지우고 다시 넣습니다. 실패해도 위 동기화 결과에는 영향이 없습니다.
+    // 2026-11-17 사용자 확인: 빠이러스·미니멀룸 검색광고는 캠페인 전부 각 스마트스토어 랜딩 → '빠이러스 SA'·'미니멀룸 SA' 로 따로 넣는다.
+    // (실시간 매출 live-sales.html 의 네이버 광고비에 더하고, 코드니처 리포트 cpc.html 에서는 숨김)
+    const SA_MALL_OF = (channel, name) =>
+      channel === '네이버 코드니처' ? (/\(스스\)/.test(name) ? '네이버 SA' : null)
+      : channel === '네이버 빠이러스' ? '빠이러스 SA'
+      : channel === '네이버 미니멀룸' ? '미니멀룸 SA'
+      : null;
+    const SA_MALLS = ['네이버 SA', '빠이러스 SA', '미니멀룸 SA'];
     let cpcRowCount = 0;
     try {
       const cpcRows = [];
       for (const { name, channel, days } of perCampaign) {
-        if (channel !== '네이버 코드니처' || !/\(스스\)/.test(name)) continue;
+        const saMall = SA_MALL_OF(channel, name);
+        if (!saMall) continue;
         for (const d of days) {
           if (!d.dateStart) continue;
           const row = {
-            date: d.dateStart, mall: '네이버 SA', campaign: name, adgroup: '', product: '(상품 없음)', keyword: '',
+            date: d.dateStart, mall: saMall, campaign: name, adgroup: '', product: '(상품 없음)', keyword: '',
             imp: Number(d.impCnt) || 0, clk: Number(d.clkCnt) || 0, cost: Number(d.salesAmt) || 0,
             conv: Number(d.ccnt) || 0, rev: Number(d.convAmt) || 0
           };
@@ -354,7 +363,7 @@ module.exports = async function handler(req, res) {
       }
       const sbHeaders = { apikey: supabaseServiceKey, Authorization: `Bearer ${supabaseServiceKey}`, 'Content-Type': 'application/json' };
       const delRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/cpc_ad_rows?mall=eq.${encodeURIComponent('네이버 SA')}&date=gte.${since}&date=lte.${until}`,
+        `${SUPABASE_URL}/rest/v1/cpc_ad_rows?mall=in.(${SA_MALLS.map((m) => encodeURIComponent(`"${m}"`)).join(',')})&date=gte.${since}&date=lte.${until}`,
         { method: 'DELETE', headers: sbHeaders }
       );
       if (!delRes.ok) throw new Error(`cpc delete ${delRes.status} ${await delRes.text()}`);

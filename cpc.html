@@ -264,7 +264,7 @@
   const db = window.supabase.createClient('https://fwsszzjfjktliredmjcn.supabase.co', 'sb_publishable_uE-8s2DbZBUSs0z1uQ-nIA_za2Ah3uT');
   const TABLE = 'cpc_ad_rows';
   // 더 이상 보지 않는 채널(데이터는 지우지 않고 화면에서만 뺌). 카카오모먼트는 10/18 사용자 요청.
-  const HIDDEN_MALLS = ['카카오모먼트'];
+  const HIDDEN_MALLS = ['카카오모먼트', '빠이러스 SA', '미니멀룸 SA'];   // 다른 브랜드 검색광고(실시간 매출용)는 코드니처 리포트에서 숨김
   // 광고 관리자 광고비는 VAT 별도라, 실제로 나가는 돈에 맞춰 화면에서는 10%를 더해 보여줍니다(10/19 요청).
   // 저장된 값(cpc_ad_rows.cost)은 그대로 VAT 별도이고, ROAS·광고비 비중도 VAT 포함 광고비로 계산됩니다.
   const VAT = 1.1;
