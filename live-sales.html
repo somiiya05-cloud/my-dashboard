@@ -1131,9 +1131,14 @@ setInterval(async () => {
     const { data } = await db.from('live_sales_requests').select('status,finished_at').in('status', ['done', 'failed'])
       .not('finished_at', 'is', null).order('finished_at', { ascending: false }).limit(1);
     const r = data && data[0];
-    if (r && window.__lastSeenPull !== undefined && r.finished_at !== window.__lastSeenPull) {
-      window.__lastSeenPull = r.finished_at;
-      showLastPull(r);
+    // 10·14·18시 기록은 요청 없이 감시가 바로 넣으므로(11/17) 그것도 새로 생겼는지 본다
+    const sn = await db.from('live_sales_snapshots').select('taken_at').eq('date', d).order('taken_at', { ascending: false }).limit(1);
+    const snapAt = sn.data && sn.data[0] ? sn.data[0].taken_at : null;
+    const newSnap = window.__lastSnap !== undefined && snapAt !== window.__lastSnap;
+    window.__lastSnap = snapAt;
+    const newPull = r && window.__lastSeenPull !== undefined && r.finished_at !== window.__lastSeenPull;
+    if (newPull || newSnap) {
+      if (newPull) { window.__lastSeenPull = r.finished_at; showLastPull(r); }
       Object.keys(cache).forEach(k => { if (k >= addDays(d, -1)) delete cache[k]; });
       await show(d, true);
     }
