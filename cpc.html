@@ -995,12 +995,16 @@
         addCost(kind + '|' + item, r, `${KIND[kind]} · ${r.campaign}`, r.campaign.replace(new RegExp('^' + pdBrand + '_?'), '') || KIND[kind]);
       }
       const strip = (s) => String(s || '').replace(/^\[[^\]]*\]\s*/, '').replace(new RegExp('^\\[?' + pdBrand + '\\]?\\s*'), '');
-      labelOf = (k) => { const no = itemName(k); return no === '상품 미지정' ? '상품 미지정 (스토어 메인 등)' : no.startsWith('이름:') ? strip(no.slice(3)) : strip(nameByNo.get(no) || adNames.get(no) || no); };
+      labelOf = (k) => { const no = itemName(k); return no === '상품 미지정' ? '스토어 전체 매출 기준' : no.startsWith('이름:') ? strip(no.slice(3)) : strip(nameByNo.get(no) || adNames.get(no) || no); };
       const nos = new Set([...camps.keys()].map(itemName));
+      // 11/17 사용자 결정: 상품을 특정할 수 없는 광고(GFA 스토어 메인 랜딩 등 「상품 미지정」)는 그 브랜드 스토어 전체 매출과 비교.
+      // 스토어 = 광고 상품이 팔린 스토어번호(product_id 앞부분), 못 찾으면 상품명에 브랜드가 든 주문.
+      const storeIds = new Set(data.sales.filter((r) => nos.has(pidNo(r.product_id)) && String(r.product_id).includes(':')).map((r) => String(r.product_id).split(':')[0]));
+      const inStore = (r) => storeIds.size ? storeIds.has(String(r.product_id).split(':')[0]) : String(r.product || '').includes(pdBrand);
       for (const r of data.sales) {
-        const no = pidNo(r.product_id);
-        if (!nos.has(no)) continue;
-        sales.set(no + '|' + r.date, (sales.get(no + '|' + r.date) || 0) + (+r.amount || 0));
+        const no = pidNo(r.product_id), amt = +r.amount || 0;
+        if (nos.has(no)) sales.set(no + '|' + r.date, (sales.get(no + '|' + r.date) || 0) + amt);
+        if (inStore(r)) sales.set('상품 미지정|' + r.date, (sales.get('상품 미지정|' + r.date) || 0) + amt);
       }
       kwHtml = kwTable(data.kw.filter((r) => r.channel === '네이버 ' + pdBrand && (!camp || r.campaign === camp)), dates, (no) => no ? strip(nameByNo.get(no) || no) : '상품 미지정 (스토어 메인 등)');
     }
@@ -1025,7 +1029,10 @@
     const val = (members, d) => {
       const ds = d ? [d] : dates, t = { c: 0, s: 0 };
       for (const k of members) for (const x of ds) t.c += cost.get(k + '|' + x) || 0;
-      for (const it of new Set(members.map(itemName))) for (const x of ds) t.s += sales.get(it + '|' + x) || 0;
+      // 「상품 미지정」(브랜드 표에선 스토어 전체 매출)이 섞이면 상품별 매출을 또 더하지 않고 스토어 전체 매출만 쓴다
+      const its = new Set(members.map(itemName));
+      const use = pdBrand !== '코드니처' && its.has('상품 미지정') ? ['상품 미지정'] : [...its];
+      for (const it of use) for (const x of ds) t.s += sales.get(it + '|' + x) || 0;
       return t;
     };
     const shareTd = (v, extra) => {
@@ -1049,7 +1056,7 @@
     card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 <span class="pill">${pdBrand === '코드니처' ? '네이버 ADVoost · 검색광고' : esc(pdBrand) + ' 검색광고'}</span>${tabs}</h2>
       <p class="hint">${pdBrand === '코드니처'
         ? '캠페인(애드부스트 A·B·C)별로 묶고, 쇼핑검색 「(스스)」 캠페인은 「검색광고」 묶음으로 상품별로 나눴습니다(파워링크는 랜딩이 자사몰이라 빠짐). 같은 품목이 두 묶음에 다 있으면 「전체」 매출은 한 번만 셉니다. 매출은 스마트스토어 상품별 실결제(<b>광고 외 유입 포함</b>)'
-        : `${esc(pdBrand)} 검색광고를 캠페인별로 묶었습니다. 쇼핑검색은 소재(상품)별, 파워링크는 광고그룹 랜딩 주소의 상품번호로 나눴고, 스토어 메인 등 상품이 없는 랜딩은 「상품 미지정」, 자사몰 랜딩은 뺐습니다. 매출은 실시간 매출 수집의 네이버 상품별 주문금액(취소 제외, <b>광고 외 유입 포함</b>)`}, 광고비는 VAT 포함입니다. 광고비중 = 광고비 ÷ 매출 — <span style="background:#c6efce;padding:0 4px;">8% 이하</span> <span style="background:#ffeb9c;padding:0 4px;">8~15%</span> <span style="background:#ff9c9c;padding:0 4px;">15% 초과</span> <span style="color:#94a3b8;">매출0</span>(회색) = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C). 기간을 짧게 골라도 종료일이 속한 달의 1일부터 모두 보여 줍니다.</p>
+        : `${esc(pdBrand)} 검색광고를 캠페인별로 묶었습니다. 쇼핑검색은 소재(상품)별, 파워링크는 광고그룹 랜딩 주소의 상품번호로 나눴고, 상품을 특정할 수 없는 광고(GFA 스토어 메인 랜딩 등)는 「스토어 전체 매출 기준」 칸으로 그 브랜드 스토어 전체 매출과 비교하고, 자사몰 랜딩은 뺐습니다. 「전체」 칸도 스토어 전체 매출 기준입니다. 매출은 실시간 매출 수집의 네이버 상품별 주문금액(취소 제외, <b>광고 외 유입 포함</b>)`}, 광고비는 VAT 포함입니다. 광고비중 = 광고비 ÷ 매출 — <span style="background:#c6efce;padding:0 4px;">8% 이하</span> <span style="background:#ffeb9c;padding:0 4px;">8~15%</span> <span style="background:#ff9c9c;padding:0 4px;">15% 초과</span> <span style="color:#94a3b8;">매출0</span>(회색) = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C). 기간을 짧게 골라도 종료일이 속한 달의 1일부터 모두 보여 줍니다.</p>
       <div class="tblwrap" style="max-height:640px;"><table>
         <thead><tr><th rowspan="3" class="d">날짜</th>${gHead}</tr><tr>${iHead}</tr><tr>${mHead}</tr></thead>
         <tbody>${dates.map((d) => `<tr><td class="d">${d.slice(5).replace('-', '/')}</td>${cells(d)}</tr>`).join('')}</tbody>
