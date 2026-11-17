@@ -676,9 +676,11 @@
     if (!ch.length) return null;
     const sr = storeRows.filter((r) => ch.includes(r.channel) && r.date >= from && r.date <= to);
     if (!sr.length) return null;
-    const cost = rows.filter((r) => ch.includes(r.mall) && r.date >= from && r.date <= to).reduce((t, r) => t + r.cost, 0);
-    const sales = sr.reduce((t, r) => t + r.sales, 0), storeSales = storeTotal(sr);
-    return { ch, cost, sales, storeSales, pays: sr.reduce((t, r) => t + r.pays, 0),
+    const adr = rows.filter((r) => ch.includes(r.mall) && r.date >= from && r.date <= to);
+    const cost = adr.reduce((t, r) => t + r.cost, 0);
+    // 11/17 사용자 요청: KPI 의 광고 매출·ROAS 는 광고 관리자 「구매완료」 전환매출 기준(스토어 실결제 아님). 스토어 매출·광고비 비중은 그대로 스토어 기준.
+    const sales = adr.reduce((t, r) => t + r.rev, 0), storeSales = storeTotal(sr);
+    return { ch, cost, sales, storeSales, pays: adr.reduce((t, r) => t + r.conv, 0),
       roas: cost ? sales / cost : NaN, share: storeSales ? cost / storeSales : NaN };
   }
 
@@ -694,16 +696,16 @@
       const P = svPrev || {};
       const cards = [
         ['광고비 (VAT 포함)', won(sv.cost) + '원', change(sv.cost, P.cost, false), ''],
-        ['광고를 통한 매출', won(sv.sales) + '원', change(sv.sales, P.sales, true), `결제 ${won(sv.pays)}건`],
-        ['스마트스토어 매출', won(sv.storeSales) + '원', change(sv.storeSales, P.storeSales, true), `광고 유입 ${sv.storeSales ? pct(sv.sales / sv.storeSales) : '-'}`],
+        ['광고 구매완료 매출', won(sv.sales) + '원', change(sv.sales, P.sales, true), `구매완료 ${won(sv.pays)}건 · 광고 관리자 기준`],
+        ['스마트스토어 매출', won(sv.storeSales) + '원', change(sv.storeSales, P.storeSales, true), '스토어 전체(광고 외 유입 포함)'],
         ['광고비 비중', pct(sv.share, 1), change(sv.share, P.share, false, true), (() => {
           const sg = suggestedDaily($('fTo').value, sv.ch);
           return `목표 ${pct(TARGET_SHARE)} · 적정 광고비(VAT 포함) 하루 약 ${sg ? won(Math.round(sg.budget / 1000) * 1000) : '-'}원`;
         })()],
-        ['ROAS', pct(sv.roas), change(sv.roas, P.roas, true), '광고를 통한 매출 ÷ 광고비'],
+        ['구매완료 광고수익률', pct(sv.roas), change(sv.roas, P.roas, true), '구매완료 매출 ÷ 광고비(VAT 포함)'],
       ];
       $('kpis').innerHTML = cards.map(([k, v, d, sub]) => {
-        const flag = k === 'ROAS' && isFinite(sv.roas) ? (sv.roas >= BE_ROAS ? ' <span class="grade g-star">기준 이상</span>' : ' <span class="grade g-low">기준 미달</span>')
+        const flag = k === '구매완료 광고수익률' && isFinite(sv.roas) ? (sv.roas >= BE_ROAS ? ' <span class="grade g-star">기준 이상</span>' : ' <span class="grade g-low">기준 미달</span>')
           : k === '광고비 비중' && isFinite(sv.share) ? (sv.share <= TARGET_SHARE ? ' <span class="grade g-star">목표 이내</span>' : ' <span class="grade g-waste">목표 초과</span>') : '';
         return `<div class="kpi"><div class="k">${k}${flag}</div><div class="v">${v}</div>${d}${sub ? `<div class="d flat" style="color:#94a3b8;font-weight:600;">${sub}</div>` : ''}</div>`;
       }).join('');
