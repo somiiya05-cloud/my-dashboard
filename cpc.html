@@ -1043,20 +1043,20 @@
     };
     const cells = (d) => cols.map((c) => {
       const v = val(c.members, d), cls = (c.first || c.kind !== 'p' ? 'g ' : '') + (c.kind !== 'p' ? 'sub' : '');
-      return `<td class="${cls}">${v.s ? won(v.s) : '-'}</td><td class="c ${c.kind !== 'p' ? 'sub' : ''}">${v.c ? won(v.c) : '-'}</td>${shareTd(v, c.kind !== 'p' ? 'sub' : '')}`;
+      return `<td class="${cls}">${v.s ? won(v.s) : '-'}</td><td class="c ${c.kind !== 'p' ? 'sub' : ''}">${v.c ? won(v.c) : '-'}</td>${shareTd(v, c.kind !== 'p' ? 'sub' : '')}<td class="c ${c.kind !== 'p' ? 'sub' : ''}" style="text-align:right;">${v.c ? (v.s ? Math.round(v.s / v.c * 100).toLocaleString() + '%' : '0%') : '-'}</td>`;
     }).join('');
     const GC = { A: '#ddebf7', B: '#fce4d6', C: '#e2efda', D: '#fff2cc', '검색광고': '#ede9fe' };
     const gHead = groups.map((gr) => {
-      const span = (gr.items.length + (gr.items.length > 1 ? 1 : 0)) * 3, key = gr.g.replace('애드부스트 ', '');
+      const span = (gr.items.length + (gr.items.length > 1 ? 1 : 0)) * 4, key = gr.g.replace('애드부스트 ', '');
       return `<th colspan="${span}" class="g" style="background:${GC[key] || '#eef2f7'};color:#1f2a3f;">${esc(gr.g)}</th>`;
-    }).join('') + `<th colspan="3" class="g" style="background:#e5e7eb;color:#1f2a3f;">전체</th>`;
-    const iHead = cols.map((c) => `<th colspan="3" class="g ${c.kind !== 'p' ? 'sub' : ''}">${esc(c.label)}${c.sub && c.sub.includes('·') ? ` <span style="font-weight:600;color:#94a3b8;">(${esc(c.sub)})</span>` : ''}</th>`).join('');
-    const mHead = cols.map((c) => `<th class="g">매출</th><th>광고비</th><th>광고비중</th>`).join('');
+    }).join('') + `<th colspan="4" class="g" style="background:#e5e7eb;color:#1f2a3f;">전체</th>`;
+    const iHead = cols.map((c) => `<th colspan="4" class="g ${c.kind !== 'p' ? 'sub' : ''}">${esc(c.label)}${c.sub && c.sub.includes('·') ? ` <span style="font-weight:600;color:#94a3b8;">(${esc(c.sub)})</span>` : ''}</th>`).join('');
+    const mHead = cols.map((c) => `<th class="g">매출</th><th>광고비</th><th>광고비중</th><th>ROAS</th>`).join('');
     card.style.display = '';
     card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 <span class="pill">${pdBrand === '코드니처' ? '네이버 ADVoost · 검색광고' : esc(pdBrand) + ' 검색광고'}</span>${tabs}</h2>
       <p class="hint">${pdBrand === '코드니처'
         ? '캠페인(애드부스트 A·B·C)별로 묶고, 쇼핑검색 「(스스)」 캠페인은 「검색광고」 묶음으로 상품별로 나눴습니다(파워링크는 랜딩이 자사몰이라 빠짐). 같은 품목이 두 묶음에 다 있으면 「전체」 매출은 한 번만 셉니다. 매출은 스마트스토어 상품별 실결제(<b>광고 외 유입 포함</b>)'
-        : `${esc(pdBrand)} 검색광고를 캠페인별로 묶었습니다. 쇼핑검색은 소재(상품)별, 파워링크는 광고그룹 랜딩 주소의 상품번호로 나눴고, 상품을 특정할 수 없는 광고(GFA 스토어 메인 랜딩 등)는 「스토어 전체 매출 기준」 칸으로 그 브랜드 스토어 전체 매출과 비교하고, 자사몰 랜딩은 뺐습니다. 「전체」 칸도 스토어 전체 매출 기준입니다. 매출은 실시간 매출 수집의 네이버 상품별 주문금액(취소 제외, <b>광고 외 유입 포함</b>)`}, 광고비는 VAT 포함입니다. 광고비중 = 광고비 ÷ 매출 — <span style="background:#c6efce;padding:0 4px;">8% 이하</span> <span style="background:#ffeb9c;padding:0 4px;">8~15%</span> <span style="background:#ff9c9c;padding:0 4px;">15% 초과</span> <span style="color:#94a3b8;">매출0</span>(회색) = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C). 기간을 짧게 골라도 종료일이 속한 달의 1일부터 모두 보여 줍니다.</p>
+        : `${esc(pdBrand)} 검색광고를 캠페인별로 묶었습니다. 쇼핑검색은 소재(상품)별, 파워링크는 광고그룹 랜딩 주소의 상품번호로 나눴고, 상품을 특정할 수 없는 광고(GFA 스토어 메인 랜딩 등)는 「스토어 전체 매출 기준」 칸으로 그 브랜드 스토어 전체 매출과 비교하고, 자사몰 랜딩은 뺐습니다. 「전체」 칸도 스토어 전체 매출 기준입니다. 매출은 실시간 매출 수집의 네이버 상품별 주문금액(취소 제외, <b>광고 외 유입 포함</b>)`}, 광고비는 VAT 포함입니다. ROAS = 매출 ÷ 광고비. 광고비중 = 광고비 ÷ 매출 — <span style="background:#c6efce;padding:0 4px;">8% 이하</span> <span style="background:#ffeb9c;padding:0 4px;">8~15%</span> <span style="background:#ff9c9c;padding:0 4px;">15% 초과</span> <span style="color:#94a3b8;">매출0</span>(회색) = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C). 기간을 짧게 골라도 종료일이 속한 달의 1일부터 모두 보여 줍니다.</p>
       <div class="tblwrap" style="max-height:640px;"><table>
         <thead><tr><th rowspan="3" class="d">날짜</th>${gHead}</tr><tr>${iHead}</tr><tr>${mHead}</tr></thead>
         <tbody>${dates.map((d) => `<tr><td class="d">${d.slice(5).replace('-', '/')}</td>${cells(d)}</tr>`).join('')}</tbody>
@@ -1100,10 +1100,10 @@
     const shareTd = (v, sub) => !v.c ? `<td class="s ${sub}" style="color:#cbd5e1;">-</td>` : !v.s ? `<td class="s ${sub}" style="color:#cbd5e1;">매출0</td>`
       : (() => { const x = v.c / v.s, [bg, fg] = x > 0.15 ? ['#ff9c9c', '#7f0000'] : x > 0.08 ? ['#ffeb9c', '#7a5b00'] : ['#c6efce', '#006100']; return `<td class="s ${sub}" style="background:${bg};color:${fg};">${pct(x, 1)}</td>`; })();
     const flat = groups.flatMap((g) => g.cols.map((c, i) => ({ ...c, first: i === 0 }))).concat([{ label: '전체', keys: all, sub: true, first: true }]);
-    const cells = (d) => flat.map((c) => { const v = val(c.keys, d), sub = c.sub ? 'sub' : ''; return `<td class="${c.first || c.sub ? 'g ' : ''}${sub}">${v.s ? won(v.s) : '-'}</td><td class="c ${sub}">${v.c ? won(v.c) : '-'}</td>${shareTd(v, sub)}`; }).join('');
-    const gHead = groups.map((g) => `<th colspan="${g.cols.length * 3}" class="g" style="background:#ede9fe;color:#1f2a3f;">${esc(g.name)}</th>`).join('') + `<th colspan="3" class="g" style="background:#e5e7eb;color:#1f2a3f;">전체</th>`;
-    const iHead = flat.map((c) => `<th colspan="3" class="g ${c.sub ? 'sub' : ''}">${esc(c.label)}</th>`).join('');
-    const mHead = flat.map(() => `<th class="g">매출</th><th>광고비</th><th>광고비중</th>`).join('');
+    const cells = (d) => flat.map((c) => { const v = val(c.keys, d), sub = c.sub ? 'sub' : ''; return `<td class="${c.first || c.sub ? 'g ' : ''}${sub}">${v.s ? won(v.s) : '-'}</td><td class="c ${sub}">${v.c ? won(v.c) : '-'}</td>${shareTd(v, sub)}<td class="c ${sub}" style="text-align:right;">${v.c ? (v.s ? Math.round(v.s / v.c * 100).toLocaleString() + '%' : '0%') : '-'}</td>`; }).join('');
+    const gHead = groups.map((g) => `<th colspan="${g.cols.length * 4}" class="g" style="background:#ede9fe;color:#1f2a3f;">${esc(g.name)}</th>`).join('') + `<th colspan="4" class="g" style="background:#e5e7eb;color:#1f2a3f;">전체</th>`;
+    const iHead = flat.map((c) => `<th colspan="4" class="g ${c.sub ? 'sub' : ''}">${esc(c.label)}</th>`).join('');
+    const mHead = flat.map(() => `<th class="g">매출</th><th>광고비</th><th>광고비중</th><th>ROAS</th>`).join('');
     return `<h2 style="margin-top:20px;">키워드별 매출 · 광고비 · 광고비중 <span class="pill">파워링크</span></h2>
       <p class="hint">파워링크 키워드를 랜딩 상품별로 묶었습니다(상품마다 광고비 큰 키워드 ${TOP}개, 나머지는 「기타」). <b>매출은 네이버 검색광고 전환매출</b>(광고를 누르고 산 금액, 광고 관리자 숫자)이라 위 표의 스토어 매출과 기준이 다릅니다. 광고비는 VAT 포함, 하루 한 번(어제치) 들어옵니다. 쇼핑검색은 네이버가 키워드별 광고비를 주지 않아 없습니다.</p>
       <div class="tblwrap" style="max-height:640px;"><table>
