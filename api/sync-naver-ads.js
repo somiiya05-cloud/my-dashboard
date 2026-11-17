@@ -110,7 +110,11 @@ function sign(timestamp, method, uri, secretKey) {
 async function naverRequest(account, method, uri, params, attempt = 0) {
   const timestamp = String(Date.now());
   const url = new URL(NAVER_BASE + uri);
-  if (params) for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  // 값이 배열이면 같은 키를 반복해서 붙입니다(ids=a&ids=b, 벌크 통계 조회용 — sync-naver-keywords.js와 같음).
+  if (params) for (const [k, v] of Object.entries(params)) {
+    if (Array.isArray(v)) v.forEach((item) => url.searchParams.append(k, item));
+    else url.searchParams.set(k, v);
+  }
 
   const res = await fetch(url, {
     method,
@@ -170,6 +174,40 @@ async function fetchCampaignTotals(account, campaignId, since, until) {
   return { totals, days };
 }
 
+// 쇼핑검색 캠페인의 소재(=스토어 상품 하나)별 일별 성과 — cpc.html 「품목별 일별」 표의 검색광고 묶음용(2026-11-17).
+// 캠페인 → 광고그룹 → 소재 목록을 받고, 이번 달에 노출·클릭·광고비가 있었던 소재만 일별로 다시 묻습니다.
+// 상품명·상품번호는 소재 referenceData 에서 꺼내는데, 필드 이름이 문서마다 달라 후보를 차례로 봅니다.
+async function fetchShoppingAdDays(account, campaignId, since, until, sample) {
+  const adgroups = (await naverRequest(account, 'GET', '/ncc/adgroups', { nccCampaignId: campaignId })) || [];
+  const ads = [];
+  for (const ag of adgroups) {
+    const list = (await naverRequest(account, 'GET', '/ncc/ads', { nccAdgroupId: ag.nccAdgroupId, showDetail: '1' })) || [];
+    ads.push(...list);
+  }
+  if (sample && !sample.raw && ads[0]) sample.raw = JSON.stringify(ads[0]).slice(0, 1500);
+  const info = ads.map((a) => {
+    const rd = a.referenceData || {}, ad = a.ad || {};
+    return {
+      id: a.nccAdId,
+      name: rd.productTitle || rd.productName || ad.productTitle || ad.productName || rd.name || null,
+      no: String(rd.mallProductId || rd.productNo || ad.mallProductId || '') || null
+    };
+  }).filter((x) => x.id);
+  const active = new Set();
+  for (let i = 0; i < info.length; i += 100) {
+    const d = await naverRequest(account, 'GET', '/stats', {
+      ids: info.slice(i, i + 100).map((x) => x.id),
+      fields: JSON.stringify(['salesAmt', 'impCnt', 'clkCnt']),
+      timeRange: JSON.stringify({ since, until })
+    });
+    for (const r of d.data || []) if (Number(r.salesAmt) || Number(r.impCnt) || Number(r.clkCnt)) active.add(r.id);
+  }
+  return mapWithConcurrency(info.filter((x) => active.has(x.id)), STATS_CONCURRENCY, async (x) => {
+    const { days } = await fetchCampaignTotals(account, x.id, since, until);
+    return { ...x, days };
+  }, STATS_REQUEST_GAP_MS);
+}
+
 module.exports = async function handler(req, res) {
   // Vercel Cron이 자동으로 붙여주는 Authorization 헤더 검증 (수동 호출 시에도 동일하게 필요)
   const authHeader = req.headers['authorization'];
@@ -216,7 +254,7 @@ module.exports = async function handler(req, res) {
         STATS_CONCURRENCY,
         async (campaign) => {
           const { totals, days } = await fetchCampaignTotals(account, campaign.nccCampaignId, since, until);
-          return { name: campaign.name, channel: matchChannel(account.brands, campaign.name), totals, days };
+          return { id: campaign.nccCampaignId, account, name: campaign.name, channel: matchChannel(account.brands, campaign.name), totals, days };
         },
         STATS_REQUEST_GAP_MS
       );
@@ -345,20 +383,41 @@ module.exports = async function handler(req, res) {
       : channel === '네이버 미니멀룸' ? '미니멀룸 SA'
       : null;
     const SA_MALLS = ['네이버 SA', '빠이러스 SA', '미니멀룸 SA'];
+    // 2026-11-17: 코드니처 「(스스)」 쇼핑검색은 소재(상품)별로 나눠 넣는다 — product 에 스토어 상품명, adgroup 에 상품번호.
+    // 소재 합이 캠페인 합보다 적은 날은 그 차이를 '(상품 미지정)' 한 줄로 남겨 캠페인 합계는 그대로 맞춘다.
+    // 소재 조회가 실패하면 예전처럼 캠페인 한 줄('(상품 없음)')로 넣는다.
     let cpcRowCount = 0;
+    const saAdSample = {};
+    const saAdErrors = [];
     try {
       const cpcRows = [];
-      for (const { name, channel, days } of perCampaign) {
+      const num = (d) => ({ imp: Number(d.impCnt) || 0, clk: Number(d.clkCnt) || 0, cost: Number(d.salesAmt) || 0, conv: Number(d.ccnt) || 0, rev: Number(d.convAmt) || 0 });
+      for (const { id, account, name, channel, days } of perCampaign) {
         const saMall = SA_MALL_OF(channel, name);
         if (!saMall) continue;
+        let byAd = null;
+        if (saMall === '네이버 SA' && days.some((d) => Number(d.salesAmt) || Number(d.impCnt))) {
+          try { byAd = await fetchShoppingAdDays(account, id, since, until, saAdSample); }
+          catch (e) { saAdErrors.push(`${name}: ${String(e).slice(0, 200)}`); }
+        }
         for (const d of days) {
           if (!d.dateStart) continue;
-          const row = {
-            date: d.dateStart, mall: saMall, campaign: name, adgroup: '', product: '(상품 없음)', keyword: '',
-            imp: Number(d.impCnt) || 0, clk: Number(d.clkCnt) || 0, cost: Number(d.salesAmt) || 0,
-            conv: Number(d.ccnt) || 0, rev: Number(d.convAmt) || 0
-          };
-          if (row.imp || row.clk || row.cost || row.rev) cpcRows.push(row);
+          const camp = num(d);
+          const base = { date: d.dateStart, mall: saMall, campaign: name, keyword: '' };
+          if (!byAd) {
+            if (camp.imp || camp.clk || camp.cost || camp.rev) cpcRows.push({ ...base, adgroup: '', product: '(상품 없음)', ...camp });
+            continue;
+          }
+          const left = { ...camp };
+          for (const a of byAd) {
+            const ad = a.days.find((x) => x.dateStart === d.dateStart);
+            if (!ad) continue;
+            const v = num(ad);
+            if (!(v.imp || v.clk || v.cost || v.rev)) continue;
+            cpcRows.push({ ...base, adgroup: a.no || '', product: a.name || '(상품명 확인 안 됨)', ...v });
+            for (const k of Object.keys(left)) left[k] -= v[k];
+          }
+          if (left.cost > 0 || left.clk > 0) cpcRows.push({ ...base, adgroup: '', product: '(상품 미지정)', ...Object.fromEntries(Object.entries(left).map(([k, v]) => [k, Math.max(0, v)])) });
         }
       }
       const sbHeaders = { apikey: supabaseServiceKey, Authorization: `Bearer ${supabaseServiceKey}`, 'Content-Type': 'application/json' };
@@ -385,6 +444,8 @@ module.exports = async function handler(req, res) {
       campaignCount,
       dailyRowCount: dailyRows.length,
       cpcRowCount,
+      saAdSample: saAdSample.raw || null,
+      saAdErrors,
       results
     });
   } catch (err) {

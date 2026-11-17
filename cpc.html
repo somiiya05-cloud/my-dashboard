@@ -912,44 +912,53 @@
     const monthStart = to.slice(0, 8) + '01';
     if (monthStart < from) from = monthStart;
     const mall = $('fMall').value, camp = $('fCamp').value;
-    const ad = rows.filter((r) => r.mall === '네이버 ADVoost' && r.date >= from && r.date <= to && (!camp || r.campaign === camp));
-    if (isSample || (mall && mall !== '네이버 ADVoost') || !ad.length || !prodStoreRows.length) { card.style.display = 'none'; return; }
+    // 11/17 사용자 요청: 검색광고(쇼핑검색 「(스스)」 캠페인, 소재=상품)도 같은 표에 「검색광고」 묶음으로 붙임.
+    // 파워링크(코드니처_PPP·자사_PPP)는 랜딩 주소가 전부 자사몰(codenit.co.kr)이라 여기엔 없음.
+    const SRC = { '네이버 ADVoost': 'adv', '네이버 SA': 'sa' };
+    const ad = rows.filter((r) => SRC[r.mall] && (!mall || r.mall === mall) && r.date >= from && r.date <= to && (!camp || r.campaign === camp));
+    if (isSample || (mall && !SRC[mall]) || !ad.length || !prodStoreRows.length) { card.style.display = 'none'; return; }
     const dates = []; for (let d = new Date(from); ymd(d) <= to; d.setDate(d.getDate() + 1)) dates.push(ymd(d));
-    // 품목별 광고비·캠페인(가장 최근에 돈 쓴 캠페인으로 묶음, 예: 자켓세탁망 A→C)
+    // 품목별 광고비·캠페인 — 열 하나 = (광고 종류, 품목). 애드부스트는 가장 최근에 돈 쓴 캠페인으로 묶음(예: 자켓세탁망 A→C), 검색광고는 한 묶음.
     const cost = new Map(), lastCamp = new Map(), camps = new Map();
     for (const r of ad) {
-      const it = itemOf(r.product); if (!r.cost) continue;
-      cost.set(it + '|' + r.date, (cost.get(it + '|' + r.date) || 0) + r.cost);
-      const lc = lastCamp.get(it); if (!lc || r.date >= lc.date) lastCamp.set(it, { date: r.date, camp: r.campaign });
-      if (!camps.has(it)) camps.set(it, new Set()); camps.get(it).add(r.campaign.replace('애드부스트 ', ''));
+      if (!r.cost) continue;
+      const src = SRC[r.mall], name = src === 'sa' && /^\(/.test(r.product || '') ? '검색광고 상품 미지정' : itemOf(r.product), key = src + '|' + name;
+      cost.set(key + '|' + r.date, (cost.get(key + '|' + r.date) || 0) + r.cost);
+      const g = src === 'sa' ? '검색광고' : r.campaign;
+      const lc = lastCamp.get(key); if (!lc || r.date >= lc.date) lastCamp.set(key, { date: r.date, camp: g });
+      if (!camps.has(key)) camps.set(key, new Set()); camps.get(key).add(src === 'sa' ? r.campaign.replace(/^코드니처_/, '') : r.campaign.replace('애드부스트 ', ''));
     }
-    const items = [...camps.keys()];
-    if (!items.length) { card.style.display = 'none'; return; }
+    const keys = [...camps.keys()];
+    if (!keys.length) { card.style.display = 'none'; return; }
+    const itemName = (k) => k.slice(k.indexOf('|') + 1);
+    const names = new Set(keys.map(itemName));
     const noToItem = new Map(); ITEMS.forEach((it) => it.nos.forEach((no) => noToItem.set(no, it.name)));
-    const keyToItem = new Map(items.map((it) => [prodKey(it), it]));
+    const keyToItem = new Map([...names].map((it) => [prodKey(it), it]));
     const sales = new Map();
     for (const r of prodStoreRows) {
       if (r.date < from || r.date > to) continue;
       const it = noToItem.get(String(r.product_no)) || keyToItem.get(prodKey(r.product));
-      if (!it || !camps.has(it)) continue;
+      if (!it || !names.has(it)) continue;
       sales.set(it + '|' + r.date, (sales.get(it + '|' + r.date) || 0) + r.sales);
     }
-    // 캠페인(A·B·C …)별로 묶고, 묶음 안은 광고비 큰 순
-    const totCost = (it) => dates.reduce((s, d) => s + (cost.get(it + '|' + d) || 0), 0);
-    const groupName = (it) => lastCamp.get(it).camp;
-    const gnames = [...new Set(items.map(groupName))].sort((a, b) => a.localeCompare(b, 'ko'));
-    const groups = gnames.map((g) => ({ g, items: items.filter((it) => groupName(it) === g).sort((a, b) => totCost(b) - totCost(a)) }));
+    // 캠페인(A·B·C …, 검색광고)별로 묶고, 묶음 안은 광고비 큰 순. 검색광고 묶음은 맨 뒤.
+    const totCost = (k) => dates.reduce((s, d) => s + (cost.get(k + '|' + d) || 0), 0);
+    const groupName = (k) => lastCamp.get(k).camp;
+    const gnames = [...new Set(keys.map(groupName))].sort((a, b) => (a === '검색광고') - (b === '검색광고') || a.localeCompare(b, 'ko'));
+    const groups = gnames.map((g) => ({ g, items: keys.filter((k) => groupName(k) === g).sort((a, b) => totCost(b) - totCost(a)) }));
     const cols = [];
     groups.forEach((gr, gi) => {
-      gr.items.forEach((it, k) => cols.push({ label: it.split(' (')[0].split(' ').slice(0, 3).join(' ') + ((it.match(/ (\d+개)$/) || [])[1] ? ' ' + it.match(/ (\d+개)$/)[1] : ''), sub: [...camps.get(it)].join('·'), members: [it], first: k === 0, kind: 'p' }));
+      gr.items.forEach((k, j) => { const it = itemName(k); cols.push({ label: it.split(' (')[0].split(' ').slice(0, 3).join(' ') + ((it.match(/ (\d+개)$/) || [])[1] ? ' ' + it.match(/ (\d+개)$/)[1] : ''), sub: [...camps.get(k)].join('·'), members: [k], first: j === 0, kind: 'p' }); });
       if (gr.items.length > 1) cols.push({ label: gr.g.replace('애드부스트 ', '') + ' 소계', members: gr.items, kind: 's' });
     });
-    cols.push({ label: '전체', members: items, kind: 't', first: true });
-    const val = (members, d) => members.reduce((t, it) => {
-      const ds = d ? [d] : dates;
-      for (const x of ds) { t.c += cost.get(it + '|' + x) || 0; t.s += sales.get(it + '|' + x) || 0; }
+    cols.push({ label: '전체', members: keys, kind: 't', first: true });
+    // 같은 품목이 애드부스트와 검색광고에 다 있으면 매출은 한 번만 더한다(광고비는 둘 다 더함).
+    const val = (members, d) => {
+      const ds = d ? [d] : dates, t = { c: 0, s: 0 };
+      for (const k of members) for (const x of ds) t.c += cost.get(k + '|' + x) || 0;
+      for (const it of new Set(members.map(itemName))) for (const x of ds) t.s += sales.get(it + '|' + x) || 0;
       return t;
-    }, { c: 0, s: 0 });
+    };
     const shareTd = (v, extra) => {
       if (!v.c) return `<td class="s ${extra}" style="color:#cbd5e1;">-</td>`;
       if (!v.s) return `<td class="s ${extra}" style="background:#dc143c;color:#fff;">매출0</td>`;
@@ -960,7 +969,7 @@
       const v = val(c.members, d), cls = (c.first || c.kind !== 'p' ? 'g ' : '') + (c.kind !== 'p' ? 'sub' : '');
       return `<td class="${cls}">${v.s ? won(v.s) : '-'}</td><td class="c ${c.kind !== 'p' ? 'sub' : ''}">${v.c ? won(v.c) : '-'}</td>${shareTd(v, c.kind !== 'p' ? 'sub' : '')}`;
     }).join('');
-    const GC = { A: '#ddebf7', B: '#fce4d6', C: '#e2efda' };
+    const GC = { A: '#ddebf7', B: '#fce4d6', C: '#e2efda', D: '#fff2cc', '검색광고': '#ede9fe' };
     const gHead = groups.map((gr) => {
       const span = (gr.items.length + (gr.items.length > 1 ? 1 : 0)) * 3, key = gr.g.replace('애드부스트 ', '');
       return `<th colspan="${span}" class="g" style="background:${GC[key] || '#eef2f7'};color:#1f2a3f;">${esc(gr.g)}</th>`;
@@ -968,8 +977,8 @@
     const iHead = cols.map((c) => `<th colspan="3" class="g ${c.kind !== 'p' ? 'sub' : ''}">${esc(c.label)}${c.sub && c.sub.includes('·') ? ` <span style="font-weight:600;color:#94a3b8;">(${esc(c.sub)})</span>` : ''}</th>`).join('');
     const mHead = cols.map((c) => `<th class="g">매출</th><th>광고비</th><th>광고비중</th>`).join('');
     card.style.display = '';
-    card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 <span class="pill">네이버 ADVoost</span></h2>
-      <p class="hint">캠페인(애드부스트 A·B·C)별로 묶었습니다. 매출은 스마트스토어 상품별 실결제(<b>광고 외 유입 포함</b>), 광고비는 VAT 포함입니다. 광고비중 = 광고비 ÷ 매출 — <span style="background:#c6efce;padding:0 4px;">8% 이하</span> <span style="background:#ffeb9c;padding:0 4px;">8~15%</span> <span style="background:#ff9c9c;padding:0 4px;">15% 초과</span> <span style="background:#dc143c;color:#fff;padding:0 4px;">매출0</span> = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C). 기간을 짧게 골라도 종료일이 속한 달의 1일부터 모두 보여 줍니다.</p>
+    card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 <span class="pill">네이버 ADVoost · 검색광고</span></h2>
+      <p class="hint">캠페인(애드부스트 A·B·C)별로 묶고, 쇼핑검색 「(스스)」 캠페인은 「검색광고」 묶음으로 상품별로 나눴습니다(파워링크는 랜딩이 자사몰이라 빠짐). 같은 품목이 두 묶음에 다 있으면 「전체」 매출은 한 번만 셉니다. 매출은 스마트스토어 상품별 실결제(<b>광고 외 유입 포함</b>), 광고비는 VAT 포함입니다. 광고비중 = 광고비 ÷ 매출 — <span style="background:#c6efce;padding:0 4px;">8% 이하</span> <span style="background:#ffeb9c;padding:0 4px;">8~15%</span> <span style="background:#ff9c9c;padding:0 4px;">15% 초과</span> <span style="background:#dc143c;color:#fff;padding:0 4px;">매출0</span> = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C). 기간을 짧게 골라도 종료일이 속한 달의 1일부터 모두 보여 줍니다.</p>
       <div class="tblwrap" style="max-height:640px;"><table>
         <thead><tr><th rowspan="3" class="d">날짜</th>${gHead}</tr><tr>${iHead}</tr><tr>${mHead}</tr></thead>
         <tbody>${dates.map((d) => `<tr><td class="d">${d.slice(5).replace('-', '/')}</td>${cells(d)}</tr>`).join('')}</tbody>
