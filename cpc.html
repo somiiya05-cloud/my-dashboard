@@ -1083,7 +1083,7 @@
     // 구분 줄로 나눈 기간 합계표를 먼저 보여 준다(칸 = 스토어 매출·광고비·광고비중·ROAS). 일별 표는 「일별로 보기」로 접어 둔다.
     let sumHtml = '';
     {
-      const sumC = (k) => dates.reduce((s, d) => s + (cost.get(k + '|' + d) || 0), 0);
+      const sumR = (k) => dates.reduce((s, d) => s + (adRev.get(k + '|' + d) || 0), 0);   /* 광고 관리자 구매완료 전환매출(11/17 사용자 요청: 구매완료 광고수익률) */ const rOf = (ks) => ks.reduce((t, k) => t + sumR(k), 0); const sumC = (k) => dates.reduce((s, d) => s + (cost.get(k + '|' + d) || 0), 0);
       const sumS = (it) => dates.reduce((s, d) => s + (sales.get(it + '|' + d) || 0), 0);
       const CH = { '검색광고': 'SA', '애드부스트': 'ADVoost', 'GFA': 'GFA' };
       // 광고 종류 → 스마트스토어 방문 분석 경로(ad_store_attribution). 코드니처는 '네이버 ADVoost'·'네이버 SA'·'GFA', 빠이러스·미니멀룸은 '빠이러스 ADVoost' 등.
@@ -1097,16 +1097,16 @@
       const gray = '<td style="color:#cbd5e1;">-</td>';
       const roasTd = (s, c) => !c ? gray : `<td style="text-align:right;font-weight:700;color:${s / c >= 3 ? '#16a34a' : s / c >= 1.5 ? '#b45309' : '#dc2626'};">${Math.round(s / c * 100).toLocaleString()}%</td>`;
       const row = (label, s, c, opt = {}) => `<tr style="${opt.bg ? 'background:' + opt.bg + ';' : ''}${opt.bold ? 'font-weight:700;' : ''}"><td style="text-align:left;padding-left:${opt.indent ? 28 : 12}px;">${label}</td>`
-        + `<td style="text-align:right;">${s ? won(s) : '-'}</td><td style="text-align:right;color:#64748b;">${c ? won(c) : '-'}</td>${opt.noShare ? gray : shareTd({ c, s }, '')}${roasTd(s, c)}</tr>`;
+        + `<td style="text-align:right;">${s ? won(s) : '-'}</td><td style="text-align:right;color:#64748b;">${c ? won(c) : '-'}</td>${opt.noShare ? gray : shareTd({ c, s }, '')}${roasTd(s, c)}${opt.r === undefined ? gray + gray : `<td style="text-align:right;color:#475569;border-left:2px solid #cbd5e1;">${opt.r ? won(opt.r) : '-'}</td>${roasTd(opt.r, c)}`}</tr>`;
       const nameOf = (it) => it === '상품 미지정' ? '스토어 메인 랜딩 <span style="font-size:11px;color:#94a3b8;">(상품 미지정 · 매출 = 스토어 전체)</span>' : esc(labelOf('x|' + it));
-      const secHead = (title, n, color) => `<tr><td colspan="5" style="text-align:left;background:${color};font-weight:800;font-size:14px;color:#1f2a3f;border-top:3px solid #64748b;padding:8px 12px;">${esc(title)} <span style="font-weight:600;font-size:12px;color:#64748b;">· ${n}종</span></td></tr>`;
+      const secHead = (title, n, color) => `<tr><td colspan="7" style="text-align:left;background:${color};font-weight:800;font-size:14px;color:#1f2a3f;border-top:3px solid #64748b;padding:8px 12px;">${esc(title)} <span style="font-weight:600;font-size:12px;color:#64748b;">· ${n}종</span></td></tr>`;
       let body = '';
       for (const gr of groups) {
         const ks = gr.items.slice().sort((a, b) => sumC(b) - sumC(a));
         body += secHead(gr.g, ks.length, GC[gr.g] || '#eef2f7');
-        for (const k of ks) body += row(nameOf(itemName(k)), sumS(itemName(k)), sumC(k), { indent: 1 });
+        for (const k of ks) body += row(nameOf(itemName(k)), sumS(itemName(k)), sumC(k), { indent: 1, r: sumR(k) });
         const sub = val(gr.items, null);
-        body += row(`${esc(gr.g)} 소계`, sub.s, sub.c, { bold: 1, bg: '#f8fafc' });
+        body += row(`${esc(gr.g)} 소계`, sub.s, sub.c, { bold: 1, bg: '#f8fafc', r: rOf(gr.items) });
         // 같은 종류(애드부스트 B·C 등)의 마지막 묶음 뒤에, 그 종류 전체로 들어온 실결제 한 줄
         const kd = kindOf(gr.g), gi = groups.indexOf(gr), sameKind = groups.filter((g) => kindOf(g.g) === kd);
         if (kd && (gi === groups.length - 1 || kindOf(groups[gi + 1].g) !== kd)) {
@@ -1120,9 +1120,9 @@
       const items = [...new Set(keys.map(itemName))];
       const cOfItem = (it) => keys.filter((k) => itemName(k) === it).reduce((t, k) => t + sumC(k), 0);
       body += secHead('전체 · 광고 합계', items.length, '#e5e7eb');
-      for (const it of items.sort((a, b) => cOfItem(b) - cOfItem(a))) body += row(nameOf(it), sumS(it), cOfItem(it), { indent: 1 });
+      for (const it of items.sort((a, b) => cOfItem(b) - cOfItem(a))) body += row(nameOf(it), sumS(it), cOfItem(it), { indent: 1, r: rOf(keys.filter((k) => itemName(k) === it)) });
       const all = val(keys, null);
-      body += row(pdBrand === '코드니처' ? '광고 전체 · 광고 상품 매출 기준' : '광고 전체 · 스토어 전체 매출 기준', all.s || storeTotal, all.c, { bold: 1, bg: '#f8fafc' });
+      body += row(pdBrand === '코드니처' ? '광고 전체 · 광고 상품 매출 기준' : '광고 전체 · 스토어 전체 매출 기준', all.s || storeTotal, all.c, { bold: 1, bg: '#f8fafc', r: rOf(keys) });
       body += row('└ 광고로 들어온 실결제 합계 <span style="font-size:11px;color:#94a3b8;font-weight:500;">(스마트스토어 유입 경로)</span>', paid(null), all.c, { indent: 1, bg: '#f0fdf4', noShare: 1 });
       const md = (d) => d.slice(5).replace('-', '/');
       const qb = (q, l) => `<button type="button" data-pdq="${q}" style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-size:12px;">${l}</button>`;
@@ -1135,10 +1135,10 @@
         <span style="color:#94a3b8;font-size:12px;">${pdFrom ? '이 표만 따로 고른 기간' : '위 종료일이 속한 달 1일부터'} · 광고비는 어제까지</span>
       </div>
       <div class="tblwrap" style="max-height:none;margin-bottom:6px;"><table style="width:100%;min-width:0;">
-        <thead><tr><th style="text-align:left;">상품</th><th style="text-align:right;">스토어 매출</th><th style="text-align:right;">광고비</th><th>광고비중</th><th style="text-align:right;">ROAS</th></tr></thead>
+        <thead><tr><th style="text-align:left;">상품</th><th style="text-align:right;">스토어 매출</th><th style="text-align:right;">광고비</th><th>광고비중</th><th style="text-align:right;">ROAS</th><th style="text-align:right;border-left:2px solid #cbd5e1;" title="광고 관리자의 구매완료 전환매출(광고를 보거나 누른 뒤 구매완료한 금액)">구매완료 매출</th><th style="text-align:right;" title="구매완료 매출 ÷ 광고비(VAT 포함) — 네이버 화면 값(VAT 별도 광고비 기준) ÷ 1.1">구매완료 ROAS</th></tr></thead>
         <tbody>${body}</tbody>
       </table></div>
-      <p class="hint">스토어 매출 = 그 상품의 스마트스토어 주문금액(광고 외 유입 포함), ROAS = 스토어 매출 ÷ 광고비. 초록 줄은 그 광고 경로로 들어와 결제한 금액(스마트스토어 방문 분석)으로 본 ROAS입니다 — 상품별로는 나눠 주지 않아 광고 종류별 합계만 있습니다.</p>`;
+      <p class="hint">스토어 매출 = 그 상품의 스마트스토어 주문금액(광고 외 유입 포함), ROAS = 스토어 매출 ÷ 광고비. 초록 줄은 그 광고 경로로 들어와 결제한 금액(스마트스토어 방문 분석)으로 본 ROAS입니다 — 상품별로는 나눠 주지 않아 광고 종류별 합계만 있습니다. 「구매완료 매출·ROAS」는 광고 관리자의 구매완료 광고수익률과 같은 기준(장바구니 등 다른 전환은 뺌)이고, 광고비를 VAT 포함으로 나눠 네이버 화면 값 ÷ 1.1 입니다. 검색광고는 광고를 누른 뒤 그 스토어에서 산 것을 넓게 잡아 크게 나옵니다.</p>`;
     }
     card.style.display = '';
     card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 <span class="pill">${pdBrand === '코드니처' ? '네이버 ADVoost · 검색광고' : esc(pdBrand) + ' 검색광고 · 애드부스트 · GFA 통합'}</span>${tabs}</h2>
