@@ -417,7 +417,7 @@ module.exports = async function handler(req, res) {
             cpcRows.push({ ...base, adgroup: a.no || '', product: a.name || '(상품명 확인 안 됨)', ...v });
             for (const k of Object.keys(left)) left[k] -= v[k];
           }
-          if (left.cost > 0 || left.clk > 0) cpcRows.push({ ...base, adgroup: '', product: '(상품 미지정)', ...Object.fromEntries(Object.entries(left).map(([k, v]) => [k, Math.max(0, v)])) });
+          if (left.cost >= 100 || left.clk > 0) cpcRows.push   // 1~2원짜리 반올림 차이는 버림({ ...base, adgroup: '', product: '(상품 미지정)', ...Object.fromEntries(Object.entries(left).map(([k, v]) => [k, Math.max(0, v)])) });
         }
       }
       const sbHeaders = { apikey: supabaseServiceKey, Authorization: `Bearer ${supabaseServiceKey}`, 'Content-Type': 'application/json' };
