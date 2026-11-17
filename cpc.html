@@ -906,40 +906,93 @@
     { name: '결로 페인트', match: (n) => n.includes('결로'), nos: ['13823573926'] },
   ];
   const itemOf = (n) => (ITEMS.find((it) => it.match(String(n || ''))) || {}).name || String(n || '').replace(/^코드니처\s*/, '');
+  // 11/17 사용자 요청: 빠이러스·미니멀룸 검색광고도 같은 표로 — 표 위 버튼으로 브랜드를 바꾼다.
+  // 두 브랜드는 cpc_ad_rows '빠이러스 SA'·'미니멀룸 SA'(코드니처 화면에선 숨겨 따로 받음) + 매출은 실시간 매출 수집의 네이버 상품별 주문(live_sales_items, 상품번호 = product_id 앞부분).
+  let pdBrand = '코드니처', pdArgs = null;
+  const brandCache = {};
+  async function loadBrandData(from, to) {
+    const k = from + '|' + to;
+    if (brandCache[k]) return brandCache[k];
+    const pageAll = async (q) => { const out = []; for (let i = 0; ; i += 1000) { const { data, error } = await q().range(i, i + 999); if (error) throw error; out.push(...data); if (data.length < 1000) return out; } };
+    const [ad, sales] = await Promise.all([
+      pageAll(() => db.from(TABLE).select('date,mall,campaign,adgroup,product,cost').in('mall', ['빠이러스 SA', '미니멀룸 SA']).gte('date', from).lte('date', to).order('id')),
+      pageAll(() => db.from('live_sales_items').select('date,product_id,product,amount').eq('mall', '네이버').gte('date', from).lte('date', to).order('date').order('product_id')),
+    ]);
+    return (brandCache[k] = { ad: ad.map((r) => ({ ...r, cost: +r.cost * VAT })), sales });
+  }
   function drawProdDay(from, to) {
     const card = $('prodDayCard');
+    pdArgs = [from, to];
     // 기간을 하루만 골라도 흐름이 보이게, 종료일이 속한 달의 1일부터 보여 줍니다(11/16 사용자 요청: 전체 일자가 다 보이게).
     const monthStart = to.slice(0, 8) + '01';
     if (monthStart < from) from = monthStart;
     const mall = $('fMall').value, camp = $('fCamp').value;
-    // 11/17 사용자 요청: 검색광고(쇼핑검색 「(스스)」 캠페인, 소재=상품)도 같은 표에 「검색광고」 묶음으로 붙임.
-    // 파워링크(코드니처_PPP·자사_PPP)는 랜딩 주소가 전부 자사몰(codenit.co.kr)이라 여기엔 없음.
-    const SRC = { '네이버 ADVoost': 'adv', '네이버 SA': 'sa' };
-    const ad = rows.filter((r) => SRC[r.mall] && (!mall || r.mall === mall) && r.date >= from && r.date <= to && (!camp || r.campaign === camp));
-    if (isSample || (mall && !SRC[mall]) || !ad.length || !prodStoreRows.length) { card.style.display = 'none'; return; }
+    const tabs = `<span style="float:right;display:flex;gap:4px;">${['코드니처', '빠이러스', '미니멀룸'].map((b) => `<button type="button" data-pdb="${b}" style="padding:3px 10px;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;font-size:12px;${b === pdBrand ? 'background:#1f2a3f;color:#fff;' : 'background:#fff;'}">${b}</button>`).join('')}</span>`;
+    const bindTabs = () => card.querySelectorAll('[data-pdb]').forEach((b) => b.onclick = () => { pdBrand = b.dataset.pdb; drawProdDay(...pdArgs); });
     const dates = []; for (let d = new Date(from); ymd(d) <= to; d.setDate(d.getDate() + 1)) dates.push(ymd(d));
-    // 품목별 광고비·캠페인 — 열 하나 = (광고 종류, 품목). 애드부스트는 가장 최근에 돈 쓴 캠페인으로 묶음(예: 자켓세탁망 A→C), 검색광고는 한 묶음.
-    const cost = new Map(), lastCamp = new Map(), camps = new Map();
-    for (const r of ad) {
-      if (!r.cost) continue;
-      const src = SRC[r.mall], name = src === 'sa' && /^\(/.test(r.product || '') ? '검색광고 상품 미지정' : itemOf(r.product), key = src + '|' + name;
+    const cost = new Map(), lastCamp = new Map(), camps = new Map(), sales = new Map();
+    let labelOf = (k) => k.slice(k.indexOf('|') + 1);
+    const itemName = (k) => k.slice(k.indexOf('|') + 1);
+    const addCost = (key, r, g, sub) => {
       cost.set(key + '|' + r.date, (cost.get(key + '|' + r.date) || 0) + r.cost);
-      const g = src === 'sa' ? '검색광고' : r.campaign;
       const lc = lastCamp.get(key); if (!lc || r.date >= lc.date) lastCamp.set(key, { date: r.date, camp: g });
-      if (!camps.has(key)) camps.set(key, new Set()); camps.get(key).add(src === 'sa' ? r.campaign.replace(/^코드니처_/, '') : r.campaign.replace('애드부스트 ', ''));
+      if (!camps.has(key)) camps.set(key, new Set()); camps.get(key).add(sub);
+    };
+    if (pdBrand === '코드니처') {
+      // 11/17 사용자 요청: 검색광고(쇼핑검색 「(스스)」 캠페인, 소재=상품)도 같은 표에 「검색광고」 묶음으로 붙임.
+      // 파워링크(코드니처_PPP·자사_PPP)는 랜딩 주소가 전부 자사몰(codenit.co.kr)이라 여기엔 없음.
+      const SRC = { '네이버 ADVoost': 'adv', '네이버 SA': 'sa' };
+      const ad = rows.filter((r) => SRC[r.mall] && (!mall || r.mall === mall) && r.date >= from && r.date <= to && (!camp || r.campaign === camp));
+      if (isSample || (mall && !SRC[mall]) || !ad.length || !prodStoreRows.length) { card.style.display = 'none'; return; }
+      // 품목별 광고비·캠페인 — 열 하나 = (광고 종류, 품목). 애드부스트는 가장 최근에 돈 쓴 캠페인으로 묶음(예: 자켓세탁망 A→C), 검색광고는 한 묶음.
+      for (const r of ad) {
+        if (!r.cost) continue;
+        const src = SRC[r.mall], name = src === 'sa' && /^\(/.test(r.product || '') ? '검색광고 상품 미지정' : itemOf(r.product);
+        addCost(src + '|' + name, r, src === 'sa' ? '검색광고' : r.campaign, src === 'sa' ? r.campaign.replace(/^코드니처_/, '') : r.campaign.replace('애드부스트 ', ''));
+      }
+      const names = new Set([...camps.keys()].map(itemName));
+      const noToItem = new Map(); ITEMS.forEach((it) => it.nos.forEach((no) => noToItem.set(no, it.name)));
+      const keyToItem = new Map([...names].map((it) => [prodKey(it), it]));
+      for (const r of prodStoreRows) {
+        if (r.date < from || r.date > to) continue;
+        const it = noToItem.get(String(r.product_no)) || keyToItem.get(prodKey(r.product));
+        if (!it || !names.has(it)) continue;
+        sales.set(it + '|' + r.date, (sales.get(it + '|' + r.date) || 0) + r.sales);
+      }
+    } else {
+      if (isSample) { card.style.display = 'none'; return; }
+      const data = brandCache[from + '|' + to];
+      if (!data) {
+        card.style.display = '';
+        card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 ${tabs}</h2><p class="hint">${esc(pdBrand)} 검색광고·매출을 불러오는 중…</p>`;
+        bindTabs();
+        loadBrandData(from, to).then(() => drawProdDay(...pdArgs)).catch((e) => { card.innerHTML = `<h2>품목별 일별 ${tabs}</h2><p class="hint">불러오지 못했습니다: ${esc(e.message || e)}</p>`; bindTabs(); });
+        return;
+      }
+      // 광고: 상품번호(adgroup 칸)로 묶고, 번호 없는 건(스토어 메인 랜딩 등) 「상품 미지정」. 묶음 = 캠페인(쇼핑검색 / 파워링크).
+      const nameByNo = new Map();
+      for (const r of data.sales) { const no = String(r.product_id || '').split('|')[0]; if (no && !nameByNo.has(no)) nameByNo.set(no, String(r.product || '').split(' / ')[0]); }
+      const adNames = new Map();
+      for (const r of data.ad) {
+        if (r.mall !== pdBrand + ' SA' || !r.cost || (camp && r.campaign !== camp)) continue;
+        const no = /^\d+$/.test(r.adgroup || '') ? r.adgroup : '';
+        if (no && !adNames.has(no)) adNames.set(no, r.product);
+        addCost('sa|' + (no || '상품 미지정'), r, r.campaign, r.campaign.replace(new RegExp('^' + pdBrand + '_?'), '') || '쇼핑검색');
+      }
+      const strip = (s) => String(s || '').replace(/^\[[^\]]*\]\s*/, '').replace(new RegExp('^\\[?' + pdBrand + '\\]?\\s*'), '');
+      labelOf = (k) => { const no = itemName(k); return no === '상품 미지정' ? '상품 미지정 (스토어 메인 등)' : strip(nameByNo.get(no) || adNames.get(no) || no); };
+      const nos = new Set([...camps.keys()].map(itemName));
+      for (const r of data.sales) {
+        const no = String(r.product_id || '').split('|')[0];
+        if (!nos.has(no)) continue;
+        sales.set(no + '|' + r.date, (sales.get(no + '|' + r.date) || 0) + (+r.amount || 0));
+      }
     }
     const keys = [...camps.keys()];
-    if (!keys.length) { card.style.display = 'none'; return; }
-    const itemName = (k) => k.slice(k.indexOf('|') + 1);
-    const names = new Set(keys.map(itemName));
-    const noToItem = new Map(); ITEMS.forEach((it) => it.nos.forEach((no) => noToItem.set(no, it.name)));
-    const keyToItem = new Map([...names].map((it) => [prodKey(it), it]));
-    const sales = new Map();
-    for (const r of prodStoreRows) {
-      if (r.date < from || r.date > to) continue;
-      const it = noToItem.get(String(r.product_no)) || keyToItem.get(prodKey(r.product));
-      if (!it || !names.has(it)) continue;
-      sales.set(it + '|' + r.date, (sales.get(it + '|' + r.date) || 0) + r.sales);
+    if (!keys.length) {
+      card.style.display = '';
+      card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 ${tabs}</h2><p class="hint">이 기간에 ${esc(pdBrand)} 광고비가 없습니다.</p>`;
+      bindTabs(); return;
     }
     // 캠페인(A·B·C …, 검색광고)별로 묶고, 묶음 안은 광고비 큰 순. 검색광고 묶음은 맨 뒤.
     const totCost = (k) => dates.reduce((s, d) => s + (cost.get(k + '|' + d) || 0), 0);
@@ -948,8 +1001,8 @@
     const groups = gnames.map((g) => ({ g, items: keys.filter((k) => groupName(k) === g).sort((a, b) => totCost(b) - totCost(a)) }));
     const cols = [];
     groups.forEach((gr, gi) => {
-      gr.items.forEach((k, j) => { const it = itemName(k); cols.push({ label: it.split(' (')[0].split(' ').slice(0, 3).join(' ') + ((it.match(/ (\d+개)$/) || [])[1] ? ' ' + it.match(/ (\d+개)$/)[1] : ''), sub: [...camps.get(k)].join('·'), members: [k], first: j === 0, kind: 'p' }); });
-      if (gr.items.length > 1) cols.push({ label: gr.g.replace('애드부스트 ', '') + ' 소계', members: gr.items, kind: 's' });
+      gr.items.forEach((k, j) => { const it = labelOf(k); cols.push({ label: it.split(' (')[0].split(' ').slice(0, 3).join(' ') + ((it.match(/ (\d+개)$/) || [])[1] ? ' ' + it.match(/ (\d+개)$/)[1] : ''), sub: [...camps.get(k)].join('·'), members: [k], first: j === 0, kind: 'p' }); });
+      if (gr.items.length > 1) cols.push({ label: gr.g.replace('애드부스트 ', '').replace(new RegExp('^' + pdBrand + '_?'), '') + ' 소계', members: gr.items, kind: 's' });
     });
     cols.push({ label: '전체', members: keys, kind: 't', first: true });
     // 같은 품목이 애드부스트와 검색광고에 다 있으면 매출은 한 번만 더한다(광고비는 둘 다 더함).
@@ -977,13 +1030,16 @@
     const iHead = cols.map((c) => `<th colspan="3" class="g ${c.kind !== 'p' ? 'sub' : ''}">${esc(c.label)}${c.sub && c.sub.includes('·') ? ` <span style="font-weight:600;color:#94a3b8;">(${esc(c.sub)})</span>` : ''}</th>`).join('');
     const mHead = cols.map((c) => `<th class="g">매출</th><th>광고비</th><th>광고비중</th>`).join('');
     card.style.display = '';
-    card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 <span class="pill">네이버 ADVoost · 검색광고</span></h2>
-      <p class="hint">캠페인(애드부스트 A·B·C)별로 묶고, 쇼핑검색 「(스스)」 캠페인은 「검색광고」 묶음으로 상품별로 나눴습니다(파워링크는 랜딩이 자사몰이라 빠짐). 같은 품목이 두 묶음에 다 있으면 「전체」 매출은 한 번만 셉니다. 매출은 스마트스토어 상품별 실결제(<b>광고 외 유입 포함</b>), 광고비는 VAT 포함입니다. 광고비중 = 광고비 ÷ 매출 — <span style="background:#c6efce;padding:0 4px;">8% 이하</span> <span style="background:#ffeb9c;padding:0 4px;">8~15%</span> <span style="background:#ff9c9c;padding:0 4px;">15% 초과</span> <span style="background:#dc143c;color:#fff;padding:0 4px;">매출0</span> = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C). 기간을 짧게 골라도 종료일이 속한 달의 1일부터 모두 보여 줍니다.</p>
+    card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 <span class="pill">${pdBrand === '코드니처' ? '네이버 ADVoost · 검색광고' : esc(pdBrand) + ' 검색광고'}</span>${tabs}</h2>
+      <p class="hint">${pdBrand === '코드니처'
+        ? '캠페인(애드부스트 A·B·C)별로 묶고, 쇼핑검색 「(스스)」 캠페인은 「검색광고」 묶음으로 상품별로 나눴습니다(파워링크는 랜딩이 자사몰이라 빠짐). 같은 품목이 두 묶음에 다 있으면 「전체」 매출은 한 번만 셉니다. 매출은 스마트스토어 상품별 실결제(<b>광고 외 유입 포함</b>)'
+        : `${esc(pdBrand)} 검색광고를 캠페인별로 묶었습니다. 쇼핑검색은 소재(상품)별, 파워링크는 광고그룹 랜딩 주소의 상품번호로 나눴고, 스토어 메인 등 상품이 없는 랜딩은 「상품 미지정」, 자사몰 랜딩은 뺐습니다. 매출은 실시간 매출 수집의 네이버 상품별 주문금액(취소 제외, <b>광고 외 유입 포함</b>)`}, 광고비는 VAT 포함입니다. 광고비중 = 광고비 ÷ 매출 — <span style="background:#c6efce;padding:0 4px;">8% 이하</span> <span style="background:#ffeb9c;padding:0 4px;">8~15%</span> <span style="background:#ff9c9c;padding:0 4px;">15% 초과</span> <span style="background:#dc143c;color:#fff;padding:0 4px;">매출0</span> = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C). 기간을 짧게 골라도 종료일이 속한 달의 1일부터 모두 보여 줍니다.</p>
       <div class="tblwrap" style="max-height:640px;"><table>
         <thead><tr><th rowspan="3" class="d">날짜</th>${gHead}</tr><tr>${iHead}</tr><tr>${mHead}</tr></thead>
         <tbody>${dates.map((d) => `<tr><td class="d">${d.slice(5).replace('-', '/')}</td>${cells(d)}</tr>`).join('')}</tbody>
         <tfoot><tr><td class="d">기간 합계</td>${cells(null)}</tr></tfoot>
       </table></div>`;
+    bindTabs();
   }
 
   // ---------- GFA 소재별 성과 ----------
