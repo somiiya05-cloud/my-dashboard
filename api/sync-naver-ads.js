@@ -179,11 +179,9 @@ async function fetchCampaignTotals(account, campaignId, since, until) {
 // 상품명·상품번호는 소재 referenceData 에서 꺼내는데, 필드 이름이 문서마다 달라 후보를 차례로 봅니다.
 async function fetchShoppingAdDays(account, campaignId, since, until, sample) {
   const adgroups = (await naverRequest(account, 'GET', '/ncc/adgroups', { nccCampaignId: campaignId })) || [];
-  const ads = [];
-  for (const ag of adgroups) {
-    const list = (await naverRequest(account, 'GET', '/ncc/ads', { nccAdgroupId: ag.nccAdgroupId, showDetail: '1' })) || [];
-    ads.push(...list);
-  }
+  const lists = await mapWithConcurrency(adgroups, STATS_CONCURRENCY, async (ag) =>
+    (await naverRequest(account, 'GET', '/ncc/ads', { nccAdgroupId: ag.nccAdgroupId, showDetail: '1' })) || [], STATS_REQUEST_GAP_MS);
+  const ads = lists.flat();
   if (sample && !sample.raw && ads[0]) sample.raw = JSON.stringify(ads[0]).slice(0, 1500);
   const info = ads.map((a) => {
     const rd = a.referenceData || {}, ad = a.ad || {};
@@ -194,10 +192,27 @@ async function fetchShoppingAdDays(account, campaignId, since, until, sample) {
     };
   }).filter((x) => x.id);
   const active = await activeIds(account, info.map((x) => x.id), since, until);
-  return mapWithConcurrency(info.filter((x) => active.has(x.id)), STATS_CONCURRENCY, async (x) => {
-    const { days } = await fetchCampaignTotals(account, x.id, since, until);
-    return { ...x, days };
-  }, STATS_REQUEST_GAP_MS);
+  return bulkDays(account, info.filter((x) => active.has(x.id)), since, until);
+}
+
+// 여러 id 의 일별 성과 — id 하나씩(timeIncrement) 묻지 않고 「하루 × id 100개」 벌크로 묻는다.
+// 11/17: 소재마다 따로 묻다가 Vercel 60초 제한에 걸려 동기화가 통째로 실패했다(검색광고 줄이 비었음).
+async function bulkDays(account, entries, since, until) {
+  if (!entries.length) return entries;
+  const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const last = until < today ? until : today;
+  const days = [];
+  for (let d = new Date(since + 'T00:00:00Z'); d.toISOString().slice(0, 10) <= last; d.setUTCDate(d.getUTCDate() + 1)) days.push(d.toISOString().slice(0, 10));
+  const ids = entries.map((e) => e.id), byId = new Map(entries.map((e) => [e.id, { ...e, days: [] }]));
+  const jobs = [];
+  for (const day of days) for (let i = 0; i < ids.length; i += 100) jobs.push({ day, ids: ids.slice(i, i + 100) });
+  await mapWithConcurrency(jobs, 4, async ({ day, ids: batch }) => {
+    const d = await naverRequest(account, 'GET', '/stats', {
+      ids: batch, fields: JSON.stringify(['salesAmt', 'impCnt', 'clkCnt', 'ccnt', 'convAmt']), timeRange: JSON.stringify({ since: day, until: day })
+    });
+    for (const r of d.data || []) { const e = byId.get(r.id); if (e) e.days.push({ ...r, dateStart: day }); }
+  }, 80);
+  return [...byId.values()];
 }
 
 // 이번 달에 노출·클릭·광고비가 있었던 id 만 (벌크 통계 한 번에 100개씩)
@@ -234,10 +249,9 @@ async function fetchPowerlinkDays(account, campaignId, since, until) {
     const url = landingOf(await naverRequest(account, 'GET', '/ncc/ads', { nccAdgroupId: ag.nccAdgroupId, showDetail: '1' }));
     if (!url || !/(smartstore|brand)\.naver\.com/.test(url)) return null;
     const m = url.match(/\/products\/(\d+)/);
-    const { days } = await fetchCampaignTotals(account, ag.nccAdgroupId, since, until);
-    return { id: ag.nccAdgroupId, name: m ? ag.name : null, no: m ? m[1] : null, days };
+    return { id: ag.nccAdgroupId, name: m ? ag.name : null, no: m ? m[1] : null };
   }, STATS_REQUEST_GAP_MS);
-  return out.filter(Boolean);
+  return bulkDays(account, out.filter(Boolean), since, until);
 }
 
 module.exports = async function handler(req, res) {
@@ -426,16 +440,17 @@ module.exports = async function handler(req, res) {
     try {
       const cpcRows = [];
       const num = (d) => ({ imp: Number(d.impCnt) || 0, clk: Number(d.clkCnt) || 0, cost: Number(d.salesAmt) || 0, conv: Number(d.ccnt) || 0, rev: Number(d.convAmt) || 0 });
-      for (const { id, account, name, channel, days } of perCampaign) {
-        const saMall = SA_MALL_OF(channel, name);
-        if (!saMall) continue;
-        // 쇼핑검색은 소재(상품)별, 파워링크(이름에 PPP)는 광고그룹 랜딩 주소별로 나눈다 — 빠이러스·미니멀룸도 같게(11/17).
-        const isPPP = /PPP/.test(name);
-        let byAd = null;
-        if (days.some((d) => Number(d.salesAmt) || Number(d.impCnt))) {
-          try { byAd = isPPP ? await fetchPowerlinkDays(account, id, since, until) : await fetchShoppingAdDays(account, id, since, until, saAdSample); }
-          catch (e) { saAdErrors.push(`${name}: ${String(e).slice(0, 200)}`); }
-        }
+      // 쇼핑검색은 소재(상품)별, 파워링크(이름에 PPP)는 광고그룹 랜딩 주소별로 나눈다 — 빠이러스·미니멀룸도 같게(11/17).
+      // 캠페인끼리는 동시에 조회한다(차례로 하면 60초 제한에 걸림).
+      const saCamps = perCampaign.map((c) => ({ ...c, saMall: SA_MALL_OF(c.channel, c.name), isPPP: /PPP/.test(c.name) }))
+        .filter((c) => c.saMall && c.days.some((d) => Number(d.salesAmt) || Number(d.impCnt) || Number(d.clkCnt)));
+      await mapWithConcurrency(saCamps, 3, async (c) => {
+        try { c.byAd = c.isPPP ? await fetchPowerlinkDays(c.account, c.id, since, until) : await fetchShoppingAdDays(c.account, c.id, since, until, saAdSample); }
+        catch (e) { c.byAd = null; saAdErrors.push(`${c.name}: ${String(e).slice(0, 200)}`); }
+      }, STATS_REQUEST_GAP_MS);
+      // 랜딩이 스토어 메인이라 상품번호가 없는 광고의 상품(사용자 확인) — 빠이러스 검색광고는 「가글 1개입」 랜딩(11/17)
+      const DEFAULT_NO = { '빠이러스 SA': '10245920632' };
+      for (const { name, days, saMall, isPPP, byAd } of saCamps) {
         // 파워링크를 랜딩으로 못 나눴으면(조회 실패) 자사몰일 수도 있어 넣지 않는다 — 코드니처 파워링크는 원래 안 넣던 것과 같음
         if (isPPP && !byAd) continue;
         for (const d of days) {
@@ -443,7 +458,7 @@ module.exports = async function handler(req, res) {
           const camp = num(d);
           const base = { date: d.dateStart, mall: saMall, campaign: name, keyword: '' };
           if (!byAd) {
-            if (camp.imp || camp.clk || camp.cost || camp.rev) cpcRows.push({ ...base, adgroup: '', product: '(상품 없음)', ...camp });
+            if (camp.imp || camp.clk || camp.cost || camp.rev) cpcRows.push({ ...base, adgroup: DEFAULT_NO[saMall] || '', product: '(상품 없음)', ...camp });
             continue;
           }
           const left = { ...camp };
@@ -452,11 +467,15 @@ module.exports = async function handler(req, res) {
             if (!ad) continue;
             const v = num(ad);
             if (!(v.imp || v.clk || v.cost || v.rev)) continue;
-            cpcRows.push({ ...base, adgroup: a.no || '', product: a.name || (isPPP ? '(상품 미지정)' : '(상품명 확인 안 됨)'), ...v });
+            const no = a.no || DEFAULT_NO[saMall] || '';
+            cpcRows.push({ ...base, adgroup: no, product: a.name || (no ? `(스토어 랜딩 → ${no})` : isPPP ? '(상품 미지정)' : '(상품명 확인 안 됨)'), ...v });
             for (const k of Object.keys(left)) left[k] -= v[k];
           }
-          // 파워링크는 자사몰 랜딩 그룹을 일부러 뺐으니 남은 금액을 채우지 않는다
-          if (!isPPP && left.cost >= 100 || left.clk > 0) cpcRows.push   // 1~2원짜리 반올림 차이는 버림({ ...base, adgroup: '', product: '(상품 미지정)', ...Object.fromEntries(Object.entries(left).map(([k, v]) => [k, Math.max(0, v)])) });
+          // 파워링크는 자사몰 랜딩 그룹을 일부러 뺐으니 남은 금액을 채우지 않는다. 1~2원짜리 반올림 차이도 버림.
+          if (!isPPP && (left.cost >= 100 || left.clk > 0)) {
+            const no = DEFAULT_NO[saMall] || '';
+            cpcRows.push({ ...base, adgroup: no, product: '(상품 미지정)', ...Object.fromEntries(Object.entries(left).map(([k, v]) => [k, Math.max(0, v)])) });
+          }
         }
       }
       const sbHeaders = { apikey: supabaseServiceKey, Authorization: `Bearer ${supabaseServiceKey}`, 'Content-Type': 'application/json' };

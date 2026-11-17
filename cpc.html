@@ -1020,7 +1020,7 @@
     };
     const shareTd = (v, extra) => {
       if (!v.c) return `<td class="s ${extra}" style="color:#cbd5e1;">-</td>`;
-      if (!v.s) return `<td class="s ${extra}" style="background:#dc143c;color:#fff;">매출0</td>`;
+      if (!v.s) return `<td class="s ${extra}" style="color:#cbd5e1;">매출0</td>`;   // 11/17 사용자 요청: 매출0도 '-'처럼 회색
       const x = v.c / v.s, [bg, fg] = x > 0.15 ? ['#ff9c9c', '#7f0000'] : x > 0.08 ? ['#ffeb9c', '#7a5b00'] : ['#c6efce', '#006100'];
       return `<td class="s ${extra}" style="background:${bg};color:${fg};">${pct(x, 1)}</td>`;
     };
@@ -1039,7 +1039,7 @@
     card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 <span class="pill">${pdBrand === '코드니처' ? '네이버 ADVoost · 검색광고' : esc(pdBrand) + ' 검색광고'}</span>${tabs}</h2>
       <p class="hint">${pdBrand === '코드니처'
         ? '캠페인(애드부스트 A·B·C)별로 묶고, 쇼핑검색 「(스스)」 캠페인은 「검색광고」 묶음으로 상품별로 나눴습니다(파워링크는 랜딩이 자사몰이라 빠짐). 같은 품목이 두 묶음에 다 있으면 「전체」 매출은 한 번만 셉니다. 매출은 스마트스토어 상품별 실결제(<b>광고 외 유입 포함</b>)'
-        : `${esc(pdBrand)} 검색광고를 캠페인별로 묶었습니다. 쇼핑검색은 소재(상품)별, 파워링크는 광고그룹 랜딩 주소의 상품번호로 나눴고, 스토어 메인 등 상품이 없는 랜딩은 「상품 미지정」, 자사몰 랜딩은 뺐습니다. 매출은 실시간 매출 수집의 네이버 상품별 주문금액(취소 제외, <b>광고 외 유입 포함</b>)`}, 광고비는 VAT 포함입니다. 광고비중 = 광고비 ÷ 매출 — <span style="background:#c6efce;padding:0 4px;">8% 이하</span> <span style="background:#ffeb9c;padding:0 4px;">8~15%</span> <span style="background:#ff9c9c;padding:0 4px;">15% 초과</span> <span style="background:#dc143c;color:#fff;padding:0 4px;">매출0</span> = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C). 기간을 짧게 골라도 종료일이 속한 달의 1일부터 모두 보여 줍니다.</p>
+        : `${esc(pdBrand)} 검색광고를 캠페인별로 묶었습니다. 쇼핑검색은 소재(상품)별, 파워링크는 광고그룹 랜딩 주소의 상품번호로 나눴고, 스토어 메인 등 상품이 없는 랜딩은 「상품 미지정」, 자사몰 랜딩은 뺐습니다. 매출은 실시간 매출 수집의 네이버 상품별 주문금액(취소 제외, <b>광고 외 유입 포함</b>)`}, 광고비는 VAT 포함입니다. 광고비중 = 광고비 ÷ 매출 — <span style="background:#c6efce;padding:0 4px;">8% 이하</span> <span style="background:#ffeb9c;padding:0 4px;">8~15%</span> <span style="background:#ff9c9c;padding:0 4px;">15% 초과</span> <span style="color:#94a3b8;">매출0</span>(회색) = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C). 기간을 짧게 골라도 종료일이 속한 달의 1일부터 모두 보여 줍니다.</p>
       <div class="tblwrap" style="max-height:640px;"><table>
         <thead><tr><th rowspan="3" class="d">날짜</th>${gHead}</tr><tr>${iHead}</tr><tr>${mHead}</tr></thead>
         <tbody>${dates.map((d) => `<tr><td class="d">${d.slice(5).replace('-', '/')}</td>${cells(d)}</tr>`).join('')}</tbody>
@@ -1054,7 +1054,9 @@
   function kwTable(list, dates, nameOfNo) {
     const store = list.filter((r) => /(smartstore|brand)\.naver\.com/.test(r.landing_url || ''));
     if (!store.length) return `<h2 style="margin-top:20px;">키워드별</h2><p class="hint">이 기간에 스토어로 가는 파워링크 키워드 광고비가 없습니다. 키워드는 하루 한 번(어제치) 들어옵니다.</p>`;
-    const prodOf = (r) => ((r.landing_url || '').match(/\/products\/(\d+)/) || [])[1] || '';
+    // 스토어 메인 랜딩 키워드는 사용자가 알려 준 상품으로(빠이러스 = 가글 1개입, 11/17) — sync-naver-ads.js DEFAULT_NO 와 같게
+    const DEFAULT_NO = { '빠이러스': '10245920632' };
+    const prodOf = (r) => ((r.landing_url || '').match(/\/products\/(\d+)/) || [])[1] || DEFAULT_NO[pdBrand] || '';
     const byProd = new Map();
     for (const r of store) {
       const p = prodOf(r); if (!byProd.has(p)) byProd.set(p, new Map());
@@ -1078,7 +1080,7 @@
     }
     const val = (keys, d) => { const t = { c: 0, s: 0 }; for (const k of keys) for (const x of d ? [d] : dates) { const a = agg.get(k + '|' + x); if (a) { t.c += a.c; t.s += a.s; } } return t; };
     const all = groups.flatMap((g) => g.cols.filter((c) => !c.sub).flatMap((c) => c.keys));
-    const shareTd = (v, sub) => !v.c ? `<td class="s ${sub}" style="color:#cbd5e1;">-</td>` : !v.s ? `<td class="s ${sub}" style="background:#dc143c;color:#fff;">매출0</td>`
+    const shareTd = (v, sub) => !v.c ? `<td class="s ${sub}" style="color:#cbd5e1;">-</td>` : !v.s ? `<td class="s ${sub}" style="color:#cbd5e1;">매출0</td>`
       : (() => { const x = v.c / v.s, [bg, fg] = x > 0.15 ? ['#ff9c9c', '#7f0000'] : x > 0.08 ? ['#ffeb9c', '#7a5b00'] : ['#c6efce', '#006100']; return `<td class="s ${sub}" style="background:${bg};color:${fg};">${pct(x, 1)}</td>`; })();
     const flat = groups.flatMap((g) => g.cols.map((c, i) => ({ ...c, first: i === 0 }))).concat([{ label: '전체', keys: all, sub: true, first: true }]);
     const cells = (d) => flat.map((c) => { const v = val(c.keys, d), sub = c.sub ? 'sub' : ''; return `<td class="${c.first || c.sub ? 'g ' : ''}${sub}">${v.s ? won(v.s) : '-'}</td><td class="c ${sub}">${v.c ? won(v.c) : '-'}</td>${shareTd(v, sub)}`; }).join('');
