@@ -1066,60 +1066,57 @@
     // 브랜드 표는 상품 이름 아래에 캠페인을 작은 글씨로(어느 캠페인에서 돈 광고인지)
     const iHead = cols.map((c) => `<th colspan="4" class="g ${c.first ? 'kb ' : ''}${c.kind !== 'p' ? 'sub' : ''}">${esc(c.label)}${pdBrand !== '코드니처' && c.kind === 'p' && c.sub ? `<div style="font-weight:500;font-size:11px;color:#94a3b8;">${esc(c.sub)}</div>` : c.sub && c.sub.includes('·') ? ` <span style="font-weight:600;color:#94a3b8;">(${esc(c.sub)})</span>` : ''}</th>`).join('');
     const mHead = cols.map((c) => `<th class="g">매출</th><th>광고비</th><th>광고비중</th><th>ROAS</th>`).join('');
-    // 11/17 사용자 요청(「이렇게 좀 잘 보이게」 — 상품을 줄로, 광고 종류를 칸으로 한 요약표): 브랜드 표는 기간 합계 요약을 먼저 보여 주고 일별은 접어 둔다.
+    // 11/17 사용자 요청: 옆으로 넘기지 않게 — 브랜드(빠이러스·미니멀룸)는 상품을 줄로 세우고, 광고 종류(검색광고·애드부스트·GFA)를
+    // 구분 줄로 나눈 기간 합계표를 먼저 보여 준다(칸 = 스토어 매출·광고비·광고비중·ROAS). 일별 표는 「일별로 보기」로 접어 둔다.
     let sumHtml = '';
     if (pdBrand !== '코드니처') {
-      // 11/17 사용자 요청: 검색광고·애드부스트·GFA 로 「들어온 매출」을 나눠 보여 준다.
-      //  · 상품 줄의 「광고 매출」 = 광고 플랫폼 전환매출(광고를 누르고 산 금액, 광고 관리자 숫자) — 스마트스토어는 경로×상품 실결제를 주지 않음
-      //  · 맨 아래 「스마트스토어 실결제」 줄 = 스토어 방문 분석의 유입 경로별 실결제(코드니처와 같은 기준, ad_store_attribution)
-      const kinds = groups.map((g) => g.g);
-      const items = [...new Set(keys.map(itemName))].filter((it) => it !== '상품 미지정');
       const sumC = (k) => dates.reduce((s, d) => s + (cost.get(k + '|' + d) || 0), 0);
-      const sumR = (k) => dates.reduce((s, d) => s + (adRev.get(k + '|' + d) || 0), 0);
       const sumS = (it) => dates.reduce((s, d) => s + (sales.get(it + '|' + d) || 0), 0);
-      const kindOfKey = (k) => groupName(k);
-      const keysOf = (it, kd) => keys.filter((k) => (it === '*' || (it === '+' ? itemName(k) !== '상품 미지정' : itemName(k) === it)) && (!kd || kindOfKey(k) === kd));
       const CH = { '검색광고': 'SA', '애드부스트': 'ADVoost', 'GFA': 'GFA' };
       const paid = (kd) => brandStoreRows.filter((r) => r.date >= dates[0] && r.date <= dates[dates.length - 1] && (kd ? r.channel === pdBrand + ' ' + CH[kd] : Object.values(CH).some((c) => r.channel === pdBrand + ' ' + c))).reduce((t, r) => t + r.sales, 0);
-      const gray = (sub) => `<td class="${sub}" style="color:#cbd5e1;">-</td>`;
-      const roasTd = (r, c, sub) => !c ? gray(sub) : `<td class="${sub}" style="text-align:right;font-weight:700;color:${r / c >= 3 ? '#16a34a' : r / c >= 1.5 ? '#b45309' : '#dc2626'};">${Math.round(r / c * 100).toLocaleString()}%</td>`;
-      const quad = (r, c, s, sub) => !c && !r ? `<td class="g ${sub}" style="color:#cbd5e1;">-</td>${gray(sub)}${gray(sub)}${gray(sub)}`
-        : `<td class="g ${sub}">${r ? won(r) : '-'}</td><td class="c ${sub}">${c ? won(c) : '-'}</td>${roasTd(r, c, sub)}${shareTd({ c, s }, sub)}`;
-      const nameCell = (it) => it === '상품 미지정' ? '스토어 메인 랜딩 (상품 미지정)<div style="font-weight:500;font-size:11px;color:#94a3b8;">스토어 매출 = 스토어 전체</div>' : esc(labelOf('x|' + it));
-      const line = (it, sub = '') => {
-        const s = it === '*' ? sumS('상품 미지정') : it === '+' ? items.reduce((t, x) => t + sumS(x), 0) : sumS(it);
-        const kr = (kd) => keysOf(it, kd).reduce((t, k) => t + sumR(k), 0), kc = (kd) => keysOf(it, kd).reduce((t, k) => t + sumC(k), 0);
-        const label = it === '*' ? '전체 · 광고 관리자 전환매출 기준' : it === '+' ? `상품 합계 · ${items.length}종` : nameCell(it);
-        return `<tr><td class="d ${sub}" style="text-align:left;min-width:220px;${sub ? 'font-weight:700;' : ''}">${label}</td><td class="g ${sub}">${s ? won(s) : '-'}</td>${kinds.map((kd) => quad(kr(kd), kc(kd), s, sub)).join('')}${quad(kr(null), kc(null), s, sub)}</tr>`;
-      };
-      const paidLine = () => {
-        const s = sumS('상품 미지정'), kc = (kd) => keysOf('*', kd).reduce((t, k) => t + sumC(k), 0);
-        return `<tr><td class="d sub" style="text-align:left;font-weight:700;background:#f0fdf4;">전체 · 스마트스토어 실결제 기준<div style="font-weight:500;font-size:11px;color:#94a3b8;">스토어 방문 분석의 유입 경로별 결제</div></td><td class="g sub" style="background:#f0fdf4;">${s ? won(s) : '-'}</td>${kinds.map((kd) => quad(paid(kd), kc(kd), s, 'sub')).join('')}${quad(paid(null), kc(null), s, 'sub')}</tr>`;
-      };
-      const order = items.sort((a, b) => keysOf(b).reduce((t, k) => t + sumC(k), 0) - keysOf(a).reduce((t, k) => t + sumC(k), 0));
-      const hasStore = keys.some((k) => itemName(k) === '상품 미지정');
-      // 11/17 사용자 질문(「언제부터 언제까지야?」) — 요약표 위에 합계 기간을 적는다
+      const storeTotal = sumS('상품 미지정');
+      const gray = '<td style="color:#cbd5e1;">-</td>';
+      const roasTd = (s, c) => !c ? gray : `<td style="text-align:right;font-weight:700;color:${s / c >= 3 ? '#16a34a' : s / c >= 1.5 ? '#b45309' : '#dc2626'};">${Math.round(s / c * 100).toLocaleString()}%</td>`;
+      const row = (label, s, c, opt = {}) => `<tr style="${opt.bg ? 'background:' + opt.bg + ';' : ''}${opt.bold ? 'font-weight:700;' : ''}"><td style="text-align:left;padding-left:${opt.indent ? 28 : 12}px;">${label}</td>`
+        + `<td style="text-align:right;">${s ? won(s) : '-'}</td><td style="text-align:right;color:#64748b;">${c ? won(c) : '-'}</td>${opt.noShare ? gray : shareTd({ c, s }, '')}${roasTd(s, c)}</tr>`;
+      const nameOf = (it) => it === '상품 미지정' ? '스토어 메인 랜딩 <span style="font-size:11px;color:#94a3b8;">(상품 미지정 · 매출 = 스토어 전체)</span>' : esc(labelOf('x|' + it));
+      const secHead = (title, n, color) => `<tr><td colspan="5" style="text-align:left;background:${color};font-weight:800;font-size:14px;color:#1f2a3f;border-top:3px solid #64748b;padding:8px 12px;">${esc(title)} <span style="font-weight:600;font-size:12px;color:#64748b;">· ${n}종</span></td></tr>`;
+      let body = '';
+      for (const gr of groups) {
+        const ks = gr.items.slice().sort((a, b) => sumC(b) - sumC(a));
+        body += secHead(gr.g, ks.length, GC[gr.g] || '#eef2f7');
+        for (const k of ks) body += row(nameOf(itemName(k)), sumS(itemName(k)), sumC(k), { indent: 1 });
+        const sub = val(gr.items, null);
+        body += row(`${esc(gr.g)} 소계`, sub.s, sub.c, { bold: 1, bg: '#f8fafc' });
+        const pd = paid(gr.g);
+        if (CH[gr.g]) body += row(`└ ${esc(gr.g)}로 들어온 실결제 <span style="font-size:11px;color:#94a3b8;font-weight:500;">(스마트스토어 유입 경로)</span>`, pd, sub.c, { indent: 1, bg: '#f0fdf4', noShare: 1 });
+      }
+      // 전체: 상품마다 세 광고 광고비를 합쳐 한 줄
+      const items = [...new Set(keys.map(itemName))];
+      const cOfItem = (it) => keys.filter((k) => itemName(k) === it).reduce((t, k) => t + sumC(k), 0);
+      body += secHead('전체 · 세 광고 합계', items.length, '#e5e7eb');
+      for (const it of items.sort((a, b) => cOfItem(b) - cOfItem(a))) body += row(nameOf(it), sumS(it), cOfItem(it), { indent: 1 });
+      const all = val(keys, null);
+      body += row('광고 전체 · 스토어 전체 매출 기준', all.s || storeTotal, all.c, { bold: 1, bg: '#f8fafc' });
+      body += row('└ 광고로 들어온 실결제 합계 <span style="font-size:11px;color:#94a3b8;font-weight:500;">(스마트스토어 유입 경로)</span>', paid(null), all.c, { indent: 1, bg: '#f0fdf4', noShare: 1 });
       const md = (d) => d.slice(5).replace('-', '/');
-      sumHtml = `<p style="margin:0 0 6px;font-weight:700;color:#1f2a3f;">기간 합계 · ${md(dates[0])} ~ ${md(dates[dates.length - 1])} <span style="font-weight:500;color:#94a3b8;font-size:12px;">(위 종료일이 속한 달 1일부터 · 종료일을 바꾸면 따라 바뀜)</span></p>
-      <div class="tblwrap" style="max-height:680px;margin-bottom:12px;"><table>
-        <thead><tr><th rowspan="2" class="d" style="text-align:left;">상품</th><th rowspan="2" class="g">스토어 매출</th>${kinds.map((kd) => `<th colspan="4" class="g kb" style="background:${GC[kd] || '#eef2f7'};color:#1f2a3f;font-size:14px;">${esc(kd)}</th>`).join('')}<th colspan="4" class="g kb" style="background:#e5e7eb;color:#1f2a3f;font-size:14px;">광고 전체</th></tr>
-        <tr>${[...kinds, '전체'].map(() => `<th class="g">광고 매출</th><th>광고비</th><th>ROAS</th><th>광고비중</th>`).join('')}</tr></thead>
-        <tbody>${order.map((it) => line(it)).join('')}${line('+', 'sub')}${hasStore ? line('상품 미지정') : ''}</tbody>
-        <tfoot>${line('*', 'sub')}${paidLine()}</tfoot>
+      sumHtml = `<p style="margin:0 0 6px;font-weight:700;color:#1f2a3f;">기간 합계 · ${md(dates[0])} ~ ${md(dates[dates.length - 1])} <span style="font-weight:500;color:#94a3b8;font-size:12px;">(위 종료일이 속한 달 1일부터)</span></p>
+      <div class="tblwrap" style="max-height:none;margin-bottom:6px;"><table style="width:100%;min-width:0;">
+        <thead><tr><th style="text-align:left;">상품</th><th style="text-align:right;">스토어 매출</th><th style="text-align:right;">광고비</th><th>광고비중</th><th style="text-align:right;">ROAS</th></tr></thead>
+        <tbody>${body}</tbody>
       </table></div>
-      <p class="hint" style="margin-top:-4px;">광고 매출 = 그 광고를 누르고 산 금액. 상품 줄은 광고 관리자 전환매출(스마트스토어는 상품별로 유입 경로를 나눠 주지 않음), 맨 아래 초록 줄은 스마트스토어 유입 경로별 실결제입니다. ROAS = 광고 매출 ÷ 광고비(<span style="color:#16a34a;font-weight:700;">300% 이상</span> · <span style="color:#b45309;font-weight:700;">150~300%</span> · <span style="color:#dc2626;font-weight:700;">150% 미만</span>), 광고비중 = 광고비 ÷ 스토어 매출.</p>
-      `;
+      <p class="hint">스토어 매출 = 그 상품의 스마트스토어 주문금액(광고 외 유입 포함), ROAS = 스토어 매출 ÷ 광고비. 초록 줄은 그 광고 경로로 들어와 결제한 금액(스마트스토어 방문 분석)으로 본 ROAS입니다 — 상품별로는 나눠 주지 않아 광고 종류별 합계만 있습니다.</p>`;
     }
     card.style.display = '';
     card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 <span class="pill">${pdBrand === '코드니처' ? '네이버 ADVoost · 검색광고' : esc(pdBrand) + ' 검색광고 · 애드부스트 · GFA 통합'}</span>${tabs}</h2>
       <p class="hint">${pdBrand === '코드니처'
         ? '캠페인(애드부스트 A·B·C)별로 묶고, 쇼핑검색 「(스스)」 캠페인은 「검색광고」 묶음으로 상품별로 나눴습니다(파워링크는 랜딩이 자사몰이라 빠짐). 같은 품목이 두 묶음에 다 있으면 「전체」 매출은 한 번만 셉니다. 매출은 스마트스토어 상품별 실결제(<b>광고 외 유입 포함</b>)'
         : `${esc(pdBrand)} 검색광고를 캠페인별로 묶었습니다. 쇼핑검색은 소재(상품)별, 파워링크는 광고그룹 랜딩 주소의 상품번호로 나눴고, 상품을 특정할 수 없는 광고(GFA 스토어 메인 랜딩 등)는 「스토어 전체 매출 기준」 칸으로 그 브랜드 스토어 전체 매출과 비교하고, 자사몰 랜딩은 뺐습니다. 「전체」 칸도 스토어 전체 매출 기준입니다. 매출은 실시간 매출 수집의 네이버 상품별 주문금액(취소 제외, <b>광고 외 유입 포함</b>)`}, 광고비는 VAT 포함입니다. ROAS = 매출 ÷ 광고비. 광고비중 = 광고비 ÷ 매출 — <span style="color:#16a34a;font-weight:700;">8% 이하</span> <span style="color:#b45309;font-weight:700;">8~15%</span> <span style="color:#dc2626;font-weight:700;">15% 초과</span> <span style="color:#94a3b8;">매출0</span>(회색) = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C). 기간을 짧게 골라도 종료일이 속한 달의 1일부터 모두 보여 줍니다.</p>
-      <div class="tblwrap" style="max-height:640px;"><table>
+      ${sumHtml}${sumHtml ? '<details style="margin-top:10px;"><summary style="cursor:pointer;color:#475569;font-weight:700;margin:4px 0 8px;">일별로 보기 (상품 × 날짜)</summary>' : ''}<div class="tblwrap" style="max-height:640px;"><table>
         <thead><tr><th rowspan="3" class="d">날짜</th>${gHead}</tr><tr>${iHead}</tr><tr>${mHead}</tr></thead>
         <tbody>${dates.map((d) => `<tr><td class="d">${d.slice(5).replace('-', '/')}</td>${cells(d)}</tr>`).join('')}</tbody>
         <tfoot><tr><td class="d">기간 합계</td>${cells(null)}</tr></tfoot>
-      </table></div>${sumHtml ? `<details style="margin-top:14px;"><summary style="cursor:pointer;color:#475569;font-weight:700;margin:4px 0 8px;">상품별 기간 요약 · 검색광고/애드부스트/GFA로 들어온 매출 보기</summary>${sumHtml}</details>` : ''}${kwHtml}`;   // 11/17 사용자 요청: 빠이러스도 코드니처처럼 일별 표(매출·광고비·광고비중·ROAS)를 먼저
+      </table></div>${sumHtml ? '</details>' : ''}${kwHtml}`;   // 11/17 사용자 요청: 빠이러스도 코드니처처럼 일별 표(매출·광고비·광고비중·ROAS)를 먼저
     bindTabs();
   }
 
