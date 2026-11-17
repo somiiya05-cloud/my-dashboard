@@ -1164,9 +1164,7 @@
     }
     card.style.display = '';
     card.innerHTML = `<h2>품목별 일별 매출 · 광고비 · 광고비중 <span class="pill">${pdBrand === '코드니처' ? '네이버 ADVoost · 검색광고' : esc(pdBrand) + ' 검색광고 · 애드부스트 · GFA 통합'}</span>${tabs}</h2>
-      <p class="hint">${pdBrand === '코드니처'
-        ? '캠페인(애드부스트 A·B·C)별로 묶고, 쇼핑검색 「(스스)」 캠페인은 「검색광고」 묶음으로 상품별로 나눴습니다(파워링크는 랜딩이 자사몰이라 빠짐). 같은 품목이 두 묶음에 다 있으면 「전체」 매출은 한 번만 셉니다. 매출은 스마트스토어 상품별 실결제(<b>광고 외 유입 포함</b>)'
-        : `${esc(pdBrand)} 검색광고를 캠페인별로 묶었습니다. 쇼핑검색은 소재(상품)별, 파워링크는 광고그룹 랜딩 주소의 상품번호로 나눴고, 상품을 특정할 수 없는 광고(GFA 스토어 메인 랜딩 등)는 「스토어 전체 매출 기준」 칸으로 그 브랜드 스토어 전체 매출과 비교하고, 자사몰 랜딩은 뺐습니다. 「전체」 칸도 스토어 전체 매출 기준입니다. 매출은 실시간 매출 수집의 네이버 상품별 주문금액(취소 제외, <b>광고 외 유입 포함</b>)`}, 광고비는 VAT 포함입니다. ROAS = 매출 ÷ 광고비. 광고비중 = 광고비 ÷ 매출 — <span style="color:#16a34a;font-weight:700;">8% 이하</span> <span style="color:#b45309;font-weight:700;">8~15%</span> <span style="color:#dc2626;font-weight:700;">15% 초과</span> <span style="color:#94a3b8;">매출0</span>(회색) = 광고비만 쓰고 판매 없음. 캠페인을 옮긴 품목은 마지막에 돈 쓴 캠페인에 넣었습니다(예: 자켓세탁망 A→C). 기간을 짧게 골라도 종료일이 속한 달의 1일부터 모두 보여 줍니다.</p>
+      <!-- 11/17 사용자 요청: 표 위 설명 문단 삭제 -->
       ${sumHtml}${sumHtml ? '<details style="margin-top:10px;"><summary style="cursor:pointer;color:#475569;font-weight:700;margin:4px 0 8px;">일별로 보기 (상품 × 날짜)</summary>' : ''}<div class="tblwrap" style="max-height:640px;"><table>
         <thead><tr><th rowspan="3" class="d">날짜</th>${gHead}</tr><tr>${iHead}</tr><tr>${mHead}</tr></thead>
         <tbody>${dates.map((d) => `<tr><td class="d">${d.slice(5).replace('-', '/')}</td>${cells(d)}</tr>`).join('')}</tbody>
