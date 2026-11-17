@@ -180,7 +180,7 @@
     </div>
 
     <div class="kpis" id="kpis" style="margin-bottom:6px;"></div>
-    <p class="hint" id="kpiNote" style="margin:0 0 16px;"></p>
+    <p class="hint" id="kpiNote" style="display:none;"></p><!-- 11/17 사용자 요청: KPI 아래 설명 문단 숨김 --><div style="height:16px;"></div>
 
     <!-- 11/16 사용자 요청: 품목별 일별 표는 KPI 바로 아래, 「일별 광고비·ROAS」 차트와 「운영 전략 코멘트」는 뺌 -->
     <div class="card" id="prodDayCard" style="display:none;margin-bottom:16px;"></div>
@@ -1066,15 +1066,21 @@
     // 브랜드 표는 상품 이름 아래에 캠페인을 작은 글씨로(어느 캠페인에서 돈 광고인지)
     const iHead = cols.map((c) => `<th colspan="4" class="g ${c.first ? 'kb ' : ''}${c.kind !== 'p' ? 'sub' : ''}">${esc(c.label)}${pdBrand !== '코드니처' && c.kind === 'p' && c.sub ? `<div style="font-weight:500;font-size:11px;color:#94a3b8;">${esc(c.sub)}</div>` : c.sub && c.sub.includes('·') ? ` <span style="font-weight:600;color:#94a3b8;">(${esc(c.sub)})</span>` : ''}</th>`).join('');
     const mHead = cols.map((c) => `<th class="g">매출</th><th>광고비</th><th>광고비중</th><th>ROAS</th>`).join('');
-    // 11/17 사용자 요청: 옆으로 넘기지 않게 — 브랜드(빠이러스·미니멀룸)는 상품을 줄로 세우고, 광고 종류(검색광고·애드부스트·GFA)를
+    // 11/17 사용자 요청: 옆으로 넘기지 않게 — 상품을 줄로 세우고, 광고 종류(애드부스트 A·B·C / 검색광고 / GFA)를 구분 줄로 나눈 기간 합계표를 먼저(코드니처도 같게).
     // 구분 줄로 나눈 기간 합계표를 먼저 보여 준다(칸 = 스토어 매출·광고비·광고비중·ROAS). 일별 표는 「일별로 보기」로 접어 둔다.
     let sumHtml = '';
-    if (pdBrand !== '코드니처') {
+    {
       const sumC = (k) => dates.reduce((s, d) => s + (cost.get(k + '|' + d) || 0), 0);
       const sumS = (it) => dates.reduce((s, d) => s + (sales.get(it + '|' + d) || 0), 0);
       const CH = { '검색광고': 'SA', '애드부스트': 'ADVoost', 'GFA': 'GFA' };
-      const paid = (kd) => brandStoreRows.filter((r) => r.date >= dates[0] && r.date <= dates[dates.length - 1] && (kd ? r.channel === pdBrand + ' ' + CH[kd] : Object.values(CH).some((c) => r.channel === pdBrand + ' ' + c))).reduce((t, r) => t + r.sales, 0);
-      const storeTotal = sumS('상품 미지정');
+      // 광고 종류 → 스마트스토어 방문 분석 경로(ad_store_attribution). 코드니처는 '네이버 ADVoost'·'네이버 SA'·'GFA', 빠이러스·미니멀룸은 '빠이러스 ADVoost' 등.
+      const kindOf = (g) => g.startsWith('애드부스트') ? 'ADVoost' : g === '검색광고' ? 'SA' : g === 'GFA' ? 'GFA' : null;
+      const KNAME = { ADVoost: '애드부스트', SA: '검색광고', GFA: 'GFA' };
+      const chName = (kd) => pdBrand === '코드니처' ? { ADVoost: '네이버 ADVoost', SA: '네이버 SA', GFA: 'GFA' }[kd] : pdBrand + ' ' + kd;
+      const kindsUsed = [...new Set(groups.map((g) => kindOf(g.g)).filter(Boolean))];
+      const paidSrc = pdBrand === '코드니처' ? storeRows : brandStoreRows;
+      const paid = (kd) => paidSrc.filter((r) => r.date >= dates[0] && r.date <= dates[dates.length - 1] && (kd ? r.channel === chName(kd) : kindsUsed.some((k) => r.channel === chName(k)))).reduce((t, r) => t + r.sales, 0);
+      const storeTotal = pdBrand === '코드니처' ? 0 : sumS('상품 미지정');
       const gray = '<td style="color:#cbd5e1;">-</td>';
       const roasTd = (s, c) => !c ? gray : `<td style="text-align:right;font-weight:700;color:${s / c >= 3 ? '#16a34a' : s / c >= 1.5 ? '#b45309' : '#dc2626'};">${Math.round(s / c * 100).toLocaleString()}%</td>`;
       const row = (label, s, c, opt = {}) => `<tr style="${opt.bg ? 'background:' + opt.bg + ';' : ''}${opt.bold ? 'font-weight:700;' : ''}"><td style="text-align:left;padding-left:${opt.indent ? 28 : 12}px;">${label}</td>`
@@ -1088,16 +1094,22 @@
         for (const k of ks) body += row(nameOf(itemName(k)), sumS(itemName(k)), sumC(k), { indent: 1 });
         const sub = val(gr.items, null);
         body += row(`${esc(gr.g)} 소계`, sub.s, sub.c, { bold: 1, bg: '#f8fafc' });
-        const pd = paid(gr.g);
-        if (CH[gr.g]) body += row(`└ ${esc(gr.g)}로 들어온 실결제 <span style="font-size:11px;color:#94a3b8;font-weight:500;">(스마트스토어 유입 경로)</span>`, pd, sub.c, { indent: 1, bg: '#f0fdf4', noShare: 1 });
+        // 같은 종류(애드부스트 B·C 등)의 마지막 묶음 뒤에, 그 종류 전체로 들어온 실결제 한 줄
+        const kd = kindOf(gr.g), gi = groups.indexOf(gr), sameKind = groups.filter((g) => kindOf(g.g) === kd);
+        if (kd && (gi === groups.length - 1 || kindOf(groups[gi + 1].g) !== kd)) {
+          const kc = sameKind.reduce((t, g) => t + val(g.items, null).c, 0);
+          const nm = sameKind.length > 1 ? KNAME[kd] + '(' + sameKind.map((g) => g.g.replace('애드부스트 ', '')).join('·') + ' 합계)' : esc(gr.g);
+          body += row(`└ ${nm}로 들어온 실결제 <span style="font-size:11px;color:#94a3b8;font-weight:500;">(스마트스토어 유입 경로)</span>`, paid(kd), kc, { indent: 1, bg: '#f0fdf4', noShare: 1 });
+        }
+
       }
       // 전체: 상품마다 세 광고 광고비를 합쳐 한 줄
       const items = [...new Set(keys.map(itemName))];
       const cOfItem = (it) => keys.filter((k) => itemName(k) === it).reduce((t, k) => t + sumC(k), 0);
-      body += secHead('전체 · 세 광고 합계', items.length, '#e5e7eb');
+      body += secHead('전체 · 광고 합계', items.length, '#e5e7eb');
       for (const it of items.sort((a, b) => cOfItem(b) - cOfItem(a))) body += row(nameOf(it), sumS(it), cOfItem(it), { indent: 1 });
       const all = val(keys, null);
-      body += row('광고 전체 · 스토어 전체 매출 기준', all.s || storeTotal, all.c, { bold: 1, bg: '#f8fafc' });
+      body += row(pdBrand === '코드니처' ? '광고 전체 · 광고 상품 매출 기준' : '광고 전체 · 스토어 전체 매출 기준', all.s || storeTotal, all.c, { bold: 1, bg: '#f8fafc' });
       body += row('└ 광고로 들어온 실결제 합계 <span style="font-size:11px;color:#94a3b8;font-weight:500;">(스마트스토어 유입 경로)</span>', paid(null), all.c, { indent: 1, bg: '#f0fdf4', noShare: 1 });
       const md = (d) => d.slice(5).replace('-', '/');
       sumHtml = `<p style="margin:0 0 6px;font-weight:700;color:#1f2a3f;">기간 합계 · ${md(dates[0])} ~ ${md(dates[dates.length - 1])} <span style="font-weight:500;color:#94a3b8;font-size:12px;">(위 종료일이 속한 달 1일부터)</span></p>
