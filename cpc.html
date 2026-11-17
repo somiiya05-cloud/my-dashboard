@@ -1123,6 +1123,28 @@
       for (const it of items.sort((a, b) => cOfItem(b) - cOfItem(a))) body += row(nameOf(it), rOf(keys.filter((k) => itemName(k) === it)), cOfItem(it), { indent: 1 });
       const all = val(keys, null);
       body += row('광고 전체', all.s, all.c, { bold: 1, bg: '#f8fafc' });
+      // 11/17 사용자 요청: 광고 종류별 일별 「실제 ROAS」(스마트스토어가 그 광고로 들어와 결제했다고 집계한 금액 ÷ 광고비) — 증액·감액 판단용
+      const kCost = (kd, d) => keys.filter((k) => kindOf(groupName(k)) === kd).reduce((t, k) => t + (cost.get(k + '|' + d) || 0), 0)
+        + (pdBrand === '코드니처' && kd === 'GFA' ? rows.filter((r) => r.mall === 'GFA' && r.date === d).reduce((t, r) => t + r.cost, 0) : 0);
+      const kPaid = (kd, d) => paidSrc.filter((r) => r.channel === chName(kd) && r.date === d).reduce((t, r) => t + r.sales, 0);
+      const KORD = ['SA', 'ADVoost', 'GFA'].filter((kd) => dates.some((d) => kCost(kd, d) || kPaid(kd, d)));
+      const dayStore = (d) => { const r = paidSrc.find((x) => x.date === d && KORD.some((kd) => x.channel === chName(kd))); return r ? r.store_sales : 0; };
+      const rc = (s, c) => !c ? (s ? '<span style="color:#16a34a;font-weight:700;">∞</span>' : '<span style="color:#cbd5e1;">-</span>')
+        : `<span style="font-weight:700;color:${s / c >= 2 ? '#16a34a' : s / c >= 1.4 ? '#b45309' : '#dc2626'};">${Math.round(s / c * 100).toLocaleString()}%</span>`;
+      const trip = (c, s, b) => `<td class="g${b ? ' sub' : ''}" style="text-align:right;color:#64748b;">${c ? won(c) : '-'}</td><td${b ? ' class="sub"' : ''} style="text-align:right;">${s ? won(s) : '-'}</td><td${b ? ' class="sub"' : ''} style="text-align:right;">${rc(s, c)}</td>`;
+      const dline = (label, ds, b) => {
+        const cs = KORD.map((kd) => ds.reduce((t, d) => t + kCost(kd, d), 0)), ps = KORD.map((kd) => ds.reduce((t, d) => t + kPaid(kd, d), 0));
+        const st = ds.reduce((t, d) => t + dayStore(d), 0);
+        return `<tr${b ? ' style="font-weight:700;background:#f8fafc;"' : ''}><td class="d${b ? ' sub' : ''}">${label}</td>${KORD.map((_, i) => trip(cs[i], ps[i], b)).join('')}${trip(cs.reduce((a, x) => a + x, 0), ps.reduce((a, x) => a + x, 0), b)}<td class="g${b ? ' sub' : ''}" style="text-align:right;color:#64748b;">${st ? won(st) : '-'}</td></tr>`;
+      };
+      const realHtml = !KORD.length ? '' : `<h3 style="margin:6px 0 4px;font-size:15px;">광고 종류별 일별 실제 ROAS <span style="font-weight:500;font-size:12px;color:#94a3b8;">스마트스토어가 「그 광고로 들어와 결제」로 집계한 금액 ÷ 광고비(VAT 포함) · <span style="color:#16a34a;">200% 이상</span> · <span style="color:#b45309;">140~200%</span> · <span style="color:#dc2626;">140% 미만(손익분기 아래)</span> · 실결제는 다음 날 집계</span></h3>
+      <div class="tblwrap" style="max-height:560px;margin-bottom:14px;"><table style="width:100%;min-width:0;">
+        <thead><tr><th rowspan="2" class="d">날짜</th>${[...KORD.map((kd) => KNAME[kd]), '합계'].map((n) => `<th colspan="3" class="g kb" style="background:${GC[n] || '#e5e7eb'};color:#1f2a3f;">${n}</th>`).join('')}<th rowspan="2" class="g">스토어 전체 결제</th></tr>
+        <tr>${[...KORD, 'all'].map(() => '<th class="g">광고비</th><th>실결제</th><th>실제 ROAS</th>').join('')}</tr></thead>
+        <tbody>${dates.map((d) => dline(d.slice(5).replace('-', '/'), [d])).join('')}</tbody>
+        <tfoot>${dline('합계', dates, true)}</tfoot>
+      </table></div>
+      <h3 style="margin:6px 0 4px;font-size:15px;">상품별 <span style="font-weight:500;font-size:12px;color:#94a3b8;">광고 관리자 구매완료 기준</span></h3>`;
       const md = (d) => d.slice(5).replace('-', '/');
       const qb = (q, l) => `<button type="button" data-pdq="${q}" style="padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-size:12px;">${l}</button>`;
       sumHtml = `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 8px;">
@@ -1133,6 +1155,7 @@
         ${qb('month', '이번 달')}${qb('7', '최근 7일')}${qb('14', '14일')}${qb('30', '30일')}${pdFrom ? qb('reset', '위 필터 기간으로') : ''}
         <span style="color:#94a3b8;font-size:12px;">${pdFrom ? '이 표만 따로 고른 기간' : '위 종료일이 속한 달 1일부터'} · 광고비는 어제까지</span>
       </div>
+      ${realHtml}
       <div class="tblwrap" style="max-height:none;margin-bottom:6px;"><table style="width:100%;min-width:0;">
         <thead><tr><th style="text-align:left;">상품</th><th style="text-align:right;">구매완료 매출</th><th style="text-align:right;">광고비</th><th>광고비중</th><th style="text-align:right;" title="구매완료 매출 ÷ 광고비(VAT 포함) — 네이버 화면 값 ÷ 1.1">구매완료 광고수익률</th></tr></thead>
         <tbody>${body}</tbody>
