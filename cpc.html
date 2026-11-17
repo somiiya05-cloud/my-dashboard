@@ -914,12 +914,16 @@
     const k = from + '|' + to;
     if (brandCache[k]) return brandCache[k];
     const pageAll = async (q) => { const out = []; for (let i = 0; ; i += 1000) { const { data, error } = await q().range(i, i + 999); if (error) throw error; out.push(...data); if (data.length < 1000) return out; } };
-    const [ad, sales] = await Promise.all([
+    const [ad, sales, kw] = await Promise.all([
       pageAll(() => db.from(TABLE).select('date,mall,campaign,adgroup,product,cost').in('mall', ['빠이러스 SA', '미니멀룸 SA']).gte('date', from).lte('date', to).order('id')),
       pageAll(() => db.from('live_sales_items').select('date,product_id,product,amount').eq('mall', '네이버').gte('date', from).lte('date', to).order('date').order('product_id')),
+      // 키워드별(파워링크만 — 쇼핑검색은 네이버가 키워드별 광고비를 주지 않음). 하루 한 번(어제치) 동기화.
+      pageAll(() => db.from('naver_keyword_performance_daily').select('date,channel,campaign,adgroup,keyword,landing_url,spend,revenue').in('channel', ['네이버 빠이러스', '네이버 미니멀룸']).gt('spend', 0).gte('date', from).lte('date', to).order('date').order('keyword_id')),
     ]);
-    return (brandCache[k] = { ad: ad.map((r) => ({ ...r, cost: +r.cost * VAT })), sales });
+    return (brandCache[k] = { ad: ad.map((r) => ({ ...r, cost: +r.cost * VAT })), sales, kw: kw.map((r) => ({ ...r, cost: +r.spend * VAT, rev: +r.revenue || 0 })) });
   }
+  // live_sales_items.product_id = '스토어번호:상품번호|옵션' (코드니처 메인 스토어는 스토어번호 없이 '상품번호|옵션')
+  const pidNo = (id) => String(id || '').split('|')[0].split(':').pop();
   function drawProdDay(from, to) {
     const card = $('prodDayCard');
     pdArgs = [from, to];
@@ -931,6 +935,7 @@
     const bindTabs = () => card.querySelectorAll('[data-pdb]').forEach((b) => b.onclick = () => { pdBrand = b.dataset.pdb; drawProdDay(...pdArgs); });
     const dates = []; for (let d = new Date(from); ymd(d) <= to; d.setDate(d.getDate() + 1)) dates.push(ymd(d));
     const cost = new Map(), lastCamp = new Map(), camps = new Map(), sales = new Map();
+    let kwHtml = '';
     let labelOf = (k) => k.slice(k.indexOf('|') + 1);
     const itemName = (k) => k.slice(k.indexOf('|') + 1);
     const addCost = (key, r, g, sub) => {
@@ -971,7 +976,7 @@
       }
       // 광고: 상품번호(adgroup 칸)로 묶고, 번호 없는 건(스토어 메인 랜딩 등) 「상품 미지정」. 묶음 = 캠페인(쇼핑검색 / 파워링크).
       const nameByNo = new Map();
-      for (const r of data.sales) { const no = String(r.product_id || '').split('|')[0]; if (no && !nameByNo.has(no)) nameByNo.set(no, String(r.product || '').split(' / ')[0]); }
+      for (const r of data.sales) { const no = pidNo(r.product_id); if (no && !nameByNo.has(no)) nameByNo.set(no, String(r.product || '').split(' / ')[0]); }
       const adNames = new Map();
       for (const r of data.ad) {
         if (r.mall !== pdBrand + ' SA' || !r.cost || (camp && r.campaign !== camp)) continue;
@@ -983,10 +988,11 @@
       labelOf = (k) => { const no = itemName(k); return no === '상품 미지정' ? '상품 미지정 (스토어 메인 등)' : strip(nameByNo.get(no) || adNames.get(no) || no); };
       const nos = new Set([...camps.keys()].map(itemName));
       for (const r of data.sales) {
-        const no = String(r.product_id || '').split('|')[0];
+        const no = pidNo(r.product_id);
         if (!nos.has(no)) continue;
         sales.set(no + '|' + r.date, (sales.get(no + '|' + r.date) || 0) + (+r.amount || 0));
       }
+      kwHtml = kwTable(data.kw.filter((r) => r.channel === '네이버 ' + pdBrand && (!camp || r.campaign === camp)), dates, (no) => no ? strip(nameByNo.get(no) || no) : '상품 미지정 (스토어 메인 등)');
     }
     const keys = [...camps.keys()];
     if (!keys.length) {
@@ -1038,8 +1044,54 @@
         <thead><tr><th rowspan="3" class="d">날짜</th>${gHead}</tr><tr>${iHead}</tr><tr>${mHead}</tr></thead>
         <tbody>${dates.map((d) => `<tr><td class="d">${d.slice(5).replace('-', '/')}</td>${cells(d)}</tr>`).join('')}</tbody>
         <tfoot><tr><td class="d">기간 합계</td>${cells(null)}</tr></tfoot>
-      </table></div>`;
+      </table></div>${kwHtml}`;
     bindTabs();
+  }
+
+  // 11/17 사용자 요청: 키워드도 같은 형식(상품명 → 키워드 → 매출·광고비·광고비중)으로. 파워링크 키워드만 있다.
+  // 키워드는 상품 매출을 나눌 수 없어 「매출」은 네이버 검색광고 전환매출(광고 관리자 숫자)이다 — 위 표와 기준이 다름.
+  // 상품 = 광고그룹 랜딩 주소의 상품번호, 자사몰 랜딩 키워드는 뺀다. 상품마다 광고비 큰 키워드 8개 + 나머지 「기타」.
+  function kwTable(list, dates, nameOfNo) {
+    const store = list.filter((r) => /(smartstore|brand)\.naver\.com/.test(r.landing_url || ''));
+    if (!store.length) return `<h2 style="margin-top:20px;">키워드별</h2><p class="hint">이 기간에 스토어로 가는 파워링크 키워드 광고비가 없습니다. 키워드는 하루 한 번(어제치) 들어옵니다.</p>`;
+    const prodOf = (r) => ((r.landing_url || '').match(/\/products\/(\d+)/) || [])[1] || '';
+    const byProd = new Map();
+    for (const r of store) {
+      const p = prodOf(r); if (!byProd.has(p)) byProd.set(p, new Map());
+      const m = byProd.get(p); m.set(r.keyword, (m.get(r.keyword) || 0) + r.cost);
+    }
+    const TOP = 8, kwKey = new Map(), groups = [];
+    for (const [p, m] of [...byProd].sort((a, b) => [...b[1].values()].reduce((s, x) => s + x, 0) - [...a[1].values()].reduce((s, x) => s + x, 0))) {
+      const kws = [...m].sort((a, b) => b[1] - a[1]);
+      const cols = kws.slice(0, TOP).map(([k]) => ({ label: k, keys: [p + '|' + k] }));
+      kws.forEach(([k], i) => kwKey.set(p + '|' + k, p + '|' + (i < TOP ? k : '기타')));
+      if (kws.length > TOP) cols.push({ label: `기타 ${kws.length - TOP}개`, keys: [p + '|기타'] });
+      if (cols.length > 1) cols.push({ label: '소계', keys: cols.flatMap((c) => c.keys), sub: true });
+      // 그 기간에 안 팔린 상품은 매출에서 이름을 못 찾으니 광고그룹 이름(예: 빠이러스_PPP_칫솔)으로
+      const nm = nameOfNo(p), ag = (store.find((r) => prodOf(r) === p) || {}).adgroup;
+      groups.push({ name: /^\d+$/.test(nm) && ag ? ag : nm, cols });
+    }
+    const agg = new Map();
+    for (const r of store) {
+      const k = kwKey.get(prodOf(r) + '|' + r.keyword) + '|' + r.date, a = agg.get(k) || { c: 0, s: 0 };
+      a.c += r.cost; a.s += r.rev; agg.set(k, a);
+    }
+    const val = (keys, d) => { const t = { c: 0, s: 0 }; for (const k of keys) for (const x of d ? [d] : dates) { const a = agg.get(k + '|' + x); if (a) { t.c += a.c; t.s += a.s; } } return t; };
+    const all = groups.flatMap((g) => g.cols.filter((c) => !c.sub).flatMap((c) => c.keys));
+    const shareTd = (v, sub) => !v.c ? `<td class="s ${sub}" style="color:#cbd5e1;">-</td>` : !v.s ? `<td class="s ${sub}" style="background:#dc143c;color:#fff;">매출0</td>`
+      : (() => { const x = v.c / v.s, [bg, fg] = x > 0.15 ? ['#ff9c9c', '#7f0000'] : x > 0.08 ? ['#ffeb9c', '#7a5b00'] : ['#c6efce', '#006100']; return `<td class="s ${sub}" style="background:${bg};color:${fg};">${pct(x, 1)}</td>`; })();
+    const flat = groups.flatMap((g) => g.cols.map((c, i) => ({ ...c, first: i === 0 }))).concat([{ label: '전체', keys: all, sub: true, first: true }]);
+    const cells = (d) => flat.map((c) => { const v = val(c.keys, d), sub = c.sub ? 'sub' : ''; return `<td class="${c.first || c.sub ? 'g ' : ''}${sub}">${v.s ? won(v.s) : '-'}</td><td class="c ${sub}">${v.c ? won(v.c) : '-'}</td>${shareTd(v, sub)}`; }).join('');
+    const gHead = groups.map((g) => `<th colspan="${g.cols.length * 3}" class="g" style="background:#ede9fe;color:#1f2a3f;">${esc(g.name)}</th>`).join('') + `<th colspan="3" class="g" style="background:#e5e7eb;color:#1f2a3f;">전체</th>`;
+    const iHead = flat.map((c) => `<th colspan="3" class="g ${c.sub ? 'sub' : ''}">${esc(c.label)}</th>`).join('');
+    const mHead = flat.map(() => `<th class="g">매출</th><th>광고비</th><th>광고비중</th>`).join('');
+    return `<h2 style="margin-top:20px;">키워드별 매출 · 광고비 · 광고비중 <span class="pill">파워링크</span></h2>
+      <p class="hint">파워링크 키워드를 랜딩 상품별로 묶었습니다(상품마다 광고비 큰 키워드 ${TOP}개, 나머지는 「기타」). <b>매출은 네이버 검색광고 전환매출</b>(광고를 누르고 산 금액, 광고 관리자 숫자)이라 위 표의 스토어 매출과 기준이 다릅니다. 광고비는 VAT 포함, 하루 한 번(어제치) 들어옵니다. 쇼핑검색은 네이버가 키워드별 광고비를 주지 않아 없습니다.</p>
+      <div class="tblwrap" style="max-height:640px;"><table>
+        <thead><tr><th rowspan="3" class="d">날짜</th>${gHead}</tr><tr>${iHead}</tr><tr>${mHead}</tr></thead>
+        <tbody>${dates.map((d) => `<tr><td class="d">${d.slice(5).replace('-', '/')}</td>${cells(d)}</tr>`).join('')}</tbody>
+        <tfoot><tr><td class="d">기간 합계</td>${cells(null)}</tr></tfoot>
+      </table></div>`;
   }
 
   // ---------- GFA 소재별 성과 ----------
