@@ -1098,7 +1098,10 @@
       };
       const order = items.sort((a, b) => keysOf(b).reduce((t, k) => t + sumC(k), 0) - keysOf(a).reduce((t, k) => t + sumC(k), 0));
       const hasStore = keys.some((k) => itemName(k) === '상품 미지정');
-      sumHtml = `<div class="tblwrap" style="max-height:680px;margin-bottom:12px;"><table>
+      // 11/17 사용자 질문(「언제부터 언제까지야?」) — 요약표 위에 합계 기간을 적는다
+      const md = (d) => d.slice(5).replace('-', '/');
+      sumHtml = `<p style="margin:0 0 6px;font-weight:700;color:#1f2a3f;">기간 합계 · ${md(dates[0])} ~ ${md(dates[dates.length - 1])} <span style="font-weight:500;color:#94a3b8;font-size:12px;">(위 종료일이 속한 달 1일부터 · 종료일을 바꾸면 따라 바뀜)</span></p>
+      <div class="tblwrap" style="max-height:680px;margin-bottom:12px;"><table>
         <thead><tr><th rowspan="2" class="d" style="text-align:left;">상품</th><th rowspan="2" class="g">스토어 매출</th>${kinds.map((kd) => `<th colspan="4" class="g kb" style="background:${GC[kd] || '#eef2f7'};color:#1f2a3f;font-size:14px;">${esc(kd)}</th>`).join('')}<th colspan="4" class="g kb" style="background:#e5e7eb;color:#1f2a3f;font-size:14px;">광고 전체</th></tr>
         <tr>${[...kinds, '전체'].map(() => `<th class="g">광고 매출</th><th>광고비</th><th>ROAS</th><th>광고비중</th>`).join('')}</tr></thead>
         <tbody>${order.map((it) => line(it)).join('')}${line('+', 'sub')}${hasStore ? line('상품 미지정') : ''}</tbody>
