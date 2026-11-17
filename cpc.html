@@ -643,7 +643,7 @@
     svPrev = sv ? storeView(ymd(pFrom), ymd(pTo)) : null;
     drawKpis(days);
     drawStore(from, to);
-    drawProdStore(from, to);
+    // drawProdStore(from, to);   // 11/17 사용자 요청: 「상품별 스토어 매출 대비 광고비」 카드 삭제(위 품목별 표와 겹침)
     drawProdDay(from, to);
     drawGfa(from, to);
     drawTable();
