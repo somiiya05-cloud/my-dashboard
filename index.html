@@ -8486,6 +8486,20 @@
     ['건조기 전용 보호 세탁망', '100832'],         // 건조기용 2중 의류 보호망
   ];
 
+  // 자사몰·스마트스토어는 유료배송이라 고객이 배송비를 따로 냅니다. 무료배송 몰과 견주려고
+  // 이 몰들은 "판매가 + 배송비"로 보여주고 최저·최고도 그 값으로 따집니다(외부몰 손익은 판매가 그대로).
+  // 자사몰 배송비는 상품 페이지에서 읽어 memo 에 "배송비 3000"처럼 넣어 둡니다(상품마다 0·2,500·3,000·3,500 등 다름).
+  // 스마트스토어는 배송비를 읽을 수 없어 같은 상품의 자사몰 배송비를, 그것도 없으면 3,000원을 씁니다(추정).
+  const MSP_SHIP_DEFAULT = 3000;
+  function mspShip(m, c, cells) {
+    if (!MP_PAID_SHIPPING_MALLS.has(m)) return { fee: 0, paid: false };
+    const own = String((c && c.memo) || '').match(/배송비 (\d+)/);
+    if (own) return { fee: Number(own[1]), paid: true };
+    const ref = Object.entries(cells || {}).find(([k, v]) => k.endsWith('자사몰') && v && /배송비 \d+/.test(v.memo || ''));
+    if (ref) return { fee: Number(ref[1].memo.match(/배송비 (\d+)/)[1]), paid: true, est: true };
+    return { fee: MSP_SHIP_DEFAULT, paid: true, est: true };
+  }
+
   function setMspBrand(b) {
     mspBrand = b;
     renderMallSalePrices();
@@ -8553,7 +8567,7 @@
       if (cfg.useReg) x.몰.forEach((m) => { cells[m] = priceMap.get(x.품번 + '|' + m) || null; });
       // 공동구매는 구성(1+1, 2+1 …)이 자사몰·외부몰과 달라서 최저·최고 비교에 넣지 않습니다.
       const vals = Object.entries(cells).filter(([m, c]) => m !== MSP_GROUPBUY && c && c.price != null)
-        .map(([, c]) => Number(c.price));
+        .map(([m, c]) => Number(c.price) + mspShip(m, c, cells).fee);
       const min = vals.length ? Math.min(...vals) : 0;
       const max = vals.length ? Math.max(...vals) : 0;
       return { x, cells, min, max, known: vals.length, diff: vals.length > 1 && min !== max };
@@ -8691,24 +8705,29 @@
         const state = /품절/.test(memo) ? '품절' : /승인 대기/.test(memo) ? '승인 대기' : /구성 다름/.test(memo) ? '구성 다름' : '미확인';
         return `<td class="msp-cell msp-unknown${state === '품절' ? ' soldout' : ''}">${state}${sbHtml}${refHtml}</td>`;
       }
-      const p = Number(c.price);
+      const ship = mspShip(m, c, r.cells);
+      const p = Number(c.price) + ship.fee;
       const cls = r.diff ? (p === r.min ? ' low' : p === r.max ? ' high' : '') : '';
+      const shipTip = ship.paid ? ` title="상품 ${won(c.price)} + 배송비 ${won(ship.fee)}${ship.est ? ' (배송비 추정)' : ''}"` : '';
       const price = c.url
-        ? `<a href="${escapeAttr(c.url)}" target="_blank" rel="noopener">${won(p)}</a>`
-        : won(p);
-      const list = c.list_price != null && Number(c.list_price) > p
-        ? `<span class="msp-list">${won(c.list_price)}</span>` : '';
+        ? `<a href="${escapeAttr(c.url)}" target="_blank" rel="noopener"${shipTip}>${won(p)}</a>`
+        : `<span${shipTip}>${won(p)}</span>`;
+      const list = c.list_price != null && Number(c.list_price) > Number(c.price)
+        ? `<span class="msp-list">${won(Number(c.list_price) + ship.fee)}</span>` : '';
+      const shipHtml = ship.paid
+        ? `<span class="msp-sb">${ship.fee ? `상품 ${won(c.price)} + 배송 ${won(ship.fee)}${ship.est ? ' (추정)' : ''}` : '무료배송'}</span>` : '';
       const coupon = /쿠폰 적용가/.test(memo) ? '<span class="msp-tag">쿠폰가</span>' : '';
       // 카카오 선물하기는 쿠폰·카드 혜택을 다 받은 "최대혜택가"를 따로 보여줍니다.
       const best = (memo.match(/최대혜택가 (\d+)/) || [])[1];
       const bestHtml = best ? `<span class="msp-sb">최대혜택가 ${won(best)}</span>` : '';
-      return `<td class="msp-cell${cls}">${list}<span class="msp-price">${coupon}${price}</span>${bestHtml}${unitHtml}</td>`;
+      return `<td class="msp-cell${cls}">${list}<span class="msp-price">${coupon}${price}</span>${shipHtml}${bestHtml}${unitHtml}</td>`;
     };
 
     box.innerHTML = `
       <div class="msp-legend">몰마다 가격이 다르면 <span class="low">가장 싼 몰</span>과 <span class="high">가장 비싼 몰</span>을 색으로 표시합니다.
         가격을 누르면 그 몰의 상품 페이지가 열립니다. <b>—</b>는 그 몰에 등록되지 않은 상품, <b>미확인</b>은 등록은 됐지만 가격을 아직 읽지 못한 곳입니다.
         스마트스토어는 상품 페이지를 자동으로 읽을 수 없어, 스마트스토어센터에서 내려받은 상품 엑셀의 할인가로 채웁니다.
+        <b>자사몰·스마트스토어</b>는 유료배송이라 <b>배송비를 더한 가격</b>으로 보여줍니다(스마트스토어 배송비는 같은 상품의 자사몰 배송비로 추정).
         <b>공동구매</b>는 구성이 달라 구성별 공구가만 보여주고 가격 비교에는 넣지 않습니다.
         <b>히든가</b>는 코드니처 자사몰의 ★비밀링크 상품 가격으로, 이름이 가장 비슷한 상품에 구성별로 붙였습니다(가격 비교에는 넣지 않음).
         ${hiddenUnplaced.length ? `<br>표에 맞는 상품이 없는 비밀링크: ${hiddenUnplaced.map((h) => `${escapeAttr(String(h.product_name).replace(/★[^★]*★\s*/, ''))} <b>${won(h.price)}</b>`).join(' · ')}` : ''}</div>
