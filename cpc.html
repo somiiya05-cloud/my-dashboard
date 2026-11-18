@@ -919,7 +919,7 @@
   // 두 브랜드는 cpc_ad_rows '빠이러스 SA'·'미니멀룸 SA'(코드니처 화면에선 숨겨 따로 받음) + 매출은 실시간 매출 수집의 네이버 상품별 주문(live_sales_items, 상품번호 = product_id 앞부분).
   // 11/17: 미니멀룸스토어 광고 계정(13141)의 애드부스트·GFA 도 — 외부광고수집기가 'OOO ADVoost'·'OOO GFA' 로 넣음(스토어로 가는 광고만)
   const BRAND_AD_MALLS = ['빠이러스 SA', '미니멀룸 SA', '빠이러스 ADVoost', '미니멀룸 ADVoost', '빠이러스 GFA', '미니멀룸 GFA'];
-  let pdBrand = '코드니처', pdArgs = null, pdFrom = null, pdTo = null;
+  let pdBrand = '코드니처', pdArgs = null, pdFrom = null, pdTo = null, pdInit = false;
   const brandCache = {};
   async function loadBrandData(from, to) {
     const k = from + '|' + to;
@@ -942,6 +942,13 @@
     const monthStart = to.slice(0, 8) + '01';
     if (monthStart < from) from = monthStart;
     // 11/17 사용자 요청: 이 표만 따로 기간을 골라 조회 — 표 위 날짜 칸(pdFrom~pdTo)을 쓰면 위 필터 대신 그 기간
+    // 11/18 사용자 요청: 처음 열면 오늘 하루(오늘치를 아직 안 받았으면 데이터가 있는 마지막 날)
+    if (!pdInit && allDates().length) {
+      pdInit = true;
+      const ads = allDates(), t = ymd(new Date());
+      const d = ads.includes(t) ? t : ads[ads.length - 1];
+      if (d) pdFrom = pdTo = d;
+    }
     if (pdFrom && pdTo) { from = pdFrom; to = pdTo; }
     const mall = $('fMall').value, camp = $('fCamp').value;
     const tabs = `<span style="float:right;display:flex;gap:4px;">${['코드니처', '빠이러스', '미니멀룸'].map((b) => `<button type="button" data-pdb="${b}" style="padding:3px 10px;border-radius:6px;border:1px solid #cbd5e1;cursor:pointer;font-size:12px;${b === pdBrand ? 'background:#1f2a3f;color:#fff;' : 'background:#fff;'}">${b}</button>`).join('')}</span>`;
