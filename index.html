@@ -3597,6 +3597,13 @@
     { keyword: '아트박스', group: '종합몰', anchor: '아트박스(종합몰)' },
     { keyword: '교보핫트랙스', group: '종합몰', anchor: '교보핫트랙스' },
     { keyword: '올리브영', group: '종합몰', anchor: '올리브영' },
+    // 브랜드관이 늘어나는 종합몰들. 이름이 "무신사(명퉤)"처럼 괄호만 바뀌어 새로 생기는데,
+    // 키워드 규칙이 없으면 아래 VENDOR_FALLBACK_RULE 에 걸려 직매입으로 샙니다
+    // (2026-11-17 무신사(명퉤) 첫 매출에서 발견).
+    { keyword: '무신사', group: '종합몰', anchor: '무신사(PORKE)' },
+    { keyword: '오늘의집', group: '종합몰', anchor: '오늘의집(코드니처)' },
+    { keyword: 'W컨셉', group: '종합몰', anchor: 'W컨셉(PORKE)' },
+    { keyword: '29CM', group: '종합몰', anchor: '29CM(PORKE)' },
     { keyword: 'G마켓', group: '오픈마켓', anchor: 'G마켓(법인)' },
     { keyword: '지마켓', group: '오픈마켓', anchor: 'G마켓(법인)' },
     { keyword: '옥션', group: '오픈마켓', anchor: '옥션(법인)' },
