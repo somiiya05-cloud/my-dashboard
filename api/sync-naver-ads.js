@@ -437,6 +437,7 @@ module.exports = async function handler(req, res) {
     let cpcRowCount = 0;
     const saAdSample = {};
     const saAdErrors = [];
+    const fieldProbe = {};
     try {
       const cpcRows = [];
       const num = (d) => ({ imp: Number(d.impCnt) || 0, clk: Number(d.clkCnt) || 0, cost: Number(d.salesAmt) || 0, conv: Number(d.ccnt) || 0, rev: Number(d.convAmt) || 0 });
@@ -449,6 +450,24 @@ module.exports = async function handler(req, res) {
         catch (e) { c.byAd = null; saAdErrors.push(`${c.name}: ${String(e).slice(0, 200)}`); }
       }, STATS_REQUEST_GAP_MS);
       // 랜딩이 스토어 메인이라 상품번호가 없는 광고의 상품(사용자 확인) — 빠이러스 검색광고는 「가글 1개입」 랜딩(11/17)
+      // 임시(11/18): 구매완료 전환만 따로 받는 필드가 있는지 시험 — 화면 「구매완료 전환매출액」과 convAmt(전체 전환)가 다름
+      try {
+        const pc = saCamps.find((c) => c.isPPP && c.saMall === '빠이러스 SA' && c.byAd);
+        const ag = pc && pc.byAd.find((a) => /치약/.test(a.name || ''));
+        if (ag) {
+          const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+          const tries = [['ccnt', 'convAmt', 'drtCcnt', 'drtConvAmt'], ['purchaseCcnt', 'purchaseConvAmt'], ['purchCcnt', 'purchConvAmt'], ['ccnt', 'convAmt', 'crto', 'ror', 'cpConv']];
+          fieldProbe.id = ag.id;
+          for (const f of tries) {
+            try { fieldProbe[f.join(',')] = await naverRequest(pc.account, 'GET', '/stats', { id: ag.id, fields: JSON.stringify(f), timeRange: JSON.stringify({ since: today, until: today }) }); }
+            catch (e) { fieldProbe[f.join(',')] = 'ERR ' + String(e).slice(0, 200); }
+          }
+          for (const bd of ['convType', 'conversionType']) {
+            try { fieldProbe['bd:' + bd] = await naverRequest(pc.account, 'GET', '/stats', { id: ag.id, fields: JSON.stringify(['ccnt', 'convAmt']), breakdown: bd, timeRange: JSON.stringify({ since: today, until: today }) }); }
+            catch (e) { fieldProbe['bd:' + bd] = 'ERR ' + String(e).slice(0, 200); }
+          }
+        }
+      } catch (e) { fieldProbe.err = String(e).slice(0, 200); }
       const DEFAULT_NO = { '빠이러스 SA': '10245920632' };
       for (const { name, days, saMall, isPPP, byAd } of saCamps) {
         // 파워링크를 랜딩으로 못 나눴으면(조회 실패) 자사몰일 수도 있어 넣지 않는다 — 코드니처 파워링크는 원래 안 넣던 것과 같음
@@ -504,6 +523,7 @@ module.exports = async function handler(req, res) {
       cpcRowCount,
       saAdSample: saAdSample.raw || null,
       saAdErrors,
+      fieldProbe,
       results
     });
   } catch (err) {
