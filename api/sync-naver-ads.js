@@ -156,7 +156,7 @@ function matchAdType(campaignName) {
 async function fetchCampaignTotals(account, campaignId, since, until) {
   const data = await naverRequest(account, 'GET', '/stats', {
     id: campaignId,
-    fields: JSON.stringify(['salesAmt', 'impCnt', 'clkCnt', 'ccnt', 'convAmt']),
+    fields: JSON.stringify(['salesAmt', 'impCnt', 'clkCnt', 'ccnt', 'convAmt', 'purchaseCcnt', 'purchaseConvAmt']),
     timeRange: JSON.stringify({ since, until }),
     timeIncrement: '1'
   });
@@ -208,7 +208,7 @@ async function bulkDays(account, entries, since, until) {
   for (const day of days) for (let i = 0; i < ids.length; i += 100) jobs.push({ day, ids: ids.slice(i, i + 100) });
   await mapWithConcurrency(jobs, 4, async ({ day, ids: batch }) => {
     const d = await naverRequest(account, 'GET', '/stats', {
-      ids: batch, fields: JSON.stringify(['salesAmt', 'impCnt', 'clkCnt', 'ccnt', 'convAmt']), timeRange: JSON.stringify({ since: day, until: day })
+      ids: batch, fields: JSON.stringify(['salesAmt', 'impCnt', 'clkCnt', 'ccnt', 'convAmt', 'purchaseCcnt', 'purchaseConvAmt']), timeRange: JSON.stringify({ since: day, until: day })
     });
     for (const r of d.data || []) { const e = byId.get(r.id); if (e) e.days.push({ ...r, dateStart: day }); }
   }, 80);
@@ -437,10 +437,10 @@ module.exports = async function handler(req, res) {
     let cpcRowCount = 0;
     const saAdSample = {};
     const saAdErrors = [];
-    const fieldProbe = {};
     try {
       const cpcRows = [];
-      const num = (d) => ({ imp: Number(d.impCnt) || 0, clk: Number(d.clkCnt) || 0, cost: Number(d.salesAmt) || 0, conv: Number(d.ccnt) || 0, rev: Number(d.convAmt) || 0 });
+      const num = (d) => ({ imp: Number(d.impCnt) || 0, clk: Number(d.clkCnt) || 0, cost: Number(d.salesAmt) || 0, conv: Number(d.purchaseCcnt) || 0, rev: Number(d.purchaseConvAmt) || 0 });
+      // ↑ 11/18: 광고 리포트 매출은 「구매완료」 전환만(purchaseConvAmt). convAmt 는 장바구니 등 모든 전환 합이라 화면 구매완료 매출과 달랐다.
       // 쇼핑검색은 소재(상품)별, 파워링크(이름에 PPP)는 광고그룹 랜딩 주소별로 나눈다 — 빠이러스·미니멀룸도 같게(11/17).
       // 캠페인끼리는 동시에 조회한다(차례로 하면 60초 제한에 걸림).
       const saCamps = perCampaign.map((c) => ({ ...c, saMall: SA_MALL_OF(c.channel, c.name), isPPP: /PPP/.test(c.name) }))
@@ -450,24 +450,6 @@ module.exports = async function handler(req, res) {
         catch (e) { c.byAd = null; saAdErrors.push(`${c.name}: ${String(e).slice(0, 200)}`); }
       }, STATS_REQUEST_GAP_MS);
       // 랜딩이 스토어 메인이라 상품번호가 없는 광고의 상품(사용자 확인) — 빠이러스 검색광고는 「가글 1개입」 랜딩(11/17)
-      // 임시(11/18): 구매완료 전환만 따로 받는 필드가 있는지 시험 — 화면 「구매완료 전환매출액」과 convAmt(전체 전환)가 다름
-      try {
-        const pc = saCamps.find((c) => c.isPPP && c.saMall === '빠이러스 SA' && c.byAd);
-        const ag = pc && pc.byAd.find((a) => /치약/.test(a.name || ''));
-        if (ag) {
-          const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-          const tries = [['ccnt', 'convAmt', 'drtCcnt', 'drtConvAmt'], ['purchaseCcnt', 'purchaseConvAmt'], ['purchCcnt', 'purchConvAmt'], ['ccnt', 'convAmt', 'crto', 'ror', 'cpConv']];
-          fieldProbe.id = ag.id;
-          for (const f of tries) {
-            try { fieldProbe[f.join(',')] = await naverRequest(pc.account, 'GET', '/stats', { id: ag.id, fields: JSON.stringify(f), timeRange: JSON.stringify({ since: today, until: today }) }); }
-            catch (e) { fieldProbe[f.join(',')] = 'ERR ' + String(e).slice(0, 200); }
-          }
-          for (const bd of ['convType', 'conversionType']) {
-            try { fieldProbe['bd:' + bd] = await naverRequest(pc.account, 'GET', '/stats', { id: ag.id, fields: JSON.stringify(['ccnt', 'convAmt']), breakdown: bd, timeRange: JSON.stringify({ since: today, until: today }) }); }
-            catch (e) { fieldProbe['bd:' + bd] = 'ERR ' + String(e).slice(0, 200); }
-          }
-        }
-      } catch (e) { fieldProbe.err = String(e).slice(0, 200); }
       const DEFAULT_NO = { '빠이러스 SA': '10245920632' };
       for (const { name, days, saMall, isPPP, byAd } of saCamps) {
         // 파워링크를 랜딩으로 못 나눴으면(조회 실패) 자사몰일 수도 있어 넣지 않는다 — 코드니처 파워링크는 원래 안 넣던 것과 같음
@@ -523,7 +505,6 @@ module.exports = async function handler(req, res) {
       cpcRowCount,
       saAdSample: saAdSample.raw || null,
       saAdErrors,
-      fieldProbe,
       results
     });
   } catch (err) {
