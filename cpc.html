@@ -162,7 +162,12 @@
 
   <div id="report" style="display:none;">
     <div class="filters">
-      <div class="row">
+      <!-- 11/18 사용자 요청: 필터 줄도 접기(기본 접힘, 펼침 상태는 이 브라우저에 기억) -->
+      <button type="button" class="fold-head" id="filterToggle" aria-expanded="false" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 14px;">
+        <span class="fold-arrow">▾</span><b style="font-size:14px;">조회 조건</b>
+        <span class="fold-sum" id="filterSum"></span>
+      </button>
+      <div class="row" id="filterBody" style="display:none;margin-top:6px;">
         <label class="f">시작일<input type="date" id="fFrom"></label>
         <label class="f">종료일<input type="date" id="fTo"></label>
         <label class="f">몰<select id="fMall"></select></label>
@@ -562,6 +567,18 @@
     $('uploadBody').style.display = open ? '' : 'none';
     if (remember) { try { localStorage.setItem(FOLD_KEY, open ? '1' : '0'); } catch {} }
   }
+  const FILTER_FOLD_KEY = 'cpc_filter_open';
+  function setFilterOpen(open, remember) {
+    $('filterToggle').setAttribute('aria-expanded', String(open));
+    $('filterBody').style.display = open ? '' : 'none';
+    if (remember) { try { localStorage.setItem(FILTER_FOLD_KEY, open ? '1' : '0'); } catch {} }
+  }
+  $('filterToggle').onclick = () => setFilterOpen($('filterToggle').getAttribute('aria-expanded') !== 'true', true);
+  try { if (localStorage.getItem(FILTER_FOLD_KEY) === '1') setFilterOpen(true, false); } catch {}
+  function syncFilterSum() {
+    const f = $('fFrom').value, t = $('fTo').value;
+    $('filterSum').textContent = [f && t ? (f === t ? f : `${f} ~ ${t}`) : '', $('fMall').value || '전체 몰', $('fCamp').value || '전체 캠페인', `목표 ROAS ${$('fTarget').value}%`].filter(Boolean).join(' · ');
+  }
   $('uploadToggle').onclick = () => setUploadOpen($('uploadToggle').getAttribute('aria-expanded') !== 'true', true);
   function syncUploadFold() {
     let saved = null;
@@ -632,6 +649,7 @@
   let cur = [], prevTotal = null, total = null;
   function draw() {
     const from = $('fFrom').value, to = $('fTo').value;
+    syncFilterSum();
     cur = scoped(from, to);
     total = metrics(cur.reduce(add, blank()));
     const days = Math.round((new Date(to) - new Date(from)) / 864e5) + 1;
