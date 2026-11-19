@@ -1218,8 +1218,14 @@
     if (!ohouSales.has(key)) {
       card.style.display = '';
       card.innerHTML = '<h2>오늘의집 광고 <span class="pill">오하우스애즈</span></h2><p class="hint">오늘의집 매출을 불러오는 중…</p>';
-      db.from('live_sales_totals').select('date,amount').eq('mall', '오늘의집').gte('date', from).lte('date', to)
-        .then(({ data }) => { ohouSales.set(key, Object.fromEntries((data || []).map((x) => [x.date, +x.amount || 0]))); drawOhou(from, to); });
+      Promise.all([
+        db.from('live_sales_totals').select('date,amount').eq('mall', '오늘의집').gte('date', from).lte('date', to),
+        db.from('live_sales_items').select('date,product,qty,amount').eq('mall', '오늘의집').gte('date', from).lte('date', to).limit(5000),
+      ]).then(([t, it]) => {
+        const m = Object.fromEntries((t.data || []).map((x) => [x.date, +x.amount || 0]));
+        m.__items = it.data || [];
+        ohouSales.set(key, m); drawOhou(from, to);
+      });
       return;
     }
     const sales = ohouSales.get(key);
@@ -1236,6 +1242,28 @@
     const head = (first, withStore) => `<thead><tr><th style="text-align:left;">${first}</th><th style="text-align:right;">광고비</th><th style="text-align:right;">노출</th><th style="text-align:right;">클릭</th><th style="text-align:right;">클릭당 비용</th><th style="text-align:right;">광고 전환매출</th><th style="text-align:right;">광고 수익률</th>${withStore ? '<th style="text-align:right;">오늘의집 전체 매출</th><th style="text-align:right;">광고비중</th>' : ''}</tr></thead>`;
     const totStore = dates.reduce((t, d) => t + (sales[d] || 0), 0);
     const byCamp = new Map(); ads.forEach((r) => { if (!byCamp.has(r.campaign)) byCamp.set(r.campaign, []); byCamp.get(r.campaign).push(r); });
+    // 11/19 사용자 요청: 어떤 상품이 팔렸는지 — 실시간 매출 수집의 오늘의집 상품별 매출. 광고 캠페인 이름에 든 상품이면 「광고 중」 표시
+    const norm = (x) => String(x || '').replace(/\s+/g, '');
+    const adWords = [...new Set([...byCamp.keys(), ...rows.filter((r) => r.mall === '오늘의집').map((r) => r.campaign)]
+      .flatMap((c) => norm(c).replace(/_자연매출|_.*$/, '').split(/[,·/]/)).filter((w) => w.length >= 2))];
+    const prodAgg = new Map();
+    for (const r of sales.__items || []) {
+      const name = String(r.product || '').split(' / ')[0].trim() || '(상품명 없음)';
+      const a = prodAgg.get(name) || { qty: 0, amount: 0, opts: new Set() };
+      a.qty += +r.qty || 0; a.amount += +r.amount || 0;
+      const opt = String(r.product || '').split(' / ').slice(1).join(' / '); if (opt) a.opts.add(opt);
+      prodAgg.set(name, a);
+    }
+    const prods = [...prodAgg].sort((a, b) => b[1].amount - a[1].amount);
+    const prodTot = prods.reduce((t, [, a]) => t + a.amount, 0);
+    const prodHtml = `<h3 style="margin:14px 0 4px;font-size:15px;">상품별 매출 <span style="font-weight:500;font-size:12px;color:#94a3b8;">오늘의집 전체 주문 기준(광고로 팔린 것만이 아님) · <span style="background:#fef3c7;color:#92400e;border-radius:4px;padding:0 5px;">광고 중</span> = 광고 캠페인 이름에 든 상품</span></h3>
+      ${!prods.length ? '<p class="hint">이 기간 오늘의집 상품별 매출이 아직 없습니다(실시간 매출 수집이 빠진 날일 수 있음).</p>' : `
+      <div class="tblwrap" style="max-height:420px;"><table style="width:100%;min-width:0;">
+        <thead><tr><th style="text-align:left;">상품</th><th style="text-align:right;">수량</th><th style="text-align:right;">매출</th><th style="text-align:right;">비중</th></tr></thead>
+        <tbody>${prods.map(([n, a]) => `<tr><td style="text-align:left;">${esc(n)}${adWords.some((w) => norm(n).includes(w)) ? ' <span style="background:#fef3c7;color:#92400e;border-radius:4px;padding:0 5px;font-size:11px;font-weight:700;">광고 중</span>' : ''}${a.opts.size ? `<div style="color:#94a3b8;font-size:11.5px;">${esc([...a.opts].slice(0, 3).join(', '))}${a.opts.size > 3 ? ' 외 ' + (a.opts.size - 3) : ''}</div>` : ''}</td>
+          <td style="text-align:right;">${a.qty.toLocaleString()}</td><td style="text-align:right;">${won(a.amount)}</td><td style="text-align:right;color:#64748b;">${prodTot ? (a.amount / prodTot * 100).toFixed(1) + '%' : '-'}</td></tr>`).join('')}</tbody>
+        <tfoot><tr style="font-weight:700;background:#f8fafc;"><td style="text-align:left;">합계</td><td style="text-align:right;">${prods.reduce((t, [, a]) => t + a.qty, 0).toLocaleString()}</td><td style="text-align:right;">${won(prodTot)}</td><td></td></tr></tfoot>
+      </table></div>`}`;
     card.style.display = '';
     card.innerHTML = `<h2>오늘의집 광고 <span class="pill">오하우스애즈</span> <span style="font-weight:500;font-size:12px;color:#94a3b8;">${from === to ? from : from + ' ~ ' + to} · 광고비 VAT 포함 · 광고비중 = 광고비 ÷ 오늘의집 전체 매출</span></h2>
       ${!ads.length ? '<p class="hint">이 기간에 오늘의집 광고비가 없습니다.</p>' : `
@@ -1246,7 +1274,7 @@
       <h3 style="margin:6px 0 4px;font-size:15px;">캠페인별</h3>
       <div class="tblwrap" style="max-height:none;"><table style="width:100%;min-width:0;">${head('캠페인', false)}
         <tbody>${[...byCamp].sort((a, b) => agg(b[1]).cost - agg(a[1]).cost).map(([c, l]) => line(esc(c), agg(l))).join('')}</tbody>
-        <tfoot>${line('합계', agg(ads), undefined, true)}</tfoot></table></div>`}`;
+        <tfoot>${line('합계', agg(ads), undefined, true)}</tfoot></table></div>`}${prodHtml}`;
   }
 
   // 11/17 사용자 요청: 키워드도 같은 형식(상품명 → 키워드 → 매출·광고비·광고비중)으로. 파워링크 키워드만 있다.
