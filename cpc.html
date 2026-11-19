@@ -1240,7 +1240,8 @@
       ${s === undefined ? '' : `<td style="text-align:right;color:#64748b;">${s ? won(s) : '-'}</td>${shareTd(a.cost, s)}`}</tr>`;
     const head = (first, withStore) => `<thead><tr><th style="text-align:left;">${first}</th><th style="text-align:right;">광고비</th><th style="text-align:right;">광고 전환매출</th><th style="text-align:right;">광고 수익률</th>${withStore ? '<th style="text-align:right;">오늘의집 전체 매출</th><th style="text-align:right;">광고비중</th>' : ''}</tr></thead>`;
     const totStore = dates.reduce((t, d) => t + (sales[d] || 0), 0);
-    const byCamp = new Map(); ads.forEach((r) => { if (!byCamp.has(r.campaign)) byCamp.set(r.campaign, []); byCamp.get(r.campaign).push(r); });
+    const kindOf = (r) => r.adgroup === '상품·배너광고' ? '상품·배너광고' : '오하우스애즈';   // 11/19: 광고 종류 두 개
+    const byCamp = new Map(); ads.forEach((r) => { const k = kindOf(r) + '|' + r.campaign; if (!byCamp.has(k)) byCamp.set(k, []); byCamp.get(k).push(r); });
     // 11/19 사용자 요청: 어떤 상품이 팔렸는지 — 실시간 매출 수집의 오늘의집 상품별 매출. 광고 캠페인 이름에 든 상품이면 「광고 중」 표시
     const norm = (x) => String(x || '').replace(/\s+/g, '');
     const adWords = [...new Set([...byCamp.keys(), ...rows.filter((r) => r.mall === '오늘의집').map((r) => r.campaign)]
@@ -1264,7 +1265,7 @@
         <tfoot><tr style="font-weight:700;background:#f8fafc;"><td style="text-align:left;">합계</td><td style="text-align:right;">${prods.reduce((t, [, a]) => t + a.qty, 0).toLocaleString()}</td><td style="text-align:right;">${won(prodTot)}</td><td></td></tr></tfoot>
       </table></div>`}`;
     card.style.display = '';
-    card.innerHTML = `<h2>오늘의집 광고 <span class="pill">오하우스애즈</span> <span style="font-weight:500;font-size:12px;color:#94a3b8;">${from === to ? from : from + ' ~ ' + to} · 광고비 VAT 포함 · 광고비중 = 광고비 ÷ 오늘의집 전체 매출</span></h2>
+    card.innerHTML = `<h2>오늘의집 광고 <span class="pill">오하우스애즈 · 상품/배너광고</span> <span style="font-weight:500;font-size:12px;color:#94a3b8;">${from === to ? from : from + ' ~ ' + to} · 광고비 VAT 포함 · 광고비중 = 광고비 ÷ 오늘의집 전체 매출</span></h2>
       ${!ads.length ? '<p class="hint">이 기간에 오늘의집 광고비가 없습니다.</p>' : `
       <h3 style="margin:6px 0 4px;font-size:15px;">일별</h3>
       <div class="tblwrap" style="max-height:420px;margin-bottom:12px;"><table style="width:100%;min-width:0;">${head('날짜', true)}
@@ -1272,7 +1273,14 @@
         <tfoot>${line('합계', agg(ads), totStore, true)}</tfoot></table></div>
       <h3 style="margin:6px 0 4px;font-size:15px;">캠페인별</h3>
       <div class="tblwrap" style="max-height:none;"><table style="width:100%;min-width:0;">${head('캠페인', false)}
-        <tbody>${[...byCamp].sort((a, b) => agg(b[1]).cost - agg(a[1]).cost).map(([c, l]) => line(esc(c), agg(l))).join('')}</tbody>
+        <tbody>${['오하우스애즈', '상품·배너광고'].map((kd) => {
+          const camps = [...byCamp].filter(([k]) => k.startsWith(kd + '|')).sort((a, b) => agg(b[1]).cost - agg(a[1]).cost);
+          if (!camps.length) return '';
+          const sub = agg(camps.flatMap(([, l]) => l));
+          return `<tr><td colspan="4" style="text-align:left;font-weight:800;background:${kd === '오하우스애즈' ? '#e0f2fe' : '#fce7f3'};border-top:2px solid #64748b;">${kd} <span style="font-weight:500;color:#64748b;font-size:12px;">· ${camps.length}개</span></td></tr>`
+            + camps.map(([k, l]) => line('&nbsp;&nbsp;' + esc(k.slice(k.indexOf('|') + 1)), agg(l))).join('')
+            + line(kd + ' 소계', sub, undefined, true);
+        }).join('')}</tbody>
         <tfoot>${line('합계', agg(ads), undefined, true)}</tfoot></table></div>`}${prodHtml}`;
   }
 
