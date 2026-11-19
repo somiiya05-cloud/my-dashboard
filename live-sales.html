@@ -118,8 +118,13 @@
   .brand small { font-size: 13.5px; color: #94a3b8; font-weight: 600; margin-left: 6px; }
   .brand.active { color: #0f172a; border-bottom-color: #0f172a; }
   .brand.active small { color: #0f172a; }
-  a.brand.link { text-decoration: none; color: #2563eb; }
-  a.brand.link small { color: #2563eb; }
+  .brand.link { color: #2563eb; }
+  .brand.link.active { color: #0f172a; }
+  /* 외부 광고 리포트 탭: 이 화면 안에 cpc.html 을 띄우고 나머지 칸은 숨김 */
+  body.adview .wrap > *:not(.top):not(#brandTabs):not(#adBox) { display: none !important; }
+  #adBox { display: none; }
+  body.adview #adBox { display: block; }
+  #adFrame { width: 100%; border: 0; display: block; min-height: 600px; }
   .goal3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
   .goal { background: #f8fafc; border: 1px solid #eef0f4; border-radius: 12px; padding: 14px 16px; font-variant-numeric: tabular-nums; }
   .goal .t { font-size: 13px; font-weight: 800; color: #475569; display: flex; justify-content: space-between; gap: 8px; }
@@ -164,6 +169,7 @@
   <div class="steps" id="pullSteps"></div>
 
   <div class="brands" id="brandTabs"></div>
+  <div id="adBox"><iframe id="adFrame" title="외부 광고 리포트"></iframe></div>
   <div class="kpis" id="kpis"></div>
 
   <div class="card" id="weekCard">
@@ -489,7 +495,8 @@ function renderTabs(d) {
   $('brandTabs').innerHTML = list.map(b => tab(b, b, bt[b].sales)).join('')
     + tab('미분류', '미분류', bt['미분류']?.sales || 0) + tab('전체', '전체 통합', all) + tab('쿠팡', '쿠팡', dayTotals(d)['쿠팡'].sales || 0)
     + '<span class="brand-sep"></span>' + tab('단독', '쿠팡 대비 네이버 부진', Object.entries(buildItems([d], true).rows).reduce((t, [k, r]) => t + (rowMatch(k, r, '단독') ? r['쿠팡'].sales : 0), 0))
-    + '<span class="brand-sep"></span><a class="brand link" href="cpc.html">외부 광고 리포트<small>→</small></a>';
+    // 외부 광고 리포트는 다른 페이지로 넘어가지 않고 이 화면 안에서 연다(11/19 사용자 요청)
+    + `<span class="brand-sep"></span><button class="brand link${BRAND === '광고' ? ' active' : ''}" data-b="광고">외부 광고 리포트</button>`;
   $('brandTabs').querySelectorAll('.brand').forEach(el => el.onclick = () => { BRAND = el.dataset.b; renderAll(); });
 }
 
@@ -971,8 +978,27 @@ function downloadXlsx() {
 
 async function refreshRules() { await loadRules(); keyCache.clear(); renderAll(); }
 
+// 외부 광고 리포트(cpc.html)를 이 화면 안에 띄움. 같은 사이트라 높이를 내용에 맞춰 늘려 안쪽 스크롤 없이 보이게 한다.
+function openAdFrame() {
+  const f = $('adFrame');
+  if (f.dataset.on) return;
+  f.dataset.on = '1';
+  f.onload = () => {
+    try {
+      const doc = f.contentDocument;
+      doc.querySelectorAll('a.back').forEach(a => a.remove());   // 안쪽 '← 영업 대시보드' 링크는 뺌
+      doc.querySelectorAll('a[href]:not([target])').forEach(a => a.target = '_top');
+      const fit = () => { if (document.body.classList.contains('adview')) f.style.height = doc.documentElement.scrollHeight + 'px'; };
+      new ResizeObserver(fit).observe(doc.body); fit();
+    } catch (e) { f.style.height = '85vh'; }
+  };
+  f.src = 'cpc.html';
+}
+
 function renderAll() {
   const d = $('day').value;
+  document.body.classList.toggle('adview', BRAND === '광고');
+  if (BRAND === '광고') { renderTabs(d); openAdFrame(); return; }
   renderTabs(d); renderKpis(d); renderItems(d); renderDays(d);
   $('weekCard').style.display = BRAND === '단독' || BRAND === '쿠팡' ? 'none' : '';
   // 공동구매·직납 카드는 renderWeek 가 받아 오는 월 데이터를 쓰므로 받은 뒤 한 번 더 그립니다.
