@@ -189,6 +189,7 @@
 
     <!-- 11/16 사용자 요청: 품목별 일별 표는 KPI 바로 아래, 「일별 광고비·ROAS」 차트와 「운영 전략 코멘트」는 뺌 -->
     <div class="card" id="prodDayCard" style="display:none;margin-bottom:16px;"></div>
+    <div class="card" id="ohouCard" style="display:none;margin-bottom:16px;"></div>
     <div class="card" id="storeCard" style="display:none;"></div>
 
     <div class="card" id="prodStoreCard" style="display:none;margin-bottom:16px;"></div>
@@ -1202,6 +1203,50 @@
         <tfoot><tr><td class="d">기간 합계</td>${cells(null)}</tr></tfoot>
       </table></div>${sumHtml ? '</details>' : ''}${kwHtml}`;   // 11/17 사용자 요청: 빠이러스도 코드니처처럼 일별 표(매출·광고비·광고비중·ROAS)를 먼저
     bindTabs();
+    drawOhou(dates[0], dates[dates.length - 1]);
+  }
+
+  // 11/19 사용자 요청: 오늘의집 광고(오하우스애즈) 카드 — 품목별 표와 같은 조회 기간.
+  // 광고비 = cpc_ad_rows 몰 '오늘의집'(VAT 포함), 전환매출 = 오늘의집 광고 관리자 전환매출, 스토어 매출 = 실시간 매출 수집의 오늘의집 합계.
+  const ohouSales = new Map();   // 'from|to' → {날짜: 매출}
+  function drawOhou(from, to) {
+    const card = $('ohouCard');
+    const ads = rows.filter((r) => r.mall === '오늘의집' && r.date >= from && r.date <= to);
+    const allOhou = rows.some((r) => r.mall === '오늘의집');
+    if (!allOhou) { card.style.display = 'none'; return; }
+    const key = from + '|' + to;
+    if (!ohouSales.has(key)) {
+      card.style.display = '';
+      card.innerHTML = '<h2>오늘의집 광고 <span class="pill">오하우스애즈</span></h2><p class="hint">오늘의집 매출을 불러오는 중…</p>';
+      db.from('live_sales_totals').select('date,amount').eq('mall', '오늘의집').gte('date', from).lte('date', to)
+        .then(({ data }) => { ohouSales.set(key, Object.fromEntries((data || []).map((x) => [x.date, +x.amount || 0]))); drawOhou(from, to); });
+      return;
+    }
+    const sales = ohouSales.get(key);
+    const dates = []; for (let d = new Date(from); ymd(d) <= to; d.setDate(d.getDate() + 1)) dates.push(ymd(d));
+    const agg = (list) => list.reduce((a, r) => (a.cost += r.cost, a.rev += r.rev, a.clk += r.clk, a.imp += r.imp, a.conv += r.conv, a), { cost: 0, rev: 0, clk: 0, imp: 0, conv: 0 });
+    const pctTd = (v) => `<td style="text-align:right;">${isFinite(v) ? (v * 100).toFixed(1) + '%' : '-'}</td>`;
+    const shareTd = (cost, s) => !s ? `<td style="text-align:right;color:#cbd5e1;">${cost ? '매출0' : '-'}</td>`
+      : `<td style="text-align:right;font-weight:700;color:${cost / s > 0.15 ? '#dc2626' : cost / s > 0.08 ? '#b45309' : '#16a34a'};">${(cost / s * 100).toFixed(1)}%</td>`;
+    const roasTd = (rev, cost) => `<td style="text-align:right;font-weight:700;color:${!cost ? '#94a3b8' : rev / cost >= 2 ? '#16a34a' : rev / cost >= 1.4 ? '#b45309' : '#dc2626'};">${cost ? Math.round(rev / cost * 100) + '%' : '-'}</td>`;
+    const line = (label, a, s, b) => `<tr${b ? ' style="font-weight:700;background:#f8fafc;"' : ''}><td style="text-align:left;">${label}</td>
+      <td style="text-align:right;">${won(a.cost)}</td><td style="text-align:right;">${a.imp.toLocaleString()}</td><td style="text-align:right;">${a.clk.toLocaleString()}</td>
+      <td style="text-align:right;">${a.clk ? won(a.cost / a.clk) : '-'}</td><td style="text-align:right;">${a.rev ? won(a.rev) : '-'}</td>${roasTd(a.rev, a.cost)}
+      ${s === undefined ? '' : `<td style="text-align:right;color:#64748b;">${s ? won(s) : '-'}</td>${shareTd(a.cost, s)}`}</tr>`;
+    const head = (first, withStore) => `<thead><tr><th style="text-align:left;">${first}</th><th style="text-align:right;">광고비</th><th style="text-align:right;">노출</th><th style="text-align:right;">클릭</th><th style="text-align:right;">클릭당 비용</th><th style="text-align:right;">광고 전환매출</th><th style="text-align:right;">광고 수익률</th>${withStore ? '<th style="text-align:right;">오늘의집 전체 매출</th><th style="text-align:right;">광고비중</th>' : ''}</tr></thead>`;
+    const totStore = dates.reduce((t, d) => t + (sales[d] || 0), 0);
+    const byCamp = new Map(); ads.forEach((r) => { if (!byCamp.has(r.campaign)) byCamp.set(r.campaign, []); byCamp.get(r.campaign).push(r); });
+    card.style.display = '';
+    card.innerHTML = `<h2>오늘의집 광고 <span class="pill">오하우스애즈</span> <span style="font-weight:500;font-size:12px;color:#94a3b8;">${from === to ? from : from + ' ~ ' + to} · 광고비 VAT 포함 · 광고비중 = 광고비 ÷ 오늘의집 전체 매출</span></h2>
+      ${!ads.length ? '<p class="hint">이 기간에 오늘의집 광고비가 없습니다.</p>' : `
+      <h3 style="margin:6px 0 4px;font-size:15px;">일별</h3>
+      <div class="tblwrap" style="max-height:420px;margin-bottom:12px;"><table style="width:100%;min-width:0;">${head('날짜', true)}
+        <tbody>${dates.map((d) => line(d.slice(5).replace('-', '/'), agg(ads.filter((r) => r.date === d)), sales[d] || 0)).join('')}</tbody>
+        <tfoot>${line('합계', agg(ads), totStore, true)}</tfoot></table></div>
+      <h3 style="margin:6px 0 4px;font-size:15px;">캠페인별</h3>
+      <div class="tblwrap" style="max-height:none;"><table style="width:100%;min-width:0;">${head('캠페인', false)}
+        <tbody>${[...byCamp].sort((a, b) => agg(b[1]).cost - agg(a[1]).cost).map(([c, l]) => line(esc(c), agg(l))).join('')}</tbody>
+        <tfoot>${line('합계', agg(ads), undefined, true)}</tfoot></table></div>`}`;
   }
 
   // 11/17 사용자 요청: 키워드도 같은 형식(상품명 → 키워드 → 매출·광고비·광고비중)으로. 파워링크 키워드만 있다.
