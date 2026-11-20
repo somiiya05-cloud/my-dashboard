@@ -1133,7 +1133,23 @@
       const nameOf = (it) => it === '상품 미지정' ? '스토어 메인 랜딩 <span style="font-size:11px;color:#94a3b8;">(상품 미지정)</span>' : esc(labelOf('x|' + it));
       const secHead = (title, n, color) => `<tr><td colspan="5" style="text-align:left;background:${color};font-weight:800;font-size:14px;color:#1f2a3f;border-top:3px solid #64748b;padding:8px 12px;">${esc(title)} <span style="font-weight:600;font-size:12px;color:#64748b;">· ${n}종</span></td></tr>`;
       let body = '';
+      // 11/20 사용자 요청: 켜져 있는데 이 기간 광고비가 0인 애드부스트 캠페인(예: 애드부스트 D)도 「노출 없음」 줄로 보이게.
+      // 상태는 광고 업데이트 때 받는 ad_campaign_status — 마지막으로 받은 묶음(같은 시각)에 든 것만(오래된 줄은 지워진 캠페인일 수 있음).
+      let idleHtml = '';
+      if (pdBrand === '코드니처' && (!mall || mall === '네이버 ADVoost') && !camp) {
+        const st = [...statusMap.values()].filter((s) => s.mall === '네이버 ADVoost');
+        const latest = st.reduce((m, s) => (s.updated_at > m ? s.updated_at : m), '');
+        const fresh = (s) => latest && new Date(latest) - new Date(s.updated_at) < 3600e3;
+        const idle = st.filter((s) => s.active && fresh(s) && !gnames.includes(s.campaign)).sort((a, b) => a.campaign.localeCompare(b.campaign, 'ko'));
+        for (const s of idle) {
+          const past = rows.filter((r) => r.mall === '네이버 ADVoost' && r.campaign === s.campaign && r.cost > 0 && r.date < dates[0]).map((r) => r.date).sort().pop();
+          const why = (s.status || '').includes('LEARNING') ? '학습 중' : '운영 가능';
+          idleHtml += secHead(s.campaign, 0, GC[s.campaign.replace('애드부스트 ', '')] || '#eef2f7')
+            + `<tr><td colspan="5" style="text-align:left;padding:8px 28px;color:#dc2626;font-weight:700;">노출 없음 <span style="font-weight:500;color:#64748b;">· 켜져 있음(${why})인데 이 기간 광고비 0원${past ? ` · 마지막 광고비 ${past.slice(5).replace('-', '/')}` : ''} — 광고관리자에서 애셋그룹 상품 검수 상태 확인</span></td></tr>`;
+        }
+      }
       for (const gr of groups) {
+        if (idleHtml && gr.g === '검색광고') { body += idleHtml; idleHtml = ''; }
         const ks = gr.items.slice().sort((a, b) => sumC(b) - sumC(a));
         body += secHead(gr.g, ks.length, GC[gr.g] || '#eef2f7');
         for (const k of ks) body += row(nameOf(itemName(k)), sumR(k), sumC(k), { indent: 1 });
@@ -1148,6 +1164,7 @@
         }
 
       }
+      body += idleHtml;
       // 전체: 상품마다 세 광고 광고비를 합쳐 한 줄
       const items = [...new Set(keys.map(itemName))];
       const cOfItem = (it) => keys.filter((k) => itemName(k) === it).reduce((t, k) => t + sumC(k), 0);
