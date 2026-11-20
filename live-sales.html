@@ -380,7 +380,7 @@ function setParts(name) {
 // 브랜드: 상품명(광고는 광고명·캠페인명)에 들어 있는 브랜드 이름으로. 없으면 미분류.
 const BRANDS = ['코드니처', '슬로우케어', '명퉤', '라이프스타일마트', '글로리핏', '멜루션', '빠이러스', '그로우뮤즈', '미니멀룸', '잠비에'];
 // 상품명에 브랜드 이름이 없는 상품 → 브랜드 (사용자 지정)
-const BRAND_HINTS = { '풋쿠션': '그로우뮤즈', '스트롱제습서버': '라이프스타일마트', '리모드': '잠비에', 'Zamvie': '잠비에' };   // 리모드 토퍼 = 잠비에(오늘의집 계정1 스토어명 Zamvie)
+const BRAND_HINTS = { '풋쿠션': '그로우뮤즈', '스트롱제습서버': '라이프스타일마트', '수면돔': '라이프스타일마트', '리모드': '잠비에', 'Zamvie': '잠비에' };   // 리모드 토퍼 = 잠비에(오늘의집 계정1 스토어명 Zamvie)
 const brandOf = s => { const n = String(s || '').replace(/\s+/g, '');
   return BRANDS.find(b => n.includes(b)) || Object.entries(BRAND_HINTS).find(([k]) => n.includes(k))?.[1] || null; };
 let BRAND = '전체';
