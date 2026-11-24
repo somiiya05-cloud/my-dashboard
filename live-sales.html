@@ -217,11 +217,6 @@
     <div class="tblwrap"><table id="setTbl"></table></div>
   </div>
 
-  <div class="card prod-card">
-    <h2>판매 없이 광고비만 나간 상품 <span class="pill" id="adOnlyPill"></span></h2>
-    <p class="hint">이 날짜에 팔린 게 없는데 광고비가 나간 광고(캠페인)입니다. 광고 이름 그대로 한 줄씩 보여 줍니다.</p>
-    <div class="tblwrap"><table id="adOnlyTbl"></table></div>
-  </div>
 
 
 </div>
@@ -702,7 +697,6 @@ function renderItems(d) {
   const all = Object.keys(rows).filter(k => rowMatch(k, rows[k]));
   // 판매 줄이 하나도 없고 광고비만 있는 줄 → 따로 「광고만」 표
   const isAdOnly = k => !rows[k]._n && !k.startsWith('그 외') && MALLS.some(m => rows[k][m]?.ad);
-  const adKeys = all.filter(isAdOnly).sort((a, b) => MALLS.reduce((t, m) => t + (rows[b][m]?.ad || 0) - (rows[a][m]?.ad || 0), 0));
   const setKeys = all.filter(k => k.startsWith('◆ ') && !isAdOnly(k)).sort((a, b) => total(b) - total(a));
   const oneKeys = all.filter(k => !k.startsWith('◆ ') && !isAdOnly(k)).sort((a, b) =>
     (a.startsWith('그 외') - b.startsWith('그 외')) || (a === '기타') - (b === '기타') || a.startsWith('· ') - b.startsWith('· ') || total(b) - total(a));
@@ -734,8 +728,6 @@ function renderItems(d) {
   $('setTbl').innerHTML = table(setKeys, '이 날짜에 팔린 세트 상품이 없습니다.');
   $('itemPill').textContent = oneKeys.length + '개';
   $('setPill').textContent = setKeys.length + '개';
-  $('adOnlyTbl').innerHTML = table(adKeys, '이 날짜에 판매 없이 광고비만 나간 상품이 없습니다.');
-  $('adOnlyPill').textContent = adKeys.length + '개';
 
   const solo = BRAND === '단독', cpv = BRAND === '쿠팡', hide = solo || cpv;
   $('onlyCard').style.display = solo ? '' : 'none';
