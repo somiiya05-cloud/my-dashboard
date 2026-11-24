@@ -868,6 +868,7 @@ function renderCoupang(d, rows) {
   };
   // 메타 광고 뱃지(11/12 사용자 요청) — 지금 켜진 메타 광고 이름이 이 상품 규칙에 걸리면 상품명 왼쪽에
   const { MK, metaBadge } = metaMarks(keys, rows);
+  const BRAND_W = /^(\[.*\]|코드니처|슬로우케어|빠이러스|미니멀룸|그로우뮤즈|글로리핏|명퉤|잠비에|라스마|멜루션|폴크|원조)$/;
   const metaLine = k => { const m = MK[k];
     if (META_ADS == null) return '';
     return m ? `<span><b style="color:#1d4ed8">메타 광고 ${m.ads.length}개 켜짐</b> <span class="muted">최근 7일 ${won(m.spend)}원 · ${esc((cs => cs.slice(0, 3).join(', ') + (cs.length > 3 ? ' 외 ' + (cs.length - 3) : ''))([...new Set(m.ads.map(a => (a.campaign_name || a.ad_name).replace(/(\s*-\s*사본)+\s*$/, '')))]))}</span></span>`
