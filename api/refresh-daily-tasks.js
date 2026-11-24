@@ -27,7 +27,11 @@ const CATEGORIES = ['오전 필수업무', '오후 필수업무'];
 // 오늘 + 이후 며칠까지 미리 만들어 둘지. 14 = 오늘 포함 15일치.
 const DAYS_AHEAD = 14;
 
-// 매일 반복되는 고정 업무(오전 5개 + 오후 10개)와, 특정 요일/기간에만 생기는 업무.
+// 2026-11-24 — 오후 필수업무 자동 생성을 그만둡니다.
+// 전휘원 화면을 체크리스트에서 보드·하루 보기 양식으로 바꾸면서, 오후 일은
+// 그날그날 직접 적기로 했습니다. 자동으로 남는 것은 아래 둘뿐입니다.
+//   · 오전 필수업무 5건 — 매일
+//   · 월마감 6건 — 매월 23일~말일
 // weekdays를 지정하면 그 요일에만 등록됩니다 (0=일 ~ 6=토). 예: [3,4] = 수·목.
 // monthDayFrom을 지정하면 매월 그 날짜부터 말일까지만 등록됩니다. 예: 23 = 23일~말일.
 // 여기 목록을 바꾸면 다음 실행부터 반영됩니다.
@@ -37,33 +41,6 @@ const DAILY_TASKS = [
   { title: '쿠팡 NA/SA 광고비 수정', category: '오전 필수업무' },
   { title: '공동구매 발주서 전달(w.scm팀)', category: '오전 필수업무' },
   { title: '매출마감', category: '오전 필수업무' },
-  // 화요일에만 생기는 업무
-  { title: '인사팀 광고비 공유', category: '오후 필수업무', weekdays: [2] },
-  // 수·목에만 생기는 올리브영 업무 (오후 업무 맨 위에 표시)
-  { title: '올리브영 발주서 마감', category: '오후 필수업무', weekdays: [3, 4] },
-  { title: '올리브영 매출 보고', category: '오후 필수업무', weekdays: [3, 4] },
-  { title: '올리브영 재고 확인', category: '오후 필수업무', weekdays: [3, 4] },
-  // 목요일에만 생기는 광고비 충전 6건 (화면에서 "광고비 충전" 그룹으로 묶임)
-  { title: '네이버 SA / nkiss2152 (법인)', category: '오후 필수업무', weekdays: [4] },
-  { title: '네이버 SA / selfdiylab (법인)', category: '오후 필수업무', weekdays: [4] },
-  { title: '네이버 SA / seldilab (법인)', category: '오후 필수업무', weekdays: [4] },
-  { title: '네이버 GFA / 미니멀룸스토어 (법인)', category: '오후 필수업무', weekdays: [4] },
-  { title: '네이버 GFA / selflow (지점)', category: '오후 필수업무', weekdays: [4] },
-  { title: '네이버 쇼핑 파트너센터', category: '오후 필수업무', weekdays: [4] },
-  { title: 'SA 광고세팅', category: '오후 필수업무', detail: '그룹:신제품 광고세팅' },
-  { title: '파워링크 세팅', category: '오후 필수업무', detail: '그룹:신제품 광고세팅' },
-  { title: 'GFA 세팅', category: '오후 필수업무', detail: '그룹:신제품 광고세팅' },
-  { title: '카페침투 세팅', category: '오후 필수업무', detail: '그룹:신제품 광고세팅' },
-  { title: '쿠팡 로켓그로스 재고 입고', category: '오후 필수업무' },
-  { title: '쿠팡 로켓그로스 뱃지 확인', category: '오후 필수업무' },
-  { title: '리뷰 작업 요청 (cx팀)', category: '오후 필수업무' },
-  { title: 'SCM팀 미출 메일 확인', category: '오후 필수업무' },
-  { title: '이지어드민 연동(scm팀)', category: '오후 필수업무' },
-  { title: '외부몰 상품등록', category: '오후 필수업무' },
-  { title: '다우게시판 공유', category: '오후 필수업무' },
-  // 화면에서 "계산서 발행" 그룹으로 묶임
-  { title: 'B2B 세금계산서 발행', category: '오후 필수업무' },
-  { title: '해외/수출 영세율 계산서 발행', category: '오후 필수업무' },
   // 매월 23일~말일에만 생기는 월마감 업무 (화면에서 "월마감" 그룹으로 묶임)
   { title: '올리브영 월마감', category: '오후 필수업무', monthDayFrom: 23 },
   { title: '파스토 월마감', category: '오후 필수업무', monthDayFrom: 23 },
@@ -206,6 +183,35 @@ module.exports = async function handler(req, res) {
     inserted_by_date: insertedByDate
   });
 };
+
+// 2026-11-24 까지 자동으로 만들던 오후 필수업무 이름입니다. 이제 만들지 않지만,
+// 주간 리포트가 지난 기록을 "직접 추가한 업무"로 잘못 세지 않도록 남겨 둡니다.
+const RETIRED_DAILY_TITLES = [
+  '인사팀 광고비 공유',
+  '올리브영 발주서 마감',
+  '올리브영 매출 보고',
+  '올리브영 재고 확인',
+  '네이버 SA / nkiss2152 (법인)',
+  '네이버 SA / selfdiylab (법인)',
+  '네이버 SA / seldilab (법인)',
+  '네이버 GFA / 미니멀룸스토어 (법인)',
+  '네이버 GFA / selflow (지점)',
+  '네이버 쇼핑 파트너센터',
+  'SA 광고세팅',
+  '파워링크 세팅',
+  'GFA 세팅',
+  '카페침투 세팅',
+  '쿠팡 로켓그로스 재고 입고',
+  '쿠팡 로켓그로스 뱃지 확인',
+  '리뷰 작업 요청 (cx팀)',
+  'SCM팀 미출 메일 확인',
+  '이지어드민 연동(scm팀)',
+  '외부몰 상품등록',
+  '다우게시판 공유',
+  'B2B 세금계산서 발행',
+  '해외/수출 영세율 계산서 발행'
+];
+module.exports.RETIRED_DAILY_TITLES = RETIRED_DAILY_TITLES;
 
 // 주간 리포트(scripts/weekly-task-report.js)가 "직접 추가한 업무"를 가려낼 때 이 목록을 씁니다.
 // 목록을 여기 한 곳에만 두어, 베껴 쓰다 한쪽만 바뀌는 일이 없게 합니다.

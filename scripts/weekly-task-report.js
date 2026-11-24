@@ -23,8 +23,12 @@ const DRY_RUN = !!process.env.DRY_RUN;
 
 // 루틴 업무 목록은 매일 업무를 만드는 쪽과 같은 것을 씁니다.
 // 여기서 따로 베껴 두면 한쪽만 바뀌었을 때 "직접 추가한 업무"가 잘못 잡힙니다.
-const { DAILY_TASKS } = require('../api/refresh-daily-tasks.js');
-const ROUTINE_TITLES = new Set((DAILY_TASKS || []).map((t) => t.title));
+const { DAILY_TASKS, RETIRED_DAILY_TITLES } = require('../api/refresh-daily-tasks.js');
+// 지금 만드는 것 + 예전에 만들던 것. 지난 주 기록을 볼 때도 루틴으로 세야 맞습니다.
+const ROUTINE_TITLES = new Set([
+  ...(DAILY_TASKS || []).map((t) => t.title),
+  ...(RETIRED_DAILY_TITLES || []),
+]);
 
 const headers = {
   apikey: SUPABASE_KEY,
