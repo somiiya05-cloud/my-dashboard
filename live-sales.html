@@ -788,6 +788,8 @@ function renderItems(d) {
 const COUPANG_DAILY_TARGET = 25000000;
 const CP_OPEN = new Set();   // 쿠팡 탭에서 펼쳐 둔 상품 줄
 // 메타 광고 뱃지 — 쿠팡 탭 상품표와 「쿠팡에서 팔리는데 네이버에선…」 표가 같이 쓴다(11/25)
+// 그로우유즈 메타 「수면돔 - …」 캠페인처럼 상품 낱말 하나만 쓰는 광고
+const META_WORDS = ['수면돔'];
 function metaMarks(keys, rows) {
   const MK = metaByKey();
   // 규칙에 안 걸린 상품(「· 이름」 줄)은 상품명에서 이어진 두 낱말(브랜드·숫자 빼고, 예: 「패딩볼륨」「볼륨복원」)이 광고 이름에 있으면 같은 상품으로 본다
@@ -801,6 +803,8 @@ function metaMarks(keys, rows) {
       // ① 「[제습]」처럼 짧은 캠페인 낱말 + 브랜드(라스마)가 둘 다 상품명에 있으면 (squash 는 앞의 「코드니처」를 떼므로 여기선 공백만 뺀다)
       const nos = x => String(x || '').replace(/\s+/g, ''), f = nos(fullOf(k)), b = nos(brand);
       if (br && b && f.includes(b) && f.includes(br)) return addMeta(k, a);
+      // ③ 한 낱말로 상품이 정해지는 광고(META_WORDS): 광고 이름과 상품명에 둘 다 있으면 — 「수면돔」 캠페인 = 원조 난방 수면돔(11/25 사용자 확인)
+      if (META_WORDS.some(w => t.includes(w) && f.includes(w))) return addMeta(k, a);
       // ② 규칙에 안 걸린 상품: 상품명의 이어진 두 낱말(브랜드·숫자 빼고, 예: 「통풍케어」)이 광고 이름에 있으면
       if (!k.startsWith('· ')) return;
       const w = plainName(k.slice(2)).split(/\s+/).filter(x => x && !BRAND_W.test(x) && !/[\d+]/.test(x));
