@@ -131,7 +131,8 @@
   </div>
 
   <!-- 업로드 -->
-  <div class="card" id="uploadCard">
+  <!-- 11/24 사용자 요청: 「광고 보고서 올리기」·「조회 조건」 삭제 — 자동 수집으로 대신하므로 숨김(기능 코드는 남겨 둠, 다시 쓰려면 display:none 제거) -->
+  <div class="card" id="uploadCard" style="display:none;">
     <button type="button" class="fold-head" id="uploadToggle" aria-expanded="true">
       <span class="fold-arrow">▾</span><h2>광고 보고서 올리기</h2>
       <span class="fold-sum" id="uploadSum"></span>
@@ -161,7 +162,7 @@
   </div>
 
   <div id="report" style="display:none;">
-    <div class="filters">
+    <div class="filters" style="display:none;">
       <!-- 11/18 사용자 요청: 필터 줄도 접기(기본 접힘, 펼침 상태는 이 브라우저에 기억) -->
       <button type="button" class="fold-head" id="filterToggle" aria-expanded="false" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 14px;">
         <span class="fold-arrow">▾</span><b style="font-size:14px;">조회 조건</b>
