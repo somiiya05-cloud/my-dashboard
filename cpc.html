@@ -1399,14 +1399,16 @@
       ${kpi('ROAS (스마트스토어 실결제)', gfaCost ? pct(st.sales / gfaCost) : '-', st.store ? '스토어 전체 매출 대비 광고비 ' + pct(gfaCost / st.store, 1) : '')}
     </div>`;
     card.style.display = '';
-    card.innerHTML = `<h2>GFA 소재별 성과 <span class="pill">GFA</span></h2>
+    // 11/24 사용자 요청: GFA를 지금 안 돌려서 접어 둠 — 고른 기간에 GFA 광고비가 있으면 펼쳐서 보여 준다.
+    card.innerHTML = `<details${gfaCost > 0 ? ' open' : ''}><summary style="cursor:pointer;list-style-position:inside;"><h2 style="display:inline;">GFA 소재별 성과 <span class="pill">GFA</span></h2>
+      <span style="font-size:12px;color:#94a3b8;margin-left:6px;">${gfaCost > 0 ? '광고비 ' + won(gfaCost) + '원' : '이 기간 집행 없음 · 눌러서 펼치기'}</span></summary>
       <p class="hint">위 숫자는 <b>스마트스토어 방문 분석의 '성과형 디스플레이' 유입 실결제</b>로, GFA 캠페인 전체 합계입니다(스마트스토어는 소재·캠페인별로 나눠 주지 않습니다${camp ? '. 캠페인을 골라도 GFA 전체 기준' : ''}). 아래 표에서는 이미지 소재끼리 <b>클릭률</b>과 <b>클릭당 비용</b>을 비교하세요(노출 100회 이상 소재 중 클릭률이 가장 높은 소재에 표시). 구매 칸은 광고 관리자 기준입니다. 이미지를 누르면 연결된 상품 페이지가 열립니다.</p>
       ${stBox}
       <div class="tblwrap" style="max-height:620px;"><table>
         <thead><tr><th class="l">소재</th><th>노출</th><th>클릭</th><th>클릭률</th><th>클릭당 비용 (VAT 포함)</th><th>광고비 (VAT 포함)</th><th>광고 관리자 구매</th></tr></thead>
         <tbody>${list.map(row).join('')}</tbody>
         <tfoot><tr><td class="l">합계</td><td>${won(tot.imp)}</td><td>${won(tot.clk)}</td><td>${isFinite(ctr(tot)) ? pct(ctr(tot), 2) : '-'}</td><td>${tot.clk ? won(Math.round(tot.cost / tot.clk)) : '-'}</td><td>${won(tot.cost)}</td><td>${tot.conv ? won(tot.conv) + '건 · ' + won(tot.rev) : '-'}</td></tr></tfoot>
-      </table></div>`;
+      </table></div></details>`;
   }
 
   // ---------- 전략 코멘트 ----------
