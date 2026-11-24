@@ -291,7 +291,7 @@ async function loadMeta() {
     const { data, error } = await db.from('live_product_meta').select('*');
     if (error) throw error;
     META = {}; META_AT = null;
-    data.forEach(r => { META[r.mall + '|' + r.product] = r; if (!META_AT || r.checked_at > META_AT) META_AT = r.checked_at; });
+    data.forEach(r => { META[r.mall + '|' + r.product] = r; if (r.mall === '네이버쇼핑' && (!META_AT || r.checked_at > META_AT)) META_AT = r.checked_at; });
   } catch (e) { META = {}; }
   try {   // 지금 켜진 메타 광고(api/sync-meta-ads 가 매일 아침 넣음, meta_active_ads.sql) — 쿠팡 탭 「메타」 뱃지
     const { data, error } = await db.from('meta_active_ads').select('channel,ad_name,adset_name,campaign_name,spend_7d,synced_at');
@@ -747,6 +747,7 @@ function renderItems(d) {
     // 쿠팡 매출 높은 순 (11/09 사용자 요청 — 전엔 네이버 비율 낮은 순)
     const keys = all.filter(k => !isAdOnly(k)).sort((a, b) => v(b, '쿠팡', 'sales') - v(a, '쿠팡', 'sales'));
     let tc = 0, tn = 0;
+    const { metaBadge } = metaMarks(keys, rows);   // 메타 광고 켜진 상품 표시(11/25 사용자 요청)
     // 그 줄에서 쿠팡에 가장 많이 팔린 상품명(옵션 앞) → 상품 정보
     const metaOf = k => {
       const prod = rows[k]['쿠팡']?.prod || {};
@@ -767,7 +768,7 @@ function renderItems(d) {
       const fs = Object.entries(rows[k]['네이버']?.fromSets || {}).sort((x, y) => y[1] - x[1]);
       const nTip = fs.length ? '세트에서 나눠 넣은 매출 ' + won(fs.reduce((t, [, x]) => t + x, 0)) + '원 — ' + fs.map(([b, x]) => b + ' ' + won(x)).join(' · ') : '';
       const low = nv && nv.low_price ? `${won(nv.low_price)}${nv.low_store ? ` <span class="muted">${esc(nv.low_store)}</span>` : ''}` : '<span class="muted">-</span>';
-      return `<tr><td class="l name" title="${esc(full)}${nv ? ' · 네이버 검색어: ' + esc(nv.query) : ''}"><b>${esc(name)}</b></td><td>${won(c)}</td>
+      return `<tr><td class="l name" title="${esc(full)}${nv ? ' · 네이버 검색어: ' + esc(nv.query) : ''}">${metaBadge(k)}<b>${esc(name)}</b></td><td>${won(c)}</td>
         <td${nTip ? ` title="${esc(nTip)}"` : ''}>${n ? won(n) + (fs.length ? '<sup style="color:#2563eb">세트</sup>' : '') : '<span class="muted">0</span>'}</td><td><b>${(n / c * 100).toFixed(0)}%</b></td>
         <td class="b">${expo(nv)}</td><td>${nv && nv.price ? won(nv.price) : '<span class="muted">-</span>'}</td><td>${low}</td>
         <td class="b">${rev(cp)}</td><td>${rev(nv)}</td></tr>`;
@@ -775,7 +776,7 @@ function renderItems(d) {
     $('onlyCpTbl').innerHTML = keys.length
       ? `<thead><tr><th class="l">상품</th><th>쿠팡 매출</th><th>네이버 매출</th><th>네이버 ÷ 쿠팡</th>
            <th class="b">네이버쇼핑 노출</th><th>네이버 노출가</th><th>가격비교 최저가</th><th class="b">쿠팡 후기</th><th>네이버 후기</th></tr></thead><tbody>
-         <tr class="sum"><td class="l">합계</td><td>${won(tc)}</td><td>${won(tn)}</td><td>${tc ? (tn / tc * 100).toFixed(0) + '%' : ''}</td><td class="b" colspan="5" style="text-align:left;font-weight:600;color:#94a3b8">${META_AT ? '네이버쇼핑·후기 확인 ' + hm(META_AT) : '네이버쇼핑·후기 아직 없음'}</td></tr>${body}</tbody>`
+         <tr class="sum"><td class="l">합계</td><td>${won(tc)}</td><td>${won(tn)}</td><td>${tc ? (tn / tc * 100).toFixed(0) + '%' : ''}</td><td class="b" colspan="5" style="text-align:left;font-weight:600;color:#94a3b8">${META_AT ? '네이버쇼핑 노출 확인 ' + hm(META_AT) : '네이버쇼핑 노출 확인 아직 없음'}</td></tr>${body}</tbody>`
       : '<tr><td class="l muted">쿠팡보다 네이버가 덜 팔린 상품이 없습니다.</td></tr>';
     $('onlyCpPill').textContent = keys.length + '개';
   }
@@ -786,6 +787,32 @@ function renderItems(d) {
 // 맨 위: 평균 매출 · 평균 광고비 · 현재 매출 · 현재 광고비 · 일 목표(2,500만) / 아래: 쿠팡 전체 매출의 상품별 비중
 const COUPANG_DAILY_TARGET = 25000000;
 const CP_OPEN = new Set();   // 쿠팡 탭에서 펼쳐 둔 상품 줄
+// 메타 광고 뱃지 — 쿠팡 탭 상품표와 「쿠팡에서 팔리는데 네이버에선…」 표가 같이 쓴다(11/25)
+function metaMarks(keys, rows) {
+  const MK = metaByKey();
+  // 규칙에 안 걸린 상품(「· 이름」 줄)은 상품명에서 이어진 두 낱말(브랜드·숫자 빼고, 예: 「패딩볼륨」「볼륨복원」)이 광고 이름에 있으면 같은 상품으로 본다
+  const BRAND_W = /^(\[.*\]|코드니처|슬로우케어|빠이러스|미니멀룸|그로우뮤즈|글로리핏|명퉤|잠비에|라스마|멜루션|폴크|원조)$/;
+  const addMeta = (k, a) => { const o = (MK[k] ||= { ads: [], spend: 0 }); if (!o.ads.includes(a)) { o.ads.push(a); o.spend += +a.spend_7d || 0; } };
+  const fullOf = k => Object.keys(rows[k]['쿠팡']?.prod || {}).join(' ') || k;
+  (MK._rest || []).forEach(a => {
+    const t = squash([a.campaign_name, a.adset_name, a.ad_name].join(' '));
+    const brand = (a.channel || '').replace(/^메타\s*/, ''), br = squash((a.campaign_name.match(/^\s*\[([^\]]+)\]/) || [])[1] || '');
+    keys.filter(k => !k.startsWith('그 외')).forEach(k => {
+      // ① 「[제습]」처럼 짧은 캠페인 낱말 + 브랜드(라스마)가 둘 다 상품명에 있으면 (squash 는 앞의 「코드니처」를 떼므로 여기선 공백만 뺀다)
+      const nos = x => String(x || '').replace(/\s+/g, ''), f = nos(fullOf(k)), b = nos(brand);
+      if (br && b && f.includes(b) && f.includes(br)) return addMeta(k, a);
+      // ② 규칙에 안 걸린 상품: 상품명의 이어진 두 낱말(브랜드·숫자 빼고, 예: 「통풍케어」)이 광고 이름에 있으면
+      if (!k.startsWith('· ')) return;
+      const w = plainName(k.slice(2)).split(/\s+/).filter(x => x && !BRAND_W.test(x) && !/[\d+]/.test(x));
+      for (let i = 0; i + 1 < w.length; i++) if ((w[i] + w[i + 1]).length >= 4 && t.includes(w[i] + w[i + 1])) return addMeta(k, a);
+    });
+  });
+  const metaBadge = k => { const m = MK[k]; if (!m) return '';
+    const tip = `메타 광고 ${m.ads.length}개 켜짐 · 최근 7일 ${won(m.spend)}원(VAT 별도)\n` + m.ads.slice(0, 8).map(a => '· ' + (a.campaign_name ? a.campaign_name + ' › ' : '') + a.ad_name).join('\n');
+    return `<span class="meta-badge" title="${esc(tip)}">메타</span>`; };
+  return { MK, metaBadge };
+}
+
 function renderCoupang(d, rows) {
   const cur = dayTotals(d)['쿠팡'];
   const past = []; for (let i = 1; i <= 7; i++) { const x = addDays(d, -i); const t = cache[x] && dayTotals(x)['쿠팡']; if (t && t.sales != null) past.push(t); }
@@ -840,27 +867,7 @@ function renderCoupang(d, rows) {
       <span class="muted">확인 ${hm(m.checked_at)}</span></div>`;
   };
   // 메타 광고 뱃지(11/12 사용자 요청) — 지금 켜진 메타 광고 이름이 이 상품 규칙에 걸리면 상품명 왼쪽에
-  const MK = metaByKey();
-  // 규칙에 안 걸린 상품(「· 이름」 줄)은 상품명에서 이어진 두 낱말(브랜드·숫자 빼고, 예: 「패딩볼륨」「볼륨복원」)이 광고 이름에 있으면 같은 상품으로 본다
-  const BRAND_W = /^(\[.*\]|코드니처|슬로우케어|빠이러스|미니멀룸|그로우뮤즈|글로리핏|명퉤|잠비에|라스마|멜루션|폴크|원조)$/;
-  const addMeta = (k, a) => { const o = (MK[k] ||= { ads: [], spend: 0 }); if (!o.ads.includes(a)) { o.ads.push(a); o.spend += +a.spend_7d || 0; } };
-  const fullOf = k => Object.keys(rows[k]['쿠팡']?.prod || {}).join(' ') || k;
-  (MK._rest || []).forEach(a => {
-    const t = squash([a.campaign_name, a.adset_name, a.ad_name].join(' '));
-    const brand = (a.channel || '').replace(/^메타\s*/, ''), br = squash((a.campaign_name.match(/^\s*\[([^\]]+)\]/) || [])[1] || '');
-    keys.filter(k => !k.startsWith('그 외')).forEach(k => {
-      // ① 「[제습]」처럼 짧은 캠페인 낱말 + 브랜드(라스마)가 둘 다 상품명에 있으면 (squash 는 앞의 「코드니처」를 떼므로 여기선 공백만 뺀다)
-      const nos = x => String(x || '').replace(/\s+/g, ''), f = nos(fullOf(k)), b = nos(brand);
-      if (br && b && f.includes(b) && f.includes(br)) return addMeta(k, a);
-      // ② 규칙에 안 걸린 상품: 상품명의 이어진 두 낱말(브랜드·숫자 빼고, 예: 「통풍케어」)이 광고 이름에 있으면
-      if (!k.startsWith('· ')) return;
-      const w = plainName(k.slice(2)).split(/\s+/).filter(x => x && !BRAND_W.test(x) && !/[\d+]/.test(x));
-      for (let i = 0; i + 1 < w.length; i++) if ((w[i] + w[i + 1]).length >= 4 && t.includes(w[i] + w[i + 1])) return addMeta(k, a);
-    });
-  });
-  const metaBadge = k => { const m = MK[k]; if (!m) return '';
-    const tip = `메타 광고 ${m.ads.length}개 켜짐 · 최근 7일 ${won(m.spend)}원(VAT 별도)\n` + m.ads.slice(0, 8).map(a => '· ' + (a.campaign_name ? a.campaign_name + ' › ' : '') + a.ad_name).join('\n');
-    return `<span class="meta-badge" title="${esc(tip)}">메타</span>`; };
+  const { MK, metaBadge } = metaMarks(keys, rows);
   const metaLine = k => { const m = MK[k];
     if (META_ADS == null) return '';
     return m ? `<span><b style="color:#1d4ed8">메타 광고 ${m.ads.length}개 켜짐</b> <span class="muted">최근 7일 ${won(m.spend)}원 · ${esc((cs => cs.slice(0, 3).join(', ') + (cs.length > 3 ? ' 외 ' + (cs.length - 3) : ''))([...new Set(m.ads.map(a => (a.campaign_name || a.ad_name).replace(/(\s*-\s*사본)+\s*$/, '')))]))}</span></span>`
