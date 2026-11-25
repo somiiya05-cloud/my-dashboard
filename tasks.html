@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>업무관리 · 영업팀</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- 영업계획실행보드 — 실시간 매출 화면(live-sales.html)과 같이 쓰는 한 벌 -->
+<script src="sales-plan.js?v=1"></script>
 <style>
   * { box-sizing: border-box; }
   /* 폼 컨트롤은 기본값으로 되돌아가므로 전역 폰트를 명시적으로 물려받게 합니다. */
@@ -3262,6 +3264,8 @@
   const SUPABASE_URL = 'https://fwsszzjfjktliredmjcn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_uE-8s2DbZBUSs0z1uQ-nIA_za2Ah3uT';
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  // 영업계획실행보드에 같은 연결을 넘겨 둡니다.
+  if (window.SalesPlan) window.SalesPlan.init(client);
 
   // 매출 데이터(sales_transactions)는 이 화면에서 쓰지 않습니다. 그래서 받지 않습니다.
   // 원래 대시보드는 열 때마다 10만 행(20MB)을 받느라 10초 넘게 걸렸습니다.
@@ -7316,6 +7320,17 @@
   window.tdGoProject = tdGoProject;
 
   // ---- 그리기 ----
+  // 영업계획실행보드는 매출을 받아와야 해서, 현황판을 다 그린 뒤에 채웁니다.
+  function mountSalesPlanBoard() {
+    const box = document.getElementById('salesPlanBoard');
+    if (!box) return;
+    if (!window.SalesPlan) {
+      box.innerHTML = '<div class="td-empty">영업계획실행보드를 불러오지 못했습니다 (sales-plan.js).</div>';
+      return;
+    }
+    window.SalesPlan.mountBoard(box);
+  }
+
   function renderTeamDash() {
     const root = document.getElementById('teamDashBody');
     if (!root) return;
@@ -7399,6 +7414,7 @@
       </div>`;
 
     root.innerHTML = `
+      <section class="panel td-w" id="salesPlanBoard" style="margin-bottom:16px;"></section>
       <section class="panel td-w" style="margin-bottom:16px;">
         <div class="panel-head"><h2>진행 일정</h2><span class="panel-note">여러 날에 걸친 업무만</span></div>
         ${tdGanttHtml()}
@@ -7421,6 +7437,7 @@
           ${feedHtml}
         </section>
       </div>`;
+    mountSalesPlanBoard();
   }
 
   // ==================== 긴급 확인 메모지 ====================

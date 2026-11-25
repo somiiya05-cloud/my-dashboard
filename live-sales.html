@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- 영업계획실행보드 — 팀 대시보드(tasks.html)와 같이 쓰는 한 벌 -->
+<script src="sales-plan.js?v=1"></script>
 <style>
   * { box-sizing: border-box; }
   input, select, button { font-family: inherit; }
@@ -228,6 +230,8 @@
 
 <script>
 const db = window.supabase.createClient('https://fwsszzjfjktliredmjcn.supabase.co', 'sb_publishable_uE-8s2DbZBUSs0z1uQ-nIA_za2Ah3uT');
+// 영업계획실행보드에 같은 연결을 넘겨 둡니다 (팀 대시보드와 같은 표를 씁니다).
+if (window.SalesPlan) window.SalesPlan.init(db);
 const MALLS = ['쿠팡', '네이버', '오늘의집', 'G마켓'];   // 화면 칸 순서 (쿠팡 먼저 — 사용자 요청)
 const VAT = 1.1;
 // 외부 광고 리포트(cpc_ad_rows)의 몰 이름 → 매출이 잡히는 몰
@@ -699,6 +703,14 @@ function dbOnlyCards(d) {
   }
 }
 
+// 판매계획에 적을 네이버 노출 종류 — 표에 쓰는 expo() 와 같은 기준입니다.
+function nvKind(m) {
+  if (!m) return null;
+  if (m.rank && /^(코드니처|슬로우케어|빠이러스|미니멀룸|잠비에|명퉤|그로우뮤즈|글로리핏|멜루션|라이프스타일마트)\s/.test(m.query || '')) return '브랜드';
+  if (m.rank) return '일반';
+  return m.ad_only ? '광고만' : '미노출';
+}
+
 function renderItems(d) {
   const { rows } = buildItems([d]);
   const total = k => MALLS.reduce((t, m) => t + (rows[k][m]?.sales || 0), 0);
@@ -745,6 +757,11 @@ function renderItems(d) {
   document.querySelectorAll('.prod-card').forEach(el => el.style.display = hide ? 'none' : '');
   if (cpv) renderCoupang(d, rows);
   if (solo) {
+    // 그날 이미 세운 판매계획 — 받아온 뒤 표를 한 번 더 그려 단추 글씨를 바꿉니다.
+    if (window.SalesPlan && PLANNED_FOR !== d) {
+      PLANNED_FOR = d;
+      SalesPlan.plannedOn(d).then((set) => { PLANNED = set; if (BRAND === '단독') renderItems(d); });
+    }
     const v = (k, m, f) => rows[k][m]?.[f] || 0;
     const nameOf = k => { const r = rows[k]; const top = Object.entries(r._n || {}).sort((x, y) => y[1] - x[1])[0];
       const full = k.startsWith('◆ ') || k.startsWith('· ') ? k.slice(2) : top ? top[0] : k;
@@ -775,15 +792,31 @@ function renderItems(d) {
       const fs = Object.entries(rows[k]['네이버']?.fromSets || {}).sort((x, y) => y[1] - x[1]);
       const nTip = fs.length ? '세트에서 나눠 넣은 매출 ' + won(fs.reduce((t, [, x]) => t + x, 0)) + '원 — ' + fs.map(([b, x]) => b + ' ' + won(x)).join(' · ') : '';
       const low = nv && nv.low_price ? `${won(nv.low_price)}${nv.low_store ? ` <span class="muted">${esc(nv.low_store)}</span>` : ''}` : '<span class="muted">-</span>';
+      // 작성 패널이 바로 쓸 수 있게 이 줄의 매출 근거를 넘겨 둡니다.
+      const setSum = fs.reduce((t, [, x]) => t + x, 0);
+      if (window.SalesPlan) window.SalesPlan.seed(d, full, {
+        cp_sales: c, nv_sales: n, nv_set_sales: setSum || null,
+        nv_rank: nv ? nv.rank : null, nv_rank_kind: nvKind(nv), nv_query: nv ? nv.query : null,
+        nv_price: nv ? nv.price : null, cp_price: cs ? cs.price : null,
+        low_price: nv ? nv.low_price : null, low_store: nv ? nv.low_store : null,
+        cp_review: cp ? cp.review_count : null, nv_review: nv ? nv.review_count : null,
+      });
+      // 쿠팡 매출이 0원이면 나눌 수가 없습니다.
+      const ratio = c > 0 ? `<b>${(n / c * 100).toFixed(0)}%</b>` : '<span class="muted">산출 불가</span>';
+      const planned = PLANNED.has(full);
       return `<tr><td class="l name" title="${esc(full)}${nv ? ' · 네이버 검색어: ' + esc(nv.query) : ''}">${metaBadge(k)}<b>${esc(name)}</b></td><td>${won(c)}</td>
-        <td${nTip ? ` title="${esc(nTip)}"` : ''}>${n ? won(n) + (fs.length ? '<sup style="color:#2563eb">세트</sup>' : '') : '<span class="muted">0</span>'}</td><td><b>${(n / c * 100).toFixed(0)}%</b></td>
+        <td${nTip ? ` title="${esc(nTip)}"` : ''}>${n ? won(n) + (fs.length ? '<sup style="color:#2563eb">세트</sup>' : '') : '<span class="muted">0</span>'}</td><td>${ratio}</td>
         <td class="b">${k.startsWith('그 외') ? '<span class="muted">-</span>' : expo(nv)}</td><td>${nv && nv.price ? won(nv.price) : '<span class="muted">-</span>'}</td><td${cs ? ` title="쿠팡 검색 「${esc(cs.query)}」 확인 ${hm(cs.checked_at)}"` : ''}>${cs && cs.price ? won(cs.price) : '<span class="muted">-</span>'}</td><td>${low}</td>
-        <td class="b">${rev(cp)}</td><td>${rev(nv)}</td></tr>`;
+        <td class="b">${rev(cp)}</td><td>${rev(nv)}</td>
+        <td class="b"><button type="button" class="sp-btn${planned ? '' : ' ghost'}" data-p="${esc(full)}"
+          style="padding:3px 9px;font-size:11px;white-space:nowrap"
+          onclick="SalesPlan.open({date:'${d}',product:this.dataset.p,onSaved:function(){renderItems('${d}')}})"
+          >${planned ? '계획 보기' : '판매계획 작성'}</button></td></tr>`;
     }).join('');
     $('onlyCpTbl').innerHTML = keys.length
-      ? `<thead><tr><th class="l">상품</th><th>쿠팡 매출</th><th>네이버 매출</th><th>네이버 ÷ 쿠팡</th>
-           <th class="b">네이버쇼핑 노출</th><th>네이버 노출가</th><th>쿠팡 노출가</th><th>가격비교 최저가</th><th class="b">쿠팡 후기</th><th>네이버 후기</th></tr></thead><tbody>
-         <tr class="sum"><td class="l">합계</td><td>${won(tc)}</td><td>${won(tn)}</td><td>${tc ? (tn / tc * 100).toFixed(0) + '%' : ''}</td><td class="b" colspan="6" style="text-align:left;font-weight:600;color:#94a3b8">${META_AT ? '네이버쇼핑 노출 확인 ' + hm(META_AT) : '네이버쇼핑 노출 확인 아직 없음'}</td></tr>${body}</tbody>`
+      ? `<thead><tr><th class="l">상품</th><th>쿠팡 매출</th><th>네이버 매출</th><th title="네이버 ÷ 쿠팡">채널 매출 비율</th>
+           <th class="b">네이버쇼핑 노출</th><th>네이버 노출가</th><th>쿠팡 노출가</th><th>가격비교 최저가</th><th class="b">쿠팡 후기</th><th>네이버 후기</th><th class="b">판매계획</th></tr></thead><tbody>
+         <tr class="sum"><td class="l">합계</td><td>${won(tc)}</td><td>${won(tn)}</td><td>${tc ? (tn / tc * 100).toFixed(0) + '%' : '산출 불가'}</td><td class="b" colspan="7" style="text-align:left;font-weight:600;color:#94a3b8">${META_AT ? '네이버쇼핑 노출 확인 ' + hm(META_AT) : '네이버쇼핑 노출 확인 아직 없음'}</td></tr>${body}</tbody>`
       : '<tr><td class="l muted">이 날짜에 쿠팡에서 팔린 상품이 없습니다.</td></tr>';
     $('onlyCpPill').textContent = keys.length + '개';
   }
@@ -792,6 +825,8 @@ function renderItems(d) {
 
 // ---------- 쿠팡 탭 (11/11 사용자 요청) ----------
 // 맨 위: 평균 매출 · 평균 광고비 · 현재 매출 · 현재 광고비 · 일 목표(2,500만) / 아래: 쿠팡 전체 매출의 상품별 비중
+// 그날 이미 판매계획이 있는 상품 이름 — 단추 글씨를 바꾸는 데만 씁니다.
+let PLANNED = new Set(), PLANNED_FOR = '';
 const COUPANG_DAILY_TARGET = 25000000;
 const CP_OPEN = new Set();   // 쿠팡 탭에서 펼쳐 둔 상품 줄
 // 메타 광고 뱃지 — 쿠팡 탭 상품표와 「쿠팡에서 팔리는데 네이버에선…」 표가 같이 쓴다(11/25)
