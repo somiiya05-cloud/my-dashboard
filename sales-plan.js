@@ -318,7 +318,7 @@
 .sp-period textarea:focus { outline: none; border-color: #4d7cfe; box-shadow: 0 0 0 3px rgba(77,124,254,.12); }
 .sp-period textarea::placeholder { color: #c3cbd9; }
 /* 메타 상품이 18줄쯤 들어가므로 이 칸만 더 높입니다. */
-.sp-f.has-meta textarea { min-height: 112px; }
+.sp-f.has-meta textarea, .sp-f.has-sales textarea { min-height: 112px; }
 .sp-meta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .sp-meta-t { width: 100%; font-size: 11.5px; color: #64748b; font-weight: 700; display: flex; align-items: center; gap: 7px; }
 .sp-meta-chip { border: 1px solid #dbe3ef; background: #f8fafc; border-radius: 999px; padding: 3px 10px;
@@ -805,7 +805,7 @@
     week: {
       label: '주간 기획안', unit: '주차',
       fields: [
-        ['last', '이번주 채널별 실적'], ['focus', '집중 상품', 0, 'meta'],
+        ['last', '이번주 채널별 실적', 0, 'sales'], ['focus', '집중 상품', 0, 'meta'],
         ['cp', '쿠팡 운영안'], ['nv', '네이버 테스트안'],
         ['check', '검증 기간 · 성공 기준'], ['result', '결과'],
         ['next', '차주 판단', 1],
@@ -837,6 +837,105 @@
       ],
     },
   };
+
+  // ---- 이번주 영업팀 채널별 실적 ------------------------------------------
+  // 영업팀 매출 = 매출DB 중 자사몰·카카오선물하기·오프라인·컨텐츠팀 판매처를 뺀 것.
+  // live-sales.html 의 EXCLUDED_FROM_TEAM, index.html 의 CHANNEL_TEMPLATE(team:false) 와
+  // 같은 기준입니다 — 한쪽을 바꾸면 세 곳을 같이 바꿔야 합니다.
+  const TEAM_EXCLUDED = ['미니멀룸', '글로리핏', '라이프스타일마트', '빠이러스', '그로우뮤즈', 'PORKE.',
+    '명퉤', '명퉤(해외)', '잠비에', '멜루션', '코드니처', '슬로우케어',
+    '카카오선물하기(개인)', '카카오선물하기(개인)_폴크', '명퉤 경주 황리단길 본점',
+    '공동구매(컨텐츠팀)', 'CONTENTS_DEAL'];
+  const teamExcluded = (v) => TEAM_EXCLUDED.includes(v) || String(v || '').includes('공동구매(컨텐츠');
+
+  // 판매처 → 채널 묶음. index.html CHANNEL_TEMPLATE 의 구분과 같게 둡니다.
+  const CH_GROUP = {};
+  [
+    ['종합몰', ['오늘의집(미니멀룸)', '오늘의집(PORKE)', '오늘의집(잠비에)', '오늘의집(코드니처)', '오늘의집(슬로우케어)',
+      '무신사(PORKE)', 'W컨셉(PORKE)', '29CM(PORKE)', '텐바이텐', '교보핫트랙스', '아트박스(종합몰)',
+      '신세계', '이마트', '롯데홈쇼핑(아이몰)', '롯데하이마트', 'CJ몰(법인)', 'LF몰(법인)', 'LGE', '올리브영', 'GS SHOP']],
+    ['폐쇄몰', ['SK컴즈_세이아(법인)', '그립', '에이블리', 'SKT_T-DEAL(폐쇄몰)', '원룸만들기(개인)', '원룸만들기',
+      '리빙픽', '지그재그(PORKE)', '지그재그', '하이버(자동_법인)', '제이슨그룹', '브랜디(라이프)', '토스']],
+    ['오픈마켓', ['롯데ON(법인)', 'G마켓(법인)', 'G마켓', '옥션(법인)', '옥션', '알리익스프레스(자동)', '11번가']],
+    ['수출', ['대만 VAULT VISION', '수출(대만)', '노마드웍스']],
+    ['직매입', ['올리브영(직매입)', '그린종합상사', '옵티젠_제습서버', '제이허브', '엠알엔컴퍼니(개인사업자)',
+      '까르멘 기프트', '브이벨', '두진에이앤씨(가글캔디)']],
+  ].forEach(([g, vs]) => vs.forEach((v) => { CH_GROUP[v] = g; }));
+
+  // 위 목록에 없는 새 계정(「무신사(명퉤)」처럼)은 앞글자로 가립니다.
+  // 「올리브영(직매입)」같이 같은 이름이 두 채널에 걸치는 것은 위 목록에서 먼저 잡힙니다.
+  const CH_PREFIX = [['오늘의집', '종합몰'], ['무신사', '종합몰'], ['W컨셉', '종합몰'], ['29CM', '종합몰'],
+    ['아트박스', '종합몰'], ['텐바이텐', '종합몰'], ['교보핫트랙스', '종합몰'],
+    ['지그재그', '폐쇄몰'], ['원룸만들기', '폐쇄몰'], ['하이버', '폐쇄몰'], ['브랜디', '폐쇄몰'], ['그립', '폐쇄몰'],
+    ['G마켓', '오픈마켓'], ['옥션', '오픈마켓'], ['롯데ON', '오픈마켓'], ['알리익스프레스', '오픈마켓'], ['11번가', '오픈마켓'],
+    ['수출', '수출']];
+
+  function teamChannelOf(vendor) {
+    const v = String(vendor || '');
+    if (v.indexOf('쿠팡') === 0) return '쿠팡';
+    if (v.indexOf('스토어팜') === 0 || v === '빠이러스(도착보장)') return '스마트스토어';
+    if (/공동구매/.test(v) || v === '요고몰') return '공동구매';
+    if (CH_GROUP[v]) return CH_GROUP[v];
+    const pre = CH_PREFIX.find(([w]) => v.indexOf(w) === 0);
+    return pre ? pre[1] : '그 외';
+  }
+
+  // 그 주의 확정 매출을 채널별로 모읍니다. 확정된 날만 셉니다(매출DB는 전일 마감).
+  async function loadTeamWeek(from, to) {
+    const { data, error } = await allRows(() => db.from('sales_daily_rollup').select('sale_date,vendor,amount')
+      .gte('sale_date', from).lte('sale_date', to)
+      .order('sale_date').order('vendor').order('brand').order('product_name'));
+    if (error) return { err: error.message, rows: [], days: [], total: 0 };
+    const by = {}, days = new Set();
+    let total = 0;
+    (data || []).forEach((r) => {
+      days.add(r.sale_date);
+      if (teamExcluded(r.vendor)) return;
+      const g = teamChannelOf(r.vendor), n = Number(r.amount || 0);
+      by[g] = (by[g] || 0) + n;
+      total += n;
+    });
+    const rows = Object.entries(by).filter(([, n]) => n).sort((x, y) => y[1] - x[1]);
+    return { rows, days: [...days].sort(), total };
+  }
+
+  // 「이번주 채널별 실적」 칸에 적을 글. 날짜·채널·합계·목표 대비까지 한 덩이로.
+  const DAY_TARGET = 33330000;   // 일 3,333만원 — 어느 달이든 같습니다(영업팀 월 10억 기준)
+  const md = (d) => Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10));
+
+  function weekSalesText(w, from, to) {
+    if (w.err) return '';
+    if (!w.days.length) return md(from) + '~' + md(to) + ' · 아직 확정된 매출이 없습니다(매출DB는 전일 마감).';
+    const a = w.days[0], b = w.days[w.days.length - 1];
+    const head = md(a) + '~' + md(b) + ' 확정 · 영업팀 ' + man(w.total) + '원';
+    const list = w.rows.map(([g, n]) => g + ' ' + man(n) + '원 (' + Math.round(n / w.total * 100) + '%)');
+    const dayGoal = DAY_TARGET * w.days.length;
+    const tail = [w.days.length >= 7
+      ? '주 목표 ' + man(DAY_TARGET * 7) + '원 대비 ' + Math.round(w.total / (DAY_TARGET * 7) * 100) + '%'
+      : '확정 ' + w.days.length + '일 목표 ' + man(dayGoal) + '원 대비 '
+        + Math.round(w.total / dayGoal * 100) + '% · 주 목표 ' + man(DAY_TARGET * 7) + '원 대비 '
+        + Math.round(w.total / (DAY_TARGET * 7) * 100) + '%'];
+    if (b < to) tail.push(md(addDays(b, 1)) + '~' + md(to) + ' 는 아직 확정 전입니다(매출DB는 전일 마감).');
+    return [head, ...list, '', ...tail].join('\n');
+  }
+
+  let weekSalesLast = '';   // 자동으로 넣어 둔 글 — 사용자가 고쳐 쓴 글은 덮지 않습니다.
+
+  async function fillWeekSales(fieldId, period) {
+    const box = el('spWeekSales');
+    const ta = el(fieldId);
+    if (!box || !ta) return;
+    const [from, to] = periodRange('week', period);
+    const w = await loadTeamWeek(from, to);
+    if (w.err) { box.innerHTML = '<span class="sp-na">매출DB를 못 읽었습니다 — ' + esc(w.err) + '</span>'; return; }
+    const text = weekSalesText(w, from, to);
+    if (!ta.value.trim() || ta.value.trim() === weekSalesLast) { ta.value = text; weekSalesLast = text; }
+    box.innerHTML =
+      '<div class="sp-meta-t">' + esc(md(from) + '~' + md(to))
+      + (w.days.length ? ' · ' + esc(md(w.days[w.days.length - 1])) + ' 까지 확정' : ' · 확정 매출 없음')
+      + ' · 매출DB 기준(자사몰·카카오선물하기·오프라인·컨텐츠팀 뺀 영업팀 매출)'
+      + ' <button type="button" class="sp-btn ghost" onclick="SalesPlan.weekSales(\'' + fieldId + '\',\'' + esc(period) + '\')">다시 넣기</button></div>';
+  }
 
   // ---- 지금 켜진 메타 광고 ------------------------------------------------
   // meta_active_ads 는 api/sync-meta-ads.js 가 매일 아침 통째로 바꿔 넣습니다.
@@ -970,6 +1069,8 @@
     setTimeout(() => fillLinked(kind, row), 0);
     const metaField = (F.fields.find(([, , , tag]) => tag === 'meta') || [])[0];
     if (metaField) setTimeout(() => fillMeta('spp_' + metaField), 0);
+    const salesField = (F.fields.find(([, , , tag]) => tag === 'sales') || [])[0];
+    if (salesField) setTimeout(() => fillWeekSales('spp_' + salesField, row.period), 0);
     return `
       ${err}
       <div class="sp-head" style="margin-bottom:10px">
@@ -981,9 +1082,10 @@
       </div>
       <div class="sp-period">
         ${F.fields.map(([k, label, wide, tag]) => `
-          <label class="sp-f${wide ? ' wide' : ''}${tag === 'meta' ? ' has-meta' : ''}"><span>${label}</span>
+          <label class="sp-f${wide ? ' wide' : ''}${tag ? ' has-' + tag : ''}"><span>${label}</span>
             <textarea id="spp_${k}">${esc(d[k] || '')}</textarea>
-            ${tag === 'meta' ? '<div class="sp-meta" id="spMeta"><span class="sp-na">메타 광고 보는 중…</span></div>' : ''}</label>`).join('')}
+            ${tag === 'meta' ? '<div class="sp-meta" id="spMeta"><span class="sp-na">메타 광고 보는 중…</span></div>' : ''}
+            ${tag === 'sales' ? '<div class="sp-meta" id="spWeekSales"><span class="sp-na">매출 보는 중…</span></div>' : ''}</label>`).join('')}
         <div class="sp-f wide"><span>연결한 상품 판매계획 — 검증 결과와 다음 판단을 같이 봅니다</span>
           <div class="sp-linked" id="spLinked"><span class="sp-na">불러오는 중…</span></div>
         </div>
@@ -1048,6 +1150,14 @@
     week(period) { weekSel = period; render(); },
     async metaAdd(fieldId, i) { const m = await loadMetaAds(); metaPut(fieldId, [m.list[i]].filter(Boolean)); },
     async metaAll(fieldId) { const m = await loadMetaAds(); metaPut(fieldId, m.list); },
+    // 「다시 넣기」 — 고쳐 쓴 글이 있으면 물어보고 덮습니다.
+    async weekSales(fieldId, period) {
+      const ta = el(fieldId);
+      if (ta && ta.value.trim() && ta.value.trim() !== weekSalesLast
+        && !confirm('적어 두신 글을 매출로 덮어씁니다. 그대로 할까요?')) return;
+      if (ta) weekSalesLast = ta.value.trim();
+      await fillWeekSales(fieldId, period);
+    },
     // 주간 탭에서 달을 넘깁니다 (고른 주차는 그 달의 1주차로).
     month(n) {
       const [y, m] = boardDate.slice(0, 7).split('-').map(Number);
