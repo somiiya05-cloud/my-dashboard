@@ -754,7 +754,7 @@ function renderItems(d) {
       const prod = rows[k]['쿠팡']?.prod || {};
       const by = {}; Object.entries(prod).forEach(([n, x]) => { const b = n.split(', ')[0].trim(); by[b] = (by[b] || 0) + x; });
       const base = Object.keys(by).sort((a, b) => by[b] - by[a])[0];
-      return { cp: META['쿠팡|' + base], nv: META['네이버쇼핑|' + base] };
+      return { cp: META['쿠팡|' + base], nv: META['네이버쇼핑|' + base], cs: META['쿠팡검색|' + base] };
     };
     const rev = m => m && m.review_count != null ? `${won(m.review_count)}${m.rating ? ` <span class="muted">★${(+m.rating).toFixed(1)}</span>` : ''}` : '<span class="muted">-</span>';
     const expo = nv => !nv ? '<span class="muted">미확인</span>'
@@ -767,19 +767,19 @@ function renderItems(d) {
     const body = keys.map(k => {
       const c = v(k, '쿠팡', 'sales'), n = v(k, '네이버', 'sales'); tc += c; tn += n;
       const [full, name] = nameOf(k);
-      const { cp, nv } = metaOf(k);
+      const { cp, nv, cs } = metaOf(k);
       const fs = Object.entries(rows[k]['네이버']?.fromSets || {}).sort((x, y) => y[1] - x[1]);
       const nTip = fs.length ? '세트에서 나눠 넣은 매출 ' + won(fs.reduce((t, [, x]) => t + x, 0)) + '원 — ' + fs.map(([b, x]) => b + ' ' + won(x)).join(' · ') : '';
       const low = nv && nv.low_price ? `${won(nv.low_price)}${nv.low_store ? ` <span class="muted">${esc(nv.low_store)}</span>` : ''}` : '<span class="muted">-</span>';
       return `<tr><td class="l name" title="${esc(full)}${nv ? ' · 네이버 검색어: ' + esc(nv.query) : ''}">${metaBadge(k)}<b>${esc(name)}</b></td><td>${won(c)}</td>
         <td${nTip ? ` title="${esc(nTip)}"` : ''}>${n ? won(n) + (fs.length ? '<sup style="color:#2563eb">세트</sup>' : '') : '<span class="muted">0</span>'}</td><td><b>${(n / c * 100).toFixed(0)}%</b></td>
-        <td class="b">${expo(nv)}</td><td>${nv && nv.price ? won(nv.price) : '<span class="muted">-</span>'}</td><td>${low}</td>
+        <td class="b">${expo(nv)}</td><td>${nv && nv.price ? won(nv.price) : '<span class="muted">-</span>'}</td><td${cs ? ` title="쿠팡 검색 「${esc(cs.query)}」 확인 ${hm(cs.checked_at)}"` : ''}>${cs && cs.price ? won(cs.price) : '<span class="muted">-</span>'}</td><td>${low}</td>
         <td class="b">${rev(cp)}</td><td>${rev(nv)}</td></tr>`;
     }).join('');
     $('onlyCpTbl').innerHTML = keys.length
       ? `<thead><tr><th class="l">상품</th><th>쿠팡 매출</th><th>네이버 매출</th><th>네이버 ÷ 쿠팡</th>
-           <th class="b">네이버쇼핑 노출</th><th>네이버 노출가</th><th>가격비교 최저가</th><th class="b">쿠팡 후기</th><th>네이버 후기</th></tr></thead><tbody>
-         <tr class="sum"><td class="l">합계</td><td>${won(tc)}</td><td>${won(tn)}</td><td>${tc ? (tn / tc * 100).toFixed(0) + '%' : ''}</td><td class="b" colspan="5" style="text-align:left;font-weight:600;color:#94a3b8">${META_AT ? '네이버쇼핑 노출 확인 ' + hm(META_AT) : '네이버쇼핑 노출 확인 아직 없음'}</td></tr>${body}</tbody>`
+           <th class="b">네이버쇼핑 노출</th><th>네이버 노출가</th><th>쿠팡 노출가</th><th>가격비교 최저가</th><th class="b">쿠팡 후기</th><th>네이버 후기</th></tr></thead><tbody>
+         <tr class="sum"><td class="l">합계</td><td>${won(tc)}</td><td>${won(tn)}</td><td>${tc ? (tn / tc * 100).toFixed(0) + '%' : ''}</td><td class="b" colspan="6" style="text-align:left;font-weight:600;color:#94a3b8">${META_AT ? '네이버쇼핑 노출 확인 ' + hm(META_AT) : '네이버쇼핑 노출 확인 아직 없음'}</td></tr>${body}</tbody>`
       : '<tr><td class="l muted">쿠팡보다 네이버가 덜 팔린 상품이 없습니다.</td></tr>';
     $('onlyCpPill').textContent = keys.length + '개';
   }
