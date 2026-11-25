@@ -112,9 +112,8 @@
   /* 광고비중 신호등: 20% 이상 빨강, 15~19% 노랑, 10% 초과~15% 미만 초록, 10% 이하 파랑 */
   .r-hi { color: #dc2626; font-weight: 800; }
   .r-warn { color: #eab308; font-weight: 800; }   /* 15~19% 노란불 */
-  .r-mid { color: #16a34a; font-weight: 700; }
-  .r-lo { color: #2563eb; font-weight: 700; }
-  .r-hi::before, .r-warn::before, .r-mid::before, .r-lo::before { content: '●'; margin-right: 4px; font-size: 10px; vertical-align: 1px; }
+  .r-mid, .r-lo { color: #0f172a; font-weight: 700; }   /* 11/25: 빨강·노랑만 색 표시, 나머지는 검정 */
+  .r-hi::before, .r-warn::before { content: '●'; margin-right: 4px; font-size: 10px; vertical-align: 1px; }
   .brands { display: flex; flex-wrap: wrap; gap: 4px 26px; border-bottom: 1px solid #e5e7eb; margin: 0 0 16px; padding: 0 4px; }
   .brand { background: none; border: none; padding: 10px 2px; font-size: 16px; font-weight: 700; color: #475569; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
   .brand small { font-size: 13.5px; color: #94a3b8; font-weight: 600; margin-left: 6px; }
