@@ -79,12 +79,30 @@
   // 자료 읽기
   // =========================================================================
 
+  // 서버가 한 번에 1000줄까지만 주므로 나눠 받습니다.
+  // 정렬을 정해두지 않으면 쪽이 넘어갈 때 줄이 겹치거나 빠져 합계가 틀립니다.
+  const PAGE = 1000;
+  async function allRows(make) {
+    const out = [];
+    for (let i = 0; i < 20; i++) {
+      const { data, error } = await make().range(i * PAGE, (i + 1) * PAGE - 1);
+      if (error) return { data: out, error };
+      out.push(...(data || []));
+      if ((data || []).length < PAGE) break;
+    }
+    return { data: out, error: null };
+  }
+
   // 위쪽 매출 띠 — 전일 확정 · 최근 7일 추이 · 당일 실시간.
   // 확정과 실시간은 섞지 않습니다. 당일 숫자를 확정 매출로 적으면 안 됩니다.
   async function loadTotals(date) {
     const from = addDays(date, -7);
     const [roll, live] = await Promise.all([
-      db.from('sales_daily_rollup').select('sale_date,vendor,amount').gte('sale_date', from).lte('sale_date', date),
+      // 쿠팡·네이버 줄만 받습니다 (매출DB에는 자사몰·공구까지 다 들어 있어 8일이면 1000줄을 넘습니다)
+      allRows(() => db.from('sales_daily_rollup').select('sale_date,vendor,amount')
+        .gte('sale_date', from).lte('sale_date', date)
+        .or('vendor.like.쿠팡*,vendor.like.스토어팜*,vendor.like.스마트스토어*')
+        .order('sale_date').order('vendor').order('brand').order('product_name')),
       db.from('live_sales_totals').select('date,mall,amount,collected_at').gte('date', from).lte('date', date),
     ]);
     const byDay = {};            // 날짜 → {쿠팡, 네이버}
@@ -758,17 +776,32 @@
     return row;
   }
 
+  // 그 달의 마지막 날 — '2026-11-31' 같은 없는 날짜를 물으면 아무것도 안 돌아옵니다.
+  function monthEnd(y, m) {
+    return y + '-' + String(m).padStart(2, '0') + '-' + String(new Date(y, m, 0).getDate());
+  }
+
   // 그 기간에 들어가는 상품 판매계획 — 연결 후보로 보여줍니다.
-  async function plansInPeriod(kind, period) {
-    let from, to;
+  function periodRange(kind, period) {
+    const y = Number(period.slice(0, 4));
+    if (kind === 'quarter') {
+      const q = Number(period.slice(-1));
+      return [y + '-' + String((q - 1) * 3 + 1).padStart(2, '0') + '-01', monthEnd(y, q * 3)];
+    }
+    const m = Number(period.slice(5, 7));
     if (kind === 'week') {
-      const ym = period.slice(0, 7);
-      from = ym + '-01'; to = ym + '-31';
-    } else if (kind === 'quarter') {
-      const y = Number(period.slice(0, 4)), q = Number(period.slice(-1));
-      from = y + '-' + String((q - 1) * 3 + 1).padStart(2, '0') + '-01';
-      to = y + '-' + String(q * 3).padStart(2, '0') + '-31';
-    } else { from = period + '-01'; to = period + '-31'; }
+      // 월요일에 시작하고, 1일이 낀 주가 1주차입니다.
+      const w = Number(period.slice(period.indexOf('W') + 1));
+      const firstDow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+      const monday = new Date(Date.UTC(y, m - 1, 1 - ((firstDow + 6) % 7) + (w - 1) * 7));
+      const a = monday.toISOString().slice(0, 10);
+      return [a, addDays(a, 6)];
+    }
+    return [period + '-01', monthEnd(y, m)];
+  }
+
+  async function plansInPeriod(kind, period) {
+    const [from, to] = periodRange(kind, period);
     const { data } = await db.from('sales_plans').select('id,plan_date,product,status,result,decision,nv_action,cp_plan')
       .gte('plan_date', from).lte('plan_date', to).order('plan_date', { ascending: false });
     return data || [];
