@@ -317,6 +317,14 @@
 .sp-period .sp-f.wide textarea { min-height: 72px; }
 .sp-period textarea:focus { outline: none; border-color: #4d7cfe; box-shadow: 0 0 0 3px rgba(77,124,254,.12); }
 .sp-period textarea::placeholder { color: #c3cbd9; }
+/* 메타 상품이 18줄쯤 들어가므로 이 칸만 더 높입니다. */
+.sp-f.has-meta textarea { min-height: 150px; }
+.sp-meta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.sp-meta-t { width: 100%; font-size: 11.5px; color: #64748b; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.sp-meta-chip { border: 1px solid #dbe3ef; background: #f8fafc; border-radius: 999px; padding: 3px 10px;
+  font-size: 11.5px; font-weight: 700; color: #334155; cursor: pointer; font-family: inherit; }
+.sp-meta-chip:hover { border-color: #4d7cfe; color: #1d4ed8; background: #eef4ff; }
+.sp-meta-chip i { font-style: normal; color: #94a3b8; font-weight: 600; margin-left: 3px; }
 .sp-linked { border: 1px solid #e8edf6; border-radius: 10px; padding: 10px 12px; background: #fbfcfe; }
 .sp-link-row { padding: 7px 0; border-bottom: 1px dashed #e8edf6; font-size: 12px; }
 .sp-link-row:last-child { border-bottom: 0; }
@@ -797,7 +805,7 @@
     week: {
       label: '주간 기획안', unit: '주차',
       fields: [
-        ['last', '지난주 채널별 실적'], ['focus', '집중 상품'],
+        ['last', '이번주 채널별 실적'], ['focus', '집중 상품', 0, 'meta'],
         ['cp', '쿠팡 운영안'], ['nv', '네이버 테스트안'],
         ['check', '검증 기간 · 성공 기준'], ['result', '결과'],
         ['next', '차주 판단', 1],
@@ -829,6 +837,88 @@
       ],
     },
   };
+
+  // ---- 지금 켜진 메타 광고 ------------------------------------------------
+  // meta_active_ads 는 api/sync-meta-ads.js 가 매일 아침 통째로 바꿔 넣습니다.
+  // 캠페인 이름 앞의 「[상품명]」으로 상품을 가립니다. 괄호를 안 쓰는 계정은 아래 낱말로 맞춥니다.
+  const META_ALIAS = [
+    ['패딩빨아망', '패딩 2중 세탁망'], ['패딩압축세탁망', '패딩 2중 세탁망'],
+    ['수면돔', '원조 난방 수면돔'], ['수면양말', '수면양말'],
+    ['제습', '스트롱 제습서버', '메타 라스마'],
+  ];
+  let metaCache = null;   // { at, list:[{product, brand, spend, ads}], unknown }
+
+  function metaProductOf(a) {
+    const camp = String(a.campaign_name || '');
+    const alias = (text) => {
+      const t = String(text || '').replace(/\s+/g, '');
+      const hit = META_ALIAS.find(([w, , ch]) => t.includes(w) && (!ch || a.channel === ch));
+      return hit ? hit[1] : null;
+    };
+    const br = (camp.match(/^\s*\[([^\]]+)\]/) || [])[1];
+    if (br) return alias(br) || br.trim();
+    return alias(camp + ' ' + (a.adset_name || '') + ' ' + (a.ad_name || ''));
+  }
+
+  // 받은 시각은 한국 시간으로 적습니다 (synced_at 은 UTC 로 들어옵니다).
+  const atKst = (iso) => new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+
+  async function loadMetaAds() {
+    if (metaCache) return metaCache;
+    const { data, error } = await db.from('meta_active_ads')
+      .select('channel,campaign_name,adset_name,ad_name,spend_7d,synced_at');
+    if (error) { metaCache = { err: error.message, list: [], unknown: 0 }; return metaCache; }
+    const by = {};
+    let unknown = 0, at = '';
+    (data || []).forEach((a) => {
+      if (a.synced_at > at) at = a.synced_at;
+      const name = metaProductOf(a);
+      if (!name) { unknown++; return; }
+      const o = (by[name] = by[name] || { product: name, brands: new Set(), spend: 0, ads: 0 });
+      o.brands.add(String(a.channel || '').replace(/^메타\s*/, ''));
+      o.spend += Number(a.spend_7d) || 0;
+      o.ads++;
+    });
+    const list = Object.values(by)
+      .map((o) => ({ product: o.product, brand: [...o.brands].join('·'), spend: o.spend, ads: o.ads }))
+      .sort((x, y) => y.spend - x.spend);
+    metaCache = { at, list, unknown };
+    return metaCache;
+  }
+
+  // 집중 상품 칸에 적을 한 줄 — 광고비는 VAT 포함입니다.
+  function metaLine(x) {
+    return x.product + ' — ' + x.brand + ' · 메타 7일 ' + man(x.spend * 1.1) + '원(VAT 포함) · 광고 ' + x.ads + '개';
+  }
+
+  // 「집중 상품」 칸 아래에 지금 켜진 메타 상품을 달아 둡니다. 칸이 비어 있으면 그대로 채웁니다.
+  async function fillMeta(fieldId) {
+    const box = el('spMeta');
+    const ta = el(fieldId);
+    if (!box || !ta) return;
+    const m = await loadMetaAds();
+    if (m.err) { box.innerHTML = '<span class="sp-na">메타 광고 목록을 못 읽었습니다 — ' + esc(m.err) + '</span>'; return; }
+    if (!m.list.length) { box.innerHTML = '<span class="sp-na">지금 켜진 메타 광고가 없습니다.</span>'; return; }
+    if (!ta.value.trim()) ta.value = m.list.map(metaLine).join('\n');
+    box.innerHTML =
+      '<div class="sp-meta-t">지금 켜진 메타 광고 ' + m.list.length + '개 상품'
+      + (m.at ? ' · ' + esc(atKst(m.at)) + ' 받음' : '')
+      + (m.unknown ? ' · 이름으로 상품을 못 가린 광고 ' + m.unknown + '개' : '')
+      + ' <button type="button" class="sp-btn ghost" onclick="SalesPlan.metaAll(\'' + fieldId + '\')">모두 넣기</button></div>'
+      + m.list.map((x, i) => '<button type="button" class="sp-meta-chip" data-i="' + i
+        + '" onclick="SalesPlan.metaAdd(\'' + fieldId + '\',' + i + ')">' + esc(x.product)
+        + ' <i>' + man(x.spend * 1.1) + '</i></button>').join('');
+  }
+
+  // 칸에 이미 적힌 상품은 다시 넣지 않습니다.
+  function metaPut(fieldId, rows) {
+    const ta = el(fieldId);
+    if (!ta) return;
+    const add = rows.filter((x) => !ta.value.includes(x.product)).map(metaLine);
+    if (!add.length) { msg('이미 적혀 있습니다'); return; }
+    ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n' : '') + add.join('\n');
+    ta.focus();
+  }
 
   async function loadPeriod(kind, period) {
     const key = kind + '|' + period;
@@ -878,6 +968,8 @@
       ? `<div class="sp-empty" style="color:#dc2626">기획안 표를 못 읽었습니다 — sales_plan.sql 을 Supabase에서 실행해주세요.<br><small>${esc(row._err)}</small></div>`
       : '';
     setTimeout(() => fillLinked(kind, row), 0);
+    const metaField = (F.fields.find(([, , , tag]) => tag === 'meta') || [])[0];
+    if (metaField) setTimeout(() => fillMeta('spp_' + metaField), 0);
     return `
       ${err}
       <div class="sp-head" style="margin-bottom:10px">
@@ -888,9 +980,10 @@
         </span>
       </div>
       <div class="sp-period">
-        ${F.fields.map(([k, label, wide]) => `
-          <label class="sp-f${wide ? ' wide' : ''}"><span>${label}</span>
-            <textarea id="spp_${k}">${esc(d[k] || '')}</textarea></label>`).join('')}
+        ${F.fields.map(([k, label, wide, tag]) => `
+          <label class="sp-f${wide ? ' wide' : ''}${tag === 'meta' ? ' has-meta' : ''}"><span>${label}</span>
+            <textarea id="spp_${k}">${esc(d[k] || '')}</textarea>
+            ${tag === 'meta' ? '<div class="sp-meta" id="spMeta"><span class="sp-na">메타 광고 보는 중…</span></div>' : ''}</label>`).join('')}
         <div class="sp-f wide"><span>연결한 상품 판매계획 — 검증 결과와 다음 판단을 같이 봅니다</span>
           <div class="sp-linked" id="spLinked"><span class="sp-na">불러오는 중…</span></div>
         </div>
@@ -953,6 +1046,8 @@
     tab(k) { tab = k; render(); },
     date(v) { if (v) { boardDate = v; render(); } },
     week(period) { weekSel = period; render(); },
+    async metaAdd(fieldId, i) { const m = await loadMetaAds(); metaPut(fieldId, [m.list[i]].filter(Boolean)); },
+    async metaAll(fieldId) { const m = await loadMetaAds(); metaPut(fieldId, m.list); },
     // 주간 탭에서 달을 넘깁니다 (고른 주차는 그 달의 1주차로).
     month(n) {
       const [y, m] = boardDate.slice(0, 7).split('-').map(Number);
