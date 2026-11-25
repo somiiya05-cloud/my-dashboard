@@ -318,7 +318,24 @@
 .sp-period textarea:focus { outline: none; border-color: #4d7cfe; box-shadow: 0 0 0 3px rgba(77,124,254,.12); }
 .sp-period textarea::placeholder { color: #c3cbd9; }
 /* 메타 상품이 18줄쯤 들어가므로 이 칸만 더 높입니다. */
-.sp-f.has-meta textarea, .sp-f.has-sales textarea { min-height: 112px; }
+.sp-f.has-meta textarea { min-height: 112px; }
+.sp-wk { border: 1px solid #e6ebf4; border-radius: 12px; padding: 12px 14px 13px; margin-bottom: 12px; background: #fbfcfe; }
+.sp-wk-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 9px; }
+.sp-wk-head b { font-size: 13px; font-weight: 800; color: #0f172a; }
+.sp-wk-sub { font-size: 11.5px; color: #94a3b8; font-weight: 600; flex: 1; min-width: 180px; }
+.sp-wk-sum { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.sp-wk-sum b { font-size: 21px; font-weight: 800; color: #0f172a; letter-spacing: -.4px; }
+.sp-wk-sum .d { font-size: 11.5px; color: #94a3b8; font-weight: 700; }
+.sp-wk-goal { font-size: 12px; font-weight: 800; color: #dc2626; background: #fef2f2; border-radius: 999px; padding: 2px 9px; }
+.sp-wk-goal.ok { color: #15803d; background: #f0fdf4; }
+.sp-wk-bars { display: flex; flex-direction: column; gap: 4px; }
+.sp-wk-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.sp-wk-row .g { width: 76px; flex: none; color: #475569; font-weight: 700; }
+.sp-wk-row .b { flex: 1; height: 13px; background: #eef2f8; border-radius: 4px; overflow: hidden; }
+.sp-wk-row .b i { display: block; height: 100%; background: linear-gradient(90deg, #6f9bff, #4d7cfe); border-radius: 4px; }
+.sp-wk-row .n { width: 86px; flex: none; text-align: right; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
+.sp-wk-row .p { width: 38px; flex: none; text-align: right; color: #94a3b8; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sp-wk-note { margin-top: 9px; font-size: 11.5px; color: #94a3b8; font-weight: 600; line-height: 1.6; }
 .sp-meta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .sp-meta-t { width: 100%; font-size: 11.5px; color: #64748b; font-weight: 700; display: flex; align-items: center; gap: 7px; }
 .sp-meta-chip { border: 1px solid #dbe3ef; background: #f8fafc; border-radius: 999px; padding: 3px 10px;
@@ -805,7 +822,7 @@
     week: {
       label: '주간 기획안', unit: '주차',
       fields: [
-        ['last', '이번주 채널별 실적', 0, 'sales'], ['focus', '집중 상품', 0, 'meta'],
+        ['focus', '집중 상품', 0, 'meta'],
         ['cp', '쿠팡 운영안'], ['nv', '네이버 테스트안'],
         ['check', '검증 기간 · 성공 기준'], ['result', '결과'],
         ['next', '차주 판단', 1],
@@ -903,38 +920,73 @@
   const DAY_TARGET = 33330000;   // 일 3,333만원 — 어느 달이든 같습니다(영업팀 월 10억 기준)
   const md = (d) => Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10));
 
-  function weekSalesText(w, from, to) {
-    if (w.err) return '';
-    if (!w.days.length) return md(from) + '~' + md(to) + ' · 아직 확정된 매출이 없습니다(매출DB는 전일 마감).';
-    const a = w.days[0], b = w.days[w.days.length - 1];
-    const head = md(a) + '~' + md(b) + ' 확정 · 영업팀 ' + man(w.total) + '원';
-    const list = w.rows.map(([g, n]) => g + ' ' + man(n) + '원 (' + Math.round(n / w.total * 100) + '%)');
-    const dayGoal = DAY_TARGET * w.days.length;
-    const tail = [w.days.length >= 7
-      ? '주 목표 ' + man(DAY_TARGET * 7) + '원 대비 ' + Math.round(w.total / (DAY_TARGET * 7) * 100) + '%'
-      : '확정 ' + w.days.length + '일 목표 ' + man(dayGoal) + '원 대비 '
-        + Math.round(w.total / dayGoal * 100) + '% · 주 목표 ' + man(DAY_TARGET * 7) + '원 대비 '
-        + Math.round(w.total / (DAY_TARGET * 7) * 100) + '%'];
-    if (b < to) tail.push(md(addDays(b, 1)) + '~' + md(to) + ' 는 아직 확정 전입니다(매출DB는 전일 마감).');
-    return [head, ...list, '', ...tail].join('\n');
+  // 아직 마감 안 된 날의 실시간 수집분 — 확정 합계와 절대 섞지 않고 따로 적습니다.
+  async function loadWeekLive(from, to) {
+    const { data, error } = await db.from('live_sales_totals').select('date,mall,amount,collected_at')
+      .gte('date', from).lte('date', to);
+    if (error) return { sum: 0, days: [], at: '' };
+    const by = {};
+    (data || []).forEach((r) => { by[r.date] = (by[r.date] || 0) + Number(r.amount || 0); });
+    return {
+      by,
+      at: (data || []).map((r) => r.collected_at).filter(Boolean).sort().pop() || '',
+    };
   }
 
-  let weekSalesLast = '';   // 자동으로 넣어 둔 글 — 사용자가 고쳐 쓴 글은 덮지 않습니다.
+  // 채널 띠 하나.
+  function barHtml(g, n, max, total) {
+    return '<div class="sp-wk-row"><span class="g">' + esc(g) + '</span>'
+      + '<span class="b"><i style="width:' + Math.max(1.5, n / max * 100).toFixed(1) + '%"></i></span>'
+      + '<span class="n">' + man(n) + '원</span>'
+      + '<span class="p">' + Math.round(n / total * 100) + '%</span></div>';
+  }
 
-  async function fillWeekSales(fieldId, period) {
+  // 「이번주 채널별 실적」 — 적는 칸이 아니라 열 때마다 저절로 그려집니다.
+  async function fillWeekSales(period) {
     const box = el('spWeekSales');
-    const ta = el(fieldId);
-    if (!box || !ta) return;
+    if (!box) return;
     const [from, to] = periodRange('week', period);
-    const w = await loadTeamWeek(from, to);
-    if (w.err) { box.innerHTML = '<span class="sp-na">매출DB를 못 읽었습니다 — ' + esc(w.err) + '</span>'; return; }
-    const text = weekSalesText(w, from, to);
-    if (!ta.value.trim() || ta.value.trim() === weekSalesLast) { ta.value = text; weekSalesLast = text; }
-    box.innerHTML =
-      '<div class="sp-meta-t">' + esc(md(from) + '~' + md(to))
-      + (w.days.length ? ' · ' + esc(md(w.days[w.days.length - 1])) + ' 까지 확정' : ' · 확정 매출 없음')
-      + ' · 매출DB 기준(자사몰·카카오선물하기·오프라인·컨텐츠팀 뺀 영업팀 매출)'
-      + ' <button type="button" class="sp-btn ghost" onclick="SalesPlan.weekSales(\'' + fieldId + '\',\'' + esc(period) + '\')">다시 넣기</button></div>';
+    const [w, live] = await Promise.all([loadTeamWeek(from, to), loadWeekLive(from, to)]);
+    if (w.err) { box.innerHTML = '<div class="sp-na">매출DB를 못 읽었습니다 — ' + esc(w.err) + '</div>'; return; }
+
+    const now = periodKeyOf('week', kst());
+    const name = period === now ? '이번주'
+      : Number(period.slice(5, 7)) + '월 ' + period.slice(period.indexOf('W') + 1) + '주차';
+    const title = '<div class="sp-wk-head"><b>' + esc(name) + ' 채널별 실적</b>'
+      + '<span class="sp-wk-sub">' + esc(md(from) + '~' + md(to))
+      + ' · 매출DB 확정분(자사몰·카카오선물하기·오프라인·컨텐츠팀 뺀 영업팀 매출)</span>'
+      + '<button type="button" class="sp-btn ghost" onclick="SalesPlan.weekSales()">다시 받기</button></div>';
+
+    if (!w.days.length) {
+      box.innerHTML = title + '<div class="sp-na">아직 확정된 매출이 없습니다 — 매출DB는 하루 늦게 들어옵니다.</div>';
+      return;
+    }
+    const a = w.days[0], b = w.days[w.days.length - 1];
+    const dayGoal = DAY_TARGET * w.days.length, weekGoal = DAY_TARGET * 7;
+    const max = w.rows.length ? w.rows[0][1] : 1;
+
+    // 아직 마감 안 된 날 — 실시간 수집분이 있으면 따로 알려 줍니다.
+    const openDays = [];
+    for (let x = addDays(b, 1); x <= to && x <= kst(); x = addDays(x, 1)) openDays.push(x);
+    const openSum = openDays.reduce((t, x) => t + (live.by[x] || 0), 0);
+
+    box.innerHTML = title
+      + '<div class="sp-wk-sum"><b>' + man(w.total) + '원</b>'
+      + '<span class="d">' + esc(md(a) + '~' + md(b)) + ' 확정 ' + w.days.length + '일</span>'
+      + '<span class="sp-wk-goal' + (w.total >= dayGoal ? ' ok' : '') + '">'
+      + (w.days.length >= 7 ? '주 목표 ' + man(weekGoal) : '확정 ' + w.days.length + '일 목표 ' + man(dayGoal))
+      + '원 대비 ' + Math.round(w.total / dayGoal * 100) + '%</span>'
+      + (w.days.length >= 7 ? '' : '<span class="d">주 목표 ' + man(weekGoal) + '원 대비 ' + Math.round(w.total / weekGoal * 100) + '%</span>')
+      + '</div>'
+      + '<div class="sp-wk-bars">' + w.rows.map(([g, n]) => barHtml(g, n, max, w.total)).join('') + '</div>'
+      + (b < to
+        ? '<div class="sp-wk-note">' + esc(md(addDays(b, 1)) + '~' + md(to)) + ' 는 아직 확정 전입니다(매출DB는 전일 마감).'
+          + (openSum
+            ? ' ' + esc(md(openDays[0]) + '~' + md(openDays[openDays.length - 1])) + ' 4개 몰 실시간 '
+              + man(openSum) + '원 들어와 있습니다 — 확정 아니라 위 합계에 넣지 않았습니다.'
+            : '')
+          + '</div>'
+        : '');
   }
 
   // ---- 지금 켜진 메타 광고 ------------------------------------------------
@@ -1069,8 +1121,7 @@
     setTimeout(() => fillLinked(kind, row), 0);
     const metaField = (F.fields.find(([, , , tag]) => tag === 'meta') || [])[0];
     if (metaField) setTimeout(() => fillMeta('spp_' + metaField), 0);
-    const salesField = (F.fields.find(([, , , tag]) => tag === 'sales') || [])[0];
-    if (salesField) setTimeout(() => fillWeekSales('spp_' + salesField, row.period), 0);
+    if (kind === 'week') setTimeout(() => fillWeekSales(row.period), 0);
     return `
       ${err}
       <div class="sp-head" style="margin-bottom:10px">
@@ -1080,12 +1131,13 @@
           <button type="button" class="sp-btn main" onclick="SalesPlan.savePeriod('${kind}','${esc(row.period)}')">저장</button>
         </span>
       </div>
+      ${kind === 'week' ? '<div class="sp-wk" id="spWeekSales"><span class="sp-na">매출 보는 중…</span></div>' : ''}
       <div class="sp-period">
         ${F.fields.map(([k, label, wide, tag]) => `
           <label class="sp-f${wide ? ' wide' : ''}${tag ? ' has-' + tag : ''}"><span>${label}</span>
             <textarea id="spp_${k}">${esc(d[k] || '')}</textarea>
             ${tag === 'meta' ? '<div class="sp-meta" id="spMeta"><span class="sp-na">메타 광고 보는 중…</span></div>' : ''}
-            ${tag === 'sales' ? '<div class="sp-meta" id="spWeekSales"><span class="sp-na">매출 보는 중…</span></div>' : ''}</label>`).join('')}
+            </label>`).join('')}
         <div class="sp-f wide"><span>연결한 상품 판매계획 — 검증 결과와 다음 판단을 같이 봅니다</span>
           <div class="sp-linked" id="spLinked"><span class="sp-na">불러오는 중…</span></div>
         </div>
@@ -1150,13 +1202,11 @@
     week(period) { weekSel = period; render(); },
     async metaAdd(fieldId, i) { const m = await loadMetaAds(); metaPut(fieldId, [m.list[i]].filter(Boolean)); },
     async metaAll(fieldId) { const m = await loadMetaAds(); metaPut(fieldId, m.list); },
-    // 「다시 넣기」 — 고쳐 쓴 글이 있으면 물어보고 덮습니다.
-    async weekSales(fieldId, period) {
-      const ta = el(fieldId);
-      if (ta && ta.value.trim() && ta.value.trim() !== weekSalesLast
-        && !confirm('적어 두신 글을 매출로 덮어씁니다. 그대로 할까요?')) return;
-      if (ta) weekSalesLast = ta.value.trim();
-      await fillWeekSales(fieldId, period);
+    // 「다시 받기」 — 지금 보고 있는 주차를 다시 셉니다.
+    async weekSales() {
+      const box = el('spWeekSales');
+      if (box) box.innerHTML = '<span class="sp-na">매출 다시 보는 중…</span>';
+      await fillWeekSales(weekSel || periodKeyOf('week', boardDate));
     },
     // 주간 탭에서 달을 넘깁니다 (고른 주차는 그 달의 1주차로).
     month(n) {
