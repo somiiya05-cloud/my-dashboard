@@ -318,7 +318,7 @@
 .sp-period textarea:focus { outline: none; border-color: #4d7cfe; box-shadow: 0 0 0 3px rgba(77,124,254,.12); }
 .sp-period textarea::placeholder { color: #c3cbd9; }
 /* 메타 상품이 18줄쯤 들어가므로 이 칸만 더 높입니다. */
-.sp-f.has-meta textarea { min-height: 150px; }
+.sp-f.has-meta textarea { min-height: 112px; }
 .sp-meta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .sp-meta-t { width: 100%; font-size: 11.5px; color: #64748b; font-weight: 700; display: flex; align-items: center; gap: 7px; }
 .sp-meta-chip { border: 1px solid #dbe3ef; background: #f8fafc; border-radius: 999px; padding: 3px 10px;
@@ -886,9 +886,9 @@
     return metaCache;
   }
 
-  // 집중 상품 칸에 적을 한 줄 — 광고비는 VAT 포함입니다.
+  // 집중 상품 칸에는 상품명만 적습니다(11/26 사용자 요청). 광고비는 아래 단추에 붙여 둡니다.
   function metaLine(x) {
-    return x.product + ' — ' + x.brand + ' · 메타 7일 ' + man(x.spend * 1.1) + '원(VAT 포함) · 광고 ' + x.ads + '개';
+    return x.product;
   }
 
   // 「집중 상품」 칸 아래에 지금 켜진 메타 상품을 달아 둡니다. 칸이 비어 있으면 그대로 채웁니다.
