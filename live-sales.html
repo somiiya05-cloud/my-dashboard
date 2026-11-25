@@ -461,7 +461,7 @@ const ONLY = { '쿠팡만': ['쿠팡', '네이버'], '네이버만': ['네이버
 function rowMatch(k, r, sel = BRAND) {
   if (sel === '전체') return true;
   // 11/25 사용자 요청: 네이버가 덜 팔린 상품만이 아니라 쿠팡에서 팔린 상품 전체
-  if (sel === '단독') return !k.startsWith('그 외') && (r['쿠팡']?.sales || 0) > 0;
+  if (sel === '단독') return (r['쿠팡']?.sales || 0) > 0;   // 「그 외(상품별 미수집)」도 넣어 합계를 쿠팡 전체와 맞춘다
   if (ONLY[sel]) {
     if (k.startsWith('그 외')) return false;
     const [yes, no] = ONLY[sel];
@@ -747,7 +747,7 @@ function renderItems(d) {
       const full = k.startsWith('◆ ') || k.startsWith('· ') ? k.slice(2) : top ? top[0] : k;
       return [full, shortName(full, k.startsWith('◆ '))]; };
     // 쿠팡 매출 높은 순 (11/09 사용자 요청 — 전엔 네이버 비율 낮은 순)
-    const keys = all.filter(k => !isAdOnly(k)).sort((a, b) => v(b, '쿠팡', 'sales') - v(a, '쿠팡', 'sales'));
+    const keys = all.filter(k => !isAdOnly(k)).sort((a, b) => (a.startsWith('그 외') - b.startsWith('그 외')) || v(b, '쿠팡', 'sales') - v(a, '쿠팡', 'sales'));
     let tc = 0, tn = 0;
     const { metaBadge } = metaMarks(keys, rows);   // 메타 광고 켜진 상품 표시(11/25 사용자 요청)
     // 그 줄에서 쿠팡에 가장 많이 팔린 상품명(옵션 앞) → 상품 정보
@@ -774,7 +774,7 @@ function renderItems(d) {
       const low = nv && nv.low_price ? `${won(nv.low_price)}${nv.low_store ? ` <span class="muted">${esc(nv.low_store)}</span>` : ''}` : '<span class="muted">-</span>';
       return `<tr><td class="l name" title="${esc(full)}${nv ? ' · 네이버 검색어: ' + esc(nv.query) : ''}">${metaBadge(k)}<b>${esc(name)}</b></td><td>${won(c)}</td>
         <td${nTip ? ` title="${esc(nTip)}"` : ''}>${n ? won(n) + (fs.length ? '<sup style="color:#2563eb">세트</sup>' : '') : '<span class="muted">0</span>'}</td><td><b>${(n / c * 100).toFixed(0)}%</b></td>
-        <td class="b">${expo(nv)}</td><td>${nv && nv.price ? won(nv.price) : '<span class="muted">-</span>'}</td><td${cs ? ` title="쿠팡 검색 「${esc(cs.query)}」 확인 ${hm(cs.checked_at)}"` : ''}>${cs && cs.price ? won(cs.price) : '<span class="muted">-</span>'}</td><td>${low}</td>
+        <td class="b">${k.startsWith('그 외') ? '<span class="muted">-</span>' : expo(nv)}</td><td>${nv && nv.price ? won(nv.price) : '<span class="muted">-</span>'}</td><td${cs ? ` title="쿠팡 검색 「${esc(cs.query)}」 확인 ${hm(cs.checked_at)}"` : ''}>${cs && cs.price ? won(cs.price) : '<span class="muted">-</span>'}</td><td>${low}</td>
         <td class="b">${rev(cp)}</td><td>${rev(nv)}</td></tr>`;
     }).join('');
     $('onlyCpTbl').innerHTML = keys.length
