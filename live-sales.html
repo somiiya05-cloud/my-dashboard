@@ -198,8 +198,8 @@
   </div>
 
   <div class="card" id="onlyCard" style="display:none">
-    <h2>쿠팡에서 팔리는데 네이버에선 안 팔리거나 덜 팔리는 상품 <span class="pill" id="onlyCpPill"></span></h2>
-    <p class="hint">쿠팡 매출이 네이버보다 큰 상품만, 쿠팡 매출이 높은 순서로 보여 줍니다. 「네이버 ÷ 쿠팡」 — 쿠팡 100에 네이버 20이면 20%, 네이버에서 안 팔렸으면 0%.<br>
+    <h2>쿠팡 전체 상품 · 네이버 비교 <span class="pill" id="onlyCpPill"></span></h2>
+    <p class="hint">쿠팡에서 팔린 상품 전체를 쿠팡 매출이 높은 순서로 보여 줍니다. 「네이버 ÷ 쿠팡」 — 쿠팡 100에 네이버 20이면 20%, 네이버에서 안 팔렸으면 0%.<br>
       네이버 매출에는 스마트스토어 세트 상품(예: 악취 제거 세정서버 세트 = 변기수조 + 하수구) 매출을 구성 단품 수로 똑같이 나눠 넣었습니다 — <sup style="color:#2563eb">세트</sup> 표시 칸에 마우스를 올리면 어느 세트에서 얼마가 왔는지 보입니다.<br>
       네이버쇼핑 노출 = 브랜드를 뺀 상품명으로 네이버쇼핑을 검색했을 때 우리 스토어가 광고 아닌 결과 중 몇 번째인지(초록 1~3위 · 노랑 4~10위 · 빨강 그 아래/미노출). 일반 검색어로 안 나오면 브랜드를 붙여 한 번 더 찾고, 거기서 나오면 「브랜드 검색 N위」. 가격비교 최저가 = 같은 브랜드 상품을 파는 곳 중 가장 낮은 노출가. 하루 한 번(아침) 확인하고, 상품명에 마우스를 올리면 검색어가 보입니다.</p>
     <div class="tblwrap"><table id="onlyCpTbl"></table></div>
@@ -460,7 +460,8 @@ function brandTotals(d) {
 const ONLY = { '쿠팡만': ['쿠팡', '네이버'], '네이버만': ['네이버', '쿠팡'] };
 function rowMatch(k, r, sel = BRAND) {
   if (sel === '전체') return true;
-  if (sel === '단독') return !k.startsWith('그 외') && (r['쿠팡']?.sales || 0) > 0 && (r['네이버']?.sales || 0) < (r['쿠팡']?.sales || 0);
+  // 11/25 사용자 요청: 네이버가 덜 팔린 상품만이 아니라 쿠팡에서 팔린 상품 전체
+  if (sel === '단독') return !k.startsWith('그 외') && (r['쿠팡']?.sales || 0) > 0;
   if (ONLY[sel]) {
     if (k.startsWith('그 외')) return false;
     const [yes, no] = ONLY[sel];
@@ -491,7 +492,7 @@ function renderTabs(d) {
   const onlySum = sel => Object.entries(rows).reduce((t, [k, r]) => t + (rowMatch(k, r, sel) ? MALLS.reduce((u, m) => u + (r[m]?.sales || 0), 0) : 0), 0);
   $('brandTabs').innerHTML = list.map(b => tab(b, b, bt[b].sales)).join('')
     + tab('미분류', '미분류', bt['미분류']?.sales || 0) + tab('전체', '전체 통합', all) + tab('쿠팡', '쿠팡', dayTotals(d)['쿠팡'].sales || 0)
-    + '<span class="brand-sep"></span>' + tab('단독', '쿠팡 대비 네이버 부진', Object.entries(buildItems([d], true).rows).reduce((t, [k, r]) => t + (rowMatch(k, r, '단독') ? r['쿠팡'].sales : 0), 0))
+    + '<span class="brand-sep"></span>' + tab('단독', '쿠팡 대비 네이버', Object.entries(buildItems([d], true).rows).reduce((t, [k, r]) => t + (rowMatch(k, r, '단독') ? r['쿠팡'].sales : 0), 0))
     // 외부 광고 리포트는 다른 페이지로 넘어가지 않고 이 화면 안에서 연다(11/19 사용자 요청)
     + `<span class="brand-sep"></span><button class="brand link${BRAND === '광고' ? ' active' : ''}" data-b="광고">외부 광고 리포트</button>`;
   $('brandTabs').querySelectorAll('.brand').forEach(el => el.onclick = () => { BRAND = el.dataset.b; renderAll(); });
@@ -664,7 +665,7 @@ function renderKpis(d) {
   // 4개 몰에 안 잡히는 영업팀 매출(공동구매·직납). 매출DB에서 오므로 실시간이 아니라 하루 늦습니다.
   // 브랜드 탭은 몰 수집 데이터 기준이라 여기엔 안 걸립니다 — 「전체」일 때만 보여 줍니다.
   if (BRAND === '전체') cards.push(...dbOnlyCards(d));
-  const tabName = { '단독': '쿠팡 대비 네이버 부진' }[BRAND] || BRAND;
+  const tabName = { '단독': '쿠팡 대비 네이버' }[BRAND] || BRAND;
   // 합계 카드는 맨 뒤(11/11 사용자 요청)
   $('kpis').innerHTML = cards.join('') + `<div class="kpi total"><div class="k">${BRAND === '전체' ? '4개 몰 합계' : esc(tabName) + ' · 4개 몰 합계'}</div><div class="v">${any ? won(ts) : '-'}</div>
     <div class="s"><span>광고비</span><span>${won(ta)}</span><span>광고비중</span><span>${pctTxt(pct(ta, ts))}</span></div>
@@ -780,7 +781,7 @@ function renderItems(d) {
       ? `<thead><tr><th class="l">상품</th><th>쿠팡 매출</th><th>네이버 매출</th><th>네이버 ÷ 쿠팡</th>
            <th class="b">네이버쇼핑 노출</th><th>네이버 노출가</th><th>쿠팡 노출가</th><th>가격비교 최저가</th><th class="b">쿠팡 후기</th><th>네이버 후기</th></tr></thead><tbody>
          <tr class="sum"><td class="l">합계</td><td>${won(tc)}</td><td>${won(tn)}</td><td>${tc ? (tn / tc * 100).toFixed(0) + '%' : ''}</td><td class="b" colspan="6" style="text-align:left;font-weight:600;color:#94a3b8">${META_AT ? '네이버쇼핑 노출 확인 ' + hm(META_AT) : '네이버쇼핑 노출 확인 아직 없음'}</td></tr>${body}</tbody>`
-      : '<tr><td class="l muted">쿠팡보다 네이버가 덜 팔린 상품이 없습니다.</td></tr>';
+      : '<tr><td class="l muted">이 날짜에 쿠팡에서 팔린 상품이 없습니다.</td></tr>';
     $('onlyCpPill').textContent = keys.length + '개';
   }
 
