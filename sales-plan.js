@@ -318,7 +318,6 @@
 .sp-period textarea:focus { outline: none; border-color: #4d7cfe; box-shadow: 0 0 0 3px rgba(77,124,254,.12); }
 .sp-period textarea::placeholder { color: #c3cbd9; }
 /* 메타 상품이 18줄쯤 들어가므로 이 칸만 더 높입니다. */
-.sp-f.has-meta textarea { min-height: 112px; }
 .sp-wk { border: 1px solid #e6ebf4; border-radius: 12px; padding: 12px 14px 13px; margin-bottom: 12px; background: #fbfcfe; }
 .sp-wk-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 9px; }
 .sp-wk-head b { font-size: 13px; font-weight: 800; color: #0f172a; }
@@ -342,6 +341,11 @@
   font-size: 11.5px; font-weight: 700; color: #334155; cursor: pointer; font-family: inherit; }
 .sp-meta-chip:hover { border-color: #4d7cfe; color: #1d4ed8; background: #eef4ff; }
 .sp-meta-chip i { font-style: normal; color: #94a3b8; font-weight: 600; margin-left: 3px; }
+.sp-pick { margin: 0 0 12px; }
+.sp-meta-chip.on { background: #4d7cfe; border-color: #4d7cfe; color: #fff; }
+.sp-meta-chip.on i { color: #cfe0ff; }
+.sp-meta-chip.off { border-style: dashed; color: #94a3b8; }
+.sp-meta-chip.off.on { color: #fff; border-style: solid; }
 .sp-linked { border: 1px solid #e8edf6; border-radius: 10px; padding: 10px 12px; background: #fbfcfe; }
 .sp-link-row { padding: 7px 0; border-bottom: 1px dashed #e8edf6; font-size: 12px; }
 .sp-link-row:last-child { border-bottom: 0; }
@@ -822,7 +826,6 @@
     week: {
       label: '주간 기획안', unit: '주차',
       fields: [
-        ['focus', '집중 상품', 0, 'meta'],
         ['cp', '쿠팡 운영안'], ['nv', '네이버 테스트안'],
         ['check', '검증 기간 · 성공 기준'], ['result', '결과'],
         ['next', '차주 판단', 1],
@@ -1037,38 +1040,31 @@
     return metaCache;
   }
 
-  // 집중 상품 칸에는 상품명만 적습니다(11/26 사용자 요청). 광고비는 아래 단추에 붙여 둡니다.
-  function metaLine(x) {
-    return x.product;
-  }
-
   // 「집중 상품」 칸 아래에 지금 켜진 메타 상품을 달아 둡니다. 칸이 비어 있으면 그대로 채웁니다.
-  async function fillMeta(fieldId) {
-    const box = el('spMeta');
-    const ta = el(fieldId);
-    if (!box || !ta) return;
+  let focusPicked = new Set();   // 눌러서 고른 집중 상품 — 저장하면 그 주 기획안에 남습니다.
+
+  async function fillMeta() {
+    const box = el('spFocus');
+    if (!box) return;
     const m = await loadMetaAds();
-    if (m.err) { box.innerHTML = '<span class="sp-na">메타 광고 목록을 못 읽었습니다 — ' + esc(m.err) + '</span>'; return; }
-    if (!m.list.length) { box.innerHTML = '<span class="sp-na">지금 켜진 메타 광고가 없습니다.</span>'; return; }
-    if (!ta.value.trim()) ta.value = m.list.map(metaLine).join('\n');
-    box.innerHTML =
-      '<div class="sp-meta-t">지금 켜진 메타 광고 ' + m.list.length + '개 상품'
+    if (m.err) { box.innerHTML = '<div class="sp-na">메타 광고 목록을 못 읽었습니다 — ' + esc(m.err) + '</div>'; return; }
+
+    // 지난 주차에 골라 둔 상품 중 지금은 광고가 꺼진 것도 그대로 보여 줍니다.
+    const live = new Set(m.list.map((x) => x.product));
+    const gone = [...focusPicked].filter((x) => !live.has(x)).map((x) => ({ product: x, spend: null }));
+    const all = m.list.concat(gone);
+    const head = '<div class="sp-meta-t">집중 상품'
+      + (focusPicked.size ? ' · 고른 상품 ' + focusPicked.size + '개' : ' · 누르면 고릅니다')
+      + ' · 지금 켜진 메타 광고 ' + m.list.length + '개 상품'
       + (m.at ? ' · ' + esc(atKst(m.at)) + ' 받음' : '')
       + (m.unknown ? ' · 이름으로 상품을 못 가린 광고 ' + m.unknown + '개' : '')
-      + ' <button type="button" class="sp-btn ghost" onclick="SalesPlan.metaAll(\'' + fieldId + '\')">모두 넣기</button></div>'
-      + m.list.map((x, i) => '<button type="button" class="sp-meta-chip" data-i="' + i
-        + '" onclick="SalesPlan.metaAdd(\'' + fieldId + '\',' + i + ')">' + esc(x.product)
-        + ' <i>' + man(x.spend * 1.1) + '</i></button>').join('');
-  }
-
-  // 칸에 이미 적힌 상품은 다시 넣지 않습니다.
-  function metaPut(fieldId, rows) {
-    const ta = el(fieldId);
-    if (!ta) return;
-    const add = rows.filter((x) => !ta.value.includes(x.product)).map(metaLine);
-    if (!add.length) { msg('이미 적혀 있습니다'); return; }
-    ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n' : '') + add.join('\n');
-    ta.focus();
+      + (focusPicked.size ? ' <button type="button" class="sp-btn ghost" onclick="SalesPlan.focusClear()">고른 것 지우기</button>' : '')
+      + '</div>';
+    if (!all.length) { box.innerHTML = head + '<div class="sp-na">지금 켜진 메타 광고가 없습니다.</div>'; return; }
+    box.innerHTML = head + all.map((x) => '<button type="button" class="sp-meta-chip'
+      + (focusPicked.has(x.product) ? ' on' : '') + (x.spend == null ? ' off' : '')
+      + '" onclick="SalesPlan.focusPick(this.dataset.p)" data-p="' + esc(x.product) + '">' + esc(x.product)
+      + (x.spend == null ? ' <i>광고 꺼짐</i>' : ' <i>' + man(x.spend * 1.1) + '</i>') + '</button>').join('');
   }
 
   async function loadPeriod(kind, period) {
@@ -1119,9 +1115,10 @@
       ? `<div class="sp-empty" style="color:#dc2626">기획안 표를 못 읽었습니다 — sales_plan.sql 을 Supabase에서 실행해주세요.<br><small>${esc(row._err)}</small></div>`
       : '';
     setTimeout(() => fillLinked(kind, row), 0);
-    const metaField = (F.fields.find(([, , , tag]) => tag === 'meta') || [])[0];
-    if (metaField) setTimeout(() => fillMeta('spp_' + metaField), 0);
-    if (kind === 'week') setTimeout(() => fillWeekSales(row.period), 0);
+    if (kind === 'week') {
+      focusPicked = new Set(String(d.focus || '').split('\n').map((x) => x.trim()).filter(Boolean));
+      setTimeout(() => { fillWeekSales(row.period); fillMeta(); }, 0);
+    }
     return `
       ${err}
       <div class="sp-head" style="margin-bottom:10px">
@@ -1131,12 +1128,12 @@
           <button type="button" class="sp-btn main" onclick="SalesPlan.savePeriod('${kind}','${esc(row.period)}')">저장</button>
         </span>
       </div>
-      ${kind === 'week' ? '<div class="sp-wk" id="spWeekSales"><span class="sp-na">매출 보는 중…</span></div>' : ''}
+      ${kind === 'week' ? '<div class="sp-wk" id="spWeekSales"><span class="sp-na">매출 보는 중…</span></div>'
+        + '<div class="sp-meta sp-pick" id="spFocus"><span class="sp-na">메타 광고 보는 중…</span></div>' : ''}
       <div class="sp-period">
         ${F.fields.map(([k, label, wide, tag]) => `
           <label class="sp-f${wide ? ' wide' : ''}${tag ? ' has-' + tag : ''}"><span>${label}</span>
             <textarea id="spp_${k}">${esc(d[k] || '')}</textarea>
-            ${tag === 'meta' ? '<div class="sp-meta" id="spMeta"><span class="sp-na">메타 광고 보는 중…</span></div>' : ''}
             </label>`).join('')}
         <div class="sp-f wide"><span>연결한 상품 판매계획 — 검증 결과와 다음 판단을 같이 봅니다</span>
           <div class="sp-linked" id="spLinked"><span class="sp-na">불러오는 중…</span></div>
@@ -1169,6 +1166,7 @@
     const F = PERIOD_FORMS[kind];
     const data = {};
     F.fields.forEach(([k]) => { const n = el('spp_' + k); if (n && n.value.trim()) data[k] = n.value.trim(); });
+    if (kind === 'week' && focusPicked.size) data.focus = [...focusPicked].join('\n');
     const plan_ids = [...document.querySelectorAll('.spLink:checked')].map((x) => Number(x.value));
     const { error } = await db.from('sales_period_plans')
       .upsert({ kind, period, data, plan_ids }, { onConflict: 'kind,period' });
@@ -1200,8 +1198,12 @@
     tab(k) { tab = k; render(); },
     date(v) { if (v) { boardDate = v; render(); } },
     week(period) { weekSel = period; render(); },
-    async metaAdd(fieldId, i) { const m = await loadMetaAds(); metaPut(fieldId, [m.list[i]].filter(Boolean)); },
-    async metaAll(fieldId) { const m = await loadMetaAds(); metaPut(fieldId, m.list); },
+    focusPick(name) {
+      if (!name) return;
+      if (focusPicked.has(name)) focusPicked.delete(name); else focusPicked.add(name);
+      fillMeta();
+    },
+    focusClear() { focusPicked = new Set(); fillMeta(); },
     // 「다시 받기」 — 지금 보고 있는 주차를 다시 셉니다.
     async weekSales() {
       const box = el('spWeekSales');
