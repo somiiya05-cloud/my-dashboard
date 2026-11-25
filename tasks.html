@@ -934,19 +934,19 @@
   /* 머리의 날짜 — 누르면 하루 보기 */
   /* 하루 보기 머리줄의 일 매출 목표 · 달성률 */
   .mt-goal {
-    display: inline-flex; align-items: center; gap: 7px; margin-left: 14px;
-    padding: 4px 11px; border: 1px solid #e4eaf4; border-radius: 999px; background: #fbfcfe;
-    font-size: 11.5px; font-weight: 700; color: #64748b; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 8px; margin-left: 14px;
+    padding: 6px 14px; border: 1px solid #e4eaf4; border-radius: 999px; background: #fbfcfe;
+    font-size: 14px; font-weight: 700; color: #475569; white-space: nowrap;
   }
-  .mt-goal b { font-size: 10.5px; font-weight: 800; color: #94a3b8; }
-  .mt-goal em { font-style: normal; font-size: 10.5px; font-weight: 700; color: #a8b2c4; }
+  .mt-goal b { font-size: 12.5px; font-weight: 800; color: #8794a8; }
+  .mt-goal em { font-style: normal; font-size: 12px; font-weight: 700; color: #a8b2c4; }
   .mt-goal-act { font-weight: 800; }
   .mt-goal-act.ok, .mt-goal-pct.ok { color: #16a34a; }
   .mt-goal-act.warn, .mt-goal-pct.warn { color: #ca8a04; }
   .mt-goal-act.bad, .mt-goal-pct.bad { color: #dc2626; }
   .mt-goal-pct { font-weight: 800; }
   .mt-goal-bar {
-    display: inline-block; width: 68px; height: 5px; border-radius: 999px;
+    display: inline-block; width: 84px; height: 7px; border-radius: 999px;
     background: #e8edf6; overflow: hidden;
   }
   .mt-goal-bar i { display: block; height: 100%; border-radius: 999px; }
@@ -5250,12 +5250,10 @@
   function mtTeamExcluded(v) {
     return MT_TEAM_EXCLUDED.includes(v) || String(v || '').includes('공동구매(컨텐츠');
   }
-  // 그 달 일수로 나눕니다 — 11월(30일)은 3,333만, 12월(31일)은 3,226만이 됩니다.
-  function mtDayTarget(day) {
-    const y = Number(day.slice(0, 4));
-    const m = Number(day.slice(5, 7));
-    return MT_TEAM_MONTHLY_TARGET / new Date(y, m, 0).getDate();
-  }
+  // 일 목표는 어느 달이든 3,333만원으로 고정합니다 (2026-11-25 효선님 결정).
+  // 그 달 일수로 나누면 31일 달이 3,226만으로 내려가서, 30일 기준 한 값으로 둡니다.
+  const MT_DAY_TARGET = MT_TEAM_MONTHLY_TARGET / 30;
+  function mtDayTarget() { return MT_DAY_TARGET; }
   function mtMan(n) { return Math.round(n / 1e4).toLocaleString('ko-KR') + '만'; }
 
   // 날짜별로 한 번만 받아 둡니다. 오늘치는 계속 늘어나므로 3분이 지나면 다시 받습니다.
@@ -5284,14 +5282,23 @@
   // 머리줄 자리만 먼저 잡아 두고, 매출은 받아온 뒤에 채웁니다.
   function mtGoalHtml(day) {
     return `<span class="mt-goal" id="mtGoalBox" data-day="${escapeAttr(day)}">
-      <b>일 목표</b> ${mtMan(mtDayTarget(day))}<em>매출 불러오는 중…</em></span>`;
+      <b>일 목표</b> ${mtMan(mtDayTarget())}<em>매출 불러오는 중…</em></span>`;
   }
   async function mtFillGoal(day) {
+    // 아직 지나지 않은 날은 매출이 있을 수 없습니다. 0%를 빨갛게 띄우지 않고 목표만 적습니다.
+    if (day > jwTodayKST()) {
+      const box = document.getElementById('mtGoalBox');
+      if (box && box.dataset.day === day) {
+        box.innerHTML = `<b>일 목표</b> ${mtMan(mtDayTarget())}<em>아직 지나지 않은 날</em>`;
+        box.title = '영업팀 월 10억 기준 하루 목표입니다.';
+      }
+      return;
+    }
     let g;
     try { g = await mtLoadSales(day); } catch (e) { g = { err: e.message }; }
     const box = document.getElementById('mtGoalBox');
     if (!box || box.dataset.day !== day) return;      // 그새 날짜를 넘겼으면 버립니다
-    const tgt = mtDayTarget(day);
+    const tgt = mtDayTarget();
     if (g.err) {
       box.innerHTML = `<b>일 목표</b> ${mtMan(tgt)}<em>매출을 못 읽었습니다</em>`;
       return;

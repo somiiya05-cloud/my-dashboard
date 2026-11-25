@@ -563,7 +563,9 @@ async function renderWeek(d) {
   const month = d.slice(0, 7);
   let W;
   try { W = await loadWeek(month); } catch (e) { $('weekSum').innerHTML = `<span class="muted">불러오기 실패: ${esc(e.message || e)}</span>`; return; }
-  const daily = TEAM_MONTHLY_TARGET / W.days, today = kst();
+  // 일 목표는 어느 달이든 3,333만원 (2026-11-25 효선님 결정 — 31일 달에 3,226만으로
+  // 내려가지 않게 30일 기준 한 값으로 둔다. tasks.html 의 MT_DAY_TARGET 과 같이 유지)
+  const daily = TEAM_MONTHLY_TARGET / 30, today = kst();
   const day = d < today ? d : today;
   // 이번 주(월~일, 그 달 안)
   const dow = new Date(day + 'T00:00:00Z').getUTCDay();
