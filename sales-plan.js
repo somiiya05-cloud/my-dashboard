@@ -292,8 +292,20 @@
 .sp-msg.bad { color: #dc2626; }
 
 /* 기간 기획안 */
-.sp-period { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.sp-period { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
 .sp-period .sp-f.wide { grid-column: 1 / -1; }
+.sp-period .sp-f { margin-bottom: 0; }
+.sp-period .sp-f span { font-size: 11.5px; font-weight: 800; color: #64748b; margin-bottom: 5px; }
+/* 보드에 있는 칸이라 작성 패널(.sp-modal) 규칙이 닿지 않습니다 — 여기서 따로 줍니다. */
+.sp-period textarea {
+  width: 100%; box-sizing: border-box; display: block;
+  border: 1px solid #dbe3ef; border-radius: 9px; padding: 9px 11px;
+  font-family: inherit; font-size: 13px; line-height: 1.65; color: #0f172a; background: #fff;
+  min-height: 86px; resize: vertical;
+}
+.sp-period .sp-f.wide textarea { min-height: 72px; }
+.sp-period textarea:focus { outline: none; border-color: #4d7cfe; box-shadow: 0 0 0 3px rgba(77,124,254,.12); }
+.sp-period textarea::placeholder { color: #c3cbd9; }
 .sp-linked { border: 1px solid #e8edf6; border-radius: 10px; padding: 10px 12px; background: #fbfcfe; }
 .sp-link-row { padding: 7px 0; border-bottom: 1px dashed #e8edf6; font-size: 12px; }
 .sp-link-row:last-child { border-bottom: 0; }
