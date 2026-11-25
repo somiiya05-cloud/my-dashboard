@@ -122,7 +122,6 @@
     return {
       lastDay,
       last: byDay[lastDay] || null,
-      trend: days.slice(-7).map((d) => ({ date: d, ...byDay[d] })),
       live: liveRows.length ? liveBy : null,
       liveAt: liveRows.map((r) => r.collected_at).filter(Boolean).sort().pop() || '',
       isToday: date === kst(),
@@ -227,10 +226,6 @@
 .sp-card .v { font-size: 17px; font-weight: 800; color: #0f172a; margin-top: 3px; }
 .sp-card .s { font-size: 11.5px; font-weight: 700; color: #94a3b8; margin-top: 2px; }
 .sp-card .cp { color: #c2410c; } .sp-card .nv { color: #15803d; }
-.sp-spark { display: flex; align-items: flex-end; gap: 3px; height: 34px; margin-top: 4px; }
-.sp-spark i { flex: 1; min-width: 4px; border-radius: 2px 2px 0 0; display: block; }
-.sp-spark i.c { background: #fdba74; } .sp-spark i.n { background: #86efac; }
-.sp-spark-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 1px; }
 
 /* 상품표 */
 .sp-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
@@ -292,6 +287,22 @@
 .sp-msg.bad { color: #dc2626; }
 
 /* 기간 기획안 */
+/* 주차 고르는 줄 */
+.sp-weekbar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 14px;
+  padding-bottom: 12px; border-bottom: 1px solid #eef2f8; }
+.sp-weekbar > b { font-size: 13px; font-weight: 800; color: #0f172a; margin: 0 4px; }
+.sp-week { position: relative; border: 1px solid #dbe3ef; background: #fff; border-radius: 10px;
+  padding: 6px 13px; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 800;
+  color: #475569; line-height: 1.25; text-align: left; }
+.sp-week small { display: block; font-size: 10.5px; font-weight: 700; color: #a8b2c4; margin-top: 1px; }
+.sp-week:hover { border-color: #b9c7e4; background: #f8fbff; }
+.sp-week.on { border-color: #2f5ce4; background: #eef3ff; color: #1d4ed8; box-shadow: 0 0 0 3px rgba(77,124,254,.12); }
+.sp-week.on small { color: #5b7fe0; }
+/* 이미 써 둔 주차 */
+.sp-week.has::after { content: ''; position: absolute; top: 6px; right: 7px;
+  width: 6px; height: 6px; border-radius: 50%; background: #16a34a; }
+.sp-week i.now { display: block; font-style: normal; font-size: 9.5px; font-weight: 800; color: #16a34a; margin-top: 2px; }
+
 .sp-period { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
 .sp-period .sp-f.wide { grid-column: 1 / -1; }
 .sp-period .sp-f { margin-bottom: 0; }
@@ -338,10 +349,62 @@
       const [t, p] = await Promise.all([loadTotals(boardDate), loadPlans(boardDate)]);
       totals = t; plans = p;
       if (el('spBody')) el('spBody').innerHTML = stripHtml() + planTableHtml();
+    } else if (tab === 'week') {
+      // 주간은 그 달의 주차를 모두 늘어놓고 골라 씁니다.
+      const ym = boardDate.slice(0, 7);
+      if (!weekSel || weekSel.slice(0, 7) !== ym) weekSel = periodKeyOf('week', boardDate);
+      const [row, saved] = await Promise.all([loadPeriod('week', weekSel), savedWeeks(ym)]);
+      if (el('spBody')) el('spBody').innerHTML = weekBarHtml(ym, saved) + periodHtml('week', row);
     } else {
       const row = await loadPeriod(tab, periodKeyOf(tab, boardDate));
       if (el('spBody')) el('spBody').innerHTML = periodHtml(tab, row);
     }
+  }
+
+  // ---- 주차 고르기 ----------------------------------------------------
+  let weekSel = '';          // 지금 보고 있는 주차 ('2026-11-W5')
+
+  // 그 달에 몇 주가 있는지 — 1일이 낀 주가 1주차입니다.
+  // 달을 걸치는 마지막 주(예: 11/30~12/6)는 다음 달 1일이 들어 있으니 다음 달 1주차로 넘깁니다.
+  // 그러지 않으면 같은 7일이 「11월 6주차」와 「12월 1주차」 두 군데에 생깁니다.
+  function weeksOfMonth(ym) {
+    const [y, m] = ym.split('-').map(Number);
+    const last = String(new Date(y, m, 0).getDate()).padStart(2, '0');
+    const n = weekNoOfMonth(ym + '-' + last);
+    const nextFirst = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
+    const out = [];
+    for (let w = 1; w <= n; w++) {
+      const period = ym + '-W' + w;
+      const [from, to] = periodRange('week', period);
+      if (from <= nextFirst && nextFirst <= to) break;   // 다음 달 1주차입니다
+      out.push({ no: w, period, from, to });
+    }
+    return out;
+  }
+
+  // 이미 써 둔 주차에는 점을 찍어 둡니다.
+  async function savedWeeks(ym) {
+    const { data } = await db.from('sales_period_plans').select('period')
+      .eq('kind', 'week').like('period', ym + '-W%');
+    return new Set((data || []).map((r) => r.period));
+  }
+
+  function weekBarHtml(ym, saved) {
+    const md = (s) => Number(s.slice(5, 7)) + '/' + Number(s.slice(8, 10));
+    const thisWeek = periodKeyOf('week', kst());
+    return `
+      <div class="sp-weekbar">
+        <button type="button" class="sp-btn ghost" onclick="SalesPlan.month(-1)">‹ 지난달</button>
+        <b>${esc(ym.replace('-', '년 '))}월</b>
+        ${weeksOfMonth(ym).map((w) => `
+          <button type="button" class="sp-week${w.period === weekSel ? ' on' : ''}${saved.has(w.period) ? ' has' : ''}"
+            onclick="SalesPlan.week('${w.period}')"
+            title="${w.from} ~ ${w.to}${saved.has(w.period) ? ' · 써 둔 기획안 있음' : ''}">
+            ${w.no}주차<small>${md(w.from)}~${md(w.to)}</small>
+            ${w.period === thisWeek ? '<i class="now">이번 주</i>' : ''}
+          </button>`).join('')}
+        <button type="button" class="sp-btn ghost" onclick="SalesPlan.month(1)">다음달 ›</button>
+      </div>`;
   }
 
   const TABS = [['today', '오늘'], ['week', '주간'], ['month', '월간'], ['next', '익월'], ['quarter', '분기']];
@@ -369,12 +432,6 @@
     if (!totals) return '';
     if (totals.err) return `<div class="sp-strip"><div class="sp-card"><div class="k">매출</div><div class="v">못 읽었습니다</div><div class="s">${esc(totals.err)}</div></div></div>`;
     const L = totals.last;
-    const max = Math.max(1, ...totals.trend.map((d) => (d.쿠팡 || 0) + (d.네이버 || 0)));
-    const spark = totals.trend.map((d) => {
-      const c = Math.round((d.쿠팡 || 0) / max * 30), n = Math.round((d.네이버 || 0) / max * 30);
-      return `<span class="sp-spark-col" title="${d.date} · 쿠팡 ${won(d.쿠팡)} · 네이버 ${won(d.네이버)}">
-        <i class="n" style="height:${n}px"></i><i class="c" style="height:${c}px"></i></span>`;
-    }).join('');
     const liveTime = totals.liveAt
       ? new Date(totals.liveAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' })
       : '';
@@ -384,11 +441,6 @@
           <div class="k">전일 확정 매출</div>
           <div class="v">${L ? `<span class="cp">쿠팡 ${man(L.쿠팡)}</span> · <span class="nv">네이버 ${man(L.네이버)}</span>` : '<span class="sp-na">미수집</span>'}</div>
           <div class="s">${L ? '집계 기준일 ' + esc(totals.lastDay) + ' · 매출DB 확정' : '아직 들어온 매출DB가 없습니다'}</div>
-        </div>
-        <div class="sp-card">
-          <div class="k">최근 7일 채널별 추이</div>
-          <div class="sp-spark">${spark || ''}</div>
-          <div class="s"><span class="nv">■</span> 네이버 <span class="cp">■</span> 쿠팡 · 확정 매출 기준</div>
         </div>
         <div class="sp-card">
           <div class="k">${esc(boardDate)} 실시간 매출</div>
@@ -900,6 +952,16 @@
     },
     tab(k) { tab = k; render(); },
     date(v) { if (v) { boardDate = v; render(); } },
+    week(period) { weekSel = period; render(); },
+    // 주간 탭에서 달을 넘깁니다 (고른 주차는 그 달의 1주차로).
+    month(n) {
+      const [y, m] = boardDate.slice(0, 7).split('-').map(Number);
+      const d = new Date(Date.UTC(y, m - 1 + n, 1));
+      const ym = d.toISOString().slice(0, 7);
+      boardDate = ym + '-01';
+      weekSel = ym + '-W1';
+      render();
+    },
     toggleAll() { showAll = !showAll; render(); },
     setDate(v) { boardDate = v; },
     // 그 화면이 이미 구해 둔 매출 근거를 넘겨 둡니다(실시간 매출 화면의 비교표).
