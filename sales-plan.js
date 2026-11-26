@@ -82,13 +82,19 @@
   // 서버가 한 번에 1000줄까지만 주므로 나눠 받습니다.
   // 정렬을 정해두지 않으면 쪽이 넘어갈 때 줄이 겹치거나 빠져 합계가 틀립니다.
   const PAGE = 1000;
-  async function allRows(make) {
+  // 한 쪽씩 차례로 받으면 두 달 치에 스무 번을 오가느라 한참 걸립니다.
+  // 여러 쪽을 한꺼번에 띄워 받고, 끝이 보이면 멈춥니다.
+  async function allRows(make, batch) {
+    const AT_ONCE = batch || 6;
     const out = [];
-    for (let i = 0; i < 20; i++) {
-      const { data, error } = await make().range(i * PAGE, (i + 1) * PAGE - 1);
-      if (error) return { data: out, error };
-      out.push(...(data || []));
-      if ((data || []).length < PAGE) break;
+    for (let base = 0; base < 30; base += AT_ONCE) {
+      const got = await Promise.all(
+        Array.from({ length: AT_ONCE }, (unused, k) =>
+          make().range((base + k) * PAGE, (base + k + 1) * PAGE - 1)));
+      const bad = got.find((r) => r.error);
+      got.forEach((r) => out.push(...(r.data || [])));
+      if (bad) return { data: out, error: bad.error };
+      if (got[got.length - 1].data.length < PAGE) break;
     }
     return { data: out, error: null };
   }
