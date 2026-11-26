@@ -641,9 +641,11 @@ async function slotCards(day) {
     const cumNow = at[day + '|' + s];
     const r = cur && cur.amt != null && avg ? cur.amt / avg : null;
     const color = r == null ? '#94a3b8' : r >= 1 ? '#16a34a' : r >= .8 ? '#eab308' : '#dc2626';
+    // 11/26: 앞 시각 기록이 빠진 날(감시가 멈춰 10·14시를 못 받음)은 「-」만 떠서 금액이 안 보였다 — 그때는 0~그 시각 누적을 크게 보여 준다
     const v = cur && cur.amt != null ? won(cur.amt) + (r != null ? `<span style="color:${color}">${r >= 1 ? '+' : ''}${((r - 1) * 100).toFixed(0)}%</span>` : '')
+      : cur && cur.miss ? `${won(cur.cum)}<span style="color:#94a3b8;font-size:13px">0~${s}시 누적</span>`
       : '-';
-    const sub = cur ? (cur.miss ? `${from}시 기록이 없어 구간을 못 냄 — 0~${s}시 누적 ${won(cur.cum)}`
+    const sub = cur ? (cur.miss ? `${from}시 기록이 없어 ${from}~${s}시 구간 대신 0~${s}시 누적을 적었습니다`
         : cur.bad ? `<span style="color:#dc2626">${cur.badM.join('·')} 실패(로그인 풀림 등) — 직전 값으로 적음 · 평균에선 뺌</span>`
         : i ? `0~${s}시 누적 ${won(cumNow.amt)}` : '')
       : day === kst() && nowH < s ? `${s}시에 자동으로 받습니다` : '이 시각 기록 없음';
