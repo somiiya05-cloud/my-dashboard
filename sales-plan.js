@@ -342,6 +342,28 @@
 .sp-meta-chip:hover { border-color: #4d7cfe; color: #1d4ed8; background: #eef4ff; }
 .sp-meta-chip i { font-style: normal; color: #94a3b8; font-weight: 600; margin-left: 3px; }
 .sp-pick { margin: 0 0 12px; }
+.sp-ch-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-bottom: 12px; }
+.sp-ch-box { border: 1px solid #e6ebf4; border-radius: 12px; padding: 11px 13px 12px; background: #fbfcfe; margin-bottom: 12px; }
+.sp-ch-t { font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 7px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sp-ch-ev { font-size: 12px; color: #334155; padding: 4px 0; border-top: 1px solid #eef2f8; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.sp-ch-ev:first-of-type { border-top: 0; }
+.sp-ch-ev b { color: #1d4ed8; font-weight: 800; font-variant-numeric: tabular-nums; }
+.sp-ch-ev span { font-weight: 700; }
+.sp-ch-ev i { font-style: normal; color: #94a3b8; font-weight: 600; font-size: 11.5px; }
+.sp-ch-ev u { text-decoration: none; color: #64748b; font-size: 11.5px; }
+.sp-mx-wrap { overflow-x: auto; }
+.sp-mx { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+.sp-mx th, .sp-mx td { border: 1px solid #e8edf5; padding: 5px 7px; text-align: right; white-space: nowrap; }
+.sp-mx th { background: #f4f7fc; color: #475569; font-weight: 800; }
+.sp-mx th.l, .sp-mx td.l { text-align: left; max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
+.sp-mx td.l { font-weight: 700; color: #0f172a; }
+.sp-mx td { cursor: pointer; font-variant-numeric: tabular-nums; }
+.sp-mx td.on { background: #fff; color: #0f172a; font-weight: 700; }
+.sp-mx td.off { background: #fafbfd; }
+.sp-mx td:hover { outline: 2px solid #4d7cfe; outline-offset: -2px; }
+.sp-mx td u { display: block; text-decoration: none; color: #1d4ed8; font-weight: 700; font-size: 10.5px;
+  white-space: normal; max-width: 120px; margin-top: 2px; }
+.sp-mx-in { width: 120px; font: inherit; border: 1px solid #4d7cfe; border-radius: 5px; padding: 2px 5px; }
 .sp-meta-chip.on { background: #4d7cfe; border-color: #4d7cfe; color: #fff; }
 .sp-meta-chip.on i { color: #cfe0ff; }
 .sp-meta-chip.off { border-style: dashed; color: #94a3b8; }
@@ -384,6 +406,8 @@
       if (!weekSel || weekSel.slice(0, 7) !== ym) weekSel = periodKeyOf('week', boardDate);
       const [row, saved] = await Promise.all([loadPeriod('week', weekSel), savedWeeks(ym)]);
       if (el('spBody')) el('spBody').innerHTML = weekBarHtml(ym, saved) + periodHtml('week', row);
+    } else if (tab === 'channel') {
+      await renderChannel();
     } else {
       const row = await loadPeriod(tab, periodKeyOf(tab, boardDate));
       if (el('spBody')) el('spBody').innerHTML = periodHtml(tab, row);
@@ -436,7 +460,237 @@
       </div>`;
   }
 
-  const TABS = [['today', '오늘'], ['week', '주간'], ['month', '월간'], ['next', '익월'], ['quarter', '분기']];
+  const TABS = [['today', '오늘'], ['week', '주간'], ['month', '월간'], ['next', '익월'], ['quarter', '분기'],
+    ['channel', '채널']];
+
+  // =========================================================================
+  // 채널 기획안 · 상품 × 채널
+  // =========================================================================
+  const CHANNELS = ['쿠팡', '스마트스토어', '종합몰', '오픈마켓', '폐쇄몰', '공동구매', '카카오', '수출·직매입'];
+  const CH_SHORT = { '스마트스토어': '스토어', '공동구매': '공구', '수출·직매입': '수출' };
+  let chSel = '쿠팡';
+  let matrixAll = false;
+
+  // 행사표·가격표에 적힌 몰 이름 → 채널 묶음. 판매처 이름(매출DB)과 적는 법이 달라 따로 둡니다.
+  // 「코드니처 자사몰」처럼 영업팀 채널이 아닌 것은 빈 값이 나와 화면에서 빠집니다.
+  const MALL_WORDS = [
+    [/쿠팡/, '쿠팡'],
+    [/스마트스토어|스토어팜|네이버/, '스마트스토어'],
+    [/자사몰/, ''],
+    [/카카오/, '카카오'],
+    [/오늘의집|29?cm|무신사|w컨셉|텐바이텐|교보|아트박스|신세계|이마트|롯데홈쇼핑|하이마트|cj몰|lf몰|올리브영|gs ?shop/i, '종합몰'],
+    [/지마켓|g마켓|옥션|11번가|롯데on|알리/i, '오픈마켓'],
+    [/원룸만들기|에이블리|지그재그|그립|하이버|브랜디|토스|리빙픽|skt|sk컴즈|제이슨|폐쇄몰/i, '폐쇄몰'],
+    [/공동구매|공구|유튜브|요고몰/, '공동구매'],
+    [/수출|대만|마쿠아케|직매입|그린종합상사|노마드웍스/, '수출·직매입'],
+  ];
+  function mallGroupOf(name) {
+    const v = String(name || '');
+    const hit = MALL_WORDS.find(([re]) => re.test(v));
+    return hit ? hit[1] : '';
+  }
+
+  // 그 달 자료를 한 번에 받아 둡니다 — 채널을 바꿔도 다시 받지 않습니다.
+  let chCache = null;
+
+  async function loadChannelMonth(ym) {
+    if (chCache && chCache.ym === ym) return chCache;
+    const [y, m] = ym.split('-').map(Number);
+    const from = ym + '-01', to = monthEnd(y, m);
+    const pm = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7);
+    const pFrom = pm + '-01', pTo = monthEnd(Number(pm.slice(0, 4)), Number(pm.slice(5, 7)));
+
+    const [cur, prev, ev, pr] = await Promise.all([
+      allRows(() => db.from('sales_daily_rollup').select('sale_date,vendor,amount')
+        .gte('sale_date', from).lte('sale_date', to)
+        .order('sale_date').order('vendor').order('brand').order('product_name')),
+      allRows(() => db.from('sales_daily_rollup').select('sale_date,vendor,amount')
+        .gte('sale_date', pFrom).lte('sale_date', pTo)
+        .order('sale_date').order('vendor').order('brand').order('product_name')),
+      db.from('mall_events').select('mall,title,start_date,end_date,memo')
+        .lte('start_date', to).gte('end_date', from).order('start_date'),
+      db.from('mall_product_prices').select('mall,product_code,product_name,price,list_price,url,checked_at')
+        .order('product_name'),
+    ]);
+
+    const sum = (rows, until) => {
+      const by = {}; let team = 0; const days = new Set();
+      (rows || []).forEach((r) => {
+        if (until && r.sale_date > until) return;
+        days.add(r.sale_date);
+        if (teamExcluded(r.vendor)) return;
+        const g = teamChannelOf(r.vendor), n = Number(r.amount || 0);
+        by[g] = (by[g] || 0) + n; team += n;
+      });
+      return { by, team, days: [...days].sort() };
+    };
+    const c = sum(cur.data);
+    const lastDay = c.days[c.days.length - 1] || '';
+    // 지난달은 같은 날짜까지만 — 달이 덜 찼는데 한 달 치와 견주면 틀립니다.
+    const pUntil = lastDay ? pm + '-' + lastDay.slice(8) : pTo;
+    const pv = sum(prev.data, pUntil);
+    const bad = cur.error || prev.error || ev.error || pr.error;
+
+    chCache = {
+      ym, sales: c.by, team: c.team, lastDay, prevSales: pv.by, prevUntil: pUntil,
+      events: (ev.data || []).map((r) => Object.assign({}, r, { g: mallGroupOf(r.mall) })),
+      prices: (pr.data || []).map((r) => Object.assign({}, r, { g: mallGroupOf(r.mall) })).filter((r) => r.g),
+      priceAt: (pr.data || []).map((r) => r.checked_at).filter(Boolean).sort().pop() || '',
+      err: bad ? bad.message : '',
+    };
+    return chCache;
+  }
+
+  const CH_FORM = [
+    ['plan', '상품 구성안 — 무엇을 어떤 묶음으로'],
+    ['price', '가격 · 쿠폰 · 수수료'],
+    ['ad', '노출 · 광고안'],
+    ['result', '결과'],
+    ['next', '다음 판단', 1],
+  ];
+
+  function chBarHtml(ym, saved) {
+    return `
+      <div class="sp-weekbar">
+        <button type="button" class="sp-btn ghost" onclick="SalesPlan.month(-1)">‹ 지난달</button>
+        <b>${esc(ym.replace('-', '년 '))}월</b>
+        ${CHANNELS.map((c) => `
+          <button type="button" class="sp-week${c === chSel ? ' on' : ''}${saved.has(ym + '|' + c) ? ' has' : ''}"
+            onclick="SalesPlan.channel('${esc(c)}')">${esc(c)}</button>`).join('')}
+        <button type="button" class="sp-btn ghost" onclick="SalesPlan.month(1)">다음달 ›</button>
+      </div>`;
+  }
+
+  function chPanelHtml(ym, row, d) {
+    const n = d.sales[chSel] || 0, pn = d.prevSales[chSel] || 0;
+    const diff = pn ? Math.round((n - pn) / pn * 100) : null;
+    const ev = d.events.filter((x) => x.g === chSel);
+    const pr = d.prices.filter((x) => x.g === chSel);
+    const malls = [...new Set(pr.map((x) => x.mall))].join(' · ');
+    return `
+      <div class="sp-head" style="margin-bottom:10px">
+        <span style="font-size:13px;font-weight:800;color:#0f172a">${esc(chSel)} · ${esc(ym.replace('-', '년 '))}월 기획안</span>
+        <span class="sp-right">
+          <span class="sp-msg" id="spMsg"></span>
+          <button type="button" class="sp-btn main" onclick="SalesPlan.saveChannel()">저장</button>
+        </span>
+      </div>
+
+      <div class="sp-ch-cards">
+        <div class="sp-card">
+          <div class="k">이 달 확정 매출</div>
+          <div class="v">${d.lastDay ? man(n) + '원' : '<span class="sp-na">아직 없음</span>'}</div>
+          <div class="s">${d.lastDay
+            ? (d.team ? '영업팀의 ' + Math.round(n / d.team * 100) + '%' : '영업팀 매출 없음')
+              + ' · ' + esc(md(d.lastDay)) + ' 까지 확정'
+            : '아직 확정된 매출이 없는 달입니다'}</div>
+        </div>
+        <div class="sp-card">
+          <div class="k">${d.lastDay ? '지난달 같은 기간' : '지난달 전체'}</div>
+          <div class="v">${man(pn)}원</div>
+          <div class="s">${!d.lastDay ? '세울 때 견줄 숫자입니다 · ~' + esc(md(d.prevUntil))
+            : diff == null ? '<span class="sp-na">견줄 매출 없음</span>'
+            : '<b style="color:' + (diff >= 0 ? '#15803d' : '#dc2626') + '">' + (diff >= 0 ? '+' : '') + diff + '%</b> · ~'
+              + esc(md(d.prevUntil))}</div>
+        </div>
+        <div class="sp-card">
+          <div class="k">이 달 잡힌 행사</div>
+          <div class="v">${ev.length}건</div>
+          <div class="s">일정 화면(외부몰 행사)에서 가져옵니다</div>
+        </div>
+        <div class="sp-card">
+          <div class="k">올라가 있는 상품</div>
+          <div class="v">${pr.length}개</div>
+          <div class="s">${pr.length ? esc(malls) + (d.priceAt ? ' · ' + esc(atKst(d.priceAt)) + ' 읽음' : '') : '가격표에 이 채널 줄이 없습니다'}</div>
+        </div>
+      </div>
+
+      <div class="sp-ch-box">
+        <div class="sp-ch-t">이 달 행사${ev.length ? ' ' + ev.length + '건' : ''}</div>
+        ${ev.length ? ev.map((x) => `
+          <div class="sp-ch-ev"><b>${esc(md(x.start_date))}~${esc(md(x.end_date))}</b>
+            <span>${esc(x.title)}</span><i>${esc(x.mall)}</i>
+            ${x.memo ? '<u>' + esc(x.memo) + '</u>' : ''}</div>`).join('')
+          : '<span class="sp-na">이 달에 잡힌 행사가 없습니다 — 일정 화면에서 넣으면 여기 뜹니다.</span>'}
+      </div>
+
+      <div class="sp-period">
+        ${CH_FORM.map(([k, label, wide]) => `
+          <label class="sp-f${wide ? ' wide' : ''}"><span>${label}</span>
+            <textarea id="spp_${k}">${esc((row.data || {})[k] || '')}</textarea></label>`).join('')}
+      </div>`;
+  }
+
+  // ---- 상품 × 채널 -----------------------------------------------------------
+  let matrixMemo = {};   // '품번|채널' → 적어 둔 한 줄
+
+  function matrixRows(d) {
+    const by = {};
+    d.prices.forEach((r) => {
+      const key = r.product_code || r.product_name;
+      const o = (by[key] = by[key] || { key, code: r.product_code || '', name: r.product_name, cell: {} });
+      if (!o.name) o.name = r.product_name;
+      const c = (o.cell[r.g] = o.cell[r.g] || { price: null, malls: [] });
+      c.malls.push(r.mall);
+      const v = Number(r.price) || null;
+      if (v && (c.price == null || v < c.price)) c.price = v;
+    });
+    return Object.values(by).sort((a, b) => {
+      const x = Object.keys(b.cell).length - Object.keys(a.cell).length;
+      return x || String(a.name).localeCompare(String(b.name), 'ko');
+    });
+  }
+
+  function matrixHtml(d) {
+    const rows = matrixRows(d);
+    const show = matrixAll ? rows : rows.slice(0, 15);
+    if (!rows.length) return '';
+    return `
+      <div class="sp-ch-box" style="margin-top:12px">
+        <div class="sp-ch-t">상품 × 채널 — 어디서 얼마에 파는지
+          <span class="sp-na" style="font-weight:600">가격표 기준${d.priceAt ? ' · ' + esc(atKst(d.priceAt)) + ' 읽음' : ''}
+            · 빈 칸은 가격표에 그 몰 줄이 없다는 뜻입니다(안 팔거나 아직 못 읽어옴)</span>
+          <button type="button" class="sp-btn ghost" onclick="SalesPlan.matrixAll()">${matrixAll ? '15개만 보기' : '모두 보기 (' + rows.length + ')'}</button>
+        </div>
+        <div class="sp-mx-wrap"><table class="sp-mx">
+          <thead><tr><th class="l">상품</th>
+            ${CHANNELS.map((c) => `<th title="${esc(c)}">${esc(CH_SHORT[c] || c)}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${show.map((r) => `<tr>
+              <td class="l" title="${esc(r.name)}${r.code ? ' · 품번 ' + esc(r.code) : ''}">${esc(r.name)}</td>
+              ${CHANNELS.map((c) => {
+                const x = r.cell[c], memo = matrixMemo[r.key + '|' + c] || '';
+                return `<td class="${x ? 'on' : 'off'}" data-k="${esc(r.key)}" data-c="${esc(c)}"
+                  title="${x ? esc(x.malls.join(' · ')) : '가격표에 없음'}"
+                  onclick="SalesPlan.cell(this)">${x ? (x.price ? won(x.price) : '<span class="sp-na">가격 없음</span>') : '<span class="sp-na">·</span>'}${memo ? '<u>' + esc(memo) + '</u>' : ''}</td>`;
+              }).join('')}
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>`;
+  }
+
+  async function saveMatrix(ym) {
+    const { error } = await db.from('sales_period_plans')
+      .upsert({ kind: 'matrix', period: ym, data: matrixMemo, plan_ids: [] }, { onConflict: 'kind,period' });
+    if (error) msg('메모를 저장하지 못했습니다: ' + error.message, true);
+  }
+
+  async function renderChannel() {
+    const ym = boardDate.slice(0, 7);
+    const [d, row, mx, savedRows] = await Promise.all([
+      loadChannelMonth(ym),
+      loadPeriod('channel', ym + '|' + chSel),
+      loadPeriod('matrix', ym),
+      db.from('sales_period_plans').select('period').eq('kind', 'channel').like('period', ym + '|%'),
+    ]);
+    const saved = new Set(((savedRows || {}).data || []).map((x) => x.period));
+    matrixMemo = mx.data || {};
+    const body = el('spBody');
+    if (!body) return;
+    if (d.err) { body.innerHTML = '<div class="sp-empty" style="color:#dc2626">자료를 못 읽었습니다 — ' + esc(d.err) + '</div>'; return; }
+    body.innerHTML = chBarHtml(ym, saved) + chPanelHtml(ym, row, d) + matrixHtml(d);
+  }
 
   function headHtml() {
     return `
@@ -877,9 +1131,11 @@
     ['폐쇄몰', ['SK컴즈_세이아(법인)', '그립', '에이블리', 'SKT_T-DEAL(폐쇄몰)', '원룸만들기(개인)', '원룸만들기',
       '리빙픽', '지그재그(PORKE)', '지그재그', '하이버(자동_법인)', '제이슨그룹', '브랜디(라이프)', '토스']],
     ['오픈마켓', ['롯데ON(법인)', 'G마켓(법인)', 'G마켓', '옥션(법인)', '옥션', '알리익스프레스(자동)', '11번가']],
-    ['수출', ['대만 VAULT VISION', '수출(대만)', '노마드웍스']],
-    ['직매입', ['올리브영(직매입)', '그린종합상사', '옵티젠_제습서버', '제이허브', '엠알엔컴퍼니(개인사업자)',
+    ['수출·직매입', ['대만 VAULT VISION', '수출(대만)', '노마드웍스',
+      '올리브영(직매입)', '그린종합상사', '옵티젠_제습서버', '제이허브', '엠알엔컴퍼니(개인사업자)',
       '까르멘 기프트', '브이벨', '두진에이앤씨(가글캔디)']],
+    // 카카오톡스토어는 영업팀 실적입니다(선물하기만 영업팀에서 뺍니다).
+    ['카카오', ['카카오톡스토어', '카카오톡스토어(법인)']],
   ].forEach(([g, vs]) => vs.forEach((v) => { CH_GROUP[v] = g; }));
 
   // 위 목록에 없는 새 계정(「무신사(명퉤)」처럼)은 앞글자로 가립니다.
@@ -888,7 +1144,7 @@
     ['아트박스', '종합몰'], ['텐바이텐', '종합몰'], ['교보핫트랙스', '종합몰'],
     ['지그재그', '폐쇄몰'], ['원룸만들기', '폐쇄몰'], ['하이버', '폐쇄몰'], ['브랜디', '폐쇄몰'], ['그립', '폐쇄몰'],
     ['G마켓', '오픈마켓'], ['옥션', '오픈마켓'], ['롯데ON', '오픈마켓'], ['알리익스프레스', '오픈마켓'], ['11번가', '오픈마켓'],
-    ['수출', '수출']];
+    ['수출', '수출·직매입'], ['카카오', '카카오']];
 
   function teamChannelOf(vendor) {
     const v = String(vendor || '');
@@ -1204,6 +1460,41 @@
       fillMeta();
     },
     focusClear() { focusPicked = new Set(); fillMeta(); },
+    channel(c) { chSel = c; render(); },
+    matrixAll() { matrixAll = !matrixAll; render(); },
+    async saveChannel() {
+      const ym = boardDate.slice(0, 7), data = {};
+      CH_FORM.forEach(([k]) => { const n = el('spp_' + k); if (n && n.value.trim()) data[k] = n.value.trim(); });
+      const { error } = await db.from('sales_period_plans')
+        .upsert({ kind: 'channel', period: ym + '|' + chSel, data, plan_ids: [] }, { onConflict: 'kind,period' });
+      if (error) { msg('저장하지 못했습니다: ' + error.message, true); return; }
+      msg('저장했습니다');
+    },
+    // 표의 칸을 눌러 한 줄 적습니다 — 칸을 벗어나면 바로 저장합니다.
+    cell(td) {
+      if (td.querySelector('input')) return;
+      const key = td.dataset.k + '|' + td.dataset.c, old = matrixMemo[key] || '';
+      const keep = td.innerHTML;
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.className = 'sp-mx-in'; inp.value = old;
+      inp.placeholder = '어떻게 팔지 한 줄';
+      td.innerHTML = ''; td.appendChild(inp); inp.focus();
+      let closed = false;
+      const done = async (save) => {
+        if (closed) return;
+        closed = true;
+        const v = inp.value.trim();
+        td.innerHTML = keep;
+        if (!save || v === old) return;
+        if (v) matrixMemo[key] = v; else delete matrixMemo[key];
+        await saveMatrix(boardDate.slice(0, 7));
+        render();
+      };
+      // 칸을 벗어날 때(blur)와 값이 바뀌었을 때(change) 둘 다 받습니다.
+      inp.onblur = () => done(true);
+      inp.onchange = () => done(true);
+      inp.onkeydown = (e) => { if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); };
+    },
     // 「다시 받기」 — 지금 보고 있는 주차를 다시 셉니다.
     async weekSales() {
       const box = el('spWeekSales');
