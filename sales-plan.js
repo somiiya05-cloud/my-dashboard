@@ -492,8 +492,8 @@
         <br><br><small style="color:#94a3b8">${esc(tableMissing)}</small></div>`;
     }
     if (!plans.length) {
-      return `<div class="sp-empty">${esc(boardDate)} 에 세운 판매계획이 없습니다.
-        <br><br><button type="button" class="sp-btn main" onclick="SalesPlan.open({})">판매계획 작성</button></div>`;
+      // 머리줄에 이미 「판매계획 작성」이 있어 여기엔 두지 않습니다(11/26 사용자 요청).
+      return `<div class="sp-empty">${esc(boardDate)} 에 세운 판매계획이 없습니다.</div>`;
     }
     if (!list.length) {
       return `<div class="sp-empty">집중 상품으로 고른 계획이 없습니다. 「전체 보기」로 ${plans.length}건을 볼 수 있습니다.</div>`;
