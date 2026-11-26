@@ -394,6 +394,19 @@
   }
 
   async function render() {
+    try {
+      await renderInner();
+    } catch (e) {
+      // 조용히 멈추면 무엇이 잘못됐는지 알 수가 없어, 화면에 그대로 적습니다.
+      console.error('[영업계획실행보드]', e);
+      const box = el('spBody') || boardEl;
+      if (box) box.innerHTML = '<div class="sp-empty" style="color:#dc2626">화면을 그리다 멈췄습니다 — '
+        + esc(String((e && e.message) || e)) + '<br><small style="color:#94a3b8">'
+        + esc(String((e && e.stack) || '').split('\n').slice(0, 2).join(' / ')) + '</small></div>';
+    }
+  }
+
+  async function renderInner() {
     if (!boardEl) return;
     boardEl.innerHTML = headHtml() + '<div id="spBody"><div class="sp-empty">불러오는 중…</div></div>';
     if (tab === 'today') {
