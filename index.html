@@ -1388,6 +1388,25 @@
   .msp-cell.high .msp-price { color: #b91c1c; }
   .msp-gap { text-align: right; font-weight: 800; color: #b91c1c; font-variant-numeric: tabular-nums; }
   .msp-gap.same { color: #94a3b8; font-weight: 600; }
+  .msp-chg { display: block; font-size: 10.5px; font-weight: 800; margin-top: 2px; }
+  .msp-chg.up { color: #dc2626; }
+  .msp-chg.down { color: #2563eb; }
+  .msp-hist-btn { margin-top: 4px; font: inherit; font-size: 10.5px; font-weight: 700; color: #475569;
+    background: #f1f5f9; border: 1px solid rgba(15,23,42,.1); border-radius: 999px; padding: 2px 9px; cursor: pointer; }
+  .msp-hist-btn:hover { border-color: #2563eb; color: #1d4ed8; }
+  .msp-hist-btn.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+  .mph-row td { background: #f8fafc; white-space: normal; padding: 10px 12px 12px; }
+  .mph-line { display: flex; gap: 10px; align-items: baseline; padding: 3px 0; font-size: 11.5px; }
+  .mph-line > b { flex: none; width: 118px; color: #475569; font-weight: 800; }
+  .mph-pts { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
+  .mph-pt { font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
+  .mph-pt i { font-style: normal; color: #94a3b8; font-weight: 600; margin-right: 4px; }
+  .mph-pt.up { color: #dc2626; } .mph-pt.down { color: #2563eb; }
+  .mph-arrow { color: #cbd5e1; }
+  .mph-only, .mph-none { color: #94a3b8; font-weight: 600; }
+  .mph-help { margin-top: 7px; font-size: 11px; color: #94a3b8; }
+  .msp-warn { font-size: 12px; font-weight: 700; color: #b45309; background: #fffbeb;
+    border: 1px solid #fde68a; border-radius: 8px; padding: 9px 12px; margin-bottom: 8px; }
   .msp-legend { font-size: 11.5px; color: #64748b; margin-bottom: 8px; line-height: 1.6; }
   .msp-legend .low { color: #15803d; font-weight: 800; }
   .msp-legend .high { color: #b91c1c; font-weight: 800; }
@@ -8511,10 +8530,92 @@
   }
   window.setMspBrand = setMspBrand;
 
+  // ---- 판매가 변동 추이 (mall_price_history.sql) ----------------------------
+  // 가격이 바뀔 때마다 DB 트리거가 mall_price_history 에 한 줄씩 남깁니다.
+  // 표가 아직 없으면(= SQL 미실행) 조용히 비워 두고 화면 아래에 안내만 띄웁니다.
+  let mphRows = [];              // [{product_code, mall, price, checked_at}]
+  let mphMissing = false;        // 표가 아직 없음
+  let mphOpen = '';              // 추이를 펼쳐 둔 품번
+  const MPH_DAYS = 400;          // 이만큼 전까지만 받습니다
+
+  async function loadMallPriceHistory() {
+    const from = new Date(Date.now() - MPH_DAYS * 86400000).toISOString();
+    const out = [];
+    for (let page = 0; page < 20; page++) {
+      // 같은 시각 줄이 여럿이라 정렬을 한 값으로만 두면 쪽 경계에서 줄이 겹치거나 빠집니다.
+      const { data, error } = await client.from('mall_price_history')
+        .select('product_code,mall,price,checked_at')
+        .gte('checked_at', from)
+        .order('checked_at', { ascending: true }).order('id', { ascending: true })
+        .range(page * 1000, page * 1000 + 999);
+      if (error) { mphMissing = true; return []; }
+      out.push(...(data || []));
+      if ((data || []).length < 1000) break;
+    }
+    mphMissing = false;
+    return out;
+  }
+
+  // '품번|몰' → 시간순 [{d:'2026-11-25', p:19900}] (같은 날 같은 값은 한 번만)
+  function mphIndex() {
+    const by = new Map();
+    mphRows.forEach((r) => {
+      if (r.price == null) return;
+      const k = r.product_code + '|' + r.mall;
+      const d = String(r.checked_at || '').slice(0, 10);
+      const list = by.get(k) || [];
+      const last = list[list.length - 1];
+      if (last && last.d === d) { last.p = Number(r.price); }      // 같은 날 여러 번이면 마지막 값
+      else if (!last || last.p !== Number(r.price)) list.push({ d, p: Number(r.price) });
+      by.set(k, list);
+    });
+    return by;
+  }
+
+  // 그 칸의 마지막 변동 — 바로 앞 가격과 얼마나 달라졌는지
+  function mphLastChange(hist, code, mall) {
+    const list = hist.get(code + '|' + mall);
+    if (!list || list.length < 2) return null;
+    const a = list[list.length - 2], b = list[list.length - 1];
+    return { from: a.p, to: b.p, diff: b.p - a.p, date: b.d };
+  }
+
+  function mphChgHtml(chg) {
+    if (!chg) return '';
+    const up = chg.diff > 0;
+    const md = Number(chg.date.slice(5, 7)) + '/' + Number(chg.date.slice(8, 10));
+    return `<span class="msp-chg ${up ? 'up' : 'down'}" title="${chg.date} · ${Number(chg.from).toLocaleString('ko-KR')}원 → ${Number(chg.to).toLocaleString('ko-KR')}원">`
+      + `${up ? '▲' : '▼'} ${Math.abs(chg.diff).toLocaleString('ko-KR')} · ${md}</span>`;
+  }
+
+  // 상품 하나의 몰별 추이를 펼쳐 보여줍니다.
+  function mphDetailHtml(code, malls, span, hist) {
+    const won = (n) => Number(n).toLocaleString('ko-KR') + '원';
+    const lines = malls.map((m) => {
+      const list = hist.get(code + '|' + m);
+      if (!list || !list.length) return '';
+      const pts = list.map((pt, i) => {
+        const prev = i ? list[i - 1].p : null;
+        const cls = prev == null ? '' : pt.p > prev ? ' up' : pt.p < prev ? ' down' : '';
+        return `<span class="mph-pt${cls}"><i>${Number(pt.d.slice(5, 7))}/${Number(pt.d.slice(8, 10))}</i>${won(pt.p)}</span>`;
+      }).join('<span class="mph-arrow">→</span>');
+      const only = list.length < 2 ? '<span class="mph-only">아직 한 번만 읽음</span>' : '';
+      return `<div class="mph-line"><b>${escapeAttr(m)}</b><span class="mph-pts">${pts}${only}</span></div>`;
+    }).filter(Boolean).join('');
+    return `<tr class="mph-row"><td colspan="${span}">
+      ${lines || '<div class="mph-none">아직 쌓인 가격이 없습니다.</div>'}
+      <div class="mph-help">가격이 달라진 날만 한 점씩 남습니다. 지난 가격은 되살릴 수 없어, 기록은 표를 만든 날부터 이어집니다.</div>
+    </td></tr>`;
+  }
+  window.mspToggleHist = function (code) {
+    mphOpen = (mphOpen === String(code)) ? '' : String(code);
+    renderMallSalePrices();
+  };
+
   async function loadMallSalePrices() {
     const box = document.getElementById('mspResult');
     if (box) box.innerHTML = '<div class="mr-empty">불러오는 중…</div>';
-    const [snap, prices, secret, hidden] = await Promise.all([
+    const [snap, prices, secret, hidden, hist] = await Promise.all([
       client.from('mall_registrations')
         .select('synced_at,malls,products,registrations,product_count,registration_count')
         .order('synced_at', { ascending: false }).limit(1),
@@ -8523,7 +8624,9 @@
         .not('product_code', 'is', null),
       client.from('codenit_products').select('id,product_name,price,product_url').ilike('product_name', '%비밀링크%'),
       client.from('mall_hidden_links').select('id,product_name,url,price').eq('brand', '코드니처').eq('is_active', true),
+      loadMallPriceHistory(),
     ]);
+    mphRows = hist || [];
     mspSecretRows = mergeSecretListings(secret.error ? [] : secret.data, hidden.error ? [] : hidden.data);
     mallRegSnap = (snap.error || !snap.data || !snap.data.length) ? null : snap.data[0];
     buildMallRegIndex();
@@ -8673,6 +8776,7 @@
     }
 
     const won = (n) => Number(n).toLocaleString('ko-KR') + '원';
+    const mspHist = mphIndex();
     const cellHtml = (r, m) => {
       if (m === MSP_HIDDEN) {
         const list = hiddenByCode.get(String(r.x.품번));
@@ -8725,10 +8829,11 @@
       // 카카오 선물하기는 쿠폰·카드 혜택을 다 받은 "최대혜택가"를 따로 보여줍니다.
       const best = (memo.match(/최대혜택가 (\d+)/) || [])[1];
       const bestHtml = best ? `<span class="msp-sb">최대혜택가 ${won(best)}</span>` : '';
-      return `<td class="msp-cell${cls}">${list}<span class="msp-price">${coupon}${price}</span>${shipHtml}${bestHtml}${unitHtml}</td>`;
+      return `<td class="msp-cell${cls}">${list}<span class="msp-price">${coupon}${price}</span>${mphChgHtml(mphLastChange(mspHist, String(r.x.품번), m))}${shipHtml}${bestHtml}${unitHtml}</td>`;
     };
 
     box.innerHTML = `
+      ${mphMissing ? '<div class="msp-warn">가격 추이를 담을 표가 아직 없습니다 — Supabase SQL Editor 에서 <b>mall_price_history.sql</b> 을 한 번 실행해주세요. 그때부터 가격이 바뀔 때마다 쌓입니다.</div>' : ''}
       <div class="msp-legend">몰마다 가격이 다르면 <span class="low">가장 싼 몰</span>과 <span class="high">가장 비싼 몰</span>을 색으로 표시합니다.
         가격을 누르면 그 몰의 상품 페이지가 열립니다. <b>—</b>는 그 몰에 등록되지 않은 상품, <b>미확인</b>은 등록은 됐지만 가격을 아직 읽지 못한 곳입니다.
         스마트스토어는 상품 페이지를 자동으로 읽을 수 없어, 스마트스토어센터에서 내려받은 상품 엑셀의 할인가로 채웁니다.
@@ -8740,10 +8845,13 @@
         <thead><tr><th style="text-align:left">상품</th>${malls.map((m) => `<th>${escapeAttr(m)}</th>`).join('')}<th>최고−최저</th></tr></thead>
         <tbody>${shown.map((r) => `
           <tr>
-            <td class="msp-name"><b>${escapeAttr(r.x.상품명 || '(상품명 없음)')}</b><span class="mr-code">품번 ${escapeAttr(r.x.품번)}</span></td>
+            <td class="msp-name"><b>${escapeAttr(r.x.상품명 || '(상품명 없음)')}</b><span class="mr-code">품번 ${escapeAttr(r.x.품번)}</span>
+              <button type="button" class="msp-hist-btn${mphOpen === String(r.x.품번) ? ' on' : ''}"
+                onclick="mspToggleHist('${escapeAttr(r.x.품번)}')">${mphOpen === String(r.x.품번) ? '추이 닫기' : '가격 추이'}</button></td>
             ${malls.map((m) => cellHtml(r, m)).join('')}
             <td class="msp-gap${r.diff ? '' : ' same'}">${r.diff ? won(r.max - r.min) : (r.known ? '같음' : '')}</td>
-          </tr>`).join('')}
+          </tr>
+          ${mphOpen === String(r.x.품번) ? mphDetailHtml(String(r.x.품번), malls, malls.length + 2, mspHist) : ''}`).join('')}
         </tbody>
       </table>`;
   }
