@@ -952,6 +952,21 @@
     background: #e8edf6; overflow: hidden;
   }
   .mt-goal-bar i { display: block; height: 100%; border-radius: 999px; }
+  /* 오늘 루틴 — 날마다 자동으로 생기는 업무를 머리줄 바로 밑에 따로 세웁니다(2026-11-27 요청). */
+  .mt-rt { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 2px 0 12px; }
+  .mt-rt > b { font-size: 12px; font-weight: 800; color: #8794a8; }
+  .mt-rt button {
+    display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px 6px 10px;
+    border: 1px solid #dbe6f7; border-radius: 999px; background: #f4f8ff;
+    font-size: 13.5px; font-weight: 700; color: #2f4a73; cursor: pointer;
+  }
+  .mt-rt button:hover { background: #e8f1ff; border-color: #bcd3f5; }
+  .mt-rt button i {
+    width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid #b9cbe6; background: #fff;
+    font-style: normal; font-size: 11px; font-weight: 800; color: #fff; line-height: 14px; text-align: center;
+  }
+  .mt-rt button.on { background: #f1f5f9; border-color: #e2e8f0; color: #94a3b8; text-decoration: line-through; }
+  .mt-rt button.on i { background: #22c55e; border-color: #22c55e; }
   .mt-goal-bar i.ok { background: #16a34a; }
   .mt-goal-bar i.warn { background: #eab308; }
   .mt-goal-bar i.bad { background: #ef4444; }
@@ -5448,6 +5463,18 @@
   }
   window.mtToggleTaskDone = mtToggleTaskDone;
 
+  // 오늘 루틴 — 자동으로 생기는 업무(데일리·월마감)만 머리줄 바로 밑에 따로 세웁니다(2026-11-27 요청).
+  // 아래 목록에도 그대로 남아 있습니다. 여기서 누르면 바로 완료 처리됩니다.
+  function mtRoutineHtml(rows) {
+    const list = (rows || []).filter(mtIsRoutine);
+    if (!list.length) return '';
+    return '<div class="mt-rt"><b>오늘 루틴</b>' + list.map((t) => {
+      const done = t.status === '확인완료';
+      return `<button type="button" class="${done ? 'on' : ''}" onclick="mtToggleTaskDone(${t.id})"
+        title="${done ? '되돌리기' : '다 했으면 누르세요'}"><i>${done ? '✓' : ''}</i>${escapeAttr(t.title || '(제목 없음)')}</button>`;
+    }).join('') + '</div>';
+  }
+
   function mtDayRowHtml(t, no) {
     const done = t.status === '확인완료';
     const g = jwMyTaskGroupOf(t);
@@ -5581,6 +5608,7 @@
             <button type="button" class="jw-proj-btn main" onclick="mtBackToBoard()">보드로</button>
           </span>
         </div>
+        ${mtRoutineHtml(rows)}
         <div class="mt-add">
           <input type="text" id="jwMyTaskInput" placeholder="업무를 적고 엔터" autocomplete="off" onkeydown="jwMyTaskKey(event)">
           <select id="jwMyTaskCat" title="어느 줄에 넣을지">
