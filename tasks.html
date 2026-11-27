@@ -5102,6 +5102,13 @@
     '올리브영 월마감', '파스토 월마감', '자사몰 광고보고서 월마감',
     '쿠팡 월마감', '오프하우스 월마감', '메타 광고비 및 매출 회계팀 공유',
   ]);
+  // 윤효선 루틴 — api/refresh-daily-tasks.js 가 날마다 만들어 둡니다(2026-11-27).
+  // 이 이름들은 「데일리」 줄로 묶여 하루 보기·보드 맨 위에 섭니다.
+  const MT_MY_ROUTINE_TITLES = new Set([
+    '전일자 매출 비교',        // 매일
+    '전주 매출 마감',          // 월요일
+    '익주 영업 판매계획 작성',   // 금요일
+  ]);
   // 보드에 세울 줄 — 자동 업무가 있을 때만 그 줄을 앞에 붙입니다.
   function mtGroups(items) {
     const head = [];
@@ -5954,7 +5961,7 @@
     // (월마감이 먼저 — 구분이 '오후 필수업무'로 데일리와 같습니다)
     const title = String(t.title || '').trim();
     if (MT_SETTLE_TITLES.has(title)) return MT_SETTLE_GROUP;
-    if (JW_ROUTINE_TITLES.has(title)) return MT_DAILY_GROUP;
+    if (JW_ROUTINE_TITLES.has(title) || MT_MY_ROUTINE_TITLES.has(title)) return MT_DAILY_GROUP;
     if (c === MT_DAILY_GROUP || c === MT_SETTLE_GROUP) return c;
     return JW_MYTASK_GROUPS.includes(c) ? c : 'ETC';
   }

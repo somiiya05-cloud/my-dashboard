@@ -22,7 +22,8 @@
 //        "https://내주소.vercel.app/api/refresh-daily-tasks"
 
 const SUPABASE_URL = 'https://fwsszzjfjktliredmjcn.supabase.co';
-const ASSIGNEE = '전휘원';
+const ASSIGNEE = '전휘원';            // 담당자를 안 적은 업무의 기본값
+const MY_ASSIGNEE = '윤효선';
 const CATEGORIES = ['오전 필수업무', '오후 필수업무'];
 // 오늘 + 이후 며칠까지 미리 만들어 둘지. 14 = 오늘 포함 15일치.
 const DAYS_AHEAD = 14;
@@ -47,8 +48,16 @@ const DAILY_TASKS = [
   { title: '자사몰 광고보고서 월마감', category: '오후 필수업무', monthDayFrom: 23 },
   { title: '쿠팡 월마감', category: '오후 필수업무', monthDayFrom: 23 },
   { title: '오프하우스 월마감', category: '오후 필수업무', monthDayFrom: 23 },
-  { title: '메타 광고비 및 매출 회계팀 공유', category: '오후 필수업무', monthDayFrom: 23 }
+  { title: '메타 광고비 및 매출 회계팀 공유', category: '오후 필수업무', monthDayFrom: 23 },
+  // 2026-11-27 — 윤효선 루틴 3건 (대표 요청). assignee 를 적으면 그 사람 화면에 생깁니다.
+  // 주말은 하루 보기에서 건너뛰므로(2026-11-24) 평일에만 만듭니다.
+  { title: '전일자 매출 비교', category: '오전 필수업무', assignee: MY_ASSIGNEE, weekdays: [1, 2, 3, 4, 5] },
+  { title: '전주 매출 마감', category: '오전 필수업무', assignee: MY_ASSIGNEE, weekdays: [1] },
+  { title: '익주 영업 판매계획 작성', category: '오전 필수업무', assignee: MY_ASSIGNEE, weekdays: [5] }
 ];
+
+// 자동 업무가 생기는 사람들 — 아래 처리를 사람마다 한 번씩 돌립니다.
+const ASSIGNEES = [...new Set(DAILY_TASKS.map((t) => t.assignee || ASSIGNEE))];
 
 function todayInSeoul() {
   // Asia/Seoul은 연중 UTC+9 고정(서머타임 없음)이라 en-CA 로케일로 바로 YYYY-MM-DD를 얻습니다.
@@ -68,11 +77,12 @@ function addDays(dateStr, n) {
 }
 
 // 그 날짜에 등록돼야 하는 업무만 추립니다 (weekdays/monthDayFrom가 없으면 매일).
-function tasksForDate(date) {
+function tasksForDate(date, who) {
   const weekday = weekdayInSeoul(date);
   const monthDay = Number(date.slice(8, 10));
   return DAILY_TASKS.filter(
     (t) =>
+      (t.assignee || ASSIGNEE) === who &&
       (!t.weekdays || t.weekdays.includes(weekday)) &&
       (!t.monthDayFrom || monthDay >= t.monthDayFrom)
   );
@@ -102,11 +112,14 @@ module.exports = async function handler(req, res) {
   const nowIso = new Date().toISOString();
   const categoryFilter = CATEGORIES.map((c) => encodeURIComponent(c)).join(',');
 
+  const result = { today, range: { from: today, to: addDays(today, DAYS_AHEAD), days: DAYS_AHEAD + 1 }, by_assignee: {} };
+
+  for (const who of ASSIGNEES) {
   // 1) 어제 이전 날짜에 남아있는 오전/오후 필수업무는 이관 처리
   const archiveRes = await fetch(
     `${SUPABASE_URL}/rest/v1/team_tasks` +
       `?category=in.(${categoryFilter})` +
-      `&assignee=eq.${encodeURIComponent(ASSIGNEE)}` +
+      `&assignee=eq.${encodeURIComponent(who)}` +
       `&archived_at=is.null` +
       `&due_date=lt.${today}`,
     {
@@ -126,7 +139,7 @@ module.exports = async function handler(req, res) {
   const existingRes = await fetch(
     `${SUPABASE_URL}/rest/v1/team_tasks` +
       `?category=in.(${categoryFilter})` +
-      `&assignee=eq.${encodeURIComponent(ASSIGNEE)}` +
+      `&assignee=eq.${encodeURIComponent(who)}` +
       `&archived_at=is.null` +
       `&due_date=gte.${today}` +
       `&due_date=lte.${lastDate}` +
@@ -144,14 +157,14 @@ module.exports = async function handler(req, res) {
   const insertedByDate = {};
   for (let i = 0; i <= DAYS_AHEAD; i++) {
     const date = addDays(today, i);
-    const missing = tasksForDate(date).filter((t) => !existingKeys.has(date + '|' + t.title));
+    const missing = tasksForDate(date, who).filter((t) => !existingKeys.has(date + '|' + t.title));
     if (missing.length > 0) insertedByDate[date] = missing.length;
     missing.forEach(({ title, category, detail }) => {
       rowsToInsert.push({
         title,
         category,
         detail: detail || null,
-        assignee: ASSIGNEE,
+        assignee: who,
         status: '할일',
         priority: '보통',
         due_date: date
@@ -175,13 +188,14 @@ module.exports = async function handler(req, res) {
     insertedCount += (await insertRes.json()).length;
   }
 
-  return res.status(200).json({
-    today,
-    range: { from: today, to: lastDate, days: DAYS_AHEAD + 1 },
+  result.by_assignee[who] = {
     archived_count: archived.length,
     inserted_count: insertedCount,
     inserted_by_date: insertedByDate
-  });
+  };
+  }
+
+  return res.status(200).json(result);
 };
 
 // 2026-11-24 까지 자동으로 만들던 오후 필수업무 이름입니다. 이제 만들지 않지만,
