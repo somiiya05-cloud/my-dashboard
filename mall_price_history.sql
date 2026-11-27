@@ -38,6 +38,9 @@ create index if not exists mall_price_history_at_idx
 create unique index if not exists mall_price_history_uniq
   on mall_price_history (product_code, mall, checked_at);
 
+-- 읽기와 쌓기만 열어 둡니다. 브라우저에서는 지울 수 없어, 한 번 남은 기록이
+-- 실수로 사라지지 않습니다. 잘못 들어간 줄은 SQL Editor 에서 지우면 됩니다:
+--   delete from mall_price_history where product_code = '품번';
 alter table mall_price_history enable row level security;
 drop policy if exists "public read access"   on mall_price_history;
 drop policy if exists "public insert access" on mall_price_history;
