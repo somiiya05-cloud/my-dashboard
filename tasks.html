@@ -5391,10 +5391,19 @@
         return a <= day && day <= due;
       })
       .sort((a, b) => {
+        // 자동으로 생기는 루틴(데일리·월마감)은 그날 맨 위에 둡니다(2026-11-27 요청).
+        const ra = mtIsRoutine(a) ? 0 : 1, rb = mtIsRoutine(b) ? 0 : 1;
+        if (ra !== rb) return ra - rb;
         const av = a.seq_no == null ? Infinity : a.seq_no;
         const bv = b.seq_no == null ? Infinity : b.seq_no;
         return av - bv || a.id - b.id;
       });
+  }
+
+  // 자동으로 생긴 루틴인지 — 하루 보기에서 맨 위로 올릴 때 씁니다.
+  function mtIsRoutine(t) {
+    const g = jwMyTaskGroupOf(t);
+    return g === MT_DAILY_GROUP || g === MT_SETTLE_GROUP;
   }
 
   // 줄에서 고른 대분류를 그대로 저장합니다. 실패하면 되돌립니다.
